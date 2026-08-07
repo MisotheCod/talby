@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 
-/** Button — primary uses .accent-fill (recolors with theme), others neutral. */
+/** Button — primary uses the accent (with WCAG on-accent), others neutral. */
 export function Button({
   className,
   variant = "primary",
@@ -15,16 +15,16 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap",
-        size === "sm" && "text-sm px-3 h-8",
-        size === "md" && "text-sm px-4 h-10",
-        size === "lg" && "text-base px-6 h-12",
-        variant === "primary" && "accent-fill shadow-sm",
+        "inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap font-sans",
+        size === "sm" && "text-[12.5px] px-3 h-8",
+        size === "md" && "text-[13.5px] px-4 h-10 rounded-xl",
+        size === "lg" && "text-sm px-6 h-12",
+        variant === "primary" && "bg-accent text-onaccent hover:brightness-105 hover:-translate-y-px",
         variant === "secondary" &&
-          "bg-surface border border-border text-foreground hover:bg-subtle",
-        variant === "ghost" && "text-foreground hover:bg-subtle",
+          "bg-card text-ink border border-line2 hover:bg-card2",
+        variant === "ghost" && "text-ink hover:bg-card2",
         variant === "danger" &&
-          "bg-bad/10 text-bad hover:bg-bad/20 border border-bad/20",
+          "bg-latebg text-late hover:brightness-95 border border-late/20",
         className
       )}
       {...props}
@@ -39,7 +39,7 @@ export function Input({
   return (
     <input
       className={cn(
-        "w-full bg-surface border border-border rounded-lg px-3.5 h-10 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition",
+        "w-full bg-card border border-line2 rounded-xl px-3.5 h-10 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans",
         className
       )}
       {...props}
@@ -54,7 +54,7 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "w-full bg-surface border border-border rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition resize-y min-h-[80px]",
+        "w-full bg-card border border-line2 rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition resize-y min-h-[80px] font-sans",
         className
       )}
       {...props}
@@ -70,7 +70,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "w-full bg-surface border border-border rounded-lg px-3 h-10 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 cursor-pointer",
+        "w-full bg-card border border-line2 rounded-xl px-3 h-10 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 cursor-pointer font-sans",
         className
       )}
       {...props}
@@ -80,34 +80,55 @@ export function Select({
   );
 }
 
-/** Badge / pill — neutral by default; accent-soft for emphasis. */
-export function Badge({
+/** Status pill — uses fixed functional colors (never themeable). */
+export function StatusPill({
   className,
-  tone = "neutral",
+  kind = "neutral",
   children,
 }: {
   className?: string;
-  tone?: "neutral" | "accent" | "ok" | "warn" | "bad" | "info";
+  kind?: "neutral" | "paid" | "due" | "late" | "pipeline" | "accent";
   children: React.ReactNode;
 }) {
-  const tones: Record<string, string> = {
-    neutral: "bg-subtle text-foreground",
-    accent: "accent-soft",
-    ok: "bg-ok/10 text-ok",
-    warn: "bg-warn/10 text-warn",
-    bad: "bg-bad/10 text-bad",
-    info: "bg-info/10 text-info",
+  const kinds: Record<string, string> = {
+    neutral: "bg-card2 text-inksoft border border-line2",
+    paid: "bg-paidbg text-paid",
+    due: "bg-duebg text-due",
+    late: "bg-latebg text-late",
+    pipeline: "bg-card2 text-inksoft border border-line2",
+    accent: "bg-accenttint text-accentink",
   };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium",
-        tones[tone],
+        "inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
+        kinds[kind],
         className
       )}
     >
       {children}
     </span>
+  );
+}
+
+/** Filter chip. */
+export function Chip({
+  className,
+  active,
+  children,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
+  return (
+    <button
+      className={cn(
+        "text-xs font-medium px-3.5 py-1.5 rounded-full bg-card2 text-inksoft border border-transparent transition cursor-pointer hover:border-line2 font-sans",
+        active && "bg-accenttint text-accentink font-semibold",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </button>
   );
 }
 

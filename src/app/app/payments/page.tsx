@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDateLong, isPastDue, cn } from "@/lib/utils";
 import { IconCheck, IconPlus } from "@/components/icons";
-import { Badge, Button, Input, Select, Spinner } from "@/components/ui";
+import { Button, Input, Select, Spinner } from "@/components/ui";
 
 type Payment = {
   id: string; deal_id: string | null; amount: number;

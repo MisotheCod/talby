@@ -1,183 +1,262 @@
 @import "tailwindcss";
 
 /* ============================================================
-   TALBY DESIGN SYSTEM
-   Extracted from heyretro.io: warm accent on neutral canvas,
-   white cards with subtle borders, generous whitespace,
-   friendly sans-serif. Deliberately anti-Notion: calm, obvious.
+   TALBY DESIGN SYSTEM — clean, modern, light with a friendly edge.
+   Source of truth: talby-dashboard.html
+   Pure white cards on a soft off-white canvas, generous whitespace,
+   rounded corners, pill chips. One pastel accent carries the
+   personality; the base stays neutral. Inter everywhere,
+   JetBrains Mono for money. Reference: intelly / weihu / Craft.
    ============================================================ */
 
 :root {
-  /* --- Neutral system (never recolors; always readable) --- */
-  --background: #f7f6f4;      /* warm off-white page canvas (heyretro ~#F5F5F7) */
-  --surface: #ffffff;         /* cards */
-  --foreground: #1f1e1d;      /* near-black text */
-  --muted: #6b6966;           /* secondary text */
-  --border: #e7e4df;          /* subtle warm-gray border */
-  --border-strong: #d8d4cd;
-  --subtle: #f1efec;          /* light fills */
-  --dark: #201f1e;            /* dark contrast block */
+  /* --- Fixed base: clean white + soft grey --- */
+  --canvas: #f6f7f9;
+  --rail: #ffffff;
+  --card: #ffffff;
+  --card-2: #f7f8fa;
+  --ink: #16181d;
+  --ink-soft: #5f6672;
+  --ink-faint: #9aa0ac;
+  --line: #eceef1;
+  --line-2: #e2e5ea;
 
-  /* --- Accent (drives a DEFINED set of surfaces only) --- */
-  --accent: #ff6f42;          /* heyretro primary warm orange */
-  --accent-strong: #e8552d;   /* hover / press */
-  --accent-soft: #ffece4;     /* tinted fill for pills/rings/status */
-  --accent-contrast: #ffffff; /* text on accent fills */
+  /* --- Fixed functional / status colors (never themeable) --- */
+  --paid: #2f9e6f;
+  --paid-bg: #e6f6ef;
+  --due: #d89a2b;
+  --due-bg: #fbf0d9;
+  --late: #e0644f;
+  --late-bg: #fce7e2;
+
+  /* --- Tintable pastel accent: one hue the user drags --- */
+  --accent-h: 210;
+  --accent-s: 76%;
+  --accent-l: 50%;
+  --accent: hsl(var(--accent-h), var(--accent-s), var(--accent-l));
   --on-accent: #ffffff;
+  --brand: #1f7ae0; /* logo: fixed, never re-tints */
+  --accent-ink: hsl(var(--accent-h), 48%, 42%);
+  --accent-tint: hsl(var(--accent-h), 68%, 96%);
+  --accent-tint-2: hsl(var(--accent-h), 60%, 90%);
 
-  /* --- Status palette (data semantics, not UI chrome) --- */
-  --ok: #16a34a;
-  --warn: #d97706;
-  --bad: #dc2626;
-  --info: #2563eb;
-
-  --radius-sm: 0.5rem;
-  --radius: 0.75rem;
-  --radius-lg: 1rem;
-  --shadow-card: 0 1px 2px rgba(31,30,29,0.04), 0 1px 3px rgba(31,30,29,0.06);
-  --shadow-pop: 0 8px 24px rgba(31,30,29,0.12), 0 2px 6px rgba(31,30,29,0.06);
-}
-
-/* --- Accent presets: each preset remaps the 4 accent vars --- */
-
-/* Coral (default, heyretro orange) */
-[data-accent="coral"] {
-  --accent: #ff6f42; --accent-strong: #e8552d;
-  --accent-soft: #ffe9e0; --on-accent: #ffffff;
-}
-/* Ocean — calm blue */
-[data-accent="ocean"] {
-  --accent: #2f6fed; --accent-strong: #2458c9;
-  --accent-soft: #e4edff; --on-accent: #ffffff;
-}
-/* Fern — muted green */
-[data-accent="fern"] {
-  --accent: #3c9d64; --accent-strong: #2f7d4f;
-  --accent-soft: #e3f3e9; --on-accent: #ffffff;
-}
-/* Plum — soft purple */
-[data-accent="plum"] {
-  --accent: #7c5ce0; --accent-strong: #6748c4;
-  --accent-soft: #ece7fb; --on-accent: #ffffff;
-}
-/* Berry — rose */
-[data-accent="berry"] {
-  --accent: #e34f8f; --accent-strong: #c93c78;
-  --accent-soft: #fce4ef; --on-accent: #ffffff;
-}
-/* Gold — amber */
-[data-accent="gold"] {
-  --accent: #e8a012; --accent-strong: #c9880a;
-  --accent-soft: #fdf1d7; --on-accent: #2a1d05;
+  /* --- Radius & shadow --- */
+  --r: 16px;
+  --r-sm: 12px;
+  --r-lg: 22px;
+  --r-pill: 100px;
+  --sh-card: 0 1px 2px rgba(22, 24, 29, 0.03), 0 2px 8px rgba(22, 24, 29, 0.04);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-surface: var(--surface);
-  --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
-  --color-border: var(--border);
-  --color-border-strong: var(--border-strong);
-  --color-subtle: var(--subtle);
-  --color-dark: var(--dark);
+  --color-canvas: var(--canvas);
+  --color-rail: var(--rail);
+  --color-card: var(--card);
+  --color-card2: var(--card-2);
+  --color-ink: var(--ink);
+  --color-inksoft: var(--ink-soft);
+  --color-inkfaint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line2: var(--line-2);
+  --color-paid: var(--paid);
+  --color-paidbg: var(--paid-bg);
+  --color-due: var(--due);
+  --color-duebg: var(--due-bg);
+  --color-late: var(--late);
+  --color-latebg: var(--late-bg);
   --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
-  --color-accent-soft: var(--accent-soft);
-  --color-on-accent: var(--on-accent);
-  --color-ok: var(--ok);
-  --color-warn: var(--warn);
-  --color-bad: var(--bad);
-  --color-info: var(--info);
-  --font-sans: var(--font-sans-body);
-  --font-display: var(--font-sans-display);
-  --radius-card: var(--radius);
+  --color-onaccent: var(--on-accent);
+  --color-brand: var(--brand);
+  --color-accentink: var(--accent-ink);
+  --color-accenttint: var(--accent-tint);
+  --color-accenttint2: var(--accent-tint-2);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-mono-mono);
 }
 
 * {
-  border-color: var(--border);
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans-body);
+  font-family: var(--font-inter);
+  background: var(--canvas);
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
 }
 
 h1, h2, h3, h4 {
-  font-family: var(--font-sans-display);
+  font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
-::selection {
-  background: var(--accent-soft);
-}
+::selection { background: var(--accent-tint); }
 
-/* Focus ring — always visible (accessibility) */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* --- Scrollbar, subtle --- */
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; border: 2px solid var(--background); }
-::-webkit-scrollbar-track { background: transparent; }
-
-/* --- Motion guard (accessibility) --- */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
+  *, *::before, *::after { transition: none !important; }
 }
 
-/* --- Utility layers --- */
-
-/* Accent-scoped surfaces: these are the ONLY things that recolor */
-.accent-fill {
-  background: var(--accent);
-  color: var(--on-accent);
+/* ------- Brand mark (logo) - NEVER re-tints ------- */
+.sb-mark {
+  width: 24px; height: 24px; border-radius: 8px;
+  background: var(--brand);
+  position: relative; flex: none;
 }
-.accent-fill:hover { background: var(--accent-strong); }
-.accent-text { color: var(--accent); }
-.accent-text:hover { color: var(--accent-strong); }
-.accent-border { border-color: var(--accent); }
-.accent-soft { background: var(--accent-soft); color: var(--accent-strong); }
+.sb-mark::after {
+  content: ""; position: absolute;
+  inset: 6px 6px auto 6px; height: 3.5px; border-radius: 2px;
+  background: rgba(255, 255, 255, 0.92);
+}
 
+/* ------- Accent-scoped utilities ------- */
+.nav-group {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--ink-faint); padding: 6px 10px 7px; font-weight: 600;
+}
+.accent-fill { background: var(--accent); color: var(--on-accent); }
+.accent-fill:hover { filter: brightness(1.06); }
+.accent-tint-bg { background: var(--accent-tint); }
+.accent-ink { color: var(--accent-ink); }
+
+/* ------- Status pills ------- */
+.pill { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap; }
+.pill-paid { background: var(--paid-bg); color: var(--paid); }
+.pill-due { background: var(--due-bg); color: var(--due); }
+.pill-late { background: var(--late-bg); color: var(--late); }
+.pill-pipe { background: var(--card-2); color: var(--ink-soft); border: 1px solid var(--line-2); }
+
+/* ------- Money figures: JetBrains Mono ------- */
+.money { font-family: var(--font-mono-mono); font-variant-numeric: tabular-nums; }
+
+/* ------- Cards & panels ------- */
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--sh-card);
+}
+.panel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--sh-card);
 }
 
-/* Carousel hide scrollbar */
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* Loading skeleton shimmer */
-@keyframes talby-shimmer {
-  0% { background-position: -200px 0; }
-  100% { background-position: 200px 0; }
+/* ------- Buttons ------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: none; border-radius: var(--r-sm);
+  padding: 10px 18px; font-size: 13.5px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+  transition: transform 0.12s, filter 0.2s; white-space: nowrap;
 }
-.skeleton {
-  background: linear-gradient(90deg, var(--subtle) 25%, #eae7e2 37%, var(--subtle) 63%);
-  background-size: 400px 100%;
-  animation: talby-shimmer 1.4s ease-in-out infinite;
-  border-radius: var(--radius-sm);
-}
+.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.btn-secondary { background: var(--card); color: var(--ink); border: 1px solid var(--line-2); }
+.btn-secondary:hover { background: var(--card-2); }
 
+/* ------- Chips (filters) ------- */
+.chip {
+  font-size: 12px; font-weight: 500; padding: 6px 13px;
+  border-radius: var(--r-pill); background: var(--card-2);
+  color: var(--ink-soft); cursor: pointer; border: 1px solid transparent;
+  transition: 0.15s; white-space: nowrap;
+}
+.chip:hover { border-color: var(--line-2); }
+.chip.on { background: var(--accent-tint); color: var(--accent-ink); font-weight: 600; }
+
+/* ------- Week strip ------- */
+.day { text-align: center; padding: 10px 4px; border-radius: 14px; }
+.day .dn { font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-faint); }
+.day .dd { font-size: 16px; font-weight: 600; margin-top: 3px; }
+.day.today { background: var(--accent-tint); }
+.day.today .dd { color: var(--accent-ink); }
+
+/* ------- Payment timeline rows ------- */
+.pbar { width: 3px; align-self: stretch; border-radius: 2px; }
+.pbar.g { background: var(--paid); }
+.pbar.c { background: var(--due); }
+.pbar.r { background: var(--late); }
+
+/* ------- Drawer ------- */
+.drawer-in { animation: talby-slide-in 0.22s cubic-bezier(0.32, 0.72, 0, 1); }
 @keyframes talby-slide-in {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
 }
-.drawer-in { animation: talby-slide-in 0.22s cubic-bezier(0.32, 0.72, 0, 1); }
-
 @keyframes talby-fade-up {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .fade-up { animation: talby-fade-up 0.2s ease-out; }
+
+/* ------- Theme popover ------- */
+.theme-pop {
+  background: var(--card); border: 1px solid var(--line-2);
+  border-radius: 16px; box-shadow: 0 8px 30px rgba(17, 24, 39, 0.14);
+  padding: 16px;
+}
+.swatches { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.sw { width: 26px; height: 26px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: transform 0.12s; }
+.sw:hover { transform: scale(1.12); }
+.sw.on { border-color: var(--ink); }
+input[type="range"].hue {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
+  border-radius: 100px;
+  background: linear-gradient(90deg, hsl(0,75%,58%), hsl(45,80%,55%), hsl(140,55%,48%), hsl(200,75%,55%), hsl(255,70%,60%), hsl(320,70%,60%), hsl(360,75%,58%));
+  cursor: pointer; outline: none;
+}
+input[type="range"].hue::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--ink); cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+input[type="range"].hue::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  border: 2px solid var(--ink); cursor: pointer;
+}
+
+/* ------- Scrollbar ------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 8px; border: 2px solid var(--canvas); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ------- Legacy alias utilities (map old semantic names -> new tokens) ------- */
+.bg-surface { background: var(--card); }
+.text-foreground { color: var(--ink); }
+.text-muted { color: var(--ink-soft); }
+.text-inkfaint { color: var(--ink-faint); }
+.border-border { border-color: var(--line); }
+.bg-subtle { background: var(--card-2); }
+.bg-card2 { background: var(--card-2); }
+.accent-soft { background: var(--accent-tint); color: var(--accent-ink); }
+.accent-text { color: var(--accent-ink); }
+.border-accent { border-color: var(--accent); }
+.bg-ok { background: var(--paid); }
+.text-ok { color: var(--paid); }
+.bg-warn { background: var(--due); }
+.text-warn { color: var(--due); }
+.bg-bad { background: var(--late); }
+.text-bad { color: var(--late); }
+.text-info { color: var(--accent-ink); }
+
+/* ------- Skeleton ------- */
+@keyframes talby-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--card-2) 25%, #eceef1 37%, var(--card-2) 63%);
+  background-size: 400px 100%;
+  animation: talby-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--r-sm);
+}

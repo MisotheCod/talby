@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { IconPlus, IconClose, IconCheck } from "@/components/icons";
-import { Badge, Button, Input, Select, Spinner } from "@/components/ui";
+import { Button, Input, Select, Spinner } from "@/components/ui";
 
 type Content = {
   id: string; title: string; platform: string | null; post_type: string | null;

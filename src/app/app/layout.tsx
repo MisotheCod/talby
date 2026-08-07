@@ -11,8 +11,11 @@ export default async function AppLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  let profile: { handler: string | null; accent: string; plan: string } | null =
-    null;
+  let profile: {
+    handler: string | null;
+    accent: string | null;
+    plan: string;
+  } | null = null;
   if (user) {
     const res = await supabase
       .from("profiles")
@@ -21,7 +24,7 @@ export default async function AppLayout({
       .single();
     profile = res.data as unknown as {
       handler: string | null;
-      accent: string;
+      accent: string | null;
       plan: string;
     } | null;
   }
@@ -29,7 +32,7 @@ export default async function AppLayout({
   return (
     <AppShell
       handler={profile?.handler ?? null}
-      accent={profile?.accent ?? "coral"}
+      accent={profile?.accent ?? null}
       plan={profile?.plan ?? "free"}
     >
       {children}

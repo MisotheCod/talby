@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { IconPlus, IconArrowRight, IconDelete, IconIdea } from "@/components/icons";
-import { Button, Input, Spinner, Badge } from "@/components/ui";
+import { Button, Input, Spinner, StatusPill } from "@/components/ui";
 
 type Idea = { id: string; title: string; stage: string; notes: string | null };
 
@@ -15,11 +15,11 @@ const STAGES = [
   { id: "executed", label: "Executed" },
 ] as const;
 
-const STAGE_TONE: Record<string, "neutral" | "accent" | "info" | "ok"> = {
+const STAGE_TONE: Record<string, "neutral" | "accent" | "paid"> = {
   bucket: "neutral",
   developing: "accent",
-  ready: "info",
-  executed: "ok",
+  ready: "accent",
+  executed: "paid",
 };
 
 export default function IdeasPage() {
@@ -100,7 +100,7 @@ export default function IdeasPage() {
               <div className="min-w-0">
                 <div className="font-medium">{i.title}</div>
                 {i.notes && <div className="text-sm text-muted truncate mt-0.5">{i.notes}</div>}
-                <div className="mt-1.5"><Badge tone={STAGE_TONE[i.stage]}>{STAGES.find((s) => s.id === i.stage)?.label}</Badge></div>
+                <div className="mt-1.5"><StatusPill kind={STAGE_TONE[i.stage]}>{STAGES.find((s) => s.id === i.stage)?.label}</StatusPill></div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {i.stage !== "executed" ? (

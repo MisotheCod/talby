@@ -1,30 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
+import { applyAccent, parseHSL, DEFAULT_HSL } from "@/lib/accent";
 
 /**
  * Talby theme provider.
- * The accent system works by setting `data-accent` on <html>. CSS in
- * globals.css maps each accent name to a set of --accent CSS variables.
- * Structural colors (backgrounds, cards, borders, text) never change —
- * only the accent-scoped surfaces do.
+ * The accent system works by moving a single hue variable on <html>.
+ * applyAccent() derives the tint/ink shades and picks --on-accent by
+ * WCAG luminance (light accents get dark text). Structural colors
+ * (text, cards, borders, canvas) never move; only accent-scoped
+ * surfaces do. The logo mark is brand-locked via the --brand token
+ * and never re-tints.
  *
- * The accent value arrives in two ways:
- *  1. Server-injected: the app layout pages set the cookie from the user's
- *     profile and it's read server-side into initialAccent.
- *  2. Live picker: dragging the palette updates it client-side instantly,
- *     then persists to profile (and cookie) on release.
+ * initialAccent is the serialized HSL ("h,s,l") read from the user's
+ * profiles row. Applied on mount to avoid a flash of default.
  */
 export function ThemeProvider({
   children,
-  initialAccent = "coral",
+  initialAccent,
 }: {
   children: React.ReactNode;
-  initialAccent?: string;
+  initialAccent?: string | null;
 }) {
   useEffect(() => {
-    // Apply the initial/server-provided accent on mount (handles SSR HTML).
-    document.documentElement.setAttribute("data-accent", initialAccent);
+    const parsed = parseHSL(initialAccent) ?? DEFAULT_HSL;
+    applyAccent(parsed);
   }, [initialAccent]);
 
   return <>{children}</>;

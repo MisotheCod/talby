@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, Button } from "@/components/ui";
+import { StatusPill, Button } from "@/components/ui";
 import { IconPlug } from "@/components/icons";
 
 // Placeholder integrations grid — designed toward a Connect/Connected card
@@ -36,7 +36,7 @@ export default function IntegrationsPage() {
                 <span className="h-10 w-10 rounded-xl bg-subtle grid place-items-center text-lg font-semibold">
                   {c.name[0]}
                 </span>
-                {isOn && <Badge tone="ok">Connected</Badge>}
+                {isOn && <StatusPill kind="paid">Connected</StatusPill>}
               </div>
               <h3 className="font-semibold mt-3">{c.name}</h3>
               <p className="text-sm text-muted mt-1 flex-1">{c.desc}</p>

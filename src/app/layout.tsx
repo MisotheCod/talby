@@ -1,16 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Instrument_Sans, Inter } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 
-const instrument = Instrument_Sans({
-  variable: "--font-sans-display",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-sans-body",
+const mono = JetBrains_Mono({
+  variable: "--font-mono-mono",
   subsets: ["latin"],
   display: "swap",
 });
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f7f6f4",
+  themeColor: "#f6f7f9",
   width: "device-width",
   initialScale: 1,
 };
@@ -59,8 +59,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-accent="coral"
-      className={`${instrument.variable} ${inter.variable} h-full antialiased`}
+      className={`${inter.variable} ${mono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>
