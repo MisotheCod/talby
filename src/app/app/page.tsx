@@ -37,15 +37,17 @@ export default function OverviewPage() {
   const [content, setContent] = useState<Content[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
+  const [plan, setPlan] = useState<"free" | "paid">("free");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const p = await supabase.from("profiles").select("handler").eq("id", user.id).single();
-      const row = p.data as unknown as { handler: string | null } | null;
+      const p = await supabase.from("profiles").select("handler, plan").eq("id", user.id).single();
+      const row = p.data as unknown as { handler: string | null; plan: string } | null;
       setHandle(row?.handler ?? null);
+      setPlan((row?.plan ?? "free") as "free" | "paid");
     }
     const [d, pay, c] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
@@ -119,11 +121,11 @@ export default function OverviewPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-[26px]">
+      <div className={cn("grid grid-cols-2 gap-4 mb-[26px]", plan === "free" ? "md:grid-cols-4" : "md:grid-cols-3")}>
         <StatCard label="Booked" value={formatMoney(booked)} sub={`across ${activeDeals.length} active deal${activeDeals.length === 1 ? "" : "s"}`} />
         <StatCard label="Paid" value={formatMoney(received)} sub="landed this month" color="var(--paid)" />
         <StatCard label="Outstanding" value={formatMoney(outstanding)} sub={`${payments.filter((p) => p.status !== "received").length} payments expected`} color="var(--due)" />
-        <CapacityCard used={activeDeals.length} cap={FREE_ACTIVE_DEAL_CAP} />
+        {plan === "free" && <CapacityCard used={activeDeals.length} cap={FREE_ACTIVE_DEAL_CAP} />}
       </div>
 
       {/* Two columns */}

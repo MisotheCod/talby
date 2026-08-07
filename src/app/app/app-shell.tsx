@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { ThemePopover } from "@/components/theme-popover";
 
 import {
-  IconHome, IconBriefcase, IconCalendar, IconMoney, IconIdea,
+  IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
   IconNotes, IconLogout, IconSettings,
 } from "@/components/icons";
 
@@ -19,7 +19,7 @@ const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
   { href: "/app/deals", label: "Deals", icon: IconBriefcase },
   { href: "/app/calendar", label: "Calendar", icon: IconCalendar },
-  { href: "/app/payments", label: "Payments", icon: IconMoney },
+  { href: "/app/payments", label: "Payments", icon: IconDollar },
 ];
 const CREATE_NAV = [
   { href: "/app/ideas", label: "Ideas", icon: IconIdea },

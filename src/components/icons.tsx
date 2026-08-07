@@ -6,6 +6,7 @@ export {
   Briefcase as IconBriefcase,
   Calendar as IconCalendar,
   PaperMoney as IconMoney,
+  Dollar as IconDollar,
   Brightness as IconIdea,         // ideas
   Notes as IconNotes,
   Plug as IconPlug,               // integrations

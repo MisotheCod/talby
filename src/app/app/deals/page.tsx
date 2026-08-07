@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconMore, IconDownload } from "@/components/icons";
 import { Button, Chip, Input, Textarea, Select, StatusPill, Spinner } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 
@@ -27,6 +28,7 @@ export default function DealsPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [newOverflow, setNewOverflow] = useState(false);
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,33 @@ export default function DealsPage() {
               : `${activeCount} active deals`}
           </p>
         </div>
-        <Button onClick={() => setShowNew(true)}><IconPlus size={16} /> New deal</Button>
+        <div className="relative">
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setShowNew(true)}><IconPlus size={16} /> New deal</Button>
+            <button
+              onClick={() => setNewOverflow((o) => !o)}
+              aria-label="More actions"
+              aria-expanded={newOverflow}
+              className="h-10 w-10 rounded-xl border border-line2 bg-card grid place-items-center hover:bg-card2 cursor-pointer text-inksoft"
+            >
+              <IconMore size={16} />
+            </button>
+          </div>
+          {newOverflow && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setNewOverflow(false)} />
+              <div className="absolute right-0 top-[calc(100%+6px)] w-56 bg-card border border-line2 rounded-xl shadow-pop p-1.5 z-40 fade-up">
+                <Link
+                  href="/app/import"
+                  onClick={() => setNewOverflow(false)}
+                  className="flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer"
+                >
+                  <IconDownload size={16} className="text-inksoft" /> Import deals
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Filter chips */}
@@ -97,7 +125,10 @@ export default function DealsPage() {
       {filtered.length === 0 ? (
         <div className="panel p-10 text-center flex flex-col items-center gap-3">
           <p className="text-sm text-inksoft">No deals in this view yet.</p>
-          <Button variant="secondary" onClick={() => setShowNew(true)}><IconPlus size={16} /> Add a deal</Button>
+          <div className="flex gap-2 flex-wrap justify-center">
+            <Button variant="secondary" onClick={() => setShowNew(true)}><IconPlus size={16} /> Add a deal</Button>
+            <Link href="/app/import"><Button variant="secondary"><IconDownload size={16} /> Import deals</Button></Link>
+          </div>
         </div>
       ) : (
         <div className="panel">
