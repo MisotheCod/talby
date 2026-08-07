@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AuthForm } from "@/app/login/auth-form";
 
 export const metadata: Metadata = {
@@ -8,5 +9,15 @@ export const metadata: Metadata = {
 };
 
 export default function SignupPage() {
-  return <AuthForm mode="signup" />;
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-full flex items-center justify-center">
+          <div className="skeleton h-8 w-40" />
+        </div>
+      }
+    >
+      <AuthForm mode="signup" />
+    </Suspense>
+  );
 }
