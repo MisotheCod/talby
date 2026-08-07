@@ -102,7 +102,7 @@ export function AppShell({
   return (
     <div className="flex min-h-full w-full">
       {/* ------- Left sidebar (desktop) ------- */}
-      <aside className="hidden md:flex flex-col w-[244px] shrink-0 bg-rail border-r border-line px-4 py-[22px] gap-1">
+      <aside className="hidden md:flex flex-col w-[244px] shrink-0 sticky top-0 h-screen bg-rail border-r border-line px-4 py-[22px] gap-1">
         {/* Brand */}
         <Link href="/app/deals" className="flex items-center gap-[9px] font-bold text-[18px] tracking-tight px-2 pb-4">
           <span className="sb-mark" aria-hidden />
