@@ -25,6 +25,14 @@ export const GOOGLE_REDIRECT_URI =
 /** Minimal Gmail scope: compose + send (no read of user mail). */
 export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.send";
 
+/** Notion OAuth (public integration) — each user connects their own account. */
+export const NOTION_CLIENT_ID = process.env.NOTION_CLIENT_ID || "";
+export const NOTION_CLIENT_SECRET = process.env.NOTION_CLIENT_SECRET || "";
+export const NOTION_REDIRECT_URI =
+  process.env.NOTION_REDIRECT_URI || `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/notion/callback`;
+/** Notion API version header sent on every request. */
+export const NOTION_VERSION = "2022-06-28";
+
 /** Nudge engine defaults (overridable per user in Settings). */
 export const DEFAULT_NUDGE_DAYS_OVERDUE = 3;
 export const DEFAULT_NUDGE_CADENCE_DAYS = 6;

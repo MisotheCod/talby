@@ -9,13 +9,13 @@ import { cn } from "@/lib/utils";
 import { IconArrowLeft, IconCheck, IconDownload, IconLink, IconRefresh } from "@/components/icons";
 import { Button, Chip, Input, Select, Spinner, StatusPill } from "@/components/ui";
 
-type Step = "source" | "upload" | "columns" | "mapping" | "review";
+type Step = "source" | "notion" | "upload" | "columns" | "mapping" | "review";
 type MapRow = { brand: string; value?: string; status?: string; deliverable?: string; due_date?: string; notes?: string; confidence?: number };
 type ImportItem = MapRow & { __selected?: boolean; __review?: boolean };
 
 const SOURCES = [
   { id: "csv", name: "CSV file", desc: "Upload a .csv export of your deals spreadsheet.", icon: IconDownload },
-  { id: "notion", name: "Notion", desc: "Connect a Notion database (coming soon).", icon: IconLink, disabled: true },
+  { id: "notion", name: "Notion", desc: "Connect a Notion database and pull your deals straight in.", icon: IconLink },
 ];
 
 export default function ImportPage() {
@@ -51,6 +51,7 @@ export default function ImportPage() {
   const back = () => {
     if (done) { router.push("/app/deals"); return; }
     if (step === "source") { router.push("/app/deals"); return; }
+    if (step === "notion") { setStep("source"); return; }
     if (step === "upload") { resetUpload(); setStep("source"); return; }
     if (step === "columns") { setStep("upload"); return; }
     if (step === "mapping") { setStep("columns"); return; }
@@ -162,7 +163,13 @@ export default function ImportPage() {
       )}
 
       {!done && step === "source" && (
-        <SourceStep sources={SOURCES} onPick={() => setStep("upload")} />
+        <SourceStep sources={SOURCES} onPick={(id) => { setStep(id === "notion" ? "notion" : "upload"); }} />
+      )}
+
+      {!done && step === "notion" && (
+        <NotionStep
+          onColumns={(columns, rows, sourceName) => { setColumns(columns); setRows(rows); setSourceName(sourceName); setStep("columns"); }}
+        />
       )}
 
       {!done && step === "upload" && (
@@ -197,9 +204,9 @@ export default function ImportPage() {
 
 /* ---------- steps ---------- */
 function Stepper({ current }: { current: Step }) {
-  const order: Step[] = ["source", "upload", "columns", "mapping", "review"];
+  const order: Step[] = ["source", "notion", "upload", "columns", "mapping", "review"];
   const label: Record<Step, string> = {
-    source: "Source", upload: "Upload", columns: "Columns", mapping: "AI mapping", review: "Review",
+    source: "Source", notion: "Notion", upload: "Upload", columns: "Columns", mapping: "AI mapping", review: "Review",
   };
   const curIdx = order.indexOf(current);
   return (
@@ -217,7 +224,7 @@ function Stepper({ current }: { current: Step }) {
   );
 }
 
-function SourceStep({ sources, onPick }: { sources: typeof SOURCES; onPick: () => void }) {
+function SourceStep({ sources, onPick }: { sources: typeof SOURCES; onPick: (id: string) => void }) {
   return (
     <div>
       <p className="text-sm text-inksoft mb-5">Where would you like to import your deals from?</p>
@@ -227,20 +234,133 @@ function SourceStep({ sources, onPick }: { sources: typeof SOURCES; onPick: () =
           return (
             <button
               key={s.id}
-              disabled={s.disabled}
-              onClick={onPick}
-              className={cn("card p-6 text-left flex items-start gap-4 transition-colors cursor-pointer", s.disabled && "opacity-50 cursor-not-allowed")}
+              onClick={() => onPick(s.id)}
+              className="card p-6 text-left flex items-start gap-4 transition-colors cursor-pointer hover:border-[var(--accent)]"
             >
               <span className="h-11 w-11 rounded-xl accent-tint-bg accent-ink grid place-items-center flex-none"><Icon size={20} /></span>
               <span>
                 <span className="block font-semibold">{s.name}</span>
                 <span className="block text-[13px] text-inksoft mt-1">{s.desc}</span>
-                {s.disabled && <StatusPill kind="neutral" className="mt-2">Coming soon</StatusPill>}
               </span>
             </button>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record<string, string>[], sourceName: string) => void }) {
+  const [status, setStatus] = useState<{ connected: boolean; workspace: string | null; configured: boolean } | null>(null);
+  const [databases, setDatabases] = useState<{ id: string; title: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Load connection status on mount.
+  useEffect(() => {
+    fetch("/api/notion/status").then((r) => r.json()).then(setStatus).catch(() => ({}));
+  }, []);
+
+  const loadDatabases = async () => {
+    setLoading(true); setError("");
+    try {
+      const res = await fetch("/api/notion/databases");
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Could not load databases."); return; }
+      setDatabases(data.databases ?? []);
+      if (!data.databases?.length) setError("No databases found in this Notion workspace.");
+    } catch {
+      setError("Could not reach the Notion connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pickDatabase = async (db: { id: string; title: string }) => {
+    setLoading(true); setError("");
+    try {
+      const res = await fetch("/api/notion/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ databaseId: db.id, sourceName: db.title }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Could not read that database."); return; }
+      onColumns(data.columns ?? [], data.rows ?? [], data.sourceName ?? db.title);
+    } catch {
+      setError("Could not read that database.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Status not loaded yet.
+  if (!status) {
+    return (
+      <div className="panel p-12 text-center">
+        <div className="flex items-center justify-center gap-2 text-inksoft"><Spinner /><span className="text-sm font-medium">Checking Notion…</span></div>
+      </div>
+    );
+  }
+
+  if (!status.configured) {
+    return (
+      <div className="panel p-8 text-center max-w-md mx-auto">
+        <h2 className="font-semibold">Notion isn&apos;t configured yet</h2>
+        <p className="text-sm text-inksoft mt-1">The Notion OAuth app isn&apos;t wired up on this deployment. CSV import still works great.</p>
+      </div>
+    );
+  }
+
+  if (!status.connected) {
+    return (
+      <div className="panel p-8 text-center max-w-md mx-auto">
+        <span className="h-12 w-12 rounded-2xl accent-tint-bg accent-ink grid place-items-center mx-auto"><IconLink size={22} /></span>
+        <h2 className="font-semibold mt-4">Connect Notion</h2>
+        <p className="text-sm text-inksoft mt-1 mb-4">Authorize your own Notion account, then pick a database to import.</p>
+        <Button onClick={() => { window.location.href = "/api/notion/connect"; }}>Connect Notion</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel p-6">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+        <div>
+          <h2 className="font-semibold">Choose a Notion database</h2>
+          <p className="text-sm text-inksoft mt-0.5">{status.workspace ? `Connected to ${status.workspace}` : "Connected to Notion"}</p>
+        </div>
+        {!databases.length && !loading && (
+          <Button size="sm" variant="secondary" onClick={loadDatabases}><IconRefresh size={15} /> Load databases</Button>
+        )}
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 text-inksoft py-6"><Spinner /><span className="text-sm font-medium">Reading database…</span></div>
+      )}
+
+      {!loading && databases.length === 0 && !error && (
+        <div className="text-center py-6">
+          <Button onClick={loadDatabases}><IconRefresh size={15} /> Load databases</Button>
+        </div>
+      )}
+
+      {!loading && databases.length > 0 && (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {databases.map((db) => (
+            <button
+              key={db.id}
+              onClick={() => pickDatabase(db)}
+              className="card p-4 text-left flex items-center gap-3 cursor-pointer hover:border-[var(--accent)] transition-colors"
+            >
+              <span className="h-9 w-9 rounded-xl bg-subtle grid place-items-center text-sm font-semibold">{db.title[0]?.toUpperCase() ?? "N"}</span>
+              <span className="text-sm font-medium truncate">{db.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && <p className="text-sm text-late mt-3" role="alert">{error}</p>}
     </div>
   );
 }
