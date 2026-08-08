@@ -172,7 +172,7 @@ export function AppShell({
           <span className="avatar">{initial}</span>
         </div>
         <main className="main">
-          <div className="max-w-[1100px] mx-auto w-full">{children}</div>
+          {children}
         </main>
       </div>
     </div>

@@ -229,7 +229,7 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5">
         {/* Active deals */}
         <div className="panel anim">
-          <div className="flex items-center justify-between px-[22px] pt-5 pb-4 flex-wrap gap-3">
+          <div className="flex items-center justify-between px-[22px] pt-[19px] pb-[15px] flex-wrap gap-3">
             <h3 className="text-[16px] font-head font-bold">Active deals</h3>
             <div className="filters">
               {FILTERS.map((f) => (

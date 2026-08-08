@@ -39,7 +39,6 @@ export function ThemeControl({
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const shown = previewRef.current;
-  const dotColor = `hsl(${shown.hsl.h},${shown.hsl.s}%,${shown.hsl.l}%)`;
 
   // Repaint saturation track gradient from the current hue.
   useEffect(() => {
@@ -138,7 +137,7 @@ export function ThemeControl({
           <circle cx="16" cy="10" r="1" fill="currentColor" stroke="none" />
         </svg>
         Theme
-        <span className="dotcol" style={{ background: dotColor }} />
+        <span className="dotcol" />
       </button>
 
       <div className={cn("theme-pop", open && "open")}>
