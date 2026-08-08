@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talby: your favorite way to run brand deals</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff;
+    --ink:#0d0f13;
+    --ink-2:#5a6170;
+    --ink-3:#9aa1ae;
+    --line:#ececef;
+    --soft:#f6f7f9;
+    --blue:#1f7ae0;
+    --blue-deep:#155ec0;
+    --blue-tint:#e8f1fd;
+    --green:#2f9e6f; --green-t:#e4f5ec;
+    --gold:#e0a32e;  --gold-t:#fdf1d8;
+    --coral:#f2705b; --coral-t:#fde7e2;
+    --purple:#8b6cf0;--purple-t:#efeafd;
+    --r:18px; --r-lg:26px; --pill:100px;
+    --sh:0 1px 2px rgba(13,15,19,.05),0 10px 30px rgba(13,15,19,.07);
+    --sh-big:0 2px 8px rgba(13,15,19,.06),0 30px 70px rgba(13,15,19,.13);
+    --maxw:1120px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background-image:radial-gradient(rgba(13,15,19,.06) 1px, transparent 1px);
+    background-size:24px 24px;}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;letter-spacing:-.012em;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  h1,h2,h3,h4,h5{font-family:'Lexend','Inter',system-ui,sans-serif;font-weight:800;letter-spacing:-.04em;line-height:1.03}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  /* NAV */
+  nav{position:sticky;top:14px;z-index:90;padding:0 20px}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:60px;
+    max-width:1120px;margin:0 auto;padding:0 12px 0 20px;
+    background:rgba(255,255,255,.92);backdrop-filter:blur(16px);
+    border:1px solid var(--line);border-radius:100px;box-shadow:0 6px 24px rgba(13,15,19,.07)}
+  .brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:20px;letter-spacing:-.05em}
+  .lmark{display:block;color:#1f7ae0;flex:none}
+  .nlinks{display:flex;gap:26px;font-size:14px;font-weight:500;color:var(--ink-2)}
+  .nlinks a:hover{color:var(--ink)}
+  .nav-r{display:flex;align-items:center;gap:14px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14.5px;border-radius:var(--pill);padding:11px 22px;cursor:pointer;border:none;transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .2s,background .15s}
+  .btn-dark{background:var(--ink);color:#fff}
+  .btn-dark:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(13,15,19,.22)}
+  /* 3D push button */
+  .btn-3d{position:relative;background:var(--blue);color:#fff;border-radius:16px;font-weight:700;
+    box-shadow:0 6px 0 var(--blue-deep),0 8px 16px rgba(31,122,224,.32);
+    transition:transform .09s cubic-bezier(.3,.7,.4,1),box-shadow .09s cubic-bezier(.3,.7,.4,1),filter .15s;
+    transform:translateY(0)}
+  .btn-3d:hover{filter:brightness(1.04);transform:translateY(-1px);box-shadow:0 7px 0 var(--blue-deep),0 10px 20px rgba(31,122,224,.36)}
+  .btn-3d:active{transform:translateY(5px);box-shadow:0 1px 0 var(--blue-deep),0 2px 6px rgba(31,122,224,.3)}
+  .btn-3d.btn-lg{border-radius:18px}
+  .btn-ghost{background:transparent;color:var(--ink);font-weight:600}
+  .btn-lg{padding:16px 32px;font-size:16px}
+  @media(max-width:800px){.nlinks{display:none}}
+
+  /* HERO */
+  .hero{text-align:center;padding:110px 0 80px;position:relative;overflow:hidden}
+
+  .orbs{position:absolute;inset:0;pointer-events:none;z-index:0}
+  .orb{position:absolute;border-radius:26%;display:flex;align-items:center;justify-content:center;box-shadow:0 16px 32px rgba(13,15,19,.18);will-change:transform;opacity:0}
+  .orb svg{width:46%;height:46%;stroke:#fff;stroke-width:2.4;fill:none}
+  .orb .txt{font-weight:900;color:#fff;font-size:34px;letter-spacing:-.04em}
+  .o1{width:84px;height:84px;top:8%;left:9%;background:#1f7ae0;transform:rotate(-10deg)}
+  .o2{width:66px;height:66px;top:52%;left:4%;background:#f3b93c;transform:rotate(8deg)}
+  .o3{width:72px;height:72px;top:14%;right:8%;background:#2f9e6f;transform:rotate(12deg)}
+  .o4{width:58px;height:58px;top:58%;right:5%;background:#f2705b;transform:rotate(-8deg)}
+  .o5{width:52px;height:52px;top:2%;left:38%;background:#8b6cf0;transform:rotate(14deg)}
+  .o6{width:62px;height:62px;top:70%;left:22%;background:#3f8fe6;transform:rotate(6deg)}
+  .o7{width:56px;height:56px;top:66%;right:20%;background:#ff8a6b;transform:rotate(-14deg);border-radius:50%}
+  .hero .wrap{position:relative;z-index:1}
+  /* mobile-only horizontal orb row above the headline */
+  .orbs-m{display:none;justify-content:center;gap:14px;margin-bottom:26px;position:relative;z-index:0}
+  #heroH{position:relative;z-index:2}
+  .orb-m{width:52px;height:52px;border-radius:26%;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 10px 22px rgba(13,15,19,.18);opacity:0}
+  .orb-m svg{width:46%;height:46%;stroke:#fff;stroke-width:2.4;fill:none}
+  .orb-m .txt{font-weight:900;color:#fff;font-size:24px;letter-spacing:-.04em}
+  .om1{background:#1f7ae0;transform:rotate(-8deg)}
+  .om2{background:#f3b93c;transform:rotate(7deg)}
+  .om3{background:#2f9e6f;transform:rotate(-6deg)}
+  .om4{background:#f2705b;transform:rotate(9deg)}
+  @media(max-width:900px){.orb{display:none} .orbs-m{display:flex}}
+  .hero h1{font-size:clamp(46px,7.4vw,88px);max-width:12ch;margin:0 auto}
+  .hero h1 .w{display:inline-block;opacity:0}
+  .hero h1 .blue{color:var(--blue)}
+  .hero p{font-size:19px;color:var(--ink-2);max-width:460px;margin:26px auto 34px;opacity:0}
+  .hero-cta{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;opacity:0}
+  .hero-note{margin-top:16px;font-size:13px;color:var(--ink-3);opacity:0}
+
+  /* HERO DASHBOARD MOCK */
+  .heromock{max-width:960px;margin:64px auto 0;background:#fff;border:1px solid var(--line);border-radius:22px;
+    box-shadow:var(--sh-big);overflow:hidden;text-align:left;opacity:0}
+  .hm-top{display:flex;align-items:center;gap:7px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--soft)}
+  .hm-dot{width:9px;height:9px;border-radius:50%}
+  .hm-body{display:grid;grid-template-columns:170px 1fr;min-height:340px}
+  .hm-side{border-right:1px solid var(--line);padding:16px 12px;background:#fff}
+  .hm-brand{display:flex;align-items:center;gap:7px;font-weight:800;font-size:14px;letter-spacing:-.03em;padding:2px 6px 14px}
+  .hm-nav{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:2px}
+  .hm-nav.on{background:var(--blue-tint);color:var(--blue)}
+  .hm-nav svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;flex:none}
+  .hm-main{padding:18px 20px}
+  .hm-greet{font-size:15px;font-weight:800;letter-spacing:-.02em;margin-bottom:14px;font-family:'Lexend','Inter',sans-serif}
+  .hm-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .hm-stat{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+  .hm-stat .l{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-3)}
+  .hm-stat .v{font-size:19px;font-weight:800;letter-spacing:-.03em;margin-top:3px}
+  .hm-stat.cap{background:var(--blue-tint);border-color:#d3e6fb}
+  .hm-stat.cap .v{color:var(--blue-deep)}
+  .capbar{height:5px;border-radius:100px;background:rgba(255,255,255,.7);margin-top:8px;overflow:hidden}
+  .capbar i{display:block;height:100%;width:0;background:var(--blue);border-radius:100px}
+  .hm-cols{display:grid;grid-template-columns:1.5fr 1fr;gap:12px}
+  .hm-panel{border:1px solid var(--line);border-radius:13px;overflow:hidden}
+  .hm-ph{font-size:11px;font-weight:700;padding:10px 13px;border-bottom:1px solid var(--line);background:var(--soft)}
+  .hm-row{display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid var(--line);font-size:11.5px;opacity:0}
+  .hm-row:last-child{border-bottom:none}
+  .hm-logo{width:24px;height:24px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:10px;color:#fff}
+  .hm-row .n{flex:1;font-weight:600}
+  .hm-row .a{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-2)}
+  .hm-pill{font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px}
+  .hm-bar{width:3px;height:22px;border-radius:2px;flex:none}
+  @media(max-width:760px){
+    .hm-body{grid-template-columns:1fr}
+    .hm-side{display:none}
+    .hm-stats{grid-template-columns:1fr 1fr}
+    .hm-cols{grid-template-columns:1fr}
+  }
+
+  /* ACTION CARDS (family send/swap/receive) */
+  .actions{padding:26px 0 90px}
+  .acts{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;perspective:1200px}
+  .act{background:#fff;border:1px solid var(--line);border-radius:var(--r-lg);padding:30px 24px;text-align:center;box-shadow:var(--sh);will-change:transform}
+  .act .ic{width:58px;height:58px;border-radius:18px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center}
+  .act .ic svg{width:26px;height:26px;stroke-width:2;fill:none}
+  .act h3{font-size:18px;letter-spacing:-.02em;margin-bottom:5px}
+  .act p{font-size:13.5px;color:var(--ink-2);line-height:1.45}
+  .a-blue .ic{background:var(--blue-tint)}.a-blue svg{stroke:var(--blue)}
+  .a-green .ic{background:var(--green-t)}.a-green svg{stroke:var(--green)}
+  .a-gold .ic{background:var(--gold-t)}.a-gold svg{stroke:var(--gold)}
+  .a-purple .ic{background:var(--purple-t)}.a-purple svg{stroke:var(--purple)}
+  @media(max-width:820px){.acts{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.acts{grid-template-columns:1fr}}
+
+  /* TRAITS (easy/secure/fast/powerful/fun) */
+  .traits{padding:0 0 100px}
+  .tgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+  .trait{background:var(--soft);border-radius:var(--r-lg);padding:24px 20px;min-height:150px;overflow:hidden;position:relative}
+  .trait h5{font-size:15px;margin-bottom:6px;letter-spacing:-.02em}
+  .trait p{font-size:12.5px;color:var(--ink-2);line-height:1.45}
+  .trait.fun{padding-bottom:0}
+  .chiprow{display:flex;gap:8px;margin-top:14px;white-space:nowrap;will-change:transform}
+  .mchip{font-size:11px;font-weight:600;padding:5px 11px;border-radius:100px;flex:none}
+  @media(max-width:900px){.tgrid{grid-template-columns:repeat(2,1fr)}.trait.fun{grid-column:span 2}}
+
+  /* SECTION HEADS */
+  .tintwrap{border-radius:38px;padding:72px 48px;position:relative;overflow:hidden}
+  .t-blue{background:#eef5fd}
+  .t-green{background:#e9f6f0}
+  .t-gold{background:#fdf4e2}
+  .tintwrap .fmedia{background:rgba(255,255,255,.7)}
+  .tintwrap .mock{background:#fff}
+  @media(max-width:640px){.tintwrap{padding:46px 20px;border-radius:26px}}
+  .shead{text-align:center;max-width:720px;margin:0 auto 56px}
+  .shead .tag{display:inline-block;font-size:13px;font-weight:700;color:var(--blue);margin-bottom:14px;text-transform:capitalize}
+  .shead h2{font-size:clamp(34px,4.8vw,58px)}
+  .shead p{font-size:17px;color:var(--ink-2);margin-top:16px;max-width:560px;margin-left:auto;margin-right:auto}
+
+  /* TRIO MOCKUPS */
+  .trio{padding:90px 0}
+  .mocks{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .mock{background:var(--soft);border-radius:var(--r-lg);padding:22px;text-align:center}
+  .mock .card{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-big);padding:16px;text-align:left;margin-bottom:16px;min-height:190px}
+  .mock h5{font-size:14px;color:var(--ink-2);font-weight:600}
+  .mrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .mrow:last-child{border-bottom:none}
+  .mdot{width:28px;height:28px;border-radius:8px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#fff}
+  .mrow .n{flex:1;font-weight:600}
+  .mrow .v{font-family:'JetBrains Mono',monospace;color:var(--ink-2);font-size:11.5px}
+  .spill{font-size:9.5px;font-weight:700;padding:2px 8px;border-radius:100px}
+  .sp-g{background:var(--green-t);color:var(--green)}
+  .sp-y{background:var(--gold-t);color:var(--gold)}
+  .sp-r{background:var(--coral-t);color:var(--coral)}
+  .mstat{display:flex;justify-content:space-between;padding:8px 0;font-size:12.5px;border-bottom:1px solid var(--line)}
+  .mstat b{font-size:15px;letter-spacing:-.02em}
+  .cal7{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:6px}
+  .cd{aspect-ratio:1;border-radius:7px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:var(--ink-3)}
+  .cd.on{background:var(--blue-tint);color:var(--blue)}
+  .cd.pay{background:var(--gold-t);color:var(--gold)}
+  @media(max-width:820px){.mocks{grid-template-columns:1fr}}
+
+  /* FEATURE SECTIONS */
+  .feat-sec{padding:28px 0}
+  .fgrid2{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center}
+  .fgrid2.flip .fcopy{order:2}
+  .fcopy .tag{font-size:13px;font-weight:700;color:var(--blue);margin-bottom:12px;display:block}
+  .fcopy h2{font-size:clamp(30px,4vw,46px);margin-bottom:18px}
+  .fcopy>p{font-size:16.5px;color:var(--ink-2);margin-bottom:22px}
+  .fl{list-style:none}
+  .fl li{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:15px;font-weight:600}
+  .fl li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--blue);flex:none}
+  .fmedia{background:var(--soft);border-radius:var(--r-lg);padding:30px;display:flex;align-items:center;justify-content:center;min-height:360px}
+  .fcard{background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh-big);padding:20px;width:100%;max-width:380px;will-change:transform}
+  .fcard h6{font-size:13px;font-weight:700;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+  .fcard h6 span{font-size:11px;color:var(--blue);font-family:'JetBrains Mono',monospace;font-weight:500}
+  .payrow{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .payrow:last-child{border-bottom:none}
+  .pbar{width:3px;height:32px;border-radius:2px}
+  .payrow .nm{flex:1;font-weight:600}
+  .payrow .am{font-family:'JetBrains Mono',monospace;font-size:12.5px}
+  @media(max-width:820px){.fgrid2{grid-template-columns:1fr;gap:34px}.fgrid2.flip .fcopy{order:0}}
+
+  /* DETAILS GRID */
+  .details{padding:90px 0 60px}
+  .dgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  .dcard{background:var(--soft);border-radius:var(--r-lg);padding:30px}
+  .dcard .demo{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:18px;box-shadow:var(--sh);min-height:86px;display:flex;align-items:center;gap:12px}
+  .dcard h4{font-size:19px;margin-bottom:7px;letter-spacing:-.02em}
+  .dcard p{font-size:14px;color:var(--ink-2);line-height:1.55}
+  .ring{width:52px;height:52px;border-radius:50%;background:conic-gradient(var(--blue) 0% 80%,var(--line) 0);display:flex;align-items:center;justify-content:center;flex:none}
+  .ring::after{content:"4/5";background:#fff;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+  .swrow{display:flex;gap:8px}
+  .swc{width:26px;height:26px;border-radius:8px;cursor:pointer;transition:transform .15s}
+  .swc:hover{transform:scale(1.2)}
+  @media(max-width:760px){.dgrid{grid-template-columns:1fr}}
+
+  .bigchip{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;padding:11px 18px;border-radius:100px;flex:none}
+  .bigchip .d{width:8px;height:8px;border-radius:50%}
+
+  /* FAQ */
+  .faqsec{padding:90px 0}
+  .faq{max-width:680px;margin:0 auto}
+  details{border-bottom:1px solid var(--line)}
+  summary{padding:20px 0;font-weight:700;font-size:17px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;letter-spacing:-.02em}
+  summary::-webkit-details-marker{display:none}
+  summary .chev{width:18px;height:18px;stroke:var(--ink-3);stroke-width:2.4;fill:none;transition:transform .2s;flex:none}
+  details[open] summary .chev{transform:rotate(45deg)}
+  details p{padding:0 0 20px;color:var(--ink-2);font-size:15px;line-height:1.6}
+
+  /* FOOTER CTA + FOOTER */
+  .endcta{padding:40px 0 110px;text-align:center}
+  .ctapanel{background:linear-gradient(135deg,#2f8ceb,#155ec0);border-radius:40px;padding:90px 40px;position:relative;overflow:hidden}
+  .ctapanel::before{content:"";position:absolute;width:300px;height:300px;border-radius:50%;background:rgba(255,255,255,.09);top:-110px;left:-70px}
+  .ctapanel::after{content:"";position:absolute;width:220px;height:220px;border-radius:50%;border:2px dashed rgba(255,255,255,.25);bottom:-80px;right:-60px}
+  .ctapanel>*{position:relative;z-index:1}
+  .endcta h2{font-size:clamp(38px,6vw,64px);max-width:14ch;margin:0 auto 18px;color:#fff}
+  .endcta p{font-size:17px;color:rgba(255,255,255,.88);margin-bottom:30px}
+  .btn-w3d{background:#fff;color:var(--blue-deep);border-radius:18px;font-weight:700;
+    box-shadow:0 6px 0 #b9cfeb,0 8px 16px rgba(0,0,0,.18);
+    transition:transform .09s cubic-bezier(.3,.7,.4,1),box-shadow .09s cubic-bezier(.3,.7,.4,1)}
+  .btn-w3d:hover{transform:translateY(-1px);box-shadow:0 7px 0 #b9cfeb,0 10px 20px rgba(0,0,0,.2)}
+  .btn-w3d:active{transform:translateY(5px);box-shadow:0 1px 0 #b9cfeb,0 2px 6px rgba(0,0,0,.16)}
+  footer{border-top:1px solid var(--line);padding:50px 0 40px}
+  .fgrid3{display:flex;justify-content:space-between;gap:40px;flex-wrap:wrap;margin-bottom:36px}
+  .fcol h5{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:12px;font-weight:700}
+  .fcol a{display:block;font-size:14px;color:var(--ink-2);padding:4px 0}
+  .fcol a:hover{color:var(--ink)}
+  .fbot{display:flex;justify-content:space-between;padding-top:22px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-3);flex-wrap:wrap;gap:10px}
+
+  .reveal{opacity:0;transform:translateY(34px)}
+  @media(prefers-reduced-motion:reduce){
+    .hero h1 .w,.hero p,.hero-cta,.hero-note,.reveal{opacity:1!important;transform:none!important}
+  }
+  :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true"><defs><symbol id="talby-logo" viewBox="0 0 609 577">
+<path d="M424.699 180.292C430.13 179.757 438.237 179.88 443.876 179.803L443.919 451.673C443.925 493.095 444.311 534.824 443.858 576.216L412.728 576.252C388.224 576.252 374.177 575.977 352.692 562.194C332.112 549.452 317.454 522.909 315.561 499.084C314.753 488.864 314.998 478.057 315.004 467.758L315.017 417.402L314.968 340.956C314.955 321.822 314.006 298.615 317.705 280.203C321.899 259.427 331.004 239.958 344.266 223.425C364.166 198.797 393.171 183.245 424.699 180.292Z" fill="currentColor"/>
+<path d="M455.626 0.288634C459.502 -0.171819 468.662 0.0541045 472.948 0.0645137L503.324 0.105548L608.488 0.0706428L608.481 42.0894C608.475 52.1471 608.8 63.3878 607.385 73.2257C606.375 80.3628 604.44 87.3375 601.636 93.9761C588.422 125.479 558.358 147.746 524.008 149.352C516.434 149.706 508.878 149.607 501.297 149.6L457.261 149.54C427.184 149.498 411.699 149.581 382.878 161.423C357.834 171.84 333.82 192.465 319.247 215.135C314.202 222.986 309.824 231.37 305.195 239.507C304.35 225.578 305.133 207.819 304.986 193.628C305.433 178.793 304.154 163.164 305.899 148.425C315.157 70.2157 376.436 5.51282 455.626 0.288634Z" fill="currentColor"/>
+<path d="M71.6566 0.872068C79.2829 0.110361 98.3641 0.641238 106.657 0.643687L175.408 0.655347L290.616 0.638791C312.506 0.635729 335.755 0.243878 357.559 0.877001C352.618 4.34816 341.633 9.41679 335.51 13.2915C294.394 39.3156 269.345 75.7974 258.151 122.366C256.158 131.669 255.425 140.085 254.459 149.534C213.862 149.977 172.507 149.579 131.854 149.584L93.5184 149.581C82.6751 149.567 71.149 149.928 60.5249 147.927C47.7382 145.581 35.7652 139.996 25.7491 131.708C11.0874 119.599 1.90596 102.107 0.26866 83.1622C-1.44334 62.7926 5.07769 42.5859 18.3751 27.0604C31.866 11.1686 51.1016 2.57305 71.6566 0.872068Z" fill="currentColor"/>
+<path d="M147.24 180.029C184.173 178.271 215.369 180.648 243.011 208.602C254.102 219.74 262.085 233.586 266.168 248.764C270.627 265.992 269.267 300.758 269.258 320.04L269.219 407.25C268.454 407.262 267.689 407.275 266.923 407.268C233.876 407.403 205.603 398.874 181.621 374.853C172.8 366.091 165.436 355.97 159.809 344.887C143.887 313.678 147.199 287.128 147.207 253.147L147.24 180.029Z" fill="currentColor"/>
+</symbol></defs></svg>
+
+<nav>
+  <div class="nav-in">
+    <div class="brand"><svg class="lmark" width="24" height="23"><use href="#talby-logo"/></svg>Talby</div>
+    <div class="nlinks">
+      <a href="#features">Features</a><a href="#paid">Payments</a><a href="#details">Details</a><a href="#faq">FAQ</a>
+    </div>
+    <div class="nav-r">
+      <a href="#" class="btn btn-ghost" style="padding:10px 8px">Sign up</a>
+      <a href="#" class="btn" style="background:#fff;border:1px solid var(--line-2);color:var(--ink);font-weight:600">Log in</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="orbs">
+    <span class="orb o1"><span class="txt">$</span></span>
+    <span class="orb o2"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+    <span class="orb o3"><svg viewBox="0 0 24 24"><path d="M4 20l16-8L4 4l3 8z"/></svg></span>
+    <span class="orb o4"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span>
+    <span class="orb o5"><svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.9H21l-5.5 4.2 2.1 6.9L12 15l-5.6 4L8.5 13 3 8.9h6.8z"/></svg></span>
+    <span class="orb o6"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 01-8 8H4l2-3a8 8 0 1115-5z"/></svg></span>
+    <span class="orb o7"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>
+  </div>
+  <div class="wrap">
+    <div class="orbs-m" id="orbsM">
+      <span class="orb-m om1"><span class="txt">$</span></span>
+      <span class="orb-m om2"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+      <span class="orb-m om3"><svg viewBox="0 0 24 24"><path d="M4 20l16-8L4 4l3 8z"/></svg></span>
+      <span class="orb-m om4"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span>
+    </div>
+    <h1 id="heroH">
+      <span class="w">Organize</span> <span class="w">your</span><br>
+      <span class="w blue">brand</span> <span class="w blue">deals.</span>
+    </h1>
+    <p id="heroP">Deals, money, and content in one calm place. Running your creator business has never been this simple.</p>
+    <div class="hero-cta" id="heroC">
+      <a href="#" class="btn btn-3d btn-lg">Sign up free</a>
+      <a href="#features" class="btn btn-ghost btn-lg">See how it works</a>
+    </div>
+    <div class="hero-note" id="heroN">Free while you're getting started. No card, no setup.</div>
+
+    <div class="heromock" id="heromock">
+      <div class="hm-top">
+        <span class="hm-dot" style="background:#f2705b"></span><span class="hm-dot" style="background:#f3b93c"></span><span class="hm-dot" style="background:#2f9e6f"></span>
+      </div>
+      <div class="hm-body">
+        <div class="hm-side">
+          <div class="hm-brand"><svg class="lmark" width="17" height="16"><use href="#talby-logo"/></svg>Talby</div>
+          <div class="hm-nav on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Overview</div>
+          <div class="hm-nav"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h10"/></svg>Deals</div>
+          <div class="hm-nav"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Calendar</div>
+          <div class="hm-nav"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Payments</div>
+        </div>
+        <div class="hm-main">
+          <div class="hm-greet">Good evening, Chanel</div>
+          <div class="hm-stats">
+            <div class="hm-stat"><div class="l">Booked</div><div class="v hnum" data-n="8400">$0</div></div>
+            <div class="hm-stat"><div class="l">Paid</div><div class="v hnum" data-n="5150" style="color:var(--green)">$0</div></div>
+            <div class="hm-stat"><div class="l">Outstanding</div><div class="v hnum" data-n="3250" style="color:var(--gold)">$0</div></div>
+            <div class="hm-stat cap"><div class="l">Deals</div><div class="v">4 / 5</div><div class="capbar"><i id="hcap"></i></div></div>
+          </div>
+          <div class="hm-cols">
+            <div class="hm-panel">
+              <div class="hm-ph">Active deals</div>
+              <div class="hm-row"><span class="hm-logo" style="background:var(--gold)">G</span><span class="n">Glow Ritual</span><span class="hm-pill" style="background:var(--gold-t);color:var(--gold)">Awaiting</span></div>
+              <div class="hm-row"><span class="hm-logo" style="background:var(--green)">L</span><span class="n">Lumen Wellness</span><span class="hm-pill" style="background:var(--green-t);color:var(--green)">Paid</span></div>
+              <div class="hm-row"><span class="hm-logo" style="background:var(--coral)">V</span><span class="n">Verde Tea Co.</span><span class="hm-pill" style="background:var(--coral-t);color:var(--coral)">Past due</span></div>
+              <div class="hm-row"><span class="hm-logo" style="background:var(--purple)">B</span><span class="n">Bloom and Co.</span><span class="a">$2,650</span></div>
+            </div>
+            <div class="hm-panel">
+              <div class="hm-ph">Payments</div>
+              <div class="hm-row"><span class="hm-bar" style="background:var(--coral)"></span><span class="n">Verde Tea</span><span class="a">$1,450</span></div>
+              <div class="hm-row"><span class="hm-bar" style="background:var(--gold)"></span><span class="n">Glow Ritual</span><span class="a">$1,800</span></div>
+              <div class="hm-row"><span class="hm-bar" style="background:var(--green)"></span><span class="n">Lumen</span><span class="a">$2,500</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ACTION CARDS -->
+<section class="actions" id="features">
+  <div class="wrap">
+    <div class="shead reveal">
+      <h2>Run your deals in a whole new way.</h2>
+    </div>
+    <div class="acts">
+      <div class="act a-blue reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h10"/></svg></div>
+        <h3>Track</h3><p>Every deal in one clean list. Brand, value, status, due date.</p>
+      </div>
+      <div class="act a-green reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+        <h3>Get paid</h3><p>See what's expected, overdue, and landed. Chase nothing blind.</p>
+      </div>
+      <div class="act a-gold reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+        <h3>Plan</h3><p>Content on a calendar, with repeats that fill themselves in.</p>
+      </div>
+      <div class="act a-purple reveal">
+        <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M16.5 16.5L19 19M19 5l-2.5 2.5M7.5 16.5L5 19"/></svg></div>
+        <h3>Capture</h3><p>Ideas from bucket to posted, before they slip away.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRIO -->
+<section class="trio">
+  <div class="wrap">
+    <div class="tintwrap t-blue">
+    <div class="shead reveal">
+      <h2>Deals, money, content. All in one place.</h2>
+    </div>
+    <div class="mocks">
+      <div class="mock reveal">
+        <div class="card">
+          <div class="mrow"><span class="mdot" style="background:var(--gold)">G</span><span class="n">Glow Ritual</span><span class="spill sp-y">Awaiting</span></div>
+          <div class="mrow"><span class="mdot" style="background:var(--green)">L</span><span class="n">Lumen Wellness</span><span class="spill sp-g">Paid</span></div>
+          <div class="mrow"><span class="mdot" style="background:var(--coral)">V</span><span class="n">Verde Tea Co.</span><span class="spill sp-r">Past due</span></div>
+          <div class="mrow"><span class="mdot" style="background:var(--purple)">B</span><span class="n">Bloom and Co.</span><span class="v">$2,650</span></div>
+        </div>
+        <h5>Deals</h5>
+      </div>
+      <div class="mock reveal">
+        <div class="card">
+          <div class="mstat"><span>Booked</span><b>$8,400</b></div>
+          <div class="mstat"><span>Paid</span><b style="color:var(--green)" class="cnt" data-n="5150">$0</b></div>
+          <div class="mstat" style="border:none"><span>Outstanding</span><b style="color:var(--gold)" class="cnt" data-n="3250">$0</b></div>
+        </div>
+        <h5>Money</h5>
+      </div>
+      <div class="mock reveal">
+        <div class="card">
+          <div style="font-size:12px;font-weight:700;margin-bottom:4px">August</div>
+          <div class="cal7">
+            <span class="cd">4</span><span class="cd on">5</span><span class="cd">6</span><span class="cd pay">7</span><span class="cd">8</span><span class="cd on">9</span><span class="cd">10</span>
+            <span class="cd">11</span><span class="cd pay">12</span><span class="cd">13</span><span class="cd on">14</span><span class="cd">15</span><span class="cd">16</span><span class="cd">17</span>
+          </div>
+        </div>
+        <h5>Calendar</h5>
+      </div>
+    </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE: ORGANIZED -->
+<section class="feat-sec">
+  <div class="wrap"><div class="tintwrap t-blue fgrid2">
+    <div class="fcopy reveal">
+      <span class="tag">Organized</span>
+      <h2>Every deal, readable at a glance.</h2>
+      <p>Tap any deal and the whole story slides open: value, status, checklist, notes, and its payments. No columns to configure, ever.</p>
+      <ul class="fl"><li>Clean deal list with filters</li><li>Tabbed detail drawer</li><li>Editable status inline</li></ul>
+    </div>
+    <div class="fmedia reveal"><div class="fcard tiltcard">
+      <h6>Glow Ritual <span>$1,800</span></h6>
+      <div class="payrow"><span class="pbar" style="background:var(--gold)"></span><span class="nm">1 Reel + 2 Stories</span><span class="spill sp-y">Due Aug 12</span></div>
+      <div class="payrow"><span class="pbar" style="background:var(--blue)"></span><span class="nm">Draft approved</span><span class="spill" style="background:var(--blue-tint);color:var(--blue)">Done</span></div>
+      <div class="payrow"><span class="pbar" style="background:var(--green)"></span><span class="nm">Payment on delivery</span><span class="am">$1,800</span></div>
+    </div></div>
+  </div></div>
+</section>
+
+<!-- FEATURE: PAID -->
+<section class="feat-sec" id="paid">
+  <div class="wrap"><div class="tintwrap t-green fgrid2 flip">
+    <div class="fcopy reveal">
+      <span class="tag" style="color:var(--green)">Paid</span>
+      <h2>Know when the money lands.</h2>
+      <p>Most tools stop at "deal closed." Talby follows the money the whole way, expected to overdue to received, so nothing slips.</p>
+      <ul class="fl"><li>Payment timeline with due dates</li><li>Past-due flags you can't miss</li><li>Tap to mark received, totals update live</li></ul>
+    </div>
+    <div class="fmedia reveal"><div class="fcard tiltcard">
+      <h6>Payments <span>$3,250 expected</span></h6>
+      <div class="payrow"><span class="pbar" style="background:var(--coral)"></span><span class="nm">Verde Tea Co.</span><span class="spill sp-r">Past due</span></div>
+      <div class="payrow"><span class="pbar" style="background:var(--gold)"></span><span class="nm">Glow Ritual</span><span class="spill sp-y">Aug 12</span></div>
+      <div class="payrow"><span class="pbar" style="background:var(--green)"></span><span class="nm">Lumen Wellness</span><span class="spill sp-g">Received</span></div>
+    </div></div>
+  </div></div>
+</section>
+
+<!-- FEATURE: PLANNED -->
+<section class="feat-sec">
+  <div class="wrap"><div class="tintwrap t-gold fgrid2">
+    <div class="fcopy reveal">
+      <span class="tag" style="color:var(--gold)">Planned</span>
+      <h2>Content that schedules itself.</h2>
+      <p>Set the posts you repeat, every week or every two, and your calendar fills itself in. Deliverables land on their due dates automatically.</p>
+      <ul class="fl"><li>Recurring posts that auto-populate</li><li>Drag to reschedule</li><li>Payments as chips on the calendar</li></ul>
+    </div>
+    <div class="fmedia reveal"><div class="fcard tiltcard">
+      <h6>This week <span>3 planned</span></h6>
+      <div class="payrow"><span class="pbar" style="background:var(--blue)"></span><span class="nm">GRWM Reel</span><span class="spill" style="background:var(--blue-tint);color:var(--blue)">Repeats weekly</span></div>
+      <div class="payrow"><span class="pbar" style="background:var(--purple)"></span><span class="nm">Newsletter</span><span class="spill" style="background:var(--purple-t);color:var(--purple)">Biweekly</span></div>
+      <div class="payrow"><span class="pbar" style="background:var(--gold)"></span><span class="nm">Glow Ritual deliverable</span><span class="spill sp-y">Aug 12</span></div>
+    </div></div>
+  </div></div>
+</section>
+
+<!-- DETAILS -->
+<section class="details" id="details">
+  <div class="wrap">
+    <div class="shead reveal">
+      <h2>Details that matter.</h2>
+      <p>We sweat the small stuff, so you don't have to.</p>
+    </div>
+    <div class="dgrid">
+      <div class="dcard reveal">
+        <div class="demo"><div class="ring"></div><div style="font-size:13px;font-weight:600">4 of 5 free deals used<br><span style="color:var(--ink-2);font-weight:500">Growth looks good on you.</span></div></div>
+        <h4>Honest free plan</h4>
+        <p>The whole app is free up to 5 active deals. Hit the cap and it means business is good. Ten dollars a month removes it.</p>
+      </div>
+      <div class="dcard reveal">
+        <div class="demo"><div class="swrow">
+          <span class="swc" style="background:#1f7ae0"></span><span class="swc" style="background:#8b6cf0"></span><span class="swc" style="background:#2f9e6f"></span><span class="swc" style="background:#f2705b"></span><span class="swc" style="background:#e0a32e"></span>
+        </div></div>
+        <h4>Make it yours</h4>
+        <p>Drag across a palette and watch the app re-tint live. One accent, applied tastefully. Impossible to make ugly.</p>
+      </div>
+      <div class="dcard reveal">
+        <div class="demo"><span class="bigchip" style="background:var(--blue-tint);color:var(--blue)"><span class="d" style="background:var(--blue)"></span>Import from Notion or a spreadsheet</span></div>
+        <h4>Bring your deals with you</h4>
+        <p>Drop in a spreadsheet or connect Notion and Talby reads your columns for you. Your deals appear already organized.</p>
+      </div>
+      <div class="dcard reveal">
+        <div class="demo"><span class="bigchip" style="background:var(--green-t);color:var(--green)"><span class="d" style="background:var(--green)"></span>$1,500 received from Lumen</span></div>
+        <h4>Money you can feel</h4>
+        <p>Mark a payment received and watch your totals move. The satisfying part of the job, made actually satisfying.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faqsec" id="faq">
+  <div class="wrap">
+    <div class="shead reveal"><h2>Questions, answered.</h2></div>
+    <div class="faq reveal">
+      <details open><summary>Is this just another Notion template?<svg class="chev" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></summary><p>No. Notion makes you build the system before you can use it. Talby is the finished thing. Sign up, add a deal, and it works. Nothing to configure, no template to buy.</p></details>
+      <details><summary>What makes it different from a deal tracker?<svg class="chev" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></summary><p>Most trackers stop at deal status. Talby follows the money (expected, overdue, and received) and ties it to a content calendar, so the business side and posting side finally live together.</p></details>
+      <details><summary>Do you post to my social accounts?<svg class="chev" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></summary><p>Not right now. Talby plans and organizes your content. It doesn't publish for you. It's your command center, not your scheduler.</p></details>
+      <details><summary>What happens when I hit 5 deals?<svg class="chev" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></summary><p>Only active deals count. Anything you've wrapped and archived is free and unlimited. When you've got more than five going at once, go unlimited for $10 a month. Usually that means business is good.</p></details>
+      <details><summary>Is my data private?<svg class="chev" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></summary><p>Yes. Everything you add is tied to your account and yours alone. Nobody else can see your deals, your money, or your numbers.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- END CTA -->
+<section class="endcta">
+  <div class="wrap reveal">
+    <div class="ctapanel">
+      <h2>Run the business behind the content.</h2>
+      <p>Set up your command center in minutes. Free to start.</p>
+      <a href="#" class="btn btn-w3d btn-lg">Sign up free</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="fgrid3">
+      <div style="max-width:260px">
+        <div class="brand"><svg class="lmark" width="24" height="23"><use href="#talby-logo"/></svg>Talby</div>
+        <p style="font-size:13.5px;color:var(--ink-2);margin-top:10px">The command center for creators who are actually earning.</p>
+      </div>
+      <div style="display:flex;gap:60px;flex-wrap:wrap">
+        <div class="fcol"><h5>Product</h5><a href="#features">Features</a><a href="#paid">Payments</a><a href="#details">Details</a><a href="#faq">FAQ</a></div>
+        <div class="fcol"><h5>Company</h5><a href="#">About</a><a href="#">Privacy</a><a href="#">Terms</a><a href="#">Contact</a></div>
+        <div class="fcol"><h5>Start</h5><a href="#">Sign up free</a><a href="#">Log in</a></div>
+      </div>
+    </div>
+    <div class="fbot"><span>© 2026 Talby</span><span>Made for creators, not spreadsheets.</span></div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script>
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+
+  if(!reduce && window.gsap){
+    gsap.registerPlugin(ScrollTrigger);
+
+    // HERO intro
+    gsap.to('#heroH .w',{opacity:1,y:0,duration:.7,ease:'power3.out',stagger:.07,delay:.1,startAt:{y:30}});
+    gsap.to('#heroP',{opacity:1,y:0,duration:.7,ease:'power3.out',delay:.6,startAt:{y:20}});
+    gsap.to('#heroC',{opacity:1,y:0,duration:.7,ease:'power3.out',delay:.75,startAt:{y:20}});
+    gsap.to('#heroN',{opacity:1,duration:.7,delay:.9});
+
+    // hero floating symbols: pop in, drift forever, parallax on mouse
+    gsap.to('.orb',{opacity:1,scale:1,duration:.8,ease:'back.out(1.8)',stagger:.08,delay:.5,startAt:{scale:.4}});
+    // hero dashboard mock: entrance, count-up money, capacity fill, rows stagger in
+    gsap.to('#heromock',{opacity:1,y:0,scale:1,duration:1,ease:'power3.out',delay:1.0,startAt:{y:60,scale:.97}});
+    gsap.to('.hm-row',{opacity:1,x:0,duration:.55,ease:'power2.out',stagger:.09,delay:1.5,startAt:{x:-14}});
+    gsap.utils.toArray('.hnum').forEach((el,i)=>{
+      const n=+el.dataset.n,o={v:0};
+      gsap.to(o,{v:n,duration:1.3,ease:'power2.out',delay:1.4+i*.15,onUpdate:()=>{el.textContent='$'+Math.round(o.v).toLocaleString();}});
+    });
+    gsap.to('#hcap',{width:'80%',duration:1,ease:'power2.out',delay:1.7});
+
+    // mobile orb row: rise from behind the header (re-arms whenever view becomes mobile), then float forever
+    const mm=gsap.matchMedia();
+    mm.add('(max-width: 900px)',()=>{
+      const floats=[];
+      const rise=gsap.fromTo('.orb-m',
+        {opacity:0,y:70,scale:.5},
+        {opacity:1,y:0,scale:1,duration:.75,ease:'back.out(1.7)',stagger:.1,delay:.9,
+          onComplete:()=>{gsap.utils.toArray('.orb-m').forEach((o,i)=>{floats.push(gsap.to(o,{y:'-=8',duration:2.2+i*.3,ease:'sine.inOut',yoyo:true,repeat:-1}));});}
+        });
+      return ()=>{rise.kill();floats.forEach(t=>t.kill());gsap.set('.orb-m',{clearProps:'all'});};
+    });
+    gsap.utils.toArray('.orb').forEach((o,i)=>{
+      gsap.to(o,{y:'+=14',rotation:'+='+(i%2?6:-6),duration:2.6+i*.35,ease:'sine.inOut',yoyo:true,repeat:-1});
+    });
+    const hero=document.querySelector('.hero');
+    hero.addEventListener('mousemove',e=>{
+      const cx=(e.clientX/window.innerWidth-.5), cy=(e.clientY/window.innerHeight-.5);
+      gsap.utils.toArray('.orb').forEach((o,i)=>{
+        const depth=(i%3+1)*10;
+        gsap.to(o,{x:cx*depth,duration:.8,ease:'power2.out',overwrite:'auto'});
+      });
+    });
+
+    // scroll reveals
+    gsap.utils.toArray('.reveal').forEach(el=>{
+      gsap.to(el,{opacity:1,y:0,duration:.9,ease:'power3.out',
+        scrollTrigger:{trigger:el,start:'top 86%'}});
+    });
+
+    // section panels: rise + settle as they enter
+    gsap.utils.toArray('.tintwrap, .ctapanel').forEach(p=>{
+      gsap.from(p,{opacity:0,y:60,scale:.965,duration:1,ease:'power3.out',
+        scrollTrigger:{trigger:p,start:'top 85%'}});
+    });
+
+    // action cards: springy stagger
+    ScrollTrigger.batch('.act',{start:'top 88%',onEnter:b=>gsap.fromTo(b,{scale:.92,opacity:0,y:26},{scale:1,opacity:1,y:0,duration:.7,ease:'back.out(1.6)',stagger:.09})});
+
+
+    // count-up money
+    gsap.utils.toArray('.cnt').forEach(el=>{
+      const n=+el.dataset.n;
+      ScrollTrigger.create({trigger:el,start:'top 85%',once:true,onEnter:()=>{
+        const o={v:0};
+        gsap.to(o,{v:n,duration:1.4,ease:'power2.out',onUpdate:()=>{el.textContent='$'+Math.round(o.v).toLocaleString();}});
+      }});
+    });
+
+    // feature cards: gentle parallax + tilt on hover
+    gsap.utils.toArray('.tiltcard').forEach(card=>{
+      gsap.to(card,{y:-24,scrollTrigger:{trigger:card,start:'top bottom',end:'bottom top',scrub:1.2}});
+      card.addEventListener('mousemove',e=>{
+        const r=card.getBoundingClientRect();
+        const rx=((e.clientY-r.top)/r.height-.5)*-8;
+        const ry=((e.clientX-r.left)/r.width-.5)*8;
+        gsap.to(card,{rotationX:rx,rotationY:ry,transformPerspective:800,duration:.4,ease:'power2.out'});
+      });
+      card.addEventListener('mouseleave',()=>gsap.to(card,{rotationX:0,rotationY:0,duration:.6,ease:'power3.out'}));
+    });
+
+    // act card tilt
+    gsap.utils.toArray('.act').forEach(card=>{
+      card.addEventListener('mousemove',e=>{
+        const r=card.getBoundingClientRect();
+        gsap.to(card,{rotationX:((e.clientY-r.top)/r.height-.5)*-7,rotationY:((e.clientX-r.left)/r.width-.5)*7,transformPerspective:900,duration:.35});
+      });
+      card.addEventListener('mouseleave',()=>gsap.to(card,{rotationX:0,rotationY:0,duration:.5,ease:'power3.out'}));
+    });
+  } else {
+    document.querySelectorAll('.reveal,#heroP,#heroC,#heroN').forEach(el=>{el.style.opacity=1;el.style.transform='none';});
+    document.querySelectorAll('#heroH .w').forEach(el=>el.style.opacity=1);
+    document.querySelectorAll('.orb-m').forEach(el=>{el.style.opacity=1;});
+    const hm=document.getElementById('heromock'); if(hm){hm.style.opacity=1;}
+    document.querySelectorAll('.hm-row').forEach(el=>el.style.opacity=1);
+    document.querySelectorAll('.hnum').forEach(el=>el.textContent='$'+(+el.dataset.n).toLocaleString());
+    const hc=document.getElementById('hcap'); if(hc){hc.style.width='80%';}
+    document.querySelectorAll('.cnt').forEach(el=>el.textContent='$'+(+el.dataset.n).toLocaleString());
+  }
+</script>
+</body>
+</html>

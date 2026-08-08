@@ -61,8 +61,14 @@ export function AppShell({
     })();
   }, [supabase, pathname]);
 
-  // Persist an accent change to the profile + apply live.
-  const changeAccent = async (hsl: HSL) => {
+  // Preview an accent change live WITHOUT persisting (used by the picker).
+  const previewAccent = (hsl: HSL) => {
+    applyAccent(hsl);
+    setAccentState(hsl);
+  };
+
+  // Persist the chosen accent to the profile + apply live.
+  const saveAccent = async (hsl: HSL) => {
     applyAccent(hsl);
     setAccentState(hsl);
     const { data: { user } } = await supabase.auth.getUser();
@@ -124,7 +130,7 @@ export function AppShell({
 
         {/* Sidebar footer: theme control + upsell */}
         <div className="mt-auto pt-4 flex flex-col gap-3">
-          <ThemePopover current={accentState} onChange={changeAccent} />
+          <ThemePopover current={accentState} onPreview={previewAccent} onSave={saveAccent} />
           {plan === "free" && (
             <UpsellCard used={capUsed} cap={FREE_ACTIVE_DEAL_CAP} />
           )}
@@ -156,7 +162,7 @@ export function AppShell({
         {mobileOpen && (
           <div className="border-b border-line bg-rail px-3 py-3 shadow-card z-20 space-y-4">
             {renderNav()}
-            <ThemePopover current={accentState} onChange={changeAccent} />
+            <ThemePopover current={accentState} onPreview={previewAccent} onSave={saveAccent} />
             {plan === "free" && <UpsellCard used={capUsed} cap={FREE_ACTIVE_DEAL_CAP} />}
             <div className="flex items-center justify-between px-2 pt-1 border-t border-line">
               <button onClick={signOut} className="flex items-center gap-2 text-[13px] text-inksoft"><IconLogout size={16} /> Sign out</button>

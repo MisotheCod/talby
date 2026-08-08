@@ -15,6 +15,11 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [current, setCurrent] = useState<HSL>(DEFAULT_HSL);
+  const [savedTheme, setSavedTheme] = useState<HSL>(DEFAULT_HSL);
+  const [hue, setHue] = useState(DEFAULT_HSL.h);
+  const [dirty, setDirty] = useState(false);
+  const [themeSaving, setThemeSaving] = useState(false);
+  const [themeSaved, setThemeSaved] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -25,18 +30,42 @@ export default function SettingsPage() {
       setProfile(p);
       const hsl = parseHSL(p?.accent) ?? DEFAULT_HSL;
       setCurrent(hsl);
+      setSavedTheme(hsl);
+      setHue(hsl.h);
       applyAccent(hsl);
     })();
   }, [supabase]);
 
-  const persist = async (hsl: HSL) => {
+  // Preview a theme change live; does NOT persist.
+  const previewTheme = (hsl: HSL) => {
     applyAccent(hsl);
     setCurrent(hsl);
+    setHue(hsl.h);
+    setDirty(true);
+    setThemeSaved(false);
+  };
+
+  // Persist the chosen theme to the profile.
+  const saveTheme = async () => {
+    setThemeSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      setProfile((pr) => (pr ? { ...pr, accent: serializeHSL(hsl) } : pr));
-      await supabase.from("profiles").update({ accent: serializeHSL(hsl) }).eq("id", user.id);
+      setProfile((pr) => (pr ? { ...pr, accent: serializeHSL(current) } : pr));
+      await supabase.from("profiles").update({ accent: serializeHSL(current) }).eq("id", user.id);
     }
+    setSavedTheme(current);
+    setDirty(false);
+    setThemeSaving(false);
+    setThemeSaved(true);
+  };
+
+  // Revert unsaved changes to the last saved theme.
+  const cancelTheme = () => {
+    applyAccent(savedTheme);
+    setCurrent(savedTheme);
+    setHue(savedTheme.h);
+    setDirty(false);
+    setThemeSaved(false);
   };
 
   const startUpgrade = async () => {
@@ -88,11 +117,12 @@ export default function SettingsPage() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-3">
+
+        <div className="flex flex-wrap items-center gap-3">
           {ACCENT_PRESETS.map((p) => (
             <button
               key={p.name}
-              onClick={() => persist({ h: p.h, s: p.s, l: p.l })}
+              onClick={() => previewTheme({ h: p.h, s: p.s, l: p.l })}
               aria-label={p.name}
               className={cn("relative h-10 w-10 rounded-full grid place-items-center shadow-sm cursor-pointer hover:scale-105 transition-transform", isOn(p) && "ring-2 ring-ink ring-offset-2")}
               style={{ background: `hsl(${p.h},${p.s}%,${p.l}%)` }}
@@ -101,6 +131,32 @@ export default function SettingsPage() {
               <span className="sr-only">{p.name}</span>
             </button>
           ))}
+        </div>
+
+        <div className="max-w-xs">
+          <div className="text-[11px] text-inkfaint mb-[7px]">Or drag for any shade</div>
+          <input
+            type="range"
+            className="hue w-full"
+            min={0}
+            max={360}
+            value={hue}
+            aria-label="Accent hue"
+            onChange={(e) => previewTheme({ h: Number(e.target.value), s: current.s, l: current.l })}
+          />
+        </div>
+
+        <div className="flex items-center gap-2 pt-1">
+          <Button onClick={saveTheme} disabled={themeSaving}>
+            {themeSaving ? <Spinner /> : null}
+            {themeSaved ? "Theme saved" : "Save theme"}
+          </Button>
+          {dirty && (
+            <Button variant="secondary" onClick={cancelTheme}>Cancel</Button>
+          )}
+          {dirty && !themeSaved && (
+            <span className="text-xs text-inksoft">Previewing, not saved yet</span>
+          )}
         </div>
       </div>
 
