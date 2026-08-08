@@ -6,6 +6,7 @@ import { ACCENT_PRESETS, applyAccent, DEFAULT_HSL, parseHSL, serializeHSL, type 
 import { cn } from "@/lib/utils";
 import { IconCheck, IconCrown } from "@/components/icons";
 import { StatusPill, Button, Spinner } from "@/components/ui";
+import { NudgeSettings } from "@/components/nudge-settings";
 
 type Profile = { handler: string | null; accent: string | null; plan: string };
 
@@ -166,6 +167,9 @@ export default function SettingsPage() {
         <p className="text-sm text-inksoft mb-3">Shown in your greeting on the Overview.</p>
         <HandlerField initial={profile?.handler ?? ""} />
       </div>
+
+      {/* Nudges */}
+      <NudgeSettings />
 
       {error && <p className="text-sm text-late" role="alert">{error}</p>}
     </div>

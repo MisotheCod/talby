@@ -19,6 +19,8 @@ export default function PaymentsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
+  const [nudgeMsg, setNudgeMsg] = useState<{ paymentId: string; kind: "ok" | "warn"; text: string } | null>(null);
 
   const load = useCallback(async () => {
     const [p, d] = await Promise.all([
@@ -45,6 +47,35 @@ export default function PaymentsPage() {
   const markReceived = async (id: string) => {
     await supabase.from("payments").update({ status: "received" }).eq("id", id);
     load();
+  };
+
+  const nudgePayment = async (p: Payment) => {
+    // Resolve deal rep email + nudge mode for the message.
+    const dealId = p.deal_id;
+    let repEmail: string | null = null;
+    let nudgeMode = "draft";
+    if (dealId) {
+      const d = await supabase.from("deals").select("rep_email, nudge_mode").eq("id", dealId).single();
+      const row = (d.data ?? {}) as unknown as { rep_email?: string | null; nudge_mode?: string };
+      repEmail = row.rep_email ?? null;
+      nudgeMode = row.nudge_mode ?? "draft";
+    }
+    if (!repEmail) { setNudgeMsg({ paymentId: p.id, kind: "warn", text: "Add a rep email to nudge this one (edit the deal)." }); return; }
+    setNudgeBusy(p.id); setNudgeMsg(null);
+    try {
+      const res = await fetch("/api/nudges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deal_id: dealId, payment_id: p.id, action: "draft" }),
+      });
+      const data = await res.json();
+      if (data.error === "already_paid") setNudgeMsg({ paymentId: p.id, kind: "ok", text: "Already received, no nudge will be sent." });
+      else if (data.error === "paid_required") setNudgeMsg({ paymentId: p.id, kind: "warn", text: "Nudges are on the paid plan. Chasing this? Go unlimited and Talby drafts the follow-up for you." });
+      else if (data.mode === "draft") setNudgeMsg({ paymentId: p.id, kind: "ok", text: `Draft ready in Gmail: ${data.subject}. Review and send.` });
+      else if (data.mode === "copy") setNudgeMsg({ paymentId: p.id, kind: "ok", text: `Nudge prepared: ${data.subject}. Connect Gmail to send, or copy it.` });
+      else setNudgeMsg({ paymentId: p.id, kind: "warn", text: data.message || data.error || "Could not prepare the nudge." });
+    } catch { setNudgeMsg({ paymentId: p.id, kind: "warn", text: "Could not reach the nudge service." }); }
+    setNudgeBusy(null);
   };
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="grid grid-cols-3 gap-4"><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /></div></div>;
@@ -82,11 +113,15 @@ export default function PaymentsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-bad tabular-nums">{formatMoney(p.amount)}</span>
+                    <Button size="sm" variant="ghost" onClick={() => nudgePayment(p)} disabled={nudgeBusy === p.id}><NudgeSendIcon /> Send a nudge</Button>
                     <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Received</Button>
                   </div>
                 </li>
               ))}
             </ul>
+          )}
+          {pastDue.some((p) => nudgeMsg?.paymentId === p.id) && (
+            <p className={cn("text-xs mt-3", nudgeMsg?.kind === "ok" ? "text-ok" : "text-warn")}>{nudgeMsg?.text}</p>
           )}
         </div>
 
@@ -205,4 +240,8 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: Deal[]; onClose: 
       </div>
     </div>
   );
+}
+
+function NudgeSendIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" /></svg>;
 }

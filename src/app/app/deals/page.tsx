@@ -14,6 +14,7 @@ type Deal = {
   id: string; brand: string; status: string; deliverable: string | null;
   value: number | null; due_date: string | null; notes: string | null;
   links: { url: string; label?: string }[]; active: boolean;
+  rep_name: string | null; rep_email: string | null; nudge_mode: string;
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
@@ -198,6 +199,8 @@ function NewDealModal({ plan, activeCount, onClose, onCreated, onUpgrade }: { pl
   const [status, setStatus] = useState("active");
   const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
+  const [repName, setRepName] = useState("");
+  const [repEmail, setRepEmail] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -213,6 +216,7 @@ function NewDealModal({ plan, activeCount, onClose, onCreated, onUpgrade }: { pl
       user_id: user.id, brand: brand.trim(), deliverable: deliverable.trim() || null,
       value: value ? Number(value) : null, status, due_date: dueDate || null,
       notes: notes.trim() || null, active: status !== "archived",
+      rep_name: repName.trim() || null, rep_email: repEmail.trim() || null,
     });
     setSaving(false);
     if (error) { setError(error.message); return; }
@@ -245,6 +249,10 @@ function NewDealModal({ plan, activeCount, onClose, onCreated, onUpgrade }: { pl
           </Select>
         </Field>
         <Field label="Notes"><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any details…" /></Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Rep name"><Input value={repName} onChange={(e) => setRepName(e.target.value)} placeholder="e.g. Sam Rivera" /></Field>
+          <Field label="Rep email"><Input type="email" value={repEmail} onChange={(e) => setRepEmail(e.target.value)} placeholder="sam@brand.com" /></Field>
+        </div>
         {error && <p className="text-sm text-late" role="alert">{error}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -351,8 +359,19 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
   const [status, setStatus] = useState(deal.status);
   const [dueDate, setDueDate] = useState(deal.due_date ?? "");
   const [deliverable, setDeliverable] = useState(deal.deliverable ?? "");
+  const [repName, setRepName] = useState(deal.rep_name ?? "");
+  const [repEmail, setRepEmail] = useState(deal.rep_email ?? "");
+  const [nudgeMode, setNudgeMode] = useState(deal.nudge_mode ?? "draft");
   const [links, setLinks] = useState<{ url: string; label?: string }[]>(deal.links as { url: string; label?: string }[] ?? []);
+  const [nudges, setNudges] = useState<{ sequence_step: number; subject: string; status: string; sent_at: string | null }[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("nudges").select("sequence_step, subject, status, sent_at").eq("deal_id", deal.id).order("created_at", { ascending: false });
+      setNudges((data ?? []) as unknown as { sequence_step: number; subject: string; status: string; sent_at: string | null }[]);
+    })();
+  }, [supabase, deal.id]);
 
   const save = async () => {
     setSaving(true);
@@ -360,6 +379,9 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
       value: value ? Number(value) : null,
       status, due_date: dueDate || null,
       deliverable: deliverable || null,
+      rep_name: repName || null,
+      rep_email: repEmail || null,
+      nudge_mode: nudgeMode,
       links: links.filter((l) => l.url).map((l) => ({ url: l.url, label: l.label || l.url })),
       active: status !== "archived",
     }).eq("id", deal.id);
@@ -371,7 +393,7 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
     <div className="space-y-4">
       <Field label="Deliverable"><Input value={deliverable} onChange={(e) => setDeliverable(e.target.value)} /></Field>
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Value ($)"><Input type="number" value={value} onChange={(e) => setValue(e.target.value)} /></Field>
+        <Field label="Value ($)"><Input type="number" value={value} onChange={(e) => setValue(e.target.value)} placeholder="1500" /></Field>
         <Field label="Status">
           <Select value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="active">Active</option><option value="pipeline">Pipeline</option>
@@ -381,6 +403,30 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
         </Field>
       </div>
       <Field label="Due date"><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
+
+      {/* Rep contact + nudging (paid feature) */}
+      <div className="border-t border-line pt-4">
+        <div className="text-[12px] font-semibold uppercase tracking-wide text-inkfaint mb-3">Rep contact</div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Rep name"><Input value={repName} onChange={(e) => setRepName(e.target.value)} placeholder="e.g. Sam Rivera" /></Field>
+          <Field label="Rep email"><Input type="email" value={repEmail} onChange={(e) => setRepEmail(e.target.value)} placeholder="sam@brand.com" /></Field>
+        </div>
+        <Field label="Nudge mode">
+          <Select value={nudgeMode} onChange={(e) => setNudgeMode(e.target.value)}>
+            <option value="off">Off (no nudging)</option>
+            <option value="notify">Notify (flag past due in-app)</option>
+            <option value="draft">Draft (prepare for review, you send)</option>
+            <option value="auto">Auto (send on schedule)</option>
+          </Select>
+        </Field>
+        {nudgeMode === "auto" && (
+          <p className="text-xs text-due -mt-1">
+            Auto mode sends follow-ups from your Gmail on schedule. Talby will send
+            up to your max nudges, then stop. Mark the payment received anytime to stop it instantly.
+          </p>
+        )}
+      </div>
+
       <Field label="Links">
         <div className="space-y-2">
           {links.map((l, i) => (
@@ -393,6 +439,23 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
         </div>
       </Field>
       <div className="flex justify-end"><Button onClick={save} disabled={saving}>{saving ? <Spinner /> : "Save changes"}</Button></div>
+
+      {nudges.length > 0 && (
+        <div className="border-t border-line pt-3">
+          <div className="text-[12px] font-semibold uppercase tracking-wide text-inkfaint mb-2">Nudge history</div>
+          <div className="space-y-2">
+            {nudges.map((n, i) => (
+              <div key={i} className="flex items-center gap-3 text-sm">
+                <StatusPill kind={n.status === "sent" ? "paid" : n.status === "skipped" ? "neutral" : "due"}>
+                  {n.status === "sent" ? "Sent" : n.status === "skipped" ? "Skipped" : "Draft"}
+                </StatusPill>
+                <span className="flex-1 truncate text-inksoft">{n.subject}</span>
+                {n.sent_at && <span className="text-xs text-inkfaint">{new Date(n.sent_at).toLocaleDateString()}</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -498,6 +561,52 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged }: { dealI
   const supabase = createClient();
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
+  const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
+  const [nudgeMsg, setNudgeMsg] = useState<{ id: string; kind: "ok" | "warn"; text: string } | null>(null);
+  const [plan, setPlan] = useState<"free" | "paid">("free");
+  const [repEmail, setRepEmail] = useState<string | null>(null);
+  const [dealNudgeMode, setDealNudgeMode] = useState<string>("draft");
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+        setPlan((p.data as unknown as { plan?: string })?.plan === "paid" ? "paid" : "free");
+      }
+      const d = await supabase.from("deals").select("rep_email, nudge_mode").eq("id", dealId).single();
+      const row = (d.data ?? {}) as unknown as { rep_email?: string | null; nudge_mode?: string };
+      setRepEmail(row.rep_email ?? null);
+      setDealNudgeMode(row.nudge_mode ?? "draft");
+    })();
+  }, [supabase, dealId]);
+
+  const nudgePayment = async (p: Payment) => {
+    if (plan !== "paid") { setNudgeMsg({ id: p.id, kind: "warn", text: "Nudges are on the paid plan. Chasing this? Go unlimited and Talby drafts the follow-up for you." }); return; }
+    if (!repEmail) { setNudgeMsg({ id: p.id, kind: "warn", text: "Add a rep email to nudge this one." }); return; }
+    setNudgeBusy(p.id); setNudgeMsg(null);
+    try {
+      const res = await fetch("/api/nudges", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deal_id: dealId, payment_id: p.id, action: "draft" }),
+      });
+      const data = await res.json();
+      if (data.error === "already_paid") {
+        setNudgeMsg({ id: p.id, kind: "ok", text: "This payment is already received, so no nudge will be sent." });
+      } else if (data.mode === "draft") {
+        setNudgeMsg({ id: p.id, kind: "ok", text: `Draft ready in Gmail: ${data.subject}. Review and send from your account.` });
+      } else if (data.mode === "copy") {
+        setNudgeMsg({ id: p.id, kind: "ok", text: `Nudge prepared: ${data.subject}. Connect Gmail to send, or copy it into your email client.` });
+      } else {
+        setNudgeMsg({ id: p.id, kind: "warn", text: data.message || data.error || "Could not prepare the nudge." });
+      }
+    } catch {
+      setNudgeMsg({ id: p.id, kind: "warn", text: "Could not reach the nudge service." });
+    }
+    setNudgeBusy(null);
+  };
+
   const add = async () => {
     if (!amount) return;
     const { data: { user } } = await supabase.auth.getUser();
@@ -519,15 +628,27 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged }: { dealI
       <Button onClick={add} className="w-full"><IconPlus size={16} /> Add payment</Button>
       <ul className="space-y-2">
         {payments.map((p) => (
-          <li key={p.id} className="flex items-center justify-between py-2 border-b border-line last:border-0">
-            <div>
-              <div className="font-semibold money tabular-nums">{formatMoney(p.amount)}</div>
-              <div className={cn("text-xs", p.status === "received" ? "text-paid" : isPastDue(p.expected_date) ? "text-late" : "text-inksoft")}>
-                {p.status === "received" ? "Received" : isPastDue(p.expected_date) ? "Past due" : formatDate(p.expected_date)}
+          <li key={p.id} className="py-2 border-b border-line last:border-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="font-semibold money tabular-nums">{formatMoney(p.amount)}</div>
+                <div className={cn("text-xs", p.status === "received" ? "text-paid" : isPastDue(p.expected_date) ? "text-late" : "text-inksoft")}>
+                  {p.status === "received" ? "Received" : isPastDue(p.expected_date) ? "Past due" : formatDate(p.expected_date)}
+                </div>
               </div>
+              {p.status !== "received" && (
+                <div className="flex items-center gap-2">
+                  {isPastDue(p.expected_date) && (
+                    <Button size="sm" variant="ghost" onClick={() => nudgePayment(p)} disabled={nudgeBusy === p.id}>
+                      <SendIcon /> {dealNudgeMode === "auto" ? "Nudge status" : "Send a nudge"}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark received</Button>
+                </div>
+              )}
             </div>
-            {p.status !== "received" && (
-              <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark received</Button>
+            {nudgeMsg?.id === p.id && (
+              <p className={cn("text-xs mt-1.5", nudgeMsg.kind === "ok" ? "text-paid" : "text-due")}>{nudgeMsg.text}</p>
             )}
           </li>
         ))}
@@ -535,4 +656,8 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged }: { dealI
       {payments.length === 0 && <p className="text-sm text-inksoft py-2">No payments on this deal yet.</p>}
     </div>
   );
+}
+
+function SendIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" /></svg>;
 }
