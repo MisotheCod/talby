@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { IconCheck, IconPlus, IconDelete, IconNotes } from "@/components/icons";
 import { Button, Input, Textarea } from "@/components/ui";
 
-type Todo = { id: string; title: string; done: boolean };
+type Todo = { id: string; title: string; done: boolean; due_date: string | null };
 type Note = { id: string; body: string };
 
 export default function NotesPage() {
@@ -14,6 +14,7 @@ export default function NotesPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [note, setNote] = useState<Note | null>(null);
   const [todoInput, setTodoInput] = useState("");
+  const [todoDate, setTodoDate] = useState("");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const userIdRef = useRef<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,8 +65,8 @@ export default function NotesPage() {
     if (!todoInput.trim()) return;
     const uid = userIdRef.current;
     if (!uid) return;
-    const { data } = await supabase.from("todos").insert({ user_id: uid, title: todoInput.trim() }).select().single();
-    if (data) { setTodos([...(todos as Todo[]), data as unknown as Todo]); setTodoInput(""); }
+    const { data } = await supabase.from("todos").insert({ user_id: uid, title: todoInput.trim(), due_date: todoDate || null }).select().single();
+    if (data) { setTodos([...(todos as Todo[]), data as unknown as Todo]); setTodoInput(""); setTodoDate(""); }
   };
 
   const toggleTodo = async (id: string, done: boolean) => {
@@ -94,8 +95,9 @@ export default function NotesPage() {
             <h2 className="font-semibold">To-dos</h2>
             <span className="text-sm text-muted">{remaining} remaining</span>
           </div>
-          <div className="flex gap-2 mb-4">
-            <Input value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTodo()} placeholder="Add a to-do…" />
+          <div className="flex gap-2 mb-4 items-center">
+            <Input value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTodo()} placeholder="Add a to-do…" className="flex-1" />
+            <Input type="date" value={todoDate} onChange={(e) => setTodoDate(e.target.value)} className="w-[150px] shrink-0" aria-label="Due date" />
             <Button onClick={addTodo}><IconPlus size={16} /></Button>
           </div>
           <ul className="space-y-1">
@@ -105,6 +107,17 @@ export default function NotesPage() {
                   {t.done && <IconCheck size={12} />}
                 </button>
                 <span className={cn("text-sm flex-1", t.done && "line-through text-muted")}>{t.title}</span>
+                <Input
+                  type="date"
+                  value={t.due_date ?? ""}
+                  onChange={async (e) => {
+                    const due = e.target.value || null;
+                    setTodos(todos.map((x) => (x.id === t.id ? { ...x, due_date: due } : x)));
+                    await supabase.from("todos").update({ due_date: due }).eq("id", t.id);
+                  }}
+                  className="w-[140px] shrink-0 text-xs h-8"
+                  aria-label="Due date"
+                />
                 <button onClick={() => deleteTodo(t.id)} aria-label="Delete to-do" className="text-muted hover:text-bad cursor-pointer"><IconDelete size={14} /></button>
               </li>
             ))}

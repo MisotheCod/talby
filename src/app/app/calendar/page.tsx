@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
-import { IconPlus, IconClose, IconCheck } from "@/components/icons";
-import { Button, Input, Select, Spinner } from "@/components/ui";
+import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
+import { Button, Input, Select, Spinner, Textarea } from "@/components/ui";
 
 type Content = {
   id: string; title: string; platform: string | null; post_type: string | null;
@@ -13,8 +13,21 @@ type Content = {
 };
 type Deal = { id: string; brand: string };
 type Payment = { id: string; amount: number; expected_date: string | null; status: string };
+type Todo = { id: string; title: string; done: boolean; due_date: string | null };
 
 const FILTERS = ["All", "Posts", "Deliverables", "Payments"] as const;
+
+const PLATFORMS = [
+  "TikTok", "Instagram", "YouTube", "YouTube Shorts", "Twitch",
+  "X", "Facebook", "LinkedIn", "Pinterest", "Snapchat", "Threads",
+  "Blog", "Newsletter", "Podcast", "Other",
+];
+const POST_TYPES = [
+  "Reel", "Story", "Post", "Photo", "Carousel", "Video", "Short",
+  "Long-form", "Live", "Thread", "Article", "Podcast episode",
+  "Newsletter issue", "Pinned", "Other",
+];
+
 const REPEAT = [
   { id: "", label: "Once" },
   { id: "weekly", label: "Weekly" },
@@ -41,22 +54,42 @@ export default function CalendarPage() {
   const [content, setContent] = useState<Content[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [popover, setPopover] = useState<{ date: string; x: number; y: number } | null>(null);
+  const [selected, setSelected] = useState<{ itemId: string; type: "content" | "deliverable" | "payment" | "todo"; x: number; y: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
+
+  const selectedContent = useMemo(() => {
+    if (!selected || selected.type === "payment") return null;
+    const c = content.find((x) => x.id === selected.itemId);
+    if (!c) return null;
+    // also fetch the full row (captions/notes may exist beyond the select)
+    return c;
+  }, [selected, content]);
+  const selectedPayment = useMemo(() => {
+    if (!selected || selected.type !== "payment") return null;
+    return payments.find((p) => "pay" + p.id === selected.itemId) ?? null;
+  }, [selected, payments]);
+  const selectedTodo = useMemo(() => {
+    if (!selected || selected.type !== "todo") return null;
+    return todos.find((t) => "todo" + t.id === selected.itemId) ?? null;
+  }, [selected, todos]);
 
   const load = useCallback(async () => {
     const from = toISO(new Date(cursor.y, cursor.m, 1));
     const to = toISO(new Date(cursor.y, cursor.m + 1, 0));
-    const [c, d, p] = await Promise.all([
+    const [c, d, p, t] = await Promise.all([
       supabase.from("content").select("*").gte("event_date", from).lte("event_date", to),
       supabase.from("deals").select("id, brand"),
       supabase.from("payments").select("*").gte("expected_date", from).lte("expected_date", to),
+      supabase.from("todos").select("*").not("due_date", "is", null).gte("due_date", from).lte("due_date", to),
     ]);
     setContent((c.data ?? []) as unknown as Content[]);
     setDeals((d.data ?? []) as unknown as Deal[]);
     setPayments((p.data ?? []) as unknown as Payment[]);
+    setTodos((t.data ?? []) as unknown as Todo[]);
     setLoading(false);
   }, [supabase, cursor]);
 
@@ -75,11 +108,13 @@ export default function CalendarPage() {
   }, [cursor]);
 
   const dayItems = (iso: string) => {
-    const items: { type: "content" | "deliverable" | "payment"; id: string; title: string; color?: string }[] = [];
+    const items: { type: "content" | "deliverable" | "payment" | "todo"; id: string; title: string; color?: string }[] = [];
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => items.push({ type: c.status === "published" ? "deliverable" : "content", id: c.id, title: c.title }));
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
     dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: formatMoney(p.amount) }));
+    const dayTodos = todos.filter((t) => !t.done && t.due_date === iso);
+    dayTodos.forEach((t) => items.push({ type: "todo", id: "todo" + t.id, title: t.title }));
     return items;
   };
 
@@ -141,9 +176,16 @@ export default function CalendarPage() {
                       onDragStart={() => setDragId(it.id)}
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={(e) => { e.stopPropagation(); onDropToDay(iso, it.id); }}
+                      onClick={(e) => {
+                        if (dragId) return;
+                        e.stopPropagation();
+                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        setSelected({ itemId: it.id, type: it.type, x: r.left, y: r.bottom + 6, date: iso });
+                      }}
                       className={cn(
-                        "text-[11px] truncate rounded px-1 py-0.5",
+                        "text-[11px] truncate rounded px-1 py-0.5 cursor-pointer",
                         it.type === "payment" ? "bg-warn/15 text-warn font-semibold" :
+                        it.type === "todo" ? "bg-purple/15 text-purple" :
                         it.type === "content" ? "accent-soft" : "bg-ok/10 text-ok"
                       )}
                     >
@@ -166,6 +208,32 @@ export default function CalendarPage() {
           deals={deals}
           onClose={() => setPopover(null)}
           onSaved={() => { setPopover(null); load(); }}
+        />
+      )}
+
+      {selected && selectedContent && (
+        <ContentDetailPopover
+          item={selectedContent}
+          deals={deals}
+          position={{ x: selected.x, y: selected.y }}
+          onClose={() => setSelected(null)}
+          onSaved={() => { setSelected(null); load(); }}
+        />
+      )}
+      {selected && selectedPayment && (
+        <PaymentDetailPopover
+          payment={selectedPayment}
+          position={{ x: selected.x, y: selected.y }}
+          onClose={() => setSelected(null)}
+          onSaved={() => { setSelected(null); load(); }}
+        />
+      )}
+      {selected && selectedTodo && (
+        <TodoDetailPopover
+          todo={selectedTodo}
+          position={{ x: selected.x, y: selected.y }}
+          onClose={() => setSelected(null)}
+          onSaved={() => { setSelected(null); load(); }}
         />
       )}
     </div>
@@ -217,8 +285,20 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
         <div className="space-y-3">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Post title" autoFocus />
           <div className="grid grid-cols-2 gap-3">
-            <Input value={platform} onChange={(e) => setPlatform(e.target.value)} placeholder="Platform" />
-            <Input value={postType} onChange={(e) => setPostType(e.target.value)} placeholder="Post type" />
+            <label className="block">
+              <span className="text-xs text-muted mb-1 block">Platform</span>
+              <Select value={platform} onChange={(e) => setPlatform(e.target.value)}>
+                <option value="">Choose platform</option>
+                {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </Select>
+            </label>
+            <label className="block">
+              <span className="text-xs text-muted mb-1 block">Post type</span>
+              <Select value={postType} onChange={(e) => setPostType(e.target.value)}>
+                <option value="">Choose post type</option>
+                {POST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </Select>
+            </label>
           </div>
           <Select value={dealId} onChange={(e) => setDealId(e.target.value)}>
             <option value="">No link, just a post</option>
@@ -262,5 +342,175 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
         </div>
       </div>
     </div>
+  );
+}
+
+/* ---------------- Mini detail/edit modals (anchored next to the clicked item) ---------------- */
+function MiniModal({ position, onClose, title, children }: {
+  position: { x: number; y: number };
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const x = Math.min(position.x, window.innerWidth - 340);
+  const y = Math.min(position.y, window.innerHeight - 200);
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="fixed z-50 w-[330px] bg-white border border-line rounded-xl shadow-lg p-4 fade-up"
+        style={{ left: Math.max(8, x), top: Math.max(8, y) }}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="font-semibold text-[15px]">{title}</h4>
+          <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-soft cursor-pointer"><IconClose size={16} /></button>
+        </div>
+        {children}
+      </div>
+    </>
+  );
+}
+
+/* Content (post) — view + edit + delete */
+function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
+  item: Content; deals: Deal[]; position: { x: number; y: number }; onClose: () => void; onSaved: () => void;
+}) {
+  const supabase = createClient();
+  const [title, setTitle] = useState(item.title);
+  const [platform, setPlatform] = useState(item.platform ?? "");
+  const [postType, setPostType] = useState(item.post_type ?? "");
+  const [dealId, setDealId] = useState(item.linked_deal_id ?? "");
+  const [caption, setCaption] = useState(item.caption ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const save = async () => {
+    if (!title.trim()) { setError("Add a title."); return; }
+    setSaving(true); setError("");
+    const { error } = await supabase.from("content").update({
+      title: title.trim(), platform: platform || null, post_type: postType || null,
+      linked_deal_id: dealId || null, caption: caption || null,
+    }).eq("id", item.id);
+    setSaving(false);
+    if (error) { setError(error.message); return; }
+    onSaved();
+  };
+
+  const remove = async () => {
+    await supabase.from("content").delete().eq("id", item.id);
+    onSaved();
+  };
+
+  return (
+    <MiniModal position={position} onClose={onClose} title="Post details">
+      <div className="space-y-3">
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="text-xs text-muted mb-1 block">Platform</span>
+            <Select value={platform} onChange={(e) => setPlatform(e.target.value)}>
+              <option value="">Choose platform</option>
+              {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="text-xs text-muted mb-1 block">Post type</span>
+            <Select value={postType} onChange={(e) => setPostType(e.target.value)}>
+              <option value="">Choose post type</option>
+              {POST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
+          </label>
+        </div>
+        <Select value={dealId} onChange={(e) => setDealId(e.target.value)}>
+          <option value="">No linked deal</option>
+          {deals.map((d) => <option key={d.id} value={d.id}>{d.brand}</option>)}
+        </Select>
+        <label className="block">
+          <span className="text-xs text-muted mb-1 block">Caption / notes</span>
+          <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} placeholder="Optional caption or notes…" />
+        </label>
+        {error && <p className="text-sm text-bad" role="alert">{error}</p>}
+        <div className="flex items-center justify-between pt-1">
+          <Button variant="ghost" onClick={remove} className="text-bad"><IconDelete size={15} /> Delete</Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button onClick={save} disabled={saving}>{saving ? <Spinner /> : <IconCheck size={15} />} Save</Button>
+          </div>
+        </div>
+      </div>
+    </MiniModal>
+  );
+}
+
+/* Payment — view + mark received */
+function PaymentDetailPopover({ payment, position, onClose, onSaved }: {
+  payment: Payment; position: { x: number; y: number }; onClose: () => void; onSaved: () => void;
+}) {
+  const supabase = createClient();
+  const [saving, setSaving] = useState(false);
+
+  const markReceived = async () => {
+    setSaving(true);
+    await supabase.from("payments").update({ status: "received" }).eq("id", payment.id);
+    setSaving(false);
+    onSaved();
+  };
+
+  return (
+    <MiniModal position={position} onClose={onClose} title="Payment">
+      <div className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <span className="text-2xl font-bold font-mono">{formatMoney(payment.amount)}</span>
+          <span className="text-xs text-warn font-semibold">{payment.status === "received" ? "Received" : "Expected"}</span>
+        </div>
+        <p className="text-sm text-muted">Due {payment.expected_date ?? "no date set"}</p>
+        {payment.status !== "received" && (
+          <Button onClick={markReceived} disabled={saving} className="w-full">{saving ? <Spinner /> : <IconCheck size={15} />} Mark received</Button>
+        )}
+      </div>
+    </MiniModal>
+  );
+}
+
+/* To-do — view + mark done + reschedule */
+function TodoDetailPopover({ todo, position, onClose, onSaved }: {
+  todo: Todo; position: { x: number; y: number }; onClose: () => void; onSaved: () => void;
+}) {
+  const supabase = createClient();
+  const [due, setDue] = useState(todo.due_date ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const markDone = async () => {
+    setSaving(true);
+    await supabase.from("todos").update({ done: true }).eq("id", todo.id);
+    setSaving(false);
+    onSaved();
+  };
+
+  const reschedule = async () => {
+    setSaving(true);
+    await supabase.from("todos").update({ due_date: due || null }).eq("id", todo.id);
+    setSaving(false);
+    onSaved();
+  };
+
+  return (
+    <MiniModal position={position} onClose={onClose} title="To-do">
+      <div className="space-y-3">
+        <p className="text-sm font-medium">{todo.title}</p>
+        <label className="block">
+          <span className="text-xs text-muted mb-1 block">Due date</span>
+          <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+        </label>
+        <div className="flex flex-col gap-2 pt-1">
+          {todo.due_date && (
+            <Button variant="secondary" onClick={markDone} disabled={saving} className="w-full"><IconCheck size={15} /> Mark done</Button>
+          )}
+          <Button onClick={reschedule} disabled={saving} className="w-full">{saving ? <Spinner /> : "Save date"}</Button>
+        </div>
+      </div>
+    </MiniModal>
   );
 }
