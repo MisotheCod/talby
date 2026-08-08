@@ -12,6 +12,9 @@ export async function GET(req: Request) {
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
 
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://talby-one.vercel.app";
+  const redirect = (q: string) => NextResponse.redirect(`${base}/app/settings?${q}`);
+
   const cookieStore = await cookies();
   const stateJson = cookieStore.get("notion_state")?.value;
   let user_id: string | null = null;
@@ -23,7 +26,7 @@ export async function GET(req: Request) {
   }
 
   if (error || !code || !user_id) {
-    return NextResponse.redirect("/app/settings?notion=error");
+    return redirect("notion=error");
   }
 
   try {
@@ -38,9 +41,9 @@ export async function GET(req: Request) {
       notion_user_id: tok.notion_user_id,
     });
     cookieStore.delete("notion_state");
-    return NextResponse.redirect("/app/settings?notion=connected");
+    return redirect("notion=connected");
   } catch (e) {
     console.error("notion callback error", e);
-    return NextResponse.redirect("/app/settings?notion=error");
+    return redirect("notion=error");
   }
 }

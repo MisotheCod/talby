@@ -12,6 +12,9 @@ export async function GET(req: Request) {
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
 
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://talby-one.vercel.app";
+  const redirect = (q: string) => NextResponse.redirect(`${base}/app/settings?${q}`);
+
   const cookieStore = await cookies();
   const stateJson = cookieStore.get("gmail_state")?.value;
   let user_id: string | null = null;
@@ -23,7 +26,7 @@ export async function GET(req: Request) {
   }
 
   if (error || !code || !user_id) {
-    return NextResponse.redirect(`/app/settings?gmail=error`);
+    return redirect("gmail=error");
   }
 
   try {
@@ -37,9 +40,9 @@ export async function GET(req: Request) {
       expires_at: new Date(Date.now() + tok.expires_in * 1000).toISOString(),
     });
     cookieStore.delete("gmail_state");
-    return NextResponse.redirect(`/app/settings?gmail=connected`);
+    return redirect("gmail=connected");
   } catch (e) {
     console.error("gmail callback error", e);
-    return NextResponse.redirect(`/app/settings?gmail=error`);
+    return redirect("gmail=error");
   }
 }
