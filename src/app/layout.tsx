@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Lexend } from "next/font/google";
+import { Inter, JetBrains_Mono, Lexend, Space_Grotesk, Bricolage_Grotesque, Fraunces } from "next/font/google";
 import "./globals.css";
 import "./marketing.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -19,6 +19,27 @@ const mono = JetBrains_Mono({
 const lexend = Lexend({
   variable: "--font-lexend",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  display: "swap",
+});
+
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
@@ -66,7 +87,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${mono.variable} ${lexend.variable} h-full antialiased`}
+      className={`${inter.variable} ${mono.variable} ${lexend.variable} ${spaceGrotesk.variable} ${bricolage.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>

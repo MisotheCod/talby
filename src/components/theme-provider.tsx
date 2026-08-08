@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect } from "react";
-import { applyAccent, parseHSL, DEFAULT_HSL } from "@/lib/accent";
+import { applyAccent, parseHSL } from "@/lib/accent";
 
 /**
  * Talby theme provider.
  * The accent system works by moving a single hue variable on <html>.
  * applyAccent() derives the tint/ink shades and picks --on-accent by
- * WCAG luminance (light accents get dark text). Structural colors
- * (text, cards, borders, canvas) never move; only accent-scoped
- * surfaces do. The logo mark is brand-locked via the --brand token
- * and never re-tints.
+ * WCAG luminance (light accents get dark text). Structural colors never
+ * move; only accent-scoped surfaces do. The logo mark is brand-locked.
  *
- * initialAccent is the serialized HSL ("h,s,l") read from the user's
- * profiles row. Applied on mount to avoid a flash of default.
+ * On marketing/auth pages (no profile session accent) this is passed no
+ * initialAccent, so it defers to the CSS defaults in globals.css. On the
+ * app, the AppShell applies the user's saved accent+font; this provider
+ * must NOT reset to the default and clobber that, so it only applies when
+ * an initialAccent string is actually provided.
  */
 export function ThemeProvider({
   children,
@@ -23,8 +24,10 @@ export function ThemeProvider({
   initialAccent?: string | null;
 }) {
   useEffect(() => {
-    const parsed = parseHSL(initialAccent) ?? DEFAULT_HSL;
-    applyAccent(parsed);
+    if (initialAccent) {
+      const parsed = parseHSL(initialAccent);
+      if (parsed) applyAccent(parsed);
+    }
   }, [initialAccent]);
 
   return <>{children}</>;

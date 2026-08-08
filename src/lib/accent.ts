@@ -8,13 +8,22 @@
 
 export type HSL = { h: number; s: number; l: number };
 
+/** Heading-font choices (per the reference HTML). */
+export const HEADING_FONTS = [
+  { name: "Lexend", cssVar: "var(--font-lexend)" },
+  { name: "Space Grotesk", cssVar: "var(--font-space-grotesk)" },
+  { name: "Bricolage Grotesque", cssVar: "var(--font-bricolage)" },
+  { name: "Fraunces", cssVar: "var(--font-fraunces)" },
+] as const;
+export const DEFAULT_HEAD_FONT = "Lexend";
+
 export const ACCENT_PRESETS: (HSL & { name: string })[] = [
   { name: "Ocean blue", h: 210, s: 76, l: 50 },
-  { name: "Violet", h: 255, s: 70, l: 64 },
-  { name: "Green", h: 160, s: 55, l: 48 },
-  { name: "Rose", h: 330, s: 72, l: 66 },
-  { name: "Coral", h: 28, s: 82, l: 60 },
-  { name: "Teal", h: 190, s: 60, l: 52 },
+  { name: "Violet", h: 255, s: 70, l: 60 },
+  { name: "Green", h: 150, s: 52, l: 42 },
+  { name: "Coral", h: 12, s: 82, l: 62 },
+  { name: "Gold", h: 42, s: 88, l: 52 },
+  { name: "Pink", h: 320, s: 65, l: 58 },
 ];
 
 export const DEFAULT_HSL: HSL = { h: 210, s: 76, l: 50 };
@@ -93,4 +102,16 @@ export function accentVars({ h, s, l }: HSL): string {
     `--accent-tint:hsl(${h},70%,96%)`,
     `--accent-tint-2:hsl(${h},60%,90%)`,
   ].join(";");
+}
+
+// --- Heading font ---
+
+/** Map a font name to its CSS var; unknown names fall back to Lexend. */
+export function fontCssVar(name: string | null | undefined): string {
+  const hit = HEADING_FONTS.find((f) => f.name === name);
+  return hit?.cssVar ?? "var(--font-lexend)";
+}
+
+export function applyFont(name: string | null | undefined) {
+  document.documentElement.style.setProperty("--font-head", fontCssVar(name));
 }

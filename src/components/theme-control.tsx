@@ -1,73 +1,98 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ACCENT_PRESETS, DEFAULT_HSL, applyAccent, type HSL } from "@/lib/accent";
+import { ACCENT_PRESETS, HEADING_FONTS, DEFAULT_HSL, DEFAULT_HEAD_FONT, applyAccent, applyFont, type HSL } from "@/lib/accent";
 import { cn } from "@/lib/utils";
 
 /**
  * Theme control — a "Theme" row with a live color dot at the bottom of the
- * sidebar. Clicking opens a popover with 6 preset swatches, a hue slider,
- * and a "Save theme" 3D button.
- *
- * Preview / Save / Revert:
- *  - Picking a swatch or dragging the slider previews live (onPreview).
- *  - Pressing "Save theme" persists (onSave) then closes.
- *  - Closing the popover any other way (outside click / toggling shut)
- *    reverts to the last saved accent.
+ * sidebar. Opens a popover with three user choices, all previewing live:
+ *   1. Accent hue (0-360)
+ *   2. Accent saturation (20-100, track repaints with hue)
+ *   3. Heading font (2x2 chips, each in its own typeface)
+ * One Save persists the full set {h, s, font}; closing otherwise reverts all.
  */
 export function ThemeControl({
   current,
+  currentFont,
   onPreview,
   onSave,
+  onPreviewFont,
+  onSaveFont,
 }: {
   current: HSL;
+  currentFont: string;
   onPreview: (hsl: HSL) => void;
   onSave: (hsl: HSL) => Promise<void>;
+  onPreviewFont: (name: string) => void;
+  onSaveFont: (name: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
-  const [hue, setHue] = useState(current.h);
+  const [sat, setSat] = useState(current.s); // saturation 20-100
+  const [font, setFont] = useState<string>(currentFont);
   const [saved, setSaved] = useState(false);
   const [working, setWorking] = useState(false);
-  const savedRef = useRef<HSL>(current);
-  const previewRef = useRef<HSL>(current);
+  const savedRef = useRef<{ hsl: HSL; font: string }>({ hsl: current, font: currentFont });
+  const previewRef = useRef<{ hsl: HSL; font: string }>({ hsl: current, font: currentFont });
+  const satRef = useRef<HTMLInputElement>(null);
   const openRef = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const shown = previewRef.current;
-  const dotColor = `hsl(${shown.h},${shown.s}%,${shown.l}%)`;
+  const dotColor = `hsl(${shown.hsl.h},${shown.hsl.s}%,${shown.hsl.l}%)`;
 
-  // Keep synced when the persisted accent changes externally.
+  // Repaint saturation track gradient from the current hue.
   useEffect(() => {
-    savedRef.current = current;
-    previewRef.current = current;
-    setHue(current.h);
-  }, [current]);
+    if (satRef.current) {
+      satRef.current.style.background = `linear-gradient(90deg, hsl(${shown.hsl.h},20%,50%), hsl(${shown.hsl.h},100%,50%))`;
+    }
+  }, [shown.hsl.h, open]);
+
+  // Keep synced when persisted accent/font changes externally.
+  useEffect(() => {
+    const sync = { hsl: current, font: currentFont };
+    savedRef.current = sync;
+    previewRef.current = sync;
+    setSat(current.s);
+    setFont(currentFont);
+  }, [current, currentFont]);
 
   const applyPreview = (hsl: HSL) => {
-    previewRef.current = hsl;
-    setHue(hsl.h);
+    previewRef.current = { ...previewRef.current, hsl };
+    setSat(hsl.s);
     setSaved(false);
     onPreview(hsl);
   };
-
+  const previewSat = (v: number) => {
+    applyPreview({ h: shown.hsl.h, s: v, l: 50 });
+  };
   const pickPreset = (p: (typeof ACCENT_PRESETS)[number]) => applyPreview({ h: p.h, s: p.s, l: p.l });
-  const onSlider = (v: number) => applyPreview({ h: v, s: shown.s, l: shown.l });
+  const pickFont = (name: string) => {
+    previewRef.current = { ...previewRef.current, font: name };
+    setFont(name);
+    setSaved(false);
+    onPreviewFont(name);
+  };
 
   const close = (revert: boolean) => {
     setOpen(false);
     openRef.current = false;
     if (revert) {
-      onPreview(savedRef.current);
-      previewRef.current = savedRef.current;
-      setHue(savedRef.current.h);
+      const s = savedRef.current;
+      previewRef.current = s;
+      setSat(s.hsl.s);
+      setFont(s.font);
       setSaved(false);
+      onPreview(s.hsl);
+      onPreviewFont(s.font);
     }
   };
 
   const openPop = () => {
-    // reset preview to saved on each open
-    previewRef.current = savedRef.current;
-    setHue(savedRef.current.h);
+    const s = savedRef.current;
+    previewRef.current = s;
+    setSat(s.hsl.s);
+    setFont(s.font);
     setSaved(false);
     setOpen(true);
     openRef.current = true;
@@ -77,14 +102,15 @@ export function ThemeControl({
     const toSave = previewRef.current;
     savedRef.current = toSave;
     setWorking(true);
-    await onSave(toSave);
+    await onSave(toSave.hsl);
+    await onSaveFont(toSave.font);
     setWorking(false);
     setSaved(true);
     // brief "Saved" then close without reverting
     setTimeout(() => close(false), 700);
   };
 
-  // Outside click -> revert + close
+  // Outside click -> revert all three + close
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (openRef.current && wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
@@ -95,6 +121,11 @@ export function ThemeControl({
     return () => document.removeEventListener("click", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const isPresetOn = (p: (typeof ACCENT_PRESETS)[number]) =>
+    Math.round(shown.hsl.h) === Math.round(p.h) &&
+    Math.round(shown.hsl.s) === Math.round(p.s) &&
+    Math.round(shown.hsl.l) === Math.round(p.l);
 
   return (
     <div ref={wrapRef} className="theme-launch relative">
@@ -111,28 +142,44 @@ export function ThemeControl({
       </button>
 
       <div className={cn("theme-pop", open && "open")}>
-        <div className="tp-h" style={{ fontFamily: "var(--font-lexend)" }}>Accent color</div>
+        <div className="tp-h" style={{ fontFamily: "var(--font-head)" }}>Accent color</div>
+
         <div className="swatches">
-          {ACCENT_PRESETS.map((p) => {
-            const isOn =
-              Math.round(shown.h) === Math.round(p.h) &&
-              Math.round(shown.s) === Math.round(p.s) &&
-              Math.round(shown.l) === Math.round(p.l);
-            return (
-              <button
-                key={p.name}
-                aria-label={p.name}
-                onClick={(e) => { e.stopPropagation(); pickPreset(p); }}
-                className={cn("sw", isOn && "on")}
-                style={{ background: `hsl(${p.h},${p.s}%,${p.l}%)` }}
-              />
-            );
-          })}
+          {ACCENT_PRESETS.map((p) => (
+            <button
+              key={p.name}
+              aria-label={p.name}
+              onClick={(e) => { e.stopPropagation(); pickPreset(p); }}
+              className={cn("sw", isPresetOn(p) && "on")}
+              style={{ background: `hsl(${p.h},${p.s}%,${p.l}%)` }}
+            />
+          ))}
         </div>
-        <div className="tp-label">Or drag for any shade</div>
-        <input type="range" className="hue" min={0} max={360} value={hue}
+
+        <div className="tp-label">Hue</div>
+        <input type="range" className="hue" min={0} max={360} value={shown.hsl.h}
           aria-label="Accent hue"
-          onChange={(e) => onSlider(Number(e.target.value))} />
+          onChange={(e) => applyPreview({ h: Number(e.target.value), s: shown.hsl.s, l: 50 })} />
+
+        <div className="tp-label">Saturation</div>
+        <input ref={satRef} type="range" className="sat" min={20} max={100} value={sat}
+          aria-label="Accent saturation"
+          onChange={(e) => previewSat(Number(e.target.value))} />
+
+        <div className="tp-label">Heading font</div>
+        <div className="fontrow">
+          {HEADING_FONTS.map((f) => (
+            <button
+              key={f.name}
+              className={cn("fchip", font === f.name && "on")}
+              style={{ fontFamily: f.cssVar }}
+              onClick={(e) => { e.stopPropagation(); pickFont(f.name); }}
+            >
+              {f.name === "Bricolage Grotesque" ? "Bricolage" : f.name}
+            </button>
+          ))}
+        </div>
+
         <button className="btn3d full" style={{ marginTop: 14 }} disabled={working}
           onClick={handleSave}>
           {saved ? "Saved" : "Save theme"}

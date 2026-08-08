@@ -178,7 +178,7 @@ export default function OverviewPage() {
       {/* Greeting + actions */}
       <div className="top anim">
         <div>
-          <h1 className="text-[26px] font-lexend font-bold">
+          <h1 className="text-[26px] font-head font-bold">
             {greeting()}{handle ? `, ${userName(handle)}` : ""}
           </h1>
           <p className="text-sm text-inksoft mt-1.5">
@@ -230,7 +230,7 @@ export default function OverviewPage() {
         {/* Active deals */}
         <div className="panel anim">
           <div className="flex items-center justify-between px-[22px] pt-5 pb-4 flex-wrap gap-3">
-            <h3 className="text-[16px] font-lexend font-bold">Active deals</h3>
+            <h3 className="text-[16px] font-head font-bold">Active deals</h3>
             <div className="filters">
               {FILTERS.map((f) => (
                 <button key={f} onClick={() => setFilter(f)} className={cn("chip", filter === f && "on")}>{f}</button>
@@ -248,7 +248,7 @@ export default function OverviewPage() {
         <div>
           {/* This week — interactive */}
           <div className="rcard anim">
-            <h3 className="font-lexend">This week</h3>
+            <h3 className="font-head">This week</h3>
             <div className="week">
               {week.map(({ date, iso }, i) => {
                 const items = dayItems(iso);
@@ -291,7 +291,7 @@ export default function OverviewPage() {
           {/* Payments — same payments data as the week */}
           <div className="rcard anim">
             <div className="flex items-center justify-between mb-[15px]">
-              <h3 className="font-lexend text-[15px] font-bold">Payments</h3>
+              <h3 className="font-head text-[15px] font-bold">Payments</h3>
               <Link href="/app/payments" className="text-xs text-accentink font-medium no-underline">View all</Link>
             </div>
             {timeline.length === 0 ? (
@@ -369,7 +369,7 @@ function PayRow({ p }: { p: Payment }) {
   return (
     <div className="pay rowanim">
       <div className="when">
-        <div className="d font-lexend">{when ? when.getDate() : "-"}</div>
+        <div className="d font-head">{when ? when.getDate() : "-"}</div>
         <div className="m">{when ? when.toLocaleDateString("en-US", { month: "short" }) : ""}</div>
       </div>
       <span className={cn("pbar", barCls)} aria-hidden />
@@ -392,7 +392,7 @@ function EmptyDeals({ search }: { search: boolean }) {
         <p className="text-sm text-inksoft">No deals match your search.</p>
       ) : (
         <>
-          <p className="font-lexend font-bold text-[15px]">Add your first deal</p>
+          <p className="font-head font-bold text-[15px]">Add your first deal</p>
           <p className="text-[13px] text-inksoft mt-1 max-w-xs mx-auto">
             Track your first brand collaboration and watch your money, content, and payments come together in one calm place.
           </p>

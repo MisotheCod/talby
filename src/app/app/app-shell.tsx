@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { applyAccent, ACCENT_PRESETS, DEFAULT_HSL, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
+import { applyAccent, ACCENT_PRESETS, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { ThemeControl } from "@/components/theme-control";
@@ -29,24 +29,29 @@ export function AppShell({
   handler,
   accent,
   plan,
+  headFont,
   children,
 }: {
   handler: string | null;
   accent: string | null;
   plan: string;
+  headFont?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const supabase = createClient();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accentState, setAccentState] = useState<HSL>(parseHSL(accent) ?? DEFAULT_HSL);
+  const [fontState, setFontState] = useState<string>(headFont ?? DEFAULT_HEAD_FONT);
   const [activeDeals, setActiveDeals] = useState(0);
 
-  // Apply the user's saved accent on load.
+  // Apply the user's saved accent + heading font on load.
   useEffect(() => {
     applyAccent(parseHSL(accent) ?? DEFAULT_HSL);
     setAccentState(parseHSL(accent) ?? DEFAULT_HSL);
-  }, [accent]);
+    applyFont(headFont ?? DEFAULT_HEAD_FONT);
+    setFontState(headFont ?? DEFAULT_HEAD_FONT);
+  }, [accent, headFont]);
 
   // Load active-deal count for the upsell card + Deals nav badge.
   useEffect(() => {
@@ -60,10 +65,10 @@ export function AppShell({
     })();
   }, [supabase, pathname]);
 
-  // Preview without persisting; save persists to profile.
+  // Preview applies live WITHOUT mutating the persisted state (so the
+  // saved baseline is preserved for revert); save applies + persists.
   const previewAccent = (hsl: HSL) => {
     applyAccent(hsl);
-    setAccentState(hsl);
   };
   const saveAccent = async (hsl: HSL) => {
     applyAccent(hsl);
@@ -71,6 +76,17 @@ export function AppShell({
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from("profiles").update({ accent: serializeHSL(hsl) }).eq("id", user.id);
+    }
+  };
+  const previewFont = (name: string) => {
+    applyFont(name);
+  };
+  const saveFont = async (name: string) => {
+    applyFont(name);
+    setFontState(name);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("profiles").update({ head_font: name }).eq("id", user.id);
     }
   };
 
@@ -115,7 +131,7 @@ export function AppShell({
 
   const footer = (
     <div className="side-foot">
-      <ThemeControl current={accentState} onPreview={previewAccent} onSave={saveAccent} />
+      <ThemeControl current={accentState} currentFont={fontState} onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont} onSaveFont={saveFont} />
       {plan === "free" && <UpsellCard used={capUsed} cap={FREE_ACTIVE_DEAL_CAP} />}
       <div className="flex items-center justify-between px-2 pt-2">
         <Link href="/app/settings" className="flex items-center gap-2 text-[13px] text-inksoft hover:text-ink no-underline">
