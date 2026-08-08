@@ -19,7 +19,7 @@ export function Button({
         size === "sm" && "text-[12.5px] px-3 h-8",
         size === "md" && "text-[13.5px] px-4 h-10 rounded-xl",
         size === "lg" && "text-sm px-6 h-12",
-        variant === "primary" && "bg-accent text-onaccent hover:brightness-105 hover:-translate-y-px",
+        variant === "primary" && "btn3d",
         variant === "secondary" &&
           "bg-card text-ink border border-line2 hover:bg-card2",
         variant === "ghost" && "text-ink hover:bg-card2",

@@ -71,7 +71,7 @@ export default function PaymentsPage() {
         <div className="card p-5">
           <h2 className="font-semibold mb-3">Past due</h2>
           {pastDue.length === 0 ? (
-            <p className="text-sm text-muted">Nothing past due — you&apos;re all clear.</p>
+            <p className="text-sm text-muted">Nothing past due, you&apos;re all clear.</p>
           ) : (
             <ul className="space-y-2">
               {pastDue.map((p) => (

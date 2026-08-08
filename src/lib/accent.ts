@@ -75,3 +75,22 @@ export function parseHSL(str: string | null | undefined): HSL | null {
   }
   return null;
 }
+
+/** CSS variable declarations for an accent — server-safe (no DOM needed).
+ *  Used to apply the saved accent before first paint to avoid a flash of
+ *  the default color. */
+export function accentVars({ h, s, l }: HSL): string {
+  const L = luminance(h, s, l);
+  const contrastWhite = (1.0 + 0.05) / (L + 0.05);
+  const onAccent = contrastWhite >= 3.2 ? "#ffffff" : "#14181f";
+  const inkL = L > 0.5 ? 30 : 42;
+  return [
+    `--accent-h:${h}`,
+    `--accent-s:${s}%`,
+    `--accent-l:${l}%`,
+    `--on-accent:${onAccent}`,
+    `--accent-ink:hsl(${h},48%,${inkL}%)`,
+    `--accent-tint:hsl(${h},70%,96%)`,
+    `--accent-tint-2:hsl(${h},60%,90%)`,
+  ].join(";");
+}

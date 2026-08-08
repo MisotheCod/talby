@@ -58,7 +58,7 @@ export default function IntegrationsPage() {
         <div>
           <h3 className="font-semibold">More on the way</h3>
           <p className="text-sm text-muted mt-1">
-            These connection cards are placeholders — real integrations land after launch. Talby stays calm and self-contained until then.
+            These connection cards are placeholders, real integrations land after launch. Talby stays calm and self-contained until then.
           </p>
         </div>
       </div>

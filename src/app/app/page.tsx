@@ -1,24 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import gsap from "gsap";
 import { createClient } from "@/lib/supabase/client";
-import { greeting, formatMoney, formatDate, isPastDue, cn } from "@/lib/utils";
+import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { IconPlus } from "@/components/icons";
-import { Button, Chip, StatusPill } from "@/components/ui";
 
 type Deal = {
   id: string; brand: string; status: string; value: number | null;
   due_date: string | null; deliverable: string | null; active: boolean;
-  created_at: string;
+  notes: string | null; created_at: string;
 };
 type Payment = {
   id: string; deal_id: string | null; amount: number;
   expected_date: string | null; status: string;
   deal?: { brand: string } | null;
 };
-type Content = { id: string; title: string; event_date: string; post_type: string | null; platform: string | null };
+type Content = {
+  id: string; title: string; event_date: string; post_type: string | null;
+  platform: string | null; status: string | null;
+};
 
 const FILTERS = ["Active", "Unpaid", "Paid", "All"] as const;
 
@@ -28,6 +31,20 @@ function toISO(d: Date) {
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
+function addDays(d: Date, n: number) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Type metadata: [label, tint bg, color] — matching the prototype
+const TYPE: Record<string, [string, string, string]> = {
+  payment: ["PAY", "#fdf1d8", "#e0a32e"],
+  received: ["PAY", "#e4f5ec", "#2f9e6f"],
+  post: ["POST", "var(--accent-tint)", "var(--accent-ink)"],
+  deliv: ["DUE", "#fde7e2", "#f2705b"],
+};
 
 export default function OverviewPage() {
   const supabase = createClient();
@@ -39,6 +56,8 @@ export default function OverviewPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [loading, setLoading] = useState(true);
+  const [selDay, setSelDay] = useState(0); // index into this week (today first)
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,10 +68,11 @@ export default function OverviewPage() {
       setHandle(row?.handler ?? null);
       setPlan((row?.plan ?? "free") as "free" | "paid");
     }
+    // All data for the week + payments + deals, user-scoped via RLS.
     const [d, pay, c] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       supabase.from("payments").select("*, deal:deals(brand)").order("expected_date", { ascending: true }),
-      supabase.from("content").select("*").gte("event_date", toISO(new Date())).lte("event_date", toISO(addDays(new Date(), 6))),
+      supabase.from("content").select("*").order("event_date", { ascending: true }),
     ]);
     setDeals(d.data ?? []);
     setPayments(pay.data ?? []);
@@ -62,13 +82,59 @@ export default function OverviewPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // ---- GSAP load-in (respects prefers-reduced-motion) ----
+  useEffect(() => {
+    if (loading || !rootRef.current) return;
+    const root = rootRef.current;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      // final values immediately, nothing hidden
+      root.querySelectorAll(".cnt-up").forEach((el) => {
+        const n = +(el as HTMLElement).dataset.n! || 0;
+        el.textContent = "$" + n.toLocaleString();
+      });
+      const cap = root.querySelector<HTMLElement>("#capfill");
+      if (cap) cap.style.width = cap.dataset.w || "0%";
+      return;
+    }
+    const ctx = gsap.context(() => {
+      // rise in for greeting/search/stats/panels
+      gsap.set(".anim", { opacity: 0, y: 18 });
+      gsap.to(".anim", { opacity: 1, y: 0, duration: 0.55, ease: "power3.out", stagger: 0.06, delay: 0.05 });
+      // deal/payment rows slide in (guarded: only if present)
+      if (root.querySelector(".rowanim")) {
+        gsap.set(".rowanim", { opacity: 0, x: -12 });
+        gsap.to(".rowanim", { opacity: 1, x: 0, duration: 0.45, ease: "power2.out", stagger: 0.06, delay: 0.45 });
+      }
+      // count up money stats
+      root.querySelectorAll<HTMLElement>(".cnt-up").forEach((el, i) => {
+        const n = +el.dataset.n! || 0;
+        if (n <= 0) { el.textContent = "$0"; return; }
+        const o = { v: 0 };
+        gsap.to(o, { v: n, duration: 1.1, ease: "power2.out", delay: 0.35 + i * 0.12,
+          onUpdate: () => { el.textContent = "$" + Math.round(o.v).toLocaleString(); } });
+      });
+      // capacity bar fill to real percentage
+      const cap = root.querySelector<HTMLElement>("#capfill");
+      if (cap) gsap.to(cap, { width: cap.dataset.w || "0%", duration: 0.9, ease: "power2.out", delay: 0.6 });
+    }, root);
+    return () => ctx.revert();
+  }, [loading]);
+
   const activeDeals = deals.filter((d) => d.active && d.status !== "archived");
   const booked = deals.reduce((s, d) => s + (d.value ?? 0), 0);
   const received = payments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
   const outstanding = payments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
+  const pendingPayments = payments.filter((p) => p.status !== "received");
+  const pastDue = pendingPayments.filter((p) => isPastDue(p.expected_date)).length;
 
   const filteredDeals = activeDeals.filter((d) => {
-    if (search && !d.brand.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const inBrand = d.brand.toLowerCase().includes(q);
+      const inNotes = (d.notes ?? "").toLowerCase().includes(q);
+      if (!inBrand && !inNotes) return false;
+    }
     switch (filter) {
       case "Unpaid": return d.status === "unpaid";
       case "Paid": return d.status === "paid";
@@ -76,66 +142,99 @@ export default function OverviewPage() {
     }
   });
 
-  // This week (next 7 days from today)
+  // ---- This week (7 days from today) ----
+  const today = new Date();
   const week: { date: Date; iso: string }[] = [];
-  for (let i = 0; i < 7; i++) week.push({ date: addDays(new Date(), i), iso: toISO(addDays(new Date(), i)) });
+  for (let i = 0; i < 7; i++) week.push({ date: addDays(today, i), iso: toISO(addDays(today, i)) });
+  const todayIso = toISO(today);
 
-  const weekContent = (iso: string) => content.filter((c) => c.event_date === iso);
-  const weekPays = (iso: string) => payments.filter((p) => p.status !== "received" && p.expected_date === iso);
+  // Same payments data drives both the week and the Payments card (correlation).
+  const dayItems = (iso: string) => {
+    const items: { t: string; n: string; a?: string }[] = [];
+    // payments (expected or past-due) — same table the Payments card uses
+    payments.filter((p) => p.status !== "received" && p.expected_date === iso)
+      .forEach((p) => items.push({ t: "payment", n: `${p.deal?.brand ?? "Payment"} payment expected`, a: formatMoney(p.amount) }));
+    // received payments on that date land too
+    payments.filter((p) => p.status === "received" && p.expected_date === iso)
+      .forEach((p) => items.push({ t: "received", n: `${p.deal?.brand ?? "Payment"} received`, a: formatMoney(p.amount) }));
+    // posts (incl. recurring instances) on that date
+    content.filter((c) => c.event_date === iso)
+      .forEach((c) => items.push({ t: "post", n: c.title }));
+    // deal deliverables due that day
+    activeDeals.filter((d) => d.due_date === iso)
+      .forEach((d) => items.push({ t: "deliv", n: `${d.brand} deliverable due` }));
+    return items;
+  };
 
-  const timeline = payments.filter((p) => {
-    // show received + upcoming/past-due, newest interaction first by expected date desc
-    return !p.expected_date || true;
-  }).sort((a, b) => (b.expected_date ?? "").localeCompare(a.expected_date ?? "")).slice(0, 5);
+  const timeline = [...payments]
+    .filter((p) => !p.expected_date || true)
+    .sort((a, b) => (b.expected_date ?? "").localeCompare(a.expected_date ?? ""))
+    .slice(0, 5);
 
   if (loading) return <OverviewSkeleton />;
 
   return (
-    <div className="fade-up">
+    <div ref={rootRef}>
       {/* Greeting + actions */}
-      <div className="top flex items-start justify-between gap-5 flex-wrap mb-[30px]">
+      <div className="top anim">
         <div>
-          <h1 className="text-[26px] font-semibold tracking-tight">
+          <h1 className="text-[26px] font-lexend font-bold">
             {greeting()}{handle ? `, ${userName(handle)}` : ""}
           </h1>
           <p className="text-sm text-inksoft mt-1.5">
             {outstanding > 0
-              ? `You've got ${formatMoney(outstanding)} coming in, and ${pastDueCount(payments)} invoice${pastDueCount(payments) === 1 ? "" : "s"} worth chasing.`
+              ? `You've got ${formatMoney(outstanding)} coming in, and ${pastDue} invoice${pastDue === 1 ? "" : "s"} worth chasing.`
               : `You've got ${formatMoney(outstanding)} coming in. Looking good.`}
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-2 bg-card border border-line2 rounded-xl px-3.5 py-2.5 w-[220px]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="2" className="flex-none"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+          <div className="search">
+            <svg className="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search deals, brands…"
-              className="bg-transparent border-none outline-none text-[13.5px] w-full font-sans text-ink placeholder:text-inkfaint"
+              placeholder="Search your deals by brand"
+              aria-label="Search your deals by brand name"
             />
           </div>
-          <Link href="/app/deals?new=1">
-            <Button><IconPlus size={16} /> Add deal</Button>
+          <Link href="/app/deals?new=1" className="no-underline">
+            <button className="btn3d"><svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add deal</button>
           </Link>
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className={cn("grid grid-cols-2 gap-4 mb-[26px]", plan === "free" ? "md:grid-cols-4" : "md:grid-cols-3")}>
-        <StatCard label="Booked" value={formatMoney(booked)} sub={`across ${activeDeals.length} active deal${activeDeals.length === 1 ? "" : "s"}`} />
-        <StatCard label="Paid" value={formatMoney(received)} sub="landed this month" color="var(--paid)" />
-        <StatCard label="Outstanding" value={formatMoney(outstanding)} sub={`${payments.filter((p) => p.status !== "received").length} payments expected`} color="var(--due)" />
-        {plan === "free" && <CapacityCard used={activeDeals.length} cap={FREE_ACTIVE_DEAL_CAP} />}
+      {/* Stats row (auto-fit; paid users get no capacity card and cards stretch) */}
+      <div className="stats">
+        <div className="statcard anim">
+          <div className="lbl">Booked</div>
+          <div className="val cnt-up" data-n={booked}>$0</div>
+          <div className="sub">across {activeDeals.length} active deal{activeDeals.length === 1 ? "" : "s"}</div>
+        </div>
+        <div className="statcard anim">
+          <div className="lbl">Paid</div>
+          <div className="val cnt-up" style={{ color: "var(--paid)" }} data-n={received}>$0</div>
+          <div className="sub">landed this month</div>
+        </div>
+        <div className="statcard anim">
+          <div className="lbl">Outstanding</div>
+          <div className="val cnt-up" style={{ color: "var(--due)" }} data-n={outstanding}>$0</div>
+          <div className="sub">{pendingPayments.length} payment{pendingPayments.length === 1 ? "" : "s"} expected</div>
+        </div>
+        {plan === "free" && (
+          <CapacityCard used={activeDeals.length} cap={FREE_ACTIVE_DEAL_CAP} />
+        )}
       </div>
 
       {/* Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5">
         {/* Active deals */}
-        <div className="panel">
+        <div className="panel anim">
           <div className="flex items-center justify-between px-[22px] pt-5 pb-4 flex-wrap gap-3">
-            <h3 className="text-[16px] font-semibold">Active deals</h3>
-            <div className="flex gap-1.5">
-              {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
+            <h3 className="text-[16px] font-lexend font-bold">Active deals</h3>
+            <div className="filters">
+              {FILTERS.map((f) => (
+                <button key={f} onClick={() => setFilter(f)} className={cn("chip", filter === f && "on")}>{f}</button>
+              ))}
             </div>
           </div>
           {filteredDeals.length === 0 ? (
@@ -147,34 +246,56 @@ export default function OverviewPage() {
 
         {/* Right rail */}
         <div>
-          <div className="bg-card border border-line rounded-[22px] p-[20px_22px] mb-5 shadow-card">
-            <h3 className="text-[15px] font-semibold mb-4">This week</h3>
-            <div className="grid grid-cols-7 gap-1.5">
-              {week.map(({ date, iso }) => {
-                const isToday = iso === toISO(new Date());
-                const dots = Math.max(weekContent(iso).length, weekPays(iso).length);
+          {/* This week — interactive */}
+          <div className="rcard anim">
+            <h3 className="font-lexend">This week</h3>
+            <div className="week">
+              {week.map(({ date, iso }, i) => {
+                const items = dayItems(iso);
+                const isToday = iso === todayIso;
                 return (
-                  <Link href={`/app/calendar?day=${iso}`} key={iso} className={cn("text-center p-2 rounded-[14px]", isToday && "accent-tint-bg")}>
-                    <div className="day-dn text-[10px] uppercase tracking-wider text-inkfaint">{date.toLocaleDateString("en-US", { weekday: "short" })}</div>
-                    <div className={cn("text-[16px] font-semibold mt-0.5", isToday && "accent-ink")}>{date.getDate()}</div>
-                    <div className="flex gap-1 justify-center mt-1.5 h-1.5">
-                      {Array.from({ length: Math.min(dots, 3) }).map((_, i) => (
-                        <span key={i} className={cn("w-1 h-1 rounded-full", isToday ? "bg-accent" : "bg-inkfaint")} />
+                  <button
+                    key={iso}
+                    onClick={() => setSelDay(i)}
+                    className={cn("day", isToday && "today", i === selDay && "sel")}
+                    aria-label={`${DAYS[date.getDay()]} ${date.getDate()}`}
+                  >
+                    <div className="dn">{DAYS[date.getDay()]}</div>
+                    <div className="dd">{date.getDate()}</div>
+                    <div className="dots">
+                      {items.slice(0, 3).map((it, k) => (
+                        <span key={k} className="dt" style={{ background: TYPE[it.t]?.[2] || "var(--ink-faint)" }} />
                       ))}
                     </div>
-                  </Link>
+                  </button>
                 );
               })}
             </div>
+            <div className="daylist">
+              {dayItems(week[selDay].iso).length === 0 ? (
+                <div className="empty">
+                  Nothing scheduled for {DAYS[week[selDay].date.getDay()]} {week[selDay].date.getDate()}. Enjoy the quiet.
+                </div>
+              ) : (
+                dayItems(week[selDay].iso).map((it, k) => (
+                  <div key={k} className="ditem">
+                    <span className="dtag" style={{ background: TYPE[it.t]?.[1], color: TYPE[it.t]?.[2] }}>{TYPE[it.t]?.[0]}</span>
+                    <span className="n">{it.n}</span>
+                    {it.a && <span className="a">{it.a}</span>}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
-          <div className="bg-card border border-line rounded-[22px] p-[20px_22px] shadow-card">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-[15px] font-semibold">Payments</h3>
-              <Link href="/app/payments" className="text-xs text-accentink font-medium">View all</Link>
+          {/* Payments — same payments data as the week */}
+          <div className="rcard anim">
+            <div className="flex items-center justify-between mb-[15px]">
+              <h3 className="font-lexend text-[15px] font-bold">Payments</h3>
+              <Link href="/app/payments" className="text-xs text-accentink font-medium no-underline">View all</Link>
             </div>
             {timeline.length === 0 ? (
-              <p className="text-[13px] text-inksoft py-3">No payments yet.</p>
+              <p className="text-[13px] text-inksoft py-2">No payments yet.</p>
             ) : (
               timeline.map((p) => <PayRow key={p.id} p={p} />)
             )}
@@ -187,10 +308,10 @@ export default function OverviewPage() {
 
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub: string; color?: string }) {
   return (
-    <div className="bg-card border border-line rounded-[16px] p-5 shadow-card">
-      <div className="text-[11.5px] font-semibold uppercase tracking-wide text-inkfaint">{label}</div>
-      <div className="text-[29px] font-semibold mt-2.5 tracking-tight money" style={color ? { color } : undefined}>{value}</div>
-      <div className="text-[12.5px] text-inksoft mt-1">{sub}</div>
+    <div className="statcard">
+      <div className="lbl">{label}</div>
+      <div className="val" style={color ? { color } : undefined}>{value}</div>
+      <div className="sub">{sub}</div>
     </div>
   );
 }
@@ -198,12 +319,12 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
 function CapacityCard({ used, cap }: { used: number; cap: number }) {
   const pct = Math.min(100, (used / cap) * 100);
   return (
-    <div className="accent-tint-bg border border-line rounded-[16px] p-5 shadow-card" style={{ borderColor: "var(--accent-tint-2)" }}>
-      <div className="text-[11.5px] font-semibold uppercase tracking-wide text-inksoft">Deal capacity</div>
-      <div className="text-[29px] font-semibold mt-2.5 tracking-tight accent-ink">{used} / {cap}</div>
-      <div className="text-[12.5px] text-inksoft mt-1">{cap - used > 0 ? `${cap - used} slot${cap - used === 1 ? "" : "s"} left on free` : "You're at the free limit"}</div>
-      <div className="h-1.5 rounded-full mt-3.5 overflow-hidden" style={{ background: "rgba(255,255,255,0.6)" }}>
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--accent)" }} />
+    <div className="statcard cap">
+      <div className="lbl">Deal capacity</div>
+      <div className="val">{used} / {cap}</div>
+      <div className="sub">{cap - used > 0 ? `${cap - used} slot${cap - used === 1 ? "" : "s"} left on free` : "You're at the free limit"}</div>
+      <div className="capbar">
+        <i id="capfill" data-w={`${pct}%`} style={{ width: 0 }} />
       </div>
     </div>
   );
@@ -211,28 +332,29 @@ function CapacityCard({ used, cap }: { used: number; cap: number }) {
 
 function DealRow({ deal }: { deal: Deal }) {
   const pill = (() => {
-    if (deal.status === "paid") return <StatusPill kind="paid">Paid</StatusPill>;
-    if (deal.status === "unpaid") return <StatusPill kind="due">Awaiting pay</StatusPill>;
-    if (isPastDue(deal.due_date)) return <StatusPill kind="late">Past due</StatusPill>;
-    if (deal.status === "pipeline") return <StatusPill kind="pipeline">Pipeline</StatusPill>;
-    return <StatusPill kind="accent">Active</StatusPill>;
+    if (deal.status === "paid") return <span className="pill pill-paid">Paid</span>;
+    if (deal.status === "unpaid") return <span className="pill pill-due">Awaiting pay</span>;
+    if (isPastDue(deal.due_date)) return <span className="pill pill-late">Past due</span>;
+    if (deal.status === "pipeline") return <span className="pill pill-pipe">Pipeline</span>;
+    return <span className="pill pill">Active</span>;
   })();
-  const meta = deal.deliverable || (isPastDue(deal.due_date) ? "invoice past due" : deal.status === "pipeline" ? "contract · in progress" : "deal");
+  const meta = deal.deliverable || (isPastDue(deal.due_date) ? "invoice past due" : deal.status === "pipeline" ? "contract, in DMs" : "deal");
+  // colored logo per the prototype (green/gold/coral/purple variety)
+  const logoColors = ["var(--due)", "var(--paid)", "var(--late)", "var(--purple)"];
+  const logoColor = logoColors[(deal.brand.charCodeAt(0) + deal.brand.length) % logoColors.length];
   return (
     <button
       onClick={() => { window.location.href = `/app/deals?open=${deal.id}`; }}
-      className="w-full flex items-center gap-3.5 px-[22px] py-[15px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer"
+      className="deal rowanim"
     >
-      <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
-        {deal.brand.charAt(0).toUpperCase()}
-      </span>
-      <span className="flex-1 min-w-0">
-        <span className="block text-[15px] font-semibold truncate">{deal.brand}</span>
-        <span className="block text-[12.5px] text-inkfaint mt-0.5 truncate">{meta}</span>
+      <span className="dlogo" style={{ background: logoColor }}>{deal.brand.charAt(0).toUpperCase()}</span>
+      <span className="dmid">
+        <span className="dbrand truncate">{deal.brand}</span>
+        <span className="dmeta truncate">{meta}</span>
       </span>
       <span className="text-right flex-none">
-        <span className="block money text-sm font-medium mb-1.5">{formatMoney(deal.value)}</span>
-        {pill}
+        <span className="damt">{formatMoney(deal.value)}</span>
+        <span className="block">{pill}</span>
       </span>
     </button>
   );
@@ -241,22 +363,23 @@ function DealRow({ deal }: { deal: Deal }) {
 function PayRow({ p }: { p: Payment }) {
   const kind = p.status === "received" ? "g" : isPastDue(p.expected_date) ? "r" : "c";
   const label = p.status === "received" ? "Received" : isPastDue(p.expected_date) ? "Past due" : "Expected";
-  const pillKind = p.status === "received" ? "paid" : isPastDue(p.expected_date) ? "late" : "due";
+  const pillKind = p.status === "received" ? "pill-paid" : isPastDue(p.expected_date) ? "pill-late" : "pill-due";
+  const barCls = p.status === "received" ? "g" : isPastDue(p.expected_date) ? "r" : "c";
   const when = p.expected_date ? new Date(p.expected_date + "T00:00:00") : null;
   return (
-    <div className="flex items-center gap-3.5 py-3 border-t border-line first:border-t-0">
-      <div className="w-11 flex-none text-center">
-        <div className="text-[18px] font-semibold leading-none money">{when ? when.getDate() : "—"}</div>
-        <div className="text-[10px] uppercase tracking-wider text-inkfaint mt-0.5">{when ? when.toLocaleDateString("en-US", { month: "short" }) : ""}</div>
+    <div className="pay rowanim">
+      <div className="when">
+        <div className="d font-lexend">{when ? when.getDate() : "-"}</div>
+        <div className="m">{when ? when.toLocaleDateString("en-US", { month: "short" }) : ""}</div>
       </div>
-      <span className={cn("pbar", kind)} aria-hidden />
-      <div className="flex-1 min-w-0">
-        <div className="text-[13.5px] font-semibold truncate">{p.deal?.brand ?? "Payment"}</div>
-        <div className="text-[11.5px] text-inkfaint truncate">{p.status === "received" ? "Paid to checking" : "Invoice"}</div>
+      <span className={cn("pbar", barCls)} aria-hidden />
+      <div className="mid min-w-0">
+        <div className="b truncate">{p.deal?.brand ?? "Payment"}</div>
+        <div className="s truncate">{p.status === "received" ? "Paid to checking" : "Invoice"}</div>
       </div>
-      <div className="text-right flex-none">
-        <div className="money text-[13px] font-medium">{formatMoney(p.amount)}</div>
-        <StatusPill kind={pillKind as "paid" | "due" | "late"}>{label}</StatusPill>
+      <div className="text-right flex-none ml-2">
+        <div className="amt">{formatMoney(p.amount)}</div>
+        <span className={cn("pill", pillKind)}>{label}</span>
       </div>
     </div>
   );
@@ -269,12 +392,12 @@ function EmptyDeals({ search }: { search: boolean }) {
         <p className="text-sm text-inksoft">No deals match your search.</p>
       ) : (
         <>
-          <p className="font-semibold text-[15px]">Add your first deal</p>
+          <p className="font-lexend font-bold text-[15px]">Add your first deal</p>
           <p className="text-[13px] text-inksoft mt-1 max-w-xs mx-auto">
             Track your first brand collaboration and watch your money, content, and payments come together in one calm place.
           </p>
-          <Link href="/app/deals?new=1" className="inline-block mt-4">
-            <Button><IconPlus size={16} /> Add your first deal</Button>
+          <Link href="/app/deals?new=1" className="inline-block mt-4 no-underline">
+            <button className="btn3d"><svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add your first deal</button>
           </Link>
         </>
       )}
@@ -296,11 +419,6 @@ function OverviewSkeleton() {
   );
 }
 
-function addDays(d: Date, n: number) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
 function pastDueCount(payments: Payment[]) {
   return payments.filter((p) => p.status !== "received" && isPastDue(p.expected_date)).length;
 }

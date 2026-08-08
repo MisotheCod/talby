@@ -95,7 +95,7 @@ export default function SettingsPage() {
         <div>
           <h2 className="font-semibold">Your plan</h2>
           <p className="text-sm text-inksoft mt-1">
-            {profile?.plan === "free" ? "Free — complete app, up to 5 active deals." : "Paid — unlimited active deals + file uploads."}
+            {profile?.plan === "free" ? "Free, complete app up to 5 active deals." : "Paid, unlimited active deals + file uploads."}
           </p>
         </div>
         <div className="flex items-center gap-3">

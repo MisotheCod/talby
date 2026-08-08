@@ -221,7 +221,7 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
             <Input value={postType} onChange={(e) => setPostType(e.target.value)} placeholder="Post type" />
           </div>
           <Select value={dealId} onChange={(e) => setDealId(e.target.value)}>
-            <option value="">No link — just a post</option>
+            <option value="">No link, just a post</option>
             {deals.map((d) => <option key={d.id} value={d.id}>{d.brand}</option>)}
           </Select>
 

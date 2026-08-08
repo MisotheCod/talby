@@ -121,7 +121,7 @@ export default function NotesPage() {
           <Textarea
             value={note?.body ?? ""}
             onChange={(e) => onNoteChange(e.target.value)}
-            placeholder="Jot down anything — it saves automatically…"
+            placeholder="Jot down anything, it saves automatically…"
             className="min-h-[220px]"
           />
         </div>
