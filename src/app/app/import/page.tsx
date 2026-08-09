@@ -564,24 +564,27 @@ function ReviewStep({
 
       <div className="space-y-2 mb-6">
         {items.map((r, i) => (
-          <div key={i} className={cn("panel p-4 flex items-start gap-3", r.__review && "ring-1 ring-late/40", !r.__selected && "opacity-60")}>
-            <input type="checkbox" className="mt-2 h-4 w-4" style={{ accentColor: "var(--accent)" }} checked={!!r.__selected} onChange={(e) => onToggle(i, e.target.checked)} />
-            <div className="flex-1 min-w-0 grid md:grid-cols-2 gap-2">
-              <Field label="Brand"><Input value={r.brand ?? ""} onChange={(e) => onEdit(i, "brand", e.target.value)} /></Field>
-              <Field label="Value ($)"><Input value={r.value ?? ""} onChange={(e) => onEdit(i, "value", e.target.value)} /></Field>
-              <Field label="Status">
-                <Select value={r.status ?? "active"} onChange={(e) => onEdit(i, "status", e.target.value)}>
-                  <option value="active">Active</option><option value="pipeline">Pipeline</option>
-                  <option value="unpaid">Unpaid</option><option value="paid">Paid</option><option value="archived">Archived</option>
-                </Select>
-              </Field>
-              <Field label="Due date"><Input type="date" value={r.due_date ?? ""} onChange={(e) => onEdit(i, "due_date", e.target.value)} /></Field>
-              <div className="md:col-span-2">
-                <Field label="Deliverable"><Input value={r.deliverable ?? ""} onChange={(e) => onEdit(i, "deliverable", e.target.value)} /></Field>
+          <div key={i} className={cn("panel p-4", r.__review && "ring-1 ring-late/40", !r.__selected && "opacity-60")}>
+            <div className="flex items-start gap-3">
+              <input type="checkbox" className="mt-2 h-4 w-4" style={{ accentColor: "var(--accent)" }} checked={!!r.__selected} onChange={(e) => onToggle(i, e.target.checked)} />
+              <div className="flex-1 min-w-0 grid md:grid-cols-2 gap-2">
+                <Field label="Brand"><Input value={r.brand ?? ""} onChange={(e) => onEdit(i, "brand", e.target.value)} /></Field>
+                <Field label="Value ($)"><Input value={r.value ?? ""} onChange={(e) => onEdit(i, "value", e.target.value)} /></Field>
+                <Field label="Status">
+                  <Select value={r.status ?? "active"} onChange={(e) => onEdit(i, "status", e.target.value)}>
+                    <option value="active">Active</option><option value="pipeline">Pipeline</option>
+                    <option value="unpaid">Unpaid</option><option value="paid">Paid</option><option value="archived">Archived</option>
+                  </Select>
+                </Field>
+                <Field label="Due date"><Input type="date" value={r.due_date ?? ""} onChange={(e) => onEdit(i, "due_date", e.target.value)} /></Field>
+                <div className="md:col-span-2">
+                  <Field label="Deliverable"><Input value={r.deliverable ?? ""} onChange={(e) => onEdit(i, "deliverable", e.target.value)} /></Field>
+                </div>
+                <div className="md:col-span-2">
+                  <Field label="Rep email"><Input value={r.rep_email ?? ""} onChange={(e) => onEdit(i, "rep_email", e.target.value)} placeholder="rep@brand.com (for nudges)" /></Field>
+                </div>
               </div>
-              <div className="md:col-span-2">
-                <Field label="Rep email"><Input value={r.rep_email ?? ""} onChange={(e) => onEdit(i, "rep_email", e.target.value)} placeholder="rep@brand.com (for nudges)" /></Field>
-              </div>
+              {r.__review && <StatusPill kind="late" className="flex-none mt-1">Review</StatusPill>}
             </div>
             {r.content?.event_date && (
               <div className="w-full mt-3 border border-accent/30 bg-accent/5 rounded-xl p-3">
@@ -608,7 +611,6 @@ function ReviewStep({
                 </div>
               </div>
             )}
-            {r.__review && <StatusPill kind="late" className="flex-none mt-1">Review</StatusPill>}
           </div>
         ))}
       </div>
