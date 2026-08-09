@@ -10,7 +10,13 @@ import { IconArrowLeft, IconCheck, IconDownload, IconLink, IconRefresh } from "@
 import { Button, Chip, Input, Select, Spinner, StatusPill } from "@/components/ui";
 
 type Step = "source" | "notion" | "upload" | "columns" | "mapping" | "review";
-type MapRow = { brand: string; value?: string; status?: string; deliverable?: string; due_date?: string; notes?: string; confidence?: number };
+type ContentPart = { title?: string; event_date?: string; platform?: string | null };
+type PaymentPart = { amount?: string; expected_date?: string; status?: string };
+type MapRow = {
+  brand: string; value?: string; status?: string; deliverable?: string;
+  due_date?: string; notes?: string; rep_email?: string; confidence?: number;
+  content?: ContentPart | null; payment?: PaymentPart | null;
+};
 type ImportItem = MapRow & { __selected?: boolean; __review?: boolean };
 
 const SOURCES = [
@@ -102,6 +108,13 @@ export default function ImportPage() {
   const editItem = (idx: number, field: keyof MapRow, value: string) => {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
   };
+  const editDest = (idx: number, dest: "content" | "payment", field: string, value: string) => {
+    setItems((prev) => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const cur = (it[dest] ?? {}) as Record<string, string>;
+      return { ...it, [dest]: { ...cur, [field]: value } };
+    }));
+  };
 
   const importRows = async () => {
     const chosen = items.filter((i) => i.__selected);
@@ -111,26 +124,69 @@ export default function ImportPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setImportError("Not signed in."); setImporting(false); return; }
 
-    const inserted: { user_id: string; brand: string; value: number | null; status: string; deliverable: string | null; due_date: string | null; notes: string | null; active: boolean }[] = [];
+    const type: { user_id: string; brand: string; value: number | null; status: string; deliverable: string | null; due_date: string | null; notes: string | null; rep_email: string | null; active: boolean }[] = [];
     for (const r of chosen) {
       const brand = (r.brand || "").trim();
       if (!brand) continue;
       const status = (r.status || "active").toLowerCase();
       const validStatus = ["active", "pipeline", "unpaid", "paid", "archived"].includes(status) ? status : "active";
-      inserted.push({
+      type.push({
         user_id: user.id, brand,
         value: r.value ? Number(String(r.value).replace(/[$,]/g, "")) || null : null,
         status: validStatus,
         deliverable: r.deliverable?.trim() || null,
         due_date: r.due_date?.trim() || null,
         notes: r.notes?.trim() || null,
+        rep_email: (r.rep_email || "").trim() || null,
         active: validStatus !== "archived",
       });
     }
+    if (!type.length) { setImporting(false); return; }
 
-    const { error } = await supabase.from("deals").insert(inserted);
+    const { data: dealsData, error } = await supabase
+      .from("deals").insert(type).select("id");
     setImporting(false);
     if (error) { setImportError(error.message); return; }
+
+    const dealIds = (dealsData ?? []) as { id: string }[];
+    const idByIndex = new Map<number, string>();
+    chosen.forEach((r, idx) => {
+      const brand = (r.brand || "").trim();
+      if (!brand) return;
+      idByIndex.set(idx, dealIds[idByIndex.size]?.id ?? "");
+    });
+
+    const contentInserts: { user_id: string; linked_deal_id: string; title: string; event_date: string; platform: string | null; status: string }[] = [];
+    const paymentInserts: { user_id: string; deal_id: string; amount: number; expected_date: string; status: string }[] = [];
+    chosen.forEach((r, idx) => {
+      const deal_id = idByIndex.get(idx);
+      if (!deal_id) return;
+      const c = r.content as ContentPart | null | undefined;
+      if (c?.event_date) {
+        contentInserts.push({
+          user_id: user.id, linked_deal_id: deal_id,
+          title: (c.title || (r.brand || "").trim() || "Deliverable").slice(0, 200),
+          event_date: c.event_date.slice(0, 10),
+          platform: c.platform || null,
+          status: "planned",
+        });
+      }
+      const p = r.payment as PaymentPart | null | undefined;
+      if (p?.expected_date) {
+        const amount = p.amount
+          ? Number(String(p.amount).replace(/[$,]/g, "")) || 0
+          : (r.value ? Number(String(r.value).replace(/[$,]/g, "")) || 0 : 0);
+        paymentInserts.push({
+          user_id: user.id, deal_id,
+          amount,
+          expected_date: p.expected_date.slice(0, 10),
+          status: /paid|received/i.test(p.status || "") ? "received" : "expected",
+        });
+      }
+    });
+
+    if (contentInserts.length) await supabase.from("content").insert(contentInserts);
+    if (paymentInserts.length) await supabase.from("payments").insert(paymentInserts);
     setDone(true);
   };
 
@@ -192,6 +248,7 @@ export default function ImportPage() {
           selCount={selCount}
           onToggle={toggleItem}
           onEdit={editItem}
+          onEditDest={editDest}
           onImport={importRows}
           importing={importing}
           importError={importError}
@@ -412,10 +469,11 @@ function MappingLoading({ error, onRetry }: { error: string; onRetry: () => void
 }
 
 function ReviewStep({
-  mapping, items, lowCount, selCount, onToggle, onEdit, onImport, importing, importError, plan,
+  mapping, items, lowCount, selCount, onToggle, onEdit, onEditDest, onImport, importing, importError, plan,
 }: {
   mapping: Record<string, string>; items: ImportItem[]; lowCount: number; selCount: number;
   onToggle: (i: number, s: boolean) => void; onEdit: (i: number, f: keyof MapRow, v: string) => void;
+  onEditDest: (i: number, dest: "content" | "payment", field: string, v: string) => void;
   onImport: () => void; importing: boolean; importError: string; plan: "free" | "paid";
 }) {
   return (
@@ -457,7 +515,35 @@ function ReviewStep({
               <div className="md:col-span-2">
                 <Field label="Deliverable"><Input value={r.deliverable ?? ""} onChange={(e) => onEdit(i, "deliverable", e.target.value)} /></Field>
               </div>
+              <div className="md:col-span-2">
+                <Field label="Rep email"><Input value={r.rep_email ?? ""} onChange={(e) => onEdit(i, "rep_email", e.target.value)} placeholder="rep@brand.com (for nudges)" /></Field>
+              </div>
             </div>
+            {r.content?.event_date && (
+              <div className="w-full mt-3 border border-accent/30 bg-accent/5 rounded-xl p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-accentink mb-2">Calendar post</p>
+                <div className="grid md:grid-cols-3 gap-2">
+                  <div className="md:col-span-2">
+                    <Field label="Title"><Input value={r.content.title ?? ""} onChange={(e) => onEditDest(i, "content", "title", e.target.value)} /></Field>
+                  </div>
+                  <Field label="Go-live date"><Input type="date" value={r.content.event_date ?? ""} onChange={(e) => onEditDest(i, "content", "event_date", e.target.value)} /></Field>
+                </div>
+              </div>
+            )}
+            {r.payment?.expected_date && (
+              <div className="w-full mt-2 border border-warn/30 bg-warn/5 rounded-xl p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-warn mb-2">Payment</p>
+                <div className="grid md:grid-cols-3 gap-2">
+                  <Field label="Amount ($)"><Input value={r.payment.amount ?? ""} onChange={(e) => onEditDest(i, "payment", "amount", e.target.value)} /></Field>
+                  <Field label="Expected date"><Input type="date" value={r.payment.expected_date ?? ""} onChange={(e) => onEditDest(i, "payment", "expected_date", e.target.value)} /></Field>
+                  <Field label="Status">
+                    <Select value={r.payment.status ?? "expected"} onChange={(e) => onEditDest(i, "payment", "status", e.target.value)}>
+                      <option value="expected">Expected</option><option value="received">Received</option>
+                    </Select>
+                  </Field>
+                </div>
+              </div>
+            )}
             {r.__review && <StatusPill kind="late" className="flex-none mt-1">Review</StatusPill>}
           </div>
         ))}

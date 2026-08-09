@@ -36,14 +36,25 @@ export async function POST(req: Request) {
   const sampleRows = rows.slice(0, 20);
 
   const system =
-    "You map spreadsheet rows into a creator-brand-deal system. " +
-    "Given detected columns and sample rows, return a JSON mapping. " +
-    "Talby deal fields: brand (required), value (number), status " +
-    "(one of: active, pipeline, unpaid, paid, archived), deliverable (string), " +
-    "due_date (YYYY-MM-DD), notes (string). " +
+    "You map spreadsheet rows into a creator-brand-deal system with THREE linked destinations: " +
+    "the DEAL, its CALENDAR POSTS, and its PAYMENTS. " +
+    "Given detected columns and sample rows, return a JSON mapping and per-row extracted data. " +
+    "TARGETS — prefix each field with its destination: " +
+    "deal.brand (required), deal.value (number), deal.status (one of: active, pipeline, unpaid, paid, archived), " +
+    "deal.deliverable (string), deal.due_date (YYYY-MM-DD), deal.notes (string), deal.rep_email (email). " +
+    "content.event_date (YYYY-MM-DD) for a column holding a post/go-live/publish date, content.title (string), content.platform (e.g. TikTok/Instagram/YouTube). " +
+    "payment.expected_date (YYYY-MM-DD) for a column holding a payment/expected/follow-up date, payment.amount (number), payment.status (received if the source says paid/received, else expected). " +
+    "RULES: " +
+    "Every source column maps to exactly ONE target (use 'deal.<field>' for deal columns). " +
+    "When a row has a post/live date, ALSO emit a 'content' object {title,event_date,platform} (title = brand by default). " +
+    "When a row has a payment/expected date, ALSO emit a 'payment' object {amount,expected_date,status}. " +
+    "Use the same money amount for deal.value and payment.amount. " +
     "Respond ONLY with JSON of the shape: " +
-    '{"mapping":{"<sourceColumn>":"<talbyField>"},"rows":[{"brand":"...","value":"...","status":"...",' +
-    '"deliverable":"...","due_date":"...","notes":"...","confidence":0.0..1.0}]}. ' +
+    '{"mapping":{"<sourceColumn>":"deal.field|content.field|payment.field"},"rows":[{' +
+    '"brand":"...","value":"...","status":"...","deliverable":"...","due_date":"...","notes":"...","rep_email":"...","confidence":0.0..1.0,' +
+    '"content":{"title":"...","event_date":"YYYY-MM-DD","platform":"...|null"},"payment":{"amount":"...","expected_date":"YYYY-MM-DD","status":"expected|received"}' +
+    '}]}. ' +
+    "Omit 'content' when no post/live date exists for that row; omit 'payment' when no payment date exists. " +
     "confidence < 0.6 means the row is ambiguous and should be flagged for review. " +
     "Ignore empty/header columns. Keep brand from the most brand-like column.";
 
