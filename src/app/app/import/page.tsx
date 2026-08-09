@@ -41,6 +41,7 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [done, setDone] = useState(false);
+  const [importSummary, setImportSummary] = useState<{ added: number; updated: number; posts: number; payments: number } | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -124,69 +125,123 @@ export default function ImportPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setImportError("Not signed in."); setImporting(false); return; }
 
-    const type: { user_id: string; brand: string; value: number | null; status: string; deliverable: string | null; due_date: string | null; notes: string | null; rep_email: string | null; active: boolean }[] = [];
+    const toNum = (v?: string) => (v ? Number(String(v).replace(/[$,]/g, "")) || null : null);
+    const norm = (s?: string) => (s || "").trim().toLowerCase();
+    const dealStatus = (s?: string) => {
+      const st = (s || "active").toLowerCase();
+      return ["active", "pipeline", "unpaid", "paid", "archived"].includes(st) ? st : "active";
+    };
+
+    // Build a plan per chosen row (skip empty brands).
+    type Plan = {
+      idx: number; brand: string; value: number | null; status: string;
+      deliverable: string | null; due_date: string | null; notes: string | null;
+      rep_email: string | null; active: boolean; dealId: string | null;
+      content: ContentPart | null | undefined; payment: PaymentPart | null | undefined;
+    };
+    const plans: Plan[] = [];
     for (const r of chosen) {
       const brand = (r.brand || "").trim();
       if (!brand) continue;
-      const status = (r.status || "active").toLowerCase();
-      const validStatus = ["active", "pipeline", "unpaid", "paid", "archived"].includes(status) ? status : "active";
-      type.push({
-        user_id: user.id, brand,
-        value: r.value ? Number(String(r.value).replace(/[$,]/g, "")) || null : null,
-        status: validStatus,
+      const status = dealStatus(r.status);
+      plans.push({
+        idx: chosen.indexOf(r), brand, value: toNum(r.value), status,
         deliverable: r.deliverable?.trim() || null,
         due_date: r.due_date?.trim() || null,
         notes: r.notes?.trim() || null,
         rep_email: (r.rep_email || "").trim() || null,
-        active: validStatus !== "archived",
+        active: status !== "archived",
+        dealId: null,
+        content: r.content, payment: r.payment,
       });
     }
-    if (!type.length) { setImporting(false); return; }
+    if (!plans.length) { setImporting(false); return; }
 
-    const { data: dealsData, error } = await supabase
-      .from("deals").insert(type).select("id");
-    setImporting(false);
-    if (error) { setImportError(error.message); return; }
+    // Load existing deals so re-imports UPDATE instead of duplicating.
+    const { data: existingDeals } = await supabase.from("deals").select("id, brand").eq("user_id", user.id);
+    const brandToDeal = new Map<string, string>();
+    for (const d of existingDeals ?? []) {
+      const b = norm((d as { brand: string }).brand);
+      if (b && !brandToDeal.has(b)) brandToDeal.set(b, (d as { id: string }).id);
+    }
 
-    const dealIds = (dealsData ?? []) as { id: string }[];
-    const idByIndex = new Map<number, string>();
-    chosen.forEach((r, idx) => {
-      const brand = (r.brand || "").trim();
-      if (!brand) return;
-      idByIndex.set(idx, dealIds[idByIndex.size]?.id ?? "");
-    });
+    // Insert brand-new deals, capture ids.
+    const newPlans = plans.filter((p) => !brandToDeal.has(norm(p.brand)));
+    let newIds: { id: string }[] = [];
+    if (newPlans.length) {
+      const { data, error } = await supabase.from("deals").insert(
+        newPlans.map((p) => ({
+          user_id: user.id, brand: p.brand, value: p.value, status: p.status,
+          deliverable: p.deliverable, due_date: p.due_date, notes: p.notes,
+          rep_email: p.rep_email, active: p.active,
+        }))
+      ).select("id");
+      if (error) { setImporting(false); setImportError(error.message); return; }
+      newIds = (data ?? []) as { id: string }[];
+      newPlans.forEach((p, i) => { p.dealId = newIds[i]?.id ?? null; });
+    }
 
-    const contentInserts: { user_id: string; linked_deal_id: string; title: string; event_date: string; platform: string | null; status: string }[] = [];
-    const paymentInserts: { user_id: string; deal_id: string; amount: number; expected_date: string; status: string }[] = [];
-    chosen.forEach((r, idx) => {
-      const deal_id = idByIndex.get(idx);
-      if (!deal_id) return;
-      const c = r.content as ContentPart | null | undefined;
+    // Assign deal ids to existing-brand plans and update them.
+    let added = newPlans.length, updated = 0;
+    for (const p of plans) {
+      if (p.dealId) continue;
+      const id = brandToDeal.get(norm(p.brand));
+      if (!id) continue;
+      p.dealId = id;
+      updated++;
+      await supabase.from("deals").update({
+        value: p.value, status: p.status, deliverable: p.deliverable,
+        due_date: p.due_date, notes: p.notes, rep_email: p.rep_email,
+        active: p.active,
+      }).eq("id", id).eq("user_id", user.id);
+    }
+
+    // Fetch existing linked content + payments for all involved deals.
+    const dealIds = plans.map((p) => p.dealId).filter((x): x is string => !!x);
+    const [cRes, payRes] = dealIds.length
+      ? await Promise.all([
+          supabase.from("content").select("id, linked_deal_id, event_date").in("linked_deal_id", dealIds),
+          supabase.from("payments").select("id, deal_id, amount, expected_date").in("deal_id", dealIds),
+        ])
+      : [{ data: null }, { data: null }];
+    const contentByKey = new Map<string, string>();
+    for (const c of (cRes.data ?? []) as { id: string; linked_deal_id: string; event_date: string }[]) {
+      contentByKey.set(`${c.linked_deal_id}|${c.event_date}`, c.id);
+    }
+    const payByKey = new Map<string, string>();
+    for (const p of (payRes.data ?? []) as { id: string; deal_id: string; amount: number; expected_date: string }[]) {
+      payByKey.set(`${p.deal_id}|${p.expected_date}|${p.amount}`, p.id);
+    }
+
+    // Upsert calendar posts + payments (no duplicates; preserve received status).
+    let posts = 0, payments = 0;
+    for (const p of plans) {
+      const dealId = p.dealId;
+      if (!dealId) continue;
+      const c = p.content;
       if (c?.event_date) {
-        contentInserts.push({
-          user_id: user.id, linked_deal_id: deal_id,
-          title: (c.title || (r.brand || "").trim() || "Deliverable").slice(0, 200),
-          event_date: c.event_date.slice(0, 10),
-          platform: c.platform || null,
-          status: "planned",
-        });
+        const date = c.event_date.slice(0, 10);
+        const title = (c.title || p.brand || "Deliverable").slice(0, 200);
+        const body = { title, platform: c.platform || null };
+        const existingId = contentByKey.get(`${dealId}|${date}`);
+        if (existingId) { await supabase.from("content").update(body).eq("id", existingId); }
+        else { await supabase.from("content").insert({ user_id: user.id, linked_deal_id: dealId, title, event_date: date, platform: c.platform || null, status: "planned" }); }
+        posts++;
       }
-      const p = r.payment as PaymentPart | null | undefined;
-      if (p?.expected_date) {
-        const amount = p.amount
-          ? Number(String(p.amount).replace(/[$,]/g, "")) || 0
-          : (r.value ? Number(String(r.value).replace(/[$,]/g, "")) || 0 : 0);
-        paymentInserts.push({
-          user_id: user.id, deal_id,
-          amount,
-          expected_date: p.expected_date.slice(0, 10),
-          status: /paid|received/i.test(p.status || "") ? "received" : "expected",
-        });
+      const pm = p.payment;
+      if (pm?.expected_date) {
+        const date = pm.expected_date.slice(0, 10);
+        const amount = toNum(pm.amount) ?? p.value ?? 0;
+        const status = /paid|received/i.test(pm.status || "") ? "received" : "expected";
+        const existingId = payByKey.get(`${dealId}|${date}|${amount}`);
+        if (existingId) { await supabase.from("payments").update({ status }).eq("id", existingId); }
+        else { await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount, expected_date: date, status }); }
+        payments++;
       }
-    });
+    }
 
-    if (contentInserts.length) await supabase.from("content").insert(contentInserts);
-    if (paymentInserts.length) await supabase.from("payments").insert(paymentInserts);
+    setImporting(false);
+    setImportSummary({ added, updated, posts, payments });
     setDone(true);
   };
 
@@ -210,7 +265,16 @@ export default function ImportPage() {
         <div className="panel p-12 text-center">
           <div className="h-12 w-12 rounded-2xl bg-paid text-white grid place-items-center mx-auto"><IconCheck size={24} /></div>
           <h2 className="text-lg font-semibold mt-4">Deals imported</h2>
-          <p className="text-sm text-inksoft mt-1">{selCount} deals added to your account.</p>
+          <p className="text-sm text-inksoft mt-1">
+            {importSummary ? (
+              <>
+                {importSummary.added} added · {importSummary.updated} updated ·{" "}
+                {importSummary.posts} calendar posts · {importSummary.payments} payments
+              </>
+            ) : (
+              `${selCount} deals added to your account.`
+            )}
+          </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link href="/app/deals"><Button>View deals</Button></Link>
             <Button variant="secondary" onClick={() => { setDone(false); resetUpload(); setStep("source"); }}>Import more</Button>
