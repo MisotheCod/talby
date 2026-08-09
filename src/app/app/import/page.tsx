@@ -8,6 +8,7 @@ import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { IconArrowLeft, IconCheck, IconDownload, IconLink, IconRefresh } from "@/components/icons";
 import { Button, Chip, Input, Select, Spinner, StatusPill } from "@/components/ui";
+import { UpgradeModal } from "@/components/upgrade-modal";
 
 type Step = "source" | "notion" | "upload" | "columns" | "mapping" | "review";
 type ContentPart = { title?: string; event_date?: string; platform?: string | null };
@@ -41,6 +42,7 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [done, setDone] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [importSummary, setImportSummary] = useState<{ added: number; updated: number; posts: number; payments: number } | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -158,11 +160,34 @@ export default function ImportPage() {
     if (!plans.length) { setImporting(false); return; }
 
     // Load existing deals so re-imports UPDATE instead of duplicating.
-    const { data: existingDeals } = await supabase.from("deals").select("id, brand").eq("user_id", user.id);
+    const { data: existingDeals } = await supabase.from("deals").select("id, brand, active, status").eq("user_id", user.id);
     const brandToDeal = new Map<string, string>();
     for (const d of existingDeals ?? []) {
       const b = norm((d as { brand: string }).brand);
       if (b && !brandToDeal.has(b)) brandToDeal.set(b, (d as { id: string }).id);
+    }
+
+    // --- Free-plan hard stop (mirrors the DB trigger; gives a friendly gate) ---
+    // Count active deals the user WILL have after this import and block free
+    // users who would exceed FREE_ACTIVE_DEAL_CAP. The DB trigger is the real
+    // enforcement; this just surfaces the Upgrade modal instead of a raw error.
+    if (plan === "free") {
+      const dealRows = (existingDeals ?? []) as { brand: string; active: boolean; status: string }[];
+      const existingActive = dealRows.filter((d) => d.active && d.status !== "archived").length;
+      // New inserts that count as active.
+      const newActive = plans.filter((p) => !brandToDeal.has(norm(p.brand)) && p.active).length;
+      // Existing deals being flipped into active (or created fresh).
+      const flippedActive = plans.filter((p) => {
+        const existing = dealRows.find((d) => norm(d.brand) === norm(p.brand));
+        if (!existing) return false;
+        return p.active && !(existing.active && existing.status !== "archived");
+      }).length;
+      if (existingActive + newActive + flippedActive > FREE_ACTIVE_DEAL_CAP) {
+        setImporting(false);
+        setShowUpgrade(true);
+        setImportError("You've reached the free plan's limit of active deals. Go unlimited to import more.");
+        return;
+      }
     }
 
     // Insert brand-new deals, capture ids.
@@ -319,6 +344,8 @@ export default function ImportPage() {
           plan={plan}
         />
       )}
+
+      {showUpgrade && <UpgradeModal onClose={() => { setShowUpgrade(false); setImportError(""); }} />}
     </div>
   );
 }
