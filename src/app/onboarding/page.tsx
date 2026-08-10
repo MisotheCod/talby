@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { IconCheck, IconArrowRight } from "@/components/icons";
 import { Button, Input } from "@/components/ui";
 import { DashboardPreview } from "@/components/dashboard-preview";
+import { TalbyLogo } from "@/components/marketing/talby-logo";
 
 export default function OnboardingPage() {
   const supabase = createClient();
@@ -80,7 +81,7 @@ export default function OnboardingPage() {
     <div className="min-h-full flex flex-col">
       <header className="px-6 py-5">
         <span className="inline-flex items-center gap-2.5">
-          <span className="sb-mark" aria-hidden />
+          <TalbyLogo width={24} height={23} />
           <span className="font-bold text-lg tracking-tight">Talby</span>
         </span>
       </header>

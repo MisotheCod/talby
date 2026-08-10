@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { IconEye, IconEyeInvisible } from "@/components/icons";
 import { Button, Input, Spinner } from "@/components/ui";
+import { TalbyLogo } from "@/components/marketing/talby-logo";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const supabase = createClient();
@@ -42,10 +43,10 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   return (
     <div className="min-h-full flex flex-col">
       <header className="px-6 py-5 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="h-7 w-7 rounded-lg accent-fill grid place-items-center text-xs font-bold">T</span>
-          <span className="font-display font-semibold text-lg tracking-tight">Talby</span>
-        </Link>
+        <Link href="/" className="flex items-center gap-2 no-underline">
+            <TalbyLogo width={24} height={23} />
+            <span className="font-semibold text-lg tracking-tight">Talby</span>
+          </Link>
         <Link href={isLogin ? "/signup" : "/login"} className="text-sm accent-text font-medium">
           {isLogin ? "Create an account" : "Log in"}
         </Link>

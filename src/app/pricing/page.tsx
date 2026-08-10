@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { TalbyBrand } from "@/components/marketing/talby-brand";
 import { IconCheck } from "@/components/icons";
 
 export const metadata: Metadata = {
@@ -12,10 +13,7 @@ export default function PricingPage() {
   return (
     <div className="flex-1 flex flex-col">
       <header className="px-6 py-5 flex items-center justify-between max-w-6xl mx-auto w-full">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="h-7 w-7 rounded-lg accent-fill grid place-items-center text-xs font-bold">T</span>
-          <span className="font-display font-semibold text-lg tracking-tight">Talby</span>
-        </Link>
+        <TalbyBrand />
         <div className="flex items-center gap-3">
           <Link href="/login" className="text-sm font-medium text-muted hover:text-foreground">Log in</Link>
           <Link href="/signup" className="text-sm font-semibold px-4 h-9 inline-flex items-center rounded-lg accent-fill">Sign up</Link>

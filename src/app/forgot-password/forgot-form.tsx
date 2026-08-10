@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Input } from "@/components/ui";
+import { TalbyLogo } from "@/components/marketing/talby-logo";
 
 export function ForgotForm() {
   const supabase = createClient();
@@ -27,9 +28,9 @@ export function ForgotForm() {
   return (
     <div className="min-h-full flex flex-col">
       <header className="px-6 py-5">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <span className="h-7 w-7 rounded-lg accent-fill grid place-items-center text-xs font-bold">T</span>
-          <span className="font-display font-semibold text-lg tracking-tight">Talby</span>
+        <Link href="/" className="inline-flex items-center gap-2 no-underline">
+          <TalbyLogo width={24} height={23} />
+          <span className="font-semibold text-lg tracking-tight">Talby</span>
         </Link>
       </header>
       <main className="flex-1 flex items-center justify-center px-4 py-10">
