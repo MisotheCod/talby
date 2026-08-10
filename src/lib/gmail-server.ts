@@ -1,5 +1,5 @@
 import "server-only";
-import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_SCOPE } from "@/lib/config";
+import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_FULL_SCOPE } from "@/lib/config";
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**
@@ -25,7 +25,7 @@ export function authUrl(state: string): string {
     client_id: GOOGLE_CLIENT_ID,
     redirect_uri: process.env.GOOGLE_REDIRECT_URI || "",
     response_type: "code",
-    scope: GMAIL_SCOPE,
+    scope: GMAIL_FULL_SCOPE,
     access_type: "offline",
     prompt: "consent",
     state,
@@ -134,4 +134,74 @@ export async function sendGmail(accessToken: string, to: string, subject: string
   });
   if (!res.ok) throw new Error("Gmail send failed: " + (await res.text()).slice(0, 200));
   return (await res.json()) as { id: string };
+}
+
+// ===========================================================================
+// Inbox reading (inbox deal scanner) — uses the separate gmail.readonly scope.
+// ===========================================================================
+
+/** Header rows for the most recent N inbox messages (id, threadId, snippet only). */
+export async function listInboxMessages(accessToken: string, max = 25): Promise<{ id: string; threadId: string; snippet: string }[]> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${max}&q=in:inbox`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) throw new Error("Gmail list failed: " + (await res.text()).slice(0, 200));
+  const data = await res.json();
+  return (data.messages ?? []) as { id: string; threadId: string; snippet: string }[];
+}
+
+type GmailPayload = {
+  headers?: { name: string; value: string }[];
+  parts?: GmailPayload[];
+  body?: { data?: string; size?: number };
+  mimeType?: string;
+};
+type GmailMessage = { id: string; threadId: string; snippet: string; payload?: GmailPayload };
+
+function decodeBody(data?: string): string {
+  if (!data) return "";
+  const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  try {
+    return decodeURIComponent(Array.prototype.map.call(Buffer.from(base64, "base64"), (b: number) => "%" + b.toString(16).padStart(2, "0")).join(""));
+  } catch {
+    return Buffer.from(base64, "base64").toString("utf8");
+  }
+}
+
+/** Walk a Gmail MIME payload recursively, joining plain-text parts. */
+function extractText(payload?: GmailPayload): string {
+  if (!payload) return "";
+  const type = payload.mimeType ?? "";
+  if ((type === "text/plain" || type === "text/html") && payload.body?.data) {
+    return decodeBody(payload.body.data);
+  }
+  let out = "";
+  for (const part of payload.parts ?? []) out += extractText(part) + "\n";
+  return out;
+}
+
+/** Fetch a full message with subject, from, and decoded text body. */
+export async function getInboxMessage(accessToken: string, id: string): Promise<{
+  id: string; threadId: string; subject: string; from: string; snippet: string; body: string;
+}> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) throw new Error("Gmail fetch failed: " + (await res.text()).slice(0, 200));
+  const m = (await res.json()) as GmailMessage;
+  const headers = Object.fromEntries((m.payload?.headers ?? []).map((h) => [h.name.toLowerCase(), h.value]));
+  let body = extractText(m.payload);
+  if (!body) body = m.snippet ?? "";
+  // strip HTML tags for a plain plaintext view fed to the LLM
+  body = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return {
+    id: m.id,
+    threadId: m.threadId,
+    subject: headers.subject ?? "(no subject)",
+    from: headers.from ?? "",
+    snippet: m.snippet ?? "",
+    body: body.slice(0, 6000),
+  };
 }

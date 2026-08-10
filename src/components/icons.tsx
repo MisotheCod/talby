@@ -39,6 +39,7 @@ export {
   Paperclip as IconPaperclip,
   Shopping as IconShopping,
   Trend as IconTrend,
+  Inbox as IconMail,
   Wallet as IconWallet,
   Credit as IconCredit,
   Gift as IconGift,

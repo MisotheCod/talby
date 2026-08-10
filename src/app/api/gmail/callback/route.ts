@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServiceClient } from "@/lib/supabase/server";
 import { exchangeCode } from "@/lib/gmail-server";
+import { scanForUser } from "@/lib/inbox-scan-run";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,11 @@ export async function GET(req: Request) {
       expires_at: new Date(Date.now() + tok.expires_in * 1000).toISOString(),
     });
     cookieStore.delete("gmail_state");
+
+    // Fire-and-forget: scan the inbox once on connect so leads appear
+    // without waiting for the first poll. Never blocks the redirect.
+    scanForUser(user_id).catch(() => {});
+
     return redirect("gmail=connected");
   } catch (e) {
     console.error("gmail callback error", e);

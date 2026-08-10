@@ -11,7 +11,7 @@ import { ThemeControl } from "@/components/theme-control";
 
 import {
   IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
-  IconNotes, IconLogout, IconSettings,
+  IconNotes, IconLogout, IconSettings, IconMail,
 } from "@/components/icons";
 
 const MANAGE_NAV = [
@@ -19,6 +19,7 @@ const MANAGE_NAV = [
   { href: "/app/deals", label: "Deals", icon: IconBriefcase },
   { href: "/app/calendar", label: "Calendar", icon: IconCalendar },
   { href: "/app/payments", label: "Payments", icon: IconDollar },
+  { href: "/app/inbox", label: "Inbox", icon: IconMail },
 ];
 const CREATE_NAV = [
   { href: "/app/ideas", label: "Ideas", icon: IconIdea },

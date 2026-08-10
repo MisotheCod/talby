@@ -17,6 +17,13 @@ export async function GET() {
     return NextResponse.json({ error: "Gmail is not configured on this deployment yet." }, { status: 503 });
   }
 
+  // Inbox scanning (read scope) is paid-tier. Enforce the gate here so free
+  // users can't initiate a read-scoped connect.
+  const { data: prof } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+  if ((prof as { plan?: string } | null)?.plan !== "paid") {
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_SITE_URL || "/app/settings"}?gmail=paid_required`);
+  }
+
   const state = randomUUID();
   const res = NextResponse.redirect(authUrl(state));
   res.cookies.set("gmail_state", JSON.stringify({ state, user_id: user.id }), {

@@ -54,20 +54,32 @@ export default function PrivacyPage() {
         <section className="space-y-2">
           <h2 className="font-semibold">Connected accounts (Google / Gmail)</h2>
           <p className="text-muted text-sm leading-relaxed">
-            On the paid plan you may connect your own Google (Gmail) account so Talby can prepare and send
-            payment-follow-up emails from your address to your brand contacts. If you connect Gmail, we
-            store an OAuth access token and refresh token on our servers. These tokens are used solely to
-            (a) read the connected Gmail address and (b) create drafts and send follow-up emails that you
-            explicitly configure. We never access or store the contents of email threads beyond the
-            messages you ask us to send, and we never use your Gmail data for advertising.
+            On the paid plan you may connect your own Google (Gmail) account so Talby can (a) prepare and
+            send payment-follow-up emails from your address to your brand contacts, and (b) detect
+            brand-deal outreach in your inbox to suggest new deals. If you connect Gmail, we store an
+            OAuth access token and refresh token on our servers.
+          </p>
+          <p className="text-muted text-sm leading-relaxed">
+            <strong>Inbox deal detection:</strong> when enabled, Talby scans the subject lines, senders, and
+            message bodies of recent messages in your inbox to identify genuine brand-deal outreach (such
+            as paid partnerships, UGC, product seeding, or affiliate offers) and to extract the contact and
+            deal details so you can add them as deals. We analyse outreach only to recommend deals and to
+            fill in their details; we do not use your inbox data for advertising, and we do not share it
+            with third parties.
+          </p>
+          <p className="text-muted text-sm leading-relaxed">
+            We never sell your Gmail data. Access is used only for the purposes described here and is fully
+            revocable: you can disconnect Gmail from Settings at any time, which deletes the stored tokens
+            and stops further inbox scanning.
           </p>
           <p className="text-muted text-sm leading-relaxed">
             Talby&apos;s use and transfer of information received from Google APIs complies with the{" "}
             <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer" className="text-accentink underline">
               Google API Services User Data Policy
             </a>
-            , including the Limited Use requirements. You can disconnect Gmail and revoke access at any time
-            from Settings, which deletes the stored tokens.
+            , including the Limited Use requirements. Restricted scopes (including Gmail read access) are
+            used only for the specific, disclosed purpose of deal detection, are never used for
+            advertising, and you can revoke this access at any time.
           </p>
         </section>
 

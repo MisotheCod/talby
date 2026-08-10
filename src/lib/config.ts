@@ -22,8 +22,17 @@ export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
 export const GOOGLE_REDIRECT_URI =
   process.env.GOOGLE_REDIRECT_URI || `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/gmail/callback`;
 
-/** Minimal Gmail scope: compose + send (no read of user mail). */
+/** Minimal Gmail scope: compose + send (no read of user mail). Used for nudges. */
 export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.send";
+
+/**
+ * Gmail read scope for the inbox deal scanner. Restricted scope (requires
+ * extended Google verification) — kept SEPARATE from GMAIL_SCOPE so the
+ * nudge send/compose flow does not depend on it. The connect route combines
+ * them; if the read scope is rejected in review, nudges still work.
+ */
+export const GMAIL_READ_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+export const GMAIL_FULL_SCOPE = `${GMAIL_SCOPE} ${GMAIL_READ_SCOPE}`;
 
 /** Notion OAuth (public integration) — each user connects their own account. */
 export const NOTION_CLIENT_ID = process.env.NOTION_CLIENT_ID || "";
