@@ -52,10 +52,31 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-2">
+          <h2 className="font-semibold">Connected accounts (Google / Gmail)</h2>
+          <p className="text-muted text-sm leading-relaxed">
+            On the paid plan you may connect your own Google (Gmail) account so Talby can prepare and send
+            payment-follow-up emails from your address to your brand contacts. If you connect Gmail, we
+            store an OAuth access token and refresh token on our servers. These tokens are used solely to
+            (a) read the connected Gmail address and (b) create drafts and send follow-up emails that you
+            explicitly configure. We never access or store the contents of email threads beyond the
+            messages you ask us to send, and we never use your Gmail data for advertising.
+          </p>
+          <p className="text-muted text-sm leading-relaxed">
+            Talby&apos;s use and transfer of information received from Google APIs complies with the{" "}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer" className="text-accentink underline">
+              Google API Services User Data Policy
+            </a>
+            , including the Limited Use requirements. You can disconnect Gmail and revoke access at any time
+            from Settings, which deletes the stored tokens.
+          </p>
+        </section>
+
+        <section className="space-y-2">
           <h2 className="font-semibold">Security</h2>
           <p className="text-muted text-sm leading-relaxed">
             Your data is protected using row-level security and encrypted in transit. Each account can only
-            access its own data.
+            access its own data. OAuth tokens are stored server-side, encrypted, and never exposed to your
+            browser or to other users.
           </p>
         </section>
 
