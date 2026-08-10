@@ -13,8 +13,13 @@ export async function GET(req: Request) {
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
 
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://talby-one.vercel.app";
-  const redirect = (q: string) => NextResponse.redirect(`${base}/app/settings?${q}`);
+  // Redirect back to the SAME origin the OAuth began on, so the user's
+  // session cookie (which is host-scoped) survives the Google round-trip.
+  // A hardcoded SITE_URL redirect would bounce preview domains (and any
+  // non-site_url host) to a different origin and drop the session -> logout.
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "";
+  const origin = url.origin && url.origin !== "null" ? url.origin : (base || "https://www.talby.io");
+  const redirect = (q: string) => NextResponse.redirect(`${origin}/app/settings?${q}`);
 
   const cookieStore = await cookies();
   const stateJson = cookieStore.get("gmail_state")?.value;
