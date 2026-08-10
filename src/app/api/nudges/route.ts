@@ -15,10 +15,14 @@ type NudgeBody = {
 
 export async function POST(req: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+
+  async function customTemplates() {
+    const p = await supabase.from("profiles").select("nudge_templates").eq("id", userId).single();
+    return (p.data as unknown as { nudge_templates?: { step: number; body: string }[] | null } | null)?.nudge_templates ?? undefined;
+  }
+  const userId = user.id;
 
   // Paid-tier gate for the nudge feature.
   const prof = await supabase.from("profiles").select("plan").eq("id", user.id).single();
@@ -81,7 +85,7 @@ export async function POST(req: Request) {
     amount: deal.value,
     due_date: payment.expected_date ? new Date(payment.expected_date + "T00:00:00") : null,
     days_overdue: daysOverdue,
-  });
+  }, await customTemplates());
 
   const subject = nudge.subject;
   const body = nudge.body;

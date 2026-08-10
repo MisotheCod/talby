@@ -1,8 +1,6 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { NUDGE_TOPICS, nudgeStepLabel } from "@/lib/nudges";
+import { NUDGE_TOPICS, NUDGE_TOKENS, DEFAULT_TEMPLATE_SOURCES, nudgeStepLabel } from "@/lib/nudges";
 import { Button, Input, Spinner, StatusPill } from "@/components/ui";
 
 /** Paid-tier nudge settings: Gmail connection + rules + template editor. */
@@ -16,10 +14,13 @@ export function NudgeSettings() {
   const [rulesSaved, setRulesSaved] = useState(false);
   const [savingRules, setSavingRules] = useState(false);
 
+  // Start every step PRE-FILLED with a default template (editable text, with
+  // merge tokens), so creators customize rather than write from scratch.
   const [templates, setTemplates] = useState<{ step: number; body: string }[]>(
-    NUDGE_TOPICS.map((t) => ({ step: t.step, body: "" }))
+    NUDGE_TOPICS.map((t) => ({ step: t.step, body: DEFAULT_TEMPLATE_SOURCES[t.step] }))
   );
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [templateFocused, setTemplateFocused] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -36,6 +37,10 @@ export function NudgeSettings() {
       // Gmail status (token never exposed to client).
       const g = await fetch("/api/gmail/status").then((r) => r.json()).catch(() => ({}));
       setGmail(g);
+      // Load any previously saved custom templates.
+      const t = await fetch("/api/nudges/templates").then((r) => r.json()).catch(() => ({ templates: [] }));
+      const saved = (t.templates ?? []) as { step: number; body: string }[];
+      if (Array.isArray(saved) && saved.length > 0) setTemplates(saved);
     })();
   }, [supabase]);
 
@@ -62,10 +67,31 @@ export function NudgeSettings() {
     setTimeout(() => setRulesSaved(false), 1500);
   };
 
+  const updateTemplate = (step: number, body: string) => {
+    setTemplates((prev) => prev.map((x) => (x.step === step ? { ...x, body } : x)));
+  };
+
+  const insertToken = (step: number, token: string) => {
+    const cur = templates.find((x) => x.step === step)?.body ?? "";
+    // Insert at the end of the greeting line if it starts with {greeting},
+    // otherwise at the cursor/end. Simple + predictable: append on its own line.
+    updateTemplate(step, cur + token);
+  };
+
+  // Live preview: merge tokens with a sample context so creators see roughly
+  // what the email will read like before they save.
+  const previewBody = (body: string) => {
+    return body
+      .replace("{greeting}", "Hi Sam,")
+      .replace(/\{\{rep_name\}\}/g, "Sam")
+      .replace(/\{\{brand\}\}/g, "SunCup Co")
+      .replace(/\{\{deliverable\}\}/g, "3 IG posts")
+      .replace(/\{\{amount\}\}/g, "$1,200")
+      .replace(/\{\{due_date\}\}/g, "Aug 14, 2026")
+      .replace(/\{\{days_overdue\}\}/g, "7");
+  };
+
   const saveTemplates = async () => {
-    // Templates are stored via a dedicated endpoint (or local preview).
-    // For v1 we persist them to the profiles JSON settings via an RPC-less
-    // upsert through the shared settings route.
     await fetch("/api/nudges/templates", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -73,6 +99,10 @@ export function NudgeSettings() {
     });
     setTemplateSaved(true);
     setTimeout(() => setTemplateSaved(false), 1500);
+  };
+
+  const resetTemplate = (step: number) => {
+    updateTemplate(step, DEFAULT_TEMPLATE_SOURCES[step]);
   };
 
   if (plan !== "paid") {
@@ -131,26 +161,70 @@ export function NudgeSettings() {
         <div className="mt-4"><Button onClick={saveRules} disabled={savingRules}>{savingRules ? <Spinner /> : rulesSaved ? "Saved" : "Save rules"}</Button></div>
       </div>
 
-      {/* Template library */}
+      {/* Template library — pre-filled, token-based, creator-editable */}
       <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
-        <h2 className="font-semibold">Nudge templates</h2>
-        <p className="text-sm text-inksoft mt-1 mb-4">Warm, firm follow-ups in your own voice. Auto mode sends these as written.</p>
-        <div className="space-y-4">
-          {NUDGE_TOPICS.map((t, i) => (
-            <div key={t.step}>
-              <div className="text-[13px] font-semibold mb-1.5 flex items-center gap-2">
-                <StatusPill kind={i === 2 ? "late" : i === 1 ? "due" : "neutral"}>{nudgeStepLabel(t.step)}</StatusPill>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h2 className="font-semibold">Nudge templates</h2>
+            <p className="text-sm text-inksoft mt-1">
+              Start from a warm, firm default and make it your own. Auto mode sends these as written.
+            </p>
+          </div>
+          <div className="flex gap-1.5 flex-wrap items-center">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-inkfaint">Insert:</span>
+            {NUDGE_TOKENS.map((tok) => (
+              <button
+                key={tok.token}
+                type="button"
+                disabled={templateFocused === null}
+                onClick={() => templateFocused !== null && insertToken(templateFocused, tok.token)}
+                className="text-[11px] font-medium px-2 py-1 rounded-md border border-line2 bg-card2 text-inksoft hover:border-accent hover:text-accentink transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title={`Insert ${tok.label} (${tok.hint})`}
+              >
+                {tok.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-lg bg-purplebg px-3 py-2 text-xs text-purple">
+          Tap a field name (Rep name, Brand, etc.) above, then a template, to insert it anywhere. Live preview below each template.
+        </div>
+
+        <div className="mt-4 space-y-5">
+          {NUDGE_TOPICS.map((t) => (
+            <div key={t.step} className="border border-line rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <StatusPill kind={t.step === 3 ? "late" : t.step === 2 ? "due" : "neutral"}>{nudgeStepLabel(t.step)}</StatusPill>
+                  <span className="text-[13px] text-inksoft">Sent after {t.step === 1 ? "payment goes past due" : t.step === 2 ? "a second check-in is due" : "max cadence is reached"}</span>
+                </div>
+                <button type="button" onClick={() => resetTemplate(t.step)} className="text-[11px] font-medium text-inksoft hover:text-ink cursor-pointer">
+                  Reset to default
+                </button>
               </div>
-              <textarea
-                value={templates.find((x) => x.step === t.step)?.body ?? ""}
-                onChange={(e) => setTemplates((prev) => prev.map((x) => (x.step === t.step ? { ...x, body: e.target.value } : x)))}
-                placeholder={t.body.toString()}
-                className="w-full bg-card2 border border-line2 rounded-xl px-3.5 py-2.5 text-sm min-h-[110px] resize-y font-sans"
-              />
+              <div className="relative">
+                <textarea
+                  value={templates.find((x) => x.step === t.step)?.body ?? ""}
+                  onFocus={() => setTemplateFocused(t.step)}
+                  onBlur={() => setTemplateFocused((cur) => (cur === t.step ? null : cur))}
+                  onChange={(e) => updateTemplate(t.step, e.target.value)}
+                  placeholder={DEFAULT_TEMPLATE_SOURCES[t.step]}
+                  className="w-full bg-card2 border border-line2 rounded-xl px-3.5 py-2.5 text-sm min-h-[120px] resize-y font-sans focus:border-accent outline-none"
+                />
+              </div>
+              <div className="mt-2 rounded-lg bg-card2 border border-line px-3 py-2">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-inkfaint mb-1">Preview</div>
+                <p className="text-[13px] text-inksoft whitespace-pre-wrap leading-relaxed">{previewBody(templates.find((x) => x.step === t.step)?.body ?? "")}</p>
+              </div>
             </div>
           ))}
         </div>
-        <div className="mt-4"><Button onClick={saveTemplates}>{templateSaved ? "Saved" : "Save templates"}</Button></div>
+
+        <div className="mt-4 flex items-center gap-3">
+          <Button onClick={saveTemplates}>{templateSaved ? "Saved" : "Save templates"}</Button>
+          <span className="text-xs text-inkfaint">Your saved templates are used for drafts and auto-sends.</span>
+        </div>
       </div>
     </div>
   );

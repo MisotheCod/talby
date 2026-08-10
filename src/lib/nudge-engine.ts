@@ -32,20 +32,21 @@ export async function runAutoNudgeEngine(now: Date = new Date()) {
 
   // 2. Load per-user settings + plan in bulk.
   const userIds = [...new Set(autoDeals.map((d) => d.user_id))];
-  const settingsMap = new Map<string, { daysOverdue: number; cadence: number; max: number; paid: boolean }>();
+  const settingsMap = new Map<string, { daysOverdue: number; cadence: number; max: number; paid: boolean; templates?: { step: number; body: string }[] }>();
   if (userIds.length) {
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("id, plan, nudge_days_overdue, nudge_cadence_days, nudge_max_count")
+      .select("id, plan, nudge_days_overdue, nudge_cadence_days, nudge_max_count, nudge_templates")
       .in("id", userIds);
     for (const p of (profiles ?? []) as unknown as {
-      id: string; plan: string; nudge_days_overdue: number; nudge_cadence_days: number; nudge_max_count: number;
+      id: string; plan: string; nudge_days_overdue: number; nudge_cadence_days: number; nudge_max_count: number; nudge_templates?: { step: number; body: string }[] | null;
     }[]) {
       settingsMap.set(p.id, {
         daysOverdue: p.nudge_days_overdue ?? DEFAULT_NUDGE_DAYS_OVERDUE,
         cadence: p.nudge_cadence_days ?? 6,
         max: p.nudge_max_count ?? 3,
         paid: p.plan === "paid",
+        templates: p.nudge_templates ?? undefined,
       });
     }
   }
@@ -113,7 +114,7 @@ export async function runAutoNudgeEngine(now: Date = new Date()) {
         amount: pay.amount ?? d.value,
         due_date: due,
         days_overdue: daysOverdue,
-      });
+      }, settings.templates);
 
       // Final hard-stop re-check immediately before send: a payment could
       // have been marked received since the loop started.

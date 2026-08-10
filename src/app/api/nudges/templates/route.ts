@@ -3,12 +3,23 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+type CustomTpl = { step: number; body: string };
+
+/** Load the user's saved custom nudge templates. */
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+
+  const prof = await supabase.from("profiles").select("nudge_templates").eq("id", user.id).single();
+  const templates = (prof.data as unknown as { nudge_templates?: CustomTpl[] | null } | null)?.nudge_templates ?? [];
+  return NextResponse.json({ templates });
+}
+
 /** Save the user's custom nudge templates (array of {step, body}). */
 export async function POST(req: Request) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
 
   // Paid-tier gate.
