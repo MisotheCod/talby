@@ -43,3 +43,6 @@ next-env.d.ts
 
 # temp scripts
 *.cjs
+
+# local desktop attachments
+.hermes/
