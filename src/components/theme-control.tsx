@@ -34,6 +34,10 @@ export function ThemeControl({
   const [font, setFont] = useState<string>(currentFont);
   const [saved, setSaved] = useState(false);
   const [working, setWorking] = useState(false);
+  // Tick forces a re-render after every preview so controlled inputs (hue/sat
+  // sliders) repaint. Without it, dragging hue with constant saturation passes
+  // the same value to setSat/setSaved, React bails out, and the slider snaps back.
+  const [, setTick] = useState(0);
   const savedRef = useRef<{ hsl: HSL; font: string }>({ hsl: current, font: currentFont });
   const previewRef = useRef<{ hsl: HSL; font: string }>({ hsl: current, font: currentFont });
   const satRef = useRef<HTMLInputElement>(null);
@@ -63,6 +67,7 @@ export function ThemeControl({
     previewRef.current = { ...previewRef.current, hsl };
     setSat(hsl.s);
     setSaved(false);
+    setTick((t) => t + 1);
     onPreview(hsl);
   };
   const previewSat = (v: number) => {

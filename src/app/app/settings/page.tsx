@@ -115,7 +115,7 @@ export default function SettingsPage() {
     Math.round(current.l) === Math.round(p.l);
 
   return (
-    <div className="fade-up max-w-3xl">
+    <div className="fade-up">
       <div className="mb-2">
         <h1 className="text-[24px] font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-inksoft mt-1">Your account, appearance, and connections.</p>
@@ -181,7 +181,7 @@ export default function SettingsPage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 mt-3">
               {ACCENT_PRESETS.map((p) => (
                 <button
                   key={p.name}

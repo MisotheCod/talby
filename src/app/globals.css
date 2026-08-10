@@ -396,7 +396,7 @@ h1, h2, h3, h4 {
 
 /* Saturation slider track: painted live by JS from current hue */
 input[type="range"].sat { background: linear-gradient(90deg, hsl(var(--accent-h), 20%, 50%), hsl(var(--accent-h), 100%, 50%)); }
-.swatches { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.swatches { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
 .sw { width: 26px; height: 26px; border-radius: 9px; cursor: pointer; border: 2px solid transparent; transition: transform 0.12s; }
 .sw:hover { transform: scale(1.14); }
 .sw.on { border-color: var(--ink); }
