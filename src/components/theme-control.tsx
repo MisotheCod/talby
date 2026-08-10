@@ -5,14 +5,15 @@ import { ACCENT_PRESETS, HEADING_FONTS, DEFAULT_HSL, DEFAULT_HEAD_FONT, applyAcc
 import { cn } from "@/lib/utils";
 
 /**
- * Theme control — a "Theme" row with a live color dot at the bottom of the
- * sidebar. Opens a popover with three user choices, all previewing live:
- *   1. Accent hue (0-360)
- *   2. Accent saturation (20-100, track repaints with hue)
- *   3. Heading font (2x2 chips, each in its own typeface)
- * One Save persists the full set {h, s, font}; closing otherwise reverts all.
+ * Theme control. Two variants:
+ *  - "fab" (default): a circular icon button floating in the bottom-right
+ *    corner of the app. Opens the theme popover above it.
+ *  - "row": a nav-item-style row (kept for backward-compat / inline use).
+ * Both open the same full popover: 6 presets + Hue + Saturation + Heading
+ * font. One Save persists {h, s, font}; closing otherwise reverts all.
  */
 export function ThemeControl({
+  variant = "fab",
   current,
   currentFont,
   onPreview,
@@ -20,6 +21,7 @@ export function ThemeControl({
   onPreviewFont,
   onSaveFont,
 }: {
+  variant?: "fab" | "row";
   current: HSL;
   currentFont: string;
   onPreview: (hsl: HSL) => void;
@@ -39,6 +41,7 @@ export function ThemeControl({
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const shown = previewRef.current;
+  const presets = ACCENT_PRESETS;
 
   // Repaint saturation track gradient from the current hue.
   useEffect(() => {
@@ -65,7 +68,7 @@ export function ThemeControl({
   const previewSat = (v: number) => {
     applyPreview({ h: shown.hsl.h, s: v, l: 50 });
   };
-  const pickPreset = (p: (typeof ACCENT_PRESETS)[number]) => applyPreview({ h: p.h, s: p.s, l: p.l });
+  const pickPreset = (p: (typeof presets)[number]) => applyPreview({ h: p.h, s: p.s, l: p.l });
   const pickFont = (name: string) => {
     previewRef.current = { ...previewRef.current, font: name };
     setFont(name);
@@ -121,13 +124,29 @@ export function ThemeControl({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isPresetOn = (p: (typeof ACCENT_PRESETS)[number]) =>
+  const isPresetOn = (p: (typeof presets)[number]) =>
     Math.round(shown.hsl.h) === Math.round(p.h) &&
     Math.round(shown.hsl.s) === Math.round(p.s) &&
     Math.round(shown.hsl.l) === Math.round(p.l);
 
-  return (
-    <div ref={wrapRef} className="theme-launch relative">
+  const trigger =
+    variant === "fab" ? (
+      <button
+        onClick={(e) => { e.stopPropagation(); open ? close(true) : openPop(); }}
+        aria-label="Theme"
+        aria-expanded={open}
+        className="theme-fab"
+      >
+        <svg className="ic" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 3a9 9 0 000 18c1.7 0 2-1.5 1.2-2.5-.7-1 .2-2 1.3-2H17a4 4 0 004-4c0-5-4-9-9-9z" />
+          <circle cx="8" cy="10" r="1" fill="currentColor" stroke="none" />
+          <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none" />
+          <circle cx="16" cy="10" r="1" fill="currentColor" stroke="none" />
+        </svg>
+        <span className="theme-fab-dot" />
+      </button>
+    ) : (
       <button onClick={(e) => { e.stopPropagation(); open ? close(true) : openPop(); }} className="theme-btn">
         <svg className="ic" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9" />
@@ -139,12 +158,16 @@ export function ThemeControl({
         Theme
         <span className="dotcol" />
       </button>
+    );
 
+  return (
+    <div ref={wrapRef} className={cn("theme-launch relative", variant === "fab" && "theme-fab-wrap")}>
+      {trigger}
       <div className={cn("theme-pop", open && "open")}>
         <div className="tp-h" style={{ fontFamily: "var(--font-head)" }}>Accent color</div>
 
         <div className="swatches">
-          {ACCENT_PRESETS.map((p) => (
+          {presets.map((p) => (
             <button
               key={p.name}
               aria-label={p.name}

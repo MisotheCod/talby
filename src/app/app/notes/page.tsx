@@ -96,8 +96,8 @@ export default function NotesPage() {
             <span className="text-sm text-muted">{remaining} remaining</span>
           </div>
           <div className="flex gap-2 mb-4 items-center">
-            <Input value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTodo()} placeholder="Add a to-do…" className="flex-1" />
-            <Input type="date" value={todoDate} onChange={(e) => setTodoDate(e.target.value)} className="w-[150px] shrink-0" aria-label="Due date" />
+            <Input value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTodo()} placeholder="Add a to-do…" className="!w-auto flex-1 min-w-0" />
+            <Input type="date" value={todoDate} onChange={(e) => setTodoDate(e.target.value)} className="!w-[150px] shrink-0" aria-label="Due date" />
             <Button onClick={addTodo}><IconPlus size={16} /></Button>
           </div>
           <ul className="space-y-1">
@@ -115,7 +115,7 @@ export default function NotesPage() {
                     setTodos(todos.map((x) => (x.id === t.id ? { ...x, due_date: due } : x)));
                     await supabase.from("todos").update({ due_date: due }).eq("id", t.id);
                   }}
-                  className="w-[140px] shrink-0 text-xs h-8"
+                  className="!w-[140px] shrink-0 text-xs h-8"
                   aria-label="Due date"
                 />
                 <button onClick={() => deleteTodo(t.id)} aria-label="Delete to-do" className="text-muted hover:text-bad cursor-pointer"><IconDelete size={14} /></button>

@@ -132,7 +132,6 @@ export function AppShell({
 
   const footer = (
     <div className="side-foot">
-      <ThemeControl current={accentState} currentFont={fontState} onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont} onSaveFont={saveFont} />
       {plan === "free" && <UpsellCard used={capUsed} cap={FREE_ACTIVE_DEAL_CAP} />}
       <div className="flex items-center justify-between px-2 pt-2">
         <Link href="/app/settings" className="flex items-center gap-2 text-[13px] text-inksoft hover:text-ink no-underline">
@@ -175,6 +174,7 @@ export function AppShell({
         <main className="main">
           {children}
         </main>
+        <ThemeControl current={accentState} currentFont={fontState} onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont} onSaveFont={saveFont} />
       </div>
     </div>
   );
