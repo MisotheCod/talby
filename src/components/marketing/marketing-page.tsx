@@ -219,6 +219,10 @@ export function MarketingPage() {
             <span className="w blue">brand</span> <span className="w blue">deals.</span>
           </h1>
           <p id="heroP">Deals, money, and content in one calm place. Running your creator business has never been this simple.</p>
+          <p className="hero-whatis" style={{ fontSize: 13, color: "var(--ink-2)", maxWidth: 520, margin: "8px auto 0" }}>
+            Talby is a brand deal manager for creators: track what&rsquo;s owed, what&rsquo;s paid, and what&rsquo;s
+            due, plan your content, and follow up on invoices from your own Gmail.
+          </p>
           <div className="hero-cta" id="heroC">
             <a href="/signup" className="btn btn-3d btn-lg">Sign up free</a>
             <a href="#features" className="btn btn-ghost btn-lg">See how it works</a>
