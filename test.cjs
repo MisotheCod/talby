@@ -1,1 +1,0 @@
-const { classifyEmail, hitsSignal } = require("./src/lib/inbox-scanner.ts");
