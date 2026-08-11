@@ -1,25 +1,30 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { exchangeCode } from "@/lib/gmail-server";
 import { scanForUser } from "@/lib/inbox-scan-run";
 
 export const dynamic = "force-dynamic";
 
-/** Google OAuth callback. Stores the token server-side, scoped to the user. */
+/**
+ * Google OAuth callback. Stores the token server-side, scoped to the user.
+ *
+ * SESSION PRESERVATION: the middleware refreshes the Supabase auth cookie on
+ * this request, but that refresh lives on the middleware's response. If we
+ * return our own NextResponse.redirect() and that response doesn't carry the
+ * session cookies, the (possibly refreshed) session is dropped -> after the
+ * Google round-trip /app/settings finds no session and bounces to /login.
+ * So before redirecting we (1) refresh the session through the auth-aware
+ * client, and (2) copy every auth cookie onto the redirect response.
+ */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
 
-  // Redirect back to the SAME origin the OAuth began on, so the user's
-  // session cookie (which is host-scoped) survives the Google round-trip.
-  // A hardcoded SITE_URL redirect would bounce preview domains (and any
-  // non-site_url host) to a different origin and drop the session -> logout.
   const base = process.env.NEXT_PUBLIC_SITE_URL || "";
   const origin = url.origin && url.origin !== "null" ? url.origin : (base || "https://www.talby.io");
-  const redirect = (q: string) => NextResponse.redirect(`${origin}/app/settings?${q}`);
 
   const cookieStore = await cookies();
   const stateJson = cookieStore.get("gmail_state")?.value;
@@ -31,11 +36,30 @@ export async function GET(req: Request) {
     } catch {}
   }
 
+  const redirect = (q: string) => {
+    // Reflect the (possibly refreshed) session cookies onto the redirect so
+    // the round-trip doesn't drop the user to /login.
+    const res = NextResponse.redirect(`${origin}/app/settings?${q}`);
+    const all = cookieStore.getAll();
+    for (const c of all) {
+      if (c.name.startsWith("sb-") || c.name.includes("auth-token")) {
+        res.cookies.set(c.name, c.value, { path: "/", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+      }
+    }
+    return res;
+  };
+
   if (error || !code || !user_id) {
     return redirect("gmail=error");
   }
 
   try {
+    // Keep the session alive across the OAuth round-trip: force a refresh via
+    // the auth-aware client so its writes land in cookieStore, then copy them
+    // onto the redirect above.
+    const session = await createClient();
+    await session.auth.getUser();
+
     const tok = await exchangeCode(code);
     const supabase = createServiceClient();
     await supabase.from("gmail_connections").upsert({

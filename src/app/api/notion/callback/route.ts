@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { exchangeCode } from "@/lib/notion-server";
 
 export const dynamic = "force-dynamic";
 
-/** Notion OAuth callback. Stores the token server-side, scoped to the user. */
+/**
+ * Notion OAuth callback. Stores the token server-side, scoped to the user.
+ * SESSION PRESERVATION: the middleware's refreshed session cookie isn't
+ * carried onto a fresh redirect, so we refresh via the auth-aware client and
+ * copy the auth cookies onto the redirect response to avoid dropping the user
+ * to /login after the round-trip.
+ */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
@@ -13,11 +19,7 @@ export async function GET(req: Request) {
   const error = url.searchParams.get("error");
 
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://talby-one.vercel.app";
-  const origin = req.url && new URL(req.url).origin && new URL(req.url).origin !== "null"
-    ? new URL(req.url).origin
-    : base;
-  const build = (q: string, path?: string) =>
-    NextResponse.redirect(`${origin}${path ?? "/app/settings"}?${q}`);
+  const origin = url.origin && url.origin !== "null" ? url.origin : base;
 
   const cookieStore = await cookies();
   const stateJson = cookieStore.get("notion_state")?.value;
@@ -35,11 +37,26 @@ export async function GET(req: Request) {
     } catch {}
   }
 
+  const build = (q: string, path?: string) => {
+    const res = NextResponse.redirect(`${origin}${path ?? "/app/settings"}?${q}`);
+    const all = cookieStore.getAll();
+    for (const c of all) {
+      if (c.name.startsWith("sb-") || c.name.includes("auth-token")) {
+        res.cookies.set(c.name, c.value, { path: "/", httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+      }
+    }
+    return res;
+  };
+
   if (error || !code || !user_id) {
     return build("notion=error", redirect_to);
   }
 
   try {
+    // Refresh the session so its cookies land in the store, then copy them.
+    const session = await createClient();
+    await session.auth.getUser();
+
     const tok = await exchangeCode(code);
     const supabase = createServiceClient();
     await supabase.from("notion_connections").upsert({
