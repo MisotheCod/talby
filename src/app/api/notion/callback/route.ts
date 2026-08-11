@@ -13,20 +13,30 @@ export async function GET(req: Request) {
   const error = url.searchParams.get("error");
 
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://talby-one.vercel.app";
-  const redirect = (q: string) => NextResponse.redirect(`${base}/app/settings?${q}`);
+  const origin = req.url && new URL(req.url).origin && new URL(req.url).origin !== "null"
+    ? new URL(req.url).origin
+    : base;
+  const build = (q: string, path?: string) =>
+    NextResponse.redirect(`${origin}${path ?? "/app/settings"}?${q}`);
 
   const cookieStore = await cookies();
   const stateJson = cookieStore.get("notion_state")?.value;
   let user_id: string | null = null;
+  let redirect_to: string = "/app/import";
   if (stateJson) {
     try {
       const parsed = JSON.parse(stateJson);
-      if (parsed.state === state) user_id = parsed.user_id;
+      if (parsed.state === state) {
+        user_id = parsed.user_id;
+        if (typeof parsed.redirect_to === "string" && /^\/app\/[a-z0-9/_-]*$/i.test(parsed.redirect_to)) {
+          redirect_to = parsed.redirect_to;
+        }
+      }
     } catch {}
   }
 
   if (error || !code || !user_id) {
-    return redirect("notion=error");
+    return build("notion=error", redirect_to);
   }
 
   try {
@@ -41,9 +51,9 @@ export async function GET(req: Request) {
       notion_user_id: tok.notion_user_id,
     });
     cookieStore.delete("notion_state");
-    return redirect("notion=connected");
+    return build("notion=connected", redirect_to);
   } catch (e) {
     console.error("notion callback error", e);
-    return redirect("notion=error");
+    return build("notion=error", redirect_to);
   }
 }

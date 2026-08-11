@@ -390,7 +390,7 @@ function ConnectionsList() {
         {notion?.connected ? (
           <Button variant="secondary" size="sm" onClick={disconnectNotion}>Disconnect</Button>
         ) : (
-          <Button size="sm" onClick={() => { window.location.href = "/api/notion/connect"; }}>Connect</Button>
+          <Button size="sm" onClick={() => { window.location.href = "/api/notion/connect?redirect_to=/app/settings"; }}>Connect</Button>
         )}
       </div>
     </div>

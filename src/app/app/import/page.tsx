@@ -466,7 +466,7 @@ function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record
         <span className="h-12 w-12 rounded-2xl accent-tint-bg accent-ink grid place-items-center mx-auto"><IconLink size={22} /></span>
         <h2 className="font-semibold mt-4">Connect Notion</h2>
         <p className="text-sm text-inksoft mt-1 mb-4">Authorize your own Notion account, then pick a database to import.</p>
-        <Button onClick={() => { window.location.href = "/api/notion/connect"; }}>Connect Notion</Button>
+        <Button onClick={() => { window.location.href = "/api/notion/connect?redirect_to=/app/import"; }}>Connect Notion</Button>
       </div>
     );
   }

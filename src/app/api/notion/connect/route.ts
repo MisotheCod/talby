@@ -6,7 +6,7 @@ import { authUrl, notionConfigured } from "@/lib/notion-server";
 export const dynamic = "force-dynamic";
 
 /** Start Notion OAuth. Redirects to Notion; state persisted in a signed cookie. */
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,9 +17,16 @@ export async function GET() {
     return NextResponse.json({ error: "Notion is not configured on this deployment yet." }, { status: 503 });
   }
 
+  // Where to return the user after the OAuth round-trip. Only allow app
+  // pages to avoid an open redirect. Defaults to /app/import so connecting
+  // from the Import flow comes back to the import flow (not Settings).
+  const u = new URL(req.url);
+  let redirectTo = u.searchParams.get("redirect_to") || "/app/import";
+  if (!/^\/app\/[a-z0-9/_-]*$/i.test(redirectTo)) redirectTo = "/app/import";
+
   const state = randomUUID();
   const res = NextResponse.redirect(authUrl(state));
-  res.cookies.set("notion_state", JSON.stringify({ state, user_id: user.id }), {
+  res.cookies.set("notion_state", JSON.stringify({ state, user_id: user.id, redirect_to: redirectTo }), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
