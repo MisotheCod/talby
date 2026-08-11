@@ -9,12 +9,14 @@ import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconMore, IconDownload } from "@/components/icons";
 import { Button, Chip, Input, Textarea, Select, StatusPill, Spinner } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
+import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
 
 type Deal = {
   id: string; brand: string; status: string; deliverable: string | null;
   value: number | null; due_date: string | null; notes: string | null;
   links: { url: string; label?: string }[]; active: boolean;
   rep_name: string | null; rep_email: string | null; nudge_mode: string;
+  payment_status: string; pay_terms: string | null; exclusivity_days: number | null;
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
@@ -148,7 +150,7 @@ export default function DealsPage() {
               </span>
               <span className="text-right flex-none">
                 <span className="block money text-sm font-medium mb-1.5">{formatMoney(d.value)}</span>
-                <DealStatusBadge status={d.status} active={d.active} due={d.due_date} />
+                <DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} />
               </span>
             </button>
           ))}
@@ -178,50 +180,22 @@ export default function DealsPage() {
   );
 }
 
-function DealStatusBadge({ status, active, due }: { status: string; active: boolean; due: string | null }) {
-  const map: Record<string, { label: string; kind: "neutral" | "paid" | "due" | "late" | "pipeline" | "accent" }> = {
-    active: { label: active ? "Active" : "Archived", kind: "accent" },
-    pipeline: { label: "Pipeline", kind: "pipeline" },
-    unpaid: { label: isPastDue(due) ? "Past due" : "Awaiting pay", kind: isPastDue(due) ? "late" : "due" },
-    paid: { label: "Paid", kind: "paid" },
-    archived: { label: "Archived", kind: "neutral" },
-  };
-  const m = map[status] ?? { label: status, kind: "neutral" as const };
-  return <StatusPill kind={m.kind}>{m.label}</StatusPill>;
+function DealStatusBadge({ status, payment_status, active, due }: { status: string; payment_status?: string; active: boolean; due: string | null }) {
+  // Deal lifecycle (pipeline/active/archived) + payment (expected/paid/none).
+  const pay = payment_status ?? (status === "paid" ? "paid" : status === "unpaid" ? "expected" : "expected");
+  if (status === "pipeline") return <StatusPill kind="pipeline">Pipeline</StatusPill>;
+  if (status === "archived") return <StatusPill kind="neutral">Archived</StatusPill>;
+  if (pay === "paid") return <StatusPill kind="paid">Paid</StatusPill>;
+  if (isPastDue(due)) return <StatusPill kind="late">Past due</StatusPill>;
+  return <StatusPill kind="accent">{active ? "Active" : "Archived"}</StatusPill>;
 }
 
 /* ---------------- New Deal Modal ---------------- */
 function NewDealModal({ plan, activeCount, onClose, onCreated, onUpgrade }: { plan: "free" | "paid"; activeCount: number; onClose: () => void; onCreated: () => void; onUpgrade: () => void }) {
-  const supabase = createClient();
-  const [brand, setBrand] = useState("");
-  const [deliverable, setDeliverable] = useState("");
-  const [value, setValue] = useState("");
-  const [status, setStatus] = useState("active");
-  const [dueDate, setDueDate] = useState("");
-  const [notes, setNotes] = useState("");
-  const [repName, setRepName] = useState("");
-  const [repEmail, setRepEmail] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const atCap = plan === "free" && activeCount >= FREE_ACTIVE_DEAL_CAP;
-
-  const submit = async () => {
-    if (!brand.trim()) { setError("Enter a brand name."); return; }
-    if (atCap) { onUpgrade(); return; }
-    setSaving(true); setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("Not signed in."); setSaving(false); return; }
-    const { error } = await supabase.from("deals").insert({
-      user_id: user.id, brand: brand.trim(), deliverable: deliverable.trim() || null,
-      value: value ? Number(value) : null, status, due_date: dueDate || null,
-      notes: notes.trim() || null, active: status !== "archived",
-      rep_name: repName.trim() || null, rep_email: repEmail.trim() || null,
-    });
-    setSaving(false);
-    if (error) { setError(error.message); return; }
-    onCreated();
-  };
 
   return (
     <Modal onClose={onClose} title="New deal">
@@ -234,31 +208,14 @@ function NewDealModal({ plan, activeCount, onClose, onCreated, onUpgrade }: { pl
           </div>
         </div>
       )}
-      <div className="space-y-4">
-        <Field label="Brand *"><Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Glossier" autoFocus /></Field>
-        <Field label="Deliverable"><Input value={deliverable} onChange={(e) => setDeliverable(e.target.value)} placeholder="e.g. 2 IG posts + 1 story" /></Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Value ($)"><Input type="number" value={value} onChange={(e) => setValue(e.target.value)} placeholder="1500" /></Field>
-          <Field label="Due date"><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
-        </div>
-        <Field label="Status">
-          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="active">Active</option><option value="pipeline">Pipeline</option>
-            <option value="unpaid">Unpaid</option><option value="paid">Paid</option>
-            <option value="archived">Archived</option>
-          </Select>
-        </Field>
-        <Field label="Notes"><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any details…" /></Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Rep name"><Input value={repName} onChange={(e) => setRepName(e.target.value)} placeholder="e.g. Sam Rivera" /></Field>
-          <Field label="Rep email"><Input type="email" value={repEmail} onChange={(e) => setRepEmail(e.target.value)} placeholder="sam@brand.com" /></Field>
-        </div>
-        {error && <p className="text-sm text-late" role="alert">{error}</p>}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={saving}>{saving ? <Spinner /> : null}{atCap ? "Upgrade to add" : "Add deal"}</Button>
-        </div>
-      </div>
+      <DealForm
+        mode="create"
+        initial={emptyDealForm()}
+        onSaved={onCreated}
+        setError={setError}
+        pending={saving}
+        submitLabel="Add deal"
+      />
     </Modal>
   );
 }
@@ -329,7 +286,7 @@ function DealDrawer({ deal, onClose, onUpdated }: { deal: Deal; onClose: () => v
             </div>
             <button onClick={onClose} aria-label="Close drawer" className="p-1.5 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
           </div>
-          <div className="mt-3"><DealStatusBadge status={deal.status} active={deal.active} due={deal.due_date} /></div>
+          <div className="mt-3"><DealStatusBadge status={deal.status} payment_status={deal.payment_status} active={deal.active} due={deal.due_date} /></div>
         </header>
 
         {/* Tabs */}
@@ -355,16 +312,9 @@ function DealDrawer({ deal, onClose, onUpdated }: { deal: Deal; onClose: () => v
 
 function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
   const supabase = createClient();
-  const [value, setValue] = useState(deal.value?.toString() ?? "");
-  const [status, setStatus] = useState(deal.status);
-  const [dueDate, setDueDate] = useState(deal.due_date ?? "");
-  const [deliverable, setDeliverable] = useState(deal.deliverable ?? "");
-  const [repName, setRepName] = useState(deal.rep_name ?? "");
-  const [repEmail, setRepEmail] = useState(deal.rep_email ?? "");
-  const [nudgeMode, setNudgeMode] = useState(deal.nudge_mode ?? "draft");
-  const [links, setLinks] = useState<{ url: string; label?: string }[]>(deal.links as { url: string; label?: string }[] ?? []);
-  const [nudges, setNudges] = useState<{ sequence_step: number; subject: string; status: string; sent_at: string | null }[]>([]);
+  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [nudges, setNudges] = useState<{ sequence_step: number; subject: string; status: string; sent_at: string | null }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -373,72 +323,34 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
     })();
   }, [supabase, deal.id]);
 
-  const save = async () => {
-    setSaving(true);
-    await supabase.from("deals").update({
-      value: value ? Number(value) : null,
-      status, due_date: dueDate || null,
-      deliverable: deliverable || null,
-      rep_name: repName || null,
-      rep_email: repEmail || null,
-      nudge_mode: nudgeMode,
-      links: links.filter((l) => l.url).map((l) => ({ url: l.url, label: l.label || l.url })),
-      active: status !== "archived",
-    }).eq("id", deal.id);
-    setSaving(false);
-    onSaved();
+  const initial: DealFormValues = {
+    brand: deal.brand,
+    deliverable: deal.deliverable ?? "",
+    value: deal.value?.toString() ?? "",
+    status: deal.status === "unpaid" || deal.status === "paid" ? deal.active ? "active" : "archived" : deal.status,
+    payment_status: deal.status === "paid" ? "paid" : deal.status === "unpaid" ? "expected" : (deal.payment_status ?? "expected"),
+    due_date: deal.due_date ?? "",
+    pay_terms: deal.pay_terms ?? "",
+    exclusivity_days: deal.exclusivity_days?.toString() ?? "",
+    rep_name: deal.rep_name ?? "",
+    rep_email: deal.rep_email ?? "",
+    nudge_mode: deal.nudge_mode ?? "draft",
+    links: (deal.links as { url: string; label?: string }[] ?? []),
+    notes: deal.notes ?? "",
   };
 
   return (
     <div className="space-y-4">
-      <Field label="Deliverable"><Input value={deliverable} onChange={(e) => setDeliverable(e.target.value)} /></Field>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Value ($)"><Input type="number" value={value} onChange={(e) => setValue(e.target.value)} placeholder="1500" /></Field>
-        <Field label="Status">
-          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="active">Active</option><option value="pipeline">Pipeline</option>
-            <option value="unpaid">Unpaid</option><option value="paid">Paid</option>
-            <option value="archived">Archived</option>
-          </Select>
-        </Field>
-      </div>
-      <Field label="Due date"><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
-
-      {/* Rep contact + nudging (paid feature) */}
-      <div className="border-t border-line pt-4">
-        <div className="text-[12px] font-semibold uppercase tracking-wide text-inkfaint mb-3">Rep contact</div>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Rep name"><Input value={repName} onChange={(e) => setRepName(e.target.value)} placeholder="e.g. Sam Rivera" /></Field>
-          <Field label="Rep email"><Input type="email" value={repEmail} onChange={(e) => setRepEmail(e.target.value)} placeholder="sam@brand.com" /></Field>
-        </div>
-        <Field label="Nudge mode">
-          <Select value={nudgeMode} onChange={(e) => setNudgeMode(e.target.value)}>
-            <option value="off">Off (no nudging)</option>
-            <option value="notify">Notify (flag past due in-app)</option>
-            <option value="draft">Draft (prepare for review, you send)</option>
-            <option value="auto">Auto (send on schedule)</option>
-          </Select>
-        </Field>
-        {nudgeMode === "auto" && (
-          <p className="text-xs text-due -mt-1">
-            Auto mode sends follow-ups from your Gmail on schedule. Talby will send
-            up to your max nudges, then stop. Mark the payment received anytime to stop it instantly.
-          </p>
-        )}
-      </div>
-
-      <Field label="Links">
-        <div className="space-y-2">
-          {links.map((l, i) => (
-            <div key={i} className="flex gap-2">
-              <Input value={l.url} onChange={(e) => { const n = [...links]; n[i] = { ...n[i], url: e.target.value }; setLinks(n); }} placeholder="https://…" />
-              <button onClick={() => setLinks(links.filter((_, j) => j !== i))} className="px-2 text-inksoft hover:text-late cursor-pointer"><IconDelete size={16} /></button>
-            </div>
-          ))}
-          <Button variant="secondary" size="sm" onClick={() => setLinks([...links, { url: "", label: "" }])}><IconLink size={14} /> Add link</Button>
-        </div>
-      </Field>
-      <div className="flex justify-end"><Button onClick={save} disabled={saving}>{saving ? <Spinner /> : "Save changes"}</Button></div>
+      <DealForm
+        mode="edit"
+        dealId={deal.id}
+        initial={initial}
+        onSaved={onSaved}
+        setError={setError}
+        pending={saving}
+        submitLabel="Save changes"
+      />
+      {error && <p className="text-sm text-late" role="alert">{error}</p>}
 
       {nudges.length > 0 && (
         <div className="border-t border-line pt-3">

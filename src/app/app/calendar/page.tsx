@@ -300,10 +300,14 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
               </Select>
             </label>
           </div>
-          <Select value={dealId} onChange={(e) => setDealId(e.target.value)}>
-            <option value="">No link, just a post</option>
-            {deals.map((d) => <option key={d.id} value={d.id}>{d.brand}</option>)}
-          </Select>
+          <label className="block">
+            <span className="text-xs text-muted mb-1 block">Connected deal</span>
+            <Select value={dealId} onChange={(e) => setDealId(e.target.value)}>
+              <option value="">No link, just a post</option>
+              {deals.map((d) => <option key={d.id} value={d.id}>{d.brand}</option>)}
+            </Select>
+            <span className="text-[11px] text-muted mt-1 block">Optional: attach this post to one of your deals.</span>
+          </label>
 
           {/* Inline repeat option */}
           <div className="border border-border rounded-lg p-3">

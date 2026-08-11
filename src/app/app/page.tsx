@@ -11,7 +11,7 @@ import { IconPlus } from "@/components/icons";
 type Deal = {
   id: string; brand: string; status: string; value: number | null;
   due_date: string | null; deliverable: string | null; active: boolean;
-  notes: string | null; created_at: string;
+  notes: string | null; created_at: string; payment_status: string;
 };
 type Payment = {
   id: string; deal_id: string | null; amount: number;
@@ -182,9 +182,11 @@ export default function OverviewPage() {
             {greeting()}{handle ? `, ${userName(handle)}` : ""}
           </h1>
           <p className="text-sm text-inksoft mt-1.5">
-            {outstanding > 0
-              ? `You've got ${formatMoney(outstanding)} coming in, and ${pastDue} invoice${pastDue === 1 ? "" : "s"} worth chasing.`
-              : `You've got ${formatMoney(outstanding)} coming in. Looking good.`}
+            {activeDeals.length === 0
+              ? "No deals in motion yet. Time to lock in your first brand collab."
+              : outstanding > 0
+                ? `You've got ${formatMoney(outstanding)} coming in, and ${pastDue} invoice${pastDue === 1 ? "" : "s"} worth chasing.`
+                : `You've got ${formatMoney(outstanding)} coming in. Looking good.`}
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -331,14 +333,18 @@ function CapacityCard({ used, cap }: { used: number; cap: number }) {
 }
 
 function DealRow({ deal }: { deal: Deal }) {
+  const paid = deal.payment_status === "paid" || deal.status === "paid";
   const pill = (() => {
-    if (deal.status === "paid") return <span className="pill pill-paid">Paid</span>;
-    if (deal.status === "unpaid") return <span className="pill pill-due">Awaiting pay</span>;
+    if (paid) return <span className="pill pill-paid">Paid</span>;
+    if (deal.status === "unpaid" || deal.payment_status === "expected") return <span className="pill pill-due">Awaiting pay</span>;
     if (isPastDue(deal.due_date)) return <span className="pill pill-late">Past due</span>;
     if (deal.status === "pipeline") return <span className="pill pill-pipe">Pipeline</span>;
     return <span className="pill pill">Active</span>;
   })();
-  const meta = deal.deliverable || (isPastDue(deal.due_date) ? "invoice past due" : deal.status === "pipeline" ? "contract, in DMs" : "deal");
+  const meta = deal.status === "pipeline" ? "contract, in DMs"
+    : isPastDue(deal.due_date) ? "invoice past due"
+    : paid ? "paid in full"
+    : "active deal";
   // colored logo per the prototype (green/gold/coral/purple variety)
   const logoColors = ["var(--due)", "var(--paid)", "var(--late)", "var(--purple)"];
   const logoColor = logoColors[(deal.brand.charCodeAt(0) + deal.brand.length) % logoColors.length];

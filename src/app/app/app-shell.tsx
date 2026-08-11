@@ -23,7 +23,7 @@ const MANAGE_NAV = [
 ];
 const CREATE_NAV = [
   { href: "/app/ideas", label: "Ideas", icon: IconIdea },
-  { href: "/app/notes", label: "Notes & To-dos", icon: IconNotes },
+  { href: "/app/notes", label: "To-dos", icon: IconNotes },
 ];
 
 export function AppShell({

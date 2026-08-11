@@ -389,8 +389,8 @@ export function MarketingPage() {
               <div className="demo"><div className="swrow">
                 <span className="swc" style={{ background: "#1f7ae0" }} /><span className="swc" style={{ background: "#8b6cf0" }} /><span className="swc" style={{ background: "#2f9e6f" }} /><span className="swc" style={{ background: "#f2705b" }} /><span className="swc" style={{ background: "#e0a32e" }} />
               </div></div>
-              <h4>Make it yours</h4>
-              <p>Drag across a palette and watch the app re-tint live. One accent, applied tastefully. Impossible to make ugly.</p>
+              <h4>Customize</h4>
+              <p>Pick the accent color that matches your brand. Tap a preset, drag the hue, or slide the saturation, and watch the whole app re-tint live. Your headings and buttons follow automatically.</p>
             </div>
             <div className="dcard reveal">
               <div className="demo"><span className="bigchip" style={{ background: "var(--blue-tint)", color: "var(--blue)" }}><span className="d" style={{ background: "var(--blue)" }} />Import from Notion or a spreadsheet</span></div>
