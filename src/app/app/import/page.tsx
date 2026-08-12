@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { IconArrowLeft, IconCheck, IconDownload, IconLink, IconRefresh } from "@/components/icons";
 import { Button, Chip, Input, Select, Spinner, StatusPill } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
+import { NotionLogo } from "@/components/marketing/notion-logo";
 
 type Step = "source" | "notion" | "upload" | "columns" | "mapping" | "review";
 type ContentPart = { title?: string; event_date?: string; platform?: string | null };
@@ -22,7 +23,7 @@ type ImportItem = MapRow & { __selected?: boolean; __review?: boolean };
 
 const SOURCES = [
   { id: "csv", name: "CSV file", desc: "Upload a .csv export of your deals spreadsheet.", icon: IconDownload },
-  { id: "notion", name: "Notion", desc: "Connect a Notion database and pull your deals straight in.", icon: IconLink },
+  { id: "notion", name: "Notion", desc: "Connect a Notion database and pull your deals straight in.", icon: NotionLogo },
 ];
 
 export default function ImportPage() {
@@ -379,13 +380,16 @@ function SourceStep({ sources, onPick }: { sources: typeof SOURCES; onPick: (id:
       <div className="grid md:grid-cols-2 gap-4">
         {sources.map((s) => {
           const Icon = s.icon;
+          const isBrand = s.id === "notion";
           return (
             <button
               key={s.id}
               onClick={() => onPick(s.id)}
               className="card p-6 text-left flex items-start gap-4 transition-colors cursor-pointer hover:border-[var(--accent)]"
             >
-              <span className="h-11 w-11 rounded-xl accent-tint-bg accent-ink grid place-items-center flex-none"><Icon size={20} /></span>
+              <span className={cn("h-11 w-11 rounded-xl grid place-items-center flex-none", isBrand ? "bg-white border border-line2" : "accent-tint-bg accent-ink")}>
+                <Icon size={22} />
+              </span>
               <span>
                 <span className="block font-semibold">{s.name}</span>
                 <span className="block text-[13px] text-inksoft mt-1">{s.desc}</span>

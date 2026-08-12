@@ -17,11 +17,12 @@ export default async function AppLayout({
     accent: string | null;
     plan: string;
     head_font: string | null;
+    avatar_url: string | null;
   } | null = null;
   if (user) {
     const res = await supabase
       .from("profiles")
-      .select("handler, accent, plan, head_font")
+      .select("handler, accent, plan, head_font, avatar_url")
       .eq("id", user.id)
       .single();
     profile = res.data as unknown as {
@@ -29,6 +30,7 @@ export default async function AppLayout({
       accent: string | null;
       plan: string;
       head_font: string | null;
+      avatar_url: string | null;
     } | null;
   }
 
@@ -45,6 +47,7 @@ export default async function AppLayout({
         accent={profile?.accent ?? null}
         plan={profile?.plan ?? "free"}
         headFont={profile?.head_font ?? DEFAULT_HEAD_FONT}
+        avatarUrl={profile?.avatar_url ?? null}
       >
         {children}
       </AppShell>

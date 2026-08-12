@@ -10,6 +10,7 @@ import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, Ic
 import { Button, Chip, Input, Textarea, Select, StatusPill, Spinner } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
+import { useCelebration } from "@/components/confetti";
 
 type Deal = {
   id: string; brand: string; status: string; deliverable: string | null;
@@ -35,6 +36,7 @@ export default function DealsPage() {
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
+  const celeb = useCelebration();
 
   const loadDeals = useCallback(async () => {
     const { data } = await supabase.from("deals").select("*").order("created_at", { ascending: false });
@@ -75,7 +77,7 @@ export default function DealsPage() {
 
   const selected = deals.find((d) => d.id === selectedId) ?? null;
 
-  const onCreated = () => { setNewMode(null); loadDeals(); };
+  const onCreated = () => { setNewMode(null); celeb.fire(); loadDeals(); };
   const onUpdated = () => loadDeals();
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" /></div>;
@@ -188,10 +190,12 @@ export default function DealsPage() {
           deal={selected}
           onClose={() => setSelectedId(null)}
           onUpdated={onUpdated}
+          onCelebrate={celeb.fire}
         />
       )}
 
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
+      {celeb.ToastEl}
     </div>
   );
 }
@@ -261,7 +265,7 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
 }
 
 /* ---------------- Deal Detail Drawer ---------------- */
-function DealDrawer({ deal, onClose, onUpdated }: { deal: Deal; onClose: () => void; onUpdated: () => void }) {
+function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onClose: () => void; onUpdated: () => void; onCelebrate?: () => void }) {
   const supabase = createClient();
   const [tab, setTab] = useState<"Fields" | "Checklist" | "Notes" | "Files" | "Payments">("Fields");
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -320,7 +324,7 @@ function DealDrawer({ deal, onClose, onUpdated }: { deal: Deal; onClose: () => v
           {tab === "Checklist" && <ChecklistTab dealId={deal.id} items={checklist} setItems={setChecklist} />}
           {tab === "Notes" && <NotesTab dealId={deal.id} deal={deal} onSaved={onUpdated} />}
           {tab === "Files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
-          {tab === "Payments" && <DrawerPaymentsTab dealId={deal.id} payments={payments} setPayments={setPayments} onChanged={onUpdated} />}
+          {tab === "Payments" && <DrawerPaymentsTab dealId={deal.id} payments={payments} setPayments={setPayments} onChanged={onUpdated} onCelebrate={onCelebrate} />}
         </div>
       </div>
     </div>
@@ -486,7 +490,7 @@ function FilesTab({ dealId, files, setFiles, plan }: { dealId: string; files: De
   );
 }
 
-function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged }: { dealId: string; payments: Payment[]; setPayments: (p: Payment[]) => void; onChanged: () => void }) {
+function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebrate }: { dealId: string; payments: Payment[]; setPayments: (p: Payment[]) => void; onChanged: () => void; onCelebrate?: () => void }) {
   const supabase = createClient();
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
@@ -547,6 +551,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged }: { dealI
     await supabase.from("payments").update({ status: "received" }).eq("id", id);
     setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received" } : p)));
     onChanged();
+    onCelebrate?.();
   };
   return (
     <div className="space-y-4">

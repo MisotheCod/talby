@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /** Button — primary uses the accent (with WCAG on-accent), others neutral. */
@@ -32,12 +33,13 @@ export function Button({
   );
 }
 
-export function Input({
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function Input({
   className,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement>) {
+}, ref) {
   return (
     <input
+      ref={ref}
       className={cn(
         "w-full bg-card border border-line2 rounded-xl px-3.5 h-10 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans",
         className
@@ -45,7 +47,7 @@ export function Input({
       {...props}
     />
   );
-}
+});
 
 export function Textarea({
   className,

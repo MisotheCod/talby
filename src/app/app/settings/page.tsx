@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ACCENT_PRESETS, HEADING_FONTS, applyAccent, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
 import { cn } from "@/lib/utils";
-import { IconCheck, IconCrown } from "@/components/icons";
+import { IconCheck, IconCrown, IconUpload } from "@/components/icons";
 import { StatusPill, Button, Spinner } from "@/components/ui";
 import { NudgeSettings } from "@/components/nudge-settings";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { GmailLogo } from "@/components/marketing/gmail-logo";
 
-type Profile = { handler: string | null; accent: string | null; plan: string; head_font: string | null };
+type Profile = { handler: string | null; accent: string | null; plan: string; head_font: string | null; avatar_url: string | null };
 
 // Settings are grouped into sections with a side-scroll section nav.
 const SECTIONS = [
@@ -42,7 +42,7 @@ export default function SettingsPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from("profiles").select("handler, accent, plan, head_font").eq("id", user.id).single();
+      const { data } = await supabase.from("profiles").select("handler, accent, plan, head_font, avatar_url").eq("id", user.id).single();
       const p = (data as unknown as Profile) ?? null;
       setProfile(p);
       const hsl = parseHSL(p?.accent) ?? DEFAULT_HSL;
@@ -161,6 +161,12 @@ export default function SettingsPage() {
               <h2 className="font-semibold mb-1">Creator handle</h2>
               <p className="text-sm text-inksoft mb-3">Shown in your greeting on the Overview.</p>
               <HandlerField initial={profile?.handler ?? ""} />
+            </div>
+
+            <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
+              <h2 className="font-semibold mb-1">Profile photo</h2>
+              <p className="text-sm text-inksoft mb-3">Shown at the top of your navigation. Leave empty to keep your initial.</p>
+              <AvatarField handler={profile?.handler ?? ""} initial={profile?.avatar_url ?? null} onChanged={(url) => setProfile((p) => (p ? { ...p, avatar_url: url } : p))} />
             </div>
 
             <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
@@ -294,6 +300,60 @@ export default function SettingsPage() {
           />
         </div>
         <Button onClick={save} disabled={saved}>{saved ? "Saved" : "Save"}</Button>
+      </div>
+    );
+  }
+
+  function AvatarField({ handler, initial, onChanged }: { handler: string; initial: string | null; onChanged: (url: string | null) => void }) {
+    const fileRef = useRef<HTMLInputElement>(null);
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
+    const initialLetter = (handler || "C").charAt(0).toUpperCase();
+    const preview = initial
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${initial}`
+      : null;
+
+    const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setBusy(true); setMsg(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setMsg({ kind: "bad", text: "Not signed in." }); setBusy(false); return; }
+      const path = `${user.id}/avatar-${Date.now()}.png`;
+      const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+      if (upErr) { setMsg({ kind: "bad", text: upErr.message }); setBusy(false); return; }
+      await supabase.from("profiles").update({ avatar_url: path }).eq("id", user.id);
+      onChanged(path);
+      setMsg({ kind: "ok", text: "Photo saved." });
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    };
+
+    const remove = async () => {
+      setBusy(true); setMsg(null);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        if (initial) await supabase.storage.from("avatars").remove([initial]);
+        await supabase.from("profiles").update({ avatar_url: null }).eq("id", user.id);
+        onChanged(null);
+      }
+      setMsg({ kind: "ok", text: "Photo removed." });
+      setBusy(false);
+    };
+
+    return (
+      <div className="flex items-center gap-4">
+        <div className="avatar h-14 w-14 text-xl overflow-hidden grid place-items-center">
+          {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : initialLetter}
+        </div>
+        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={upload} />
+        <div className="flex flex-col items-start gap-1">
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}><IconUpload size={14} /> {busy ? <Spinner /> : "Upload photo"}</Button>
+            {initial && <Button variant="ghost" size="sm" disabled={busy} onClick={remove}>Remove</Button>}
+          </div>
+          {msg && <span className={cn("text-xs", msg.kind === "ok" ? "text-paid" : "text-late")}>{msg.text}</span>}
+        </div>
       </div>
     );
   }

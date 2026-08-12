@@ -31,12 +31,14 @@ export function AppShell({
   accent,
   plan,
   headFont,
+  avatarUrl,
   children,
 }: {
   handler: string | null;
   accent: string | null;
   plan: string;
   headFont?: string | null;
+  avatarUrl?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -104,6 +106,9 @@ export function AppShell({
 
   const handle = handler ?? "creator";
   const initial = handle.charAt(0).toUpperCase();
+  const avatarImg = avatarUrl
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarUrl}`
+    : null;
   const capUsed = activeDeals;
   const pageTitle = pathname === "/app" ? "Overview"
     : MANAGE_NAV.find((n) => pathname.startsWith(n.href))?.label
@@ -152,7 +157,7 @@ export function AppShell({
       {/* Sidebar (desktop floating card; mobile drawer) */}
       <aside className={cn("side", mobileOpen && "open")} id="side">
         <div className="side-user">
-          <span className="avatar">{initial}</span>
+          <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
           <div className="min-w-0">
             <div className="nm truncate">{userName(handler)}</div>
             <div className="hd truncate">@{handle}</div>
@@ -169,7 +174,7 @@ export function AppShell({
             <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
           <span className="tt">{pageTitle}</span>
-          <span className="avatar">{initial}</span>
+          <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
         </div>
         <main className="main">
           {children}
