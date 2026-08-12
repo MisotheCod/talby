@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ACCENT_PRESETS, HEADING_FONTS, applyAccent, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
 import { cn } from "@/lib/utils";
@@ -24,10 +25,15 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 
 export default function SettingsPage() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [section, setSection] = useState<SectionId>("account");
+  const [section, setSection] = useState<SectionId>(
+    (searchParams.get("section") as SectionId) && SECTIONS.some((s) => s.id === searchParams.get("section"))
+      ? (searchParams.get("section") as SectionId)
+      : "account"
+  );
 
   // Theme editor state (shared preview/save logic)
   const [current, setCurrent] = useState<HSL>(DEFAULT_HSL);
@@ -466,6 +472,7 @@ function NotificationSettings() {
   const supabase = createClient();
   const [inapp, setInapp] = useState(true);
   const [email, setEmail] = useState(false);
+  const [digest, setDigest] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -473,10 +480,11 @@ function NotificationSettings() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from("profiles").select("notify_calendar_inapp, notify_calendar_email").eq("id", user.id).single();
-      const p = (data as unknown as { notify_calendar_inapp?: boolean; notify_calendar_email?: boolean } | null) ?? null;
+      const { data } = await supabase.from("profiles").select("notify_calendar_inapp, notify_calendar_email, digest_enabled").eq("id", user.id).single();
+      const p = (data as unknown as { notify_calendar_inapp?: boolean; notify_calendar_email?: boolean; digest_enabled?: boolean } | null) ?? null;
       setInapp(p?.notify_calendar_inapp !== false);
       setEmail(p?.notify_calendar_email === true);
+      setDigest(p?.digest_enabled === true);
       const g = await fetch("/api/gmail/status").then((r) => r.json()).catch(() => ({}));
       setGmailConnected(!!(g as { connected?: boolean }).connected);
     })();
@@ -485,7 +493,7 @@ function NotificationSettings() {
   const save = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from("profiles").update({ notify_calendar_inapp: inapp, notify_calendar_email: email }).eq("id", user.id);
+    await supabase.from("profiles").update({ notify_calendar_inapp: inapp, notify_calendar_email: email, digest_enabled: digest }).eq("id", user.id);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -519,6 +527,12 @@ function NotificationSettings() {
           onChange={setEmail}
           label="Email reminders"
           sub={gmailConnected ? "Send a daily email for today's events via your connected Gmail." : "Connect Gmail to enable email reminders."}
+        />
+        <Toggle
+          on={digest}
+          onChange={setDigest}
+          label="Daily digest"
+          sub="A morning email with only the things you have that day: payments, deliverables, posts, and dated to-dos."
         />
       </div>
 
