@@ -100,13 +100,14 @@ export default function DealsPage() {
           {newOpen && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setNewOpen(false)} />
-              <div role="menu" className="absolute right-0 top-[calc(100%+6px)] w-72 bg-card border border-line2 rounded-xl shadow-pop p-1.5 z-40 fade-up">
+              <div role="menu" className="absolute right-0 top-[calc(100%+6px)] w-80 bg-card border border-line2 rounded-xl shadow-pop p-1.5 z-40 fade-up">
                 <button
                   role="menuitem"
                   onClick={() => { setNewOpen(false); setNewMode("blank"); }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer text-left"
                 >
-                  <IconPlus size={16} className="text-inksoft shrink-0" /> New deal
+                  <IconPlus size={16} className="text-inksoft shrink-0" />
+                  <span className="whitespace-nowrap">New deal</span>
                   <span className="ml-auto text-xs text-inkfaint whitespace-nowrap pl-3">Start from scratch</span>
                 </button>
                 <button
@@ -114,7 +115,8 @@ export default function DealsPage() {
                   onClick={() => { setNewOpen(false); setNewMode("contract"); }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer text-left"
                 >
-                  <IconUpload size={16} className="text-inksoft shrink-0" /> Upload contract
+                  <IconUpload size={16} className="text-inksoft shrink-0" />
+                  <span className="whitespace-nowrap">Upload contract</span>
                   <span className="ml-auto text-xs text-inkfaint whitespace-nowrap pl-3">Auto-fill from PDF</span>
                 </button>
                 <div className="my-1 h-px bg-line" />
@@ -123,7 +125,8 @@ export default function DealsPage() {
                   onClick={() => setNewOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer"
                 >
-                  <IconDownload size={16} className="text-inksoft shrink-0" /> Import deals
+                  <IconDownload size={16} className="text-inksoft shrink-0" />
+                  <span className="whitespace-nowrap">Import deals</span>
                   <span className="ml-auto text-xs text-inkfaint whitespace-nowrap pl-3">Notion or CSV</span>
                 </Link>
               </div>
