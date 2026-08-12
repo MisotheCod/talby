@@ -17,6 +17,7 @@ const SECTIONS = [
   { id: "account", label: "Account" },
   { id: "appearance", label: "Appearance" },
   { id: "connections", label: "Connections" },
+  { id: "notifications", label: "Notifications" },
   { id: "nudges", label: "Nudges" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -270,6 +271,9 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* ============ NOTIFICATIONS ============ */}
+        {section === "notifications" && <NotificationSettings />}
+
         {/* ============ NUDGES ============ */}
         {section === "nudges" && <NudgeSettings />}
 
@@ -452,6 +456,74 @@ function ConnectionsList() {
         ) : (
           <Button size="sm" onClick={() => { window.location.href = "/api/notion/connect?redirect_to=/app/settings"; }}>Connect</Button>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Notification preference toggles (in-app + email). */
+function NotificationSettings() {
+  const supabase = createClient();
+  const [inapp, setInapp] = useState(true);
+  const [email, setEmail] = useState(false);
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase.from("profiles").select("notify_calendar_inapp, notify_calendar_email").eq("id", user.id).single();
+      const p = (data as unknown as { notify_calendar_inapp?: boolean; notify_calendar_email?: boolean } | null) ?? null;
+      setInapp(p?.notify_calendar_inapp !== false);
+      setEmail(p?.notify_calendar_email === true);
+      const g = await fetch("/api/gmail/status").then((r) => r.json()).catch(() => ({}));
+      setGmailConnected(!!(g as { connected?: boolean }).connected);
+    })();
+  }, [supabase]);
+
+  const save = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("profiles").update({ notify_calendar_inapp: inapp, notify_calendar_email: email }).eq("id", user.id);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  const Toggle = ({ on, onChange, label, sub }: { on: boolean; onChange: (v: boolean) => void; label: string; sub: string }) => (
+    <button onClick={() => onChange(!on)} className="w-full flex items-center justify-between gap-4 py-3 cursor-pointer">
+      <span className="text-left min-w-0">
+        <span className="block font-medium text-sm">{label}</span>
+        <span className="block text-xs text-inksoft mt-0.5">{sub}</span>
+      </span>
+      <span className={cn("h-6 w-11 rounded-full p-0.5 transition-colors shrink-0", on ? "accent-fill" : "bg-line2")}>
+        <span className={cn("block h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
+      </span>
+    </button>
+  );
+
+  return (
+    <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
+      <h2 className="font-semibold mb-1">Notifications</h2>
+      <p className="text-sm text-inksoft mb-4">Choose how Talby tells you about upcoming calendar events, payments, and deliverables.</p>
+
+      <div className="divide-y divide-line">
+        <Toggle
+          on={inapp}
+          onChange={setInapp}
+          label="In-app notifications"
+          sub="A bell in your navigation flags what's happening today."
+        />
+        <Toggle
+          on={email}
+          onChange={setEmail}
+          label="Email reminders"
+          sub={gmailConnected ? "Send a daily email for today's events via your connected Gmail." : "Connect Gmail to enable email reminders."}
+        />
+      </div>
+
+      <div className="flex items-center gap-3 mt-5">
+        <Button onClick={save} disabled={saved}>{saved ? "Saved" : "Save preferences"}</Button>
       </div>
     </div>
   );
