@@ -341,10 +341,6 @@ function DealRow({ deal }: { deal: Deal }) {
     if (deal.status === "pipeline") return <span className="pill pill-pipe">Pipeline</span>;
     return <span className="pill pill">Active</span>;
   })();
-  const meta = deal.status === "pipeline" ? "contract, in DMs"
-    : isPastDue(deal.due_date) ? "invoice past due"
-    : paid ? "paid in full"
-    : "active deal";
   // colored logo per the prototype (green/gold/coral/purple variety)
   const logoColors = ["var(--due)", "var(--paid)", "var(--late)", "var(--purple)"];
   const logoColor = logoColors[(deal.brand.charCodeAt(0) + deal.brand.length) % logoColors.length];
@@ -356,7 +352,6 @@ function DealRow({ deal }: { deal: Deal }) {
       <span className="dlogo" style={{ background: logoColor }}>{deal.brand.charAt(0).toUpperCase()}</span>
       <span className="dmid">
         <span className="dbrand truncate">{deal.brand}</span>
-        <span className="dmeta truncate">{meta}</span>
       </span>
       <span className="text-right flex-none">
         <span className="damt">{formatMoney(deal.value)}</span>
