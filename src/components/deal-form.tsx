@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { IconDelete, IconLink } from "@/components/icons";
 import { Button, Input, Select, Textarea, Spinner } from "@/components/ui";
 
@@ -56,6 +57,7 @@ export function DealForm({
   mode,
   dealId,
   initial,
+  uploadOnMount,
   onSaved,
   setError,
   submitLabel,
@@ -64,6 +66,7 @@ export function DealForm({
   mode: "create" | "edit";
   dealId?: string | null;
   initial: DealFormValues;
+  uploadOnMount?: boolean;
   onSaved: () => void;
   setError: (e: string) => void;
   submitLabel: string;
@@ -72,6 +75,7 @@ export function DealForm({
   const supabase = createClient();
   const [v, setV] = useState<DealFormValues>(initial);
   const [extracting, setExtracting] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof DealFormValues>(k: K, val: DealFormValues[K]) => setV((p) => ({ ...p, [k]: val }));
 
   const applyExtracted = (f: Record<string, unknown>) => {
@@ -139,8 +143,9 @@ export function DealForm({
   return (
     <div className="space-y-4">
       {mode === "create" && (
-        <label className="flex items-center gap-3 rounded-xl border border-dashed border-line2 bg-card2 px-4 py-3 cursor-pointer hover:border-accent transition-colors">
+        <label className={cn("flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 cursor-pointer hover:border-accent transition-colors", uploadOnMount ? "border-accent/40 bg-accenttint" : "border-line2 bg-card2")}>
           <input
+            ref={fileRef}
             type="file"
             accept=".pdf,.txt,.md,text/plain,application/pdf"
             className="hidden"
@@ -150,7 +155,7 @@ export function DealForm({
             {extracting ? <Spinner /> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 16V4M12 4L7 9M12 4l5 5M4 20h16" /></svg>}
           </span>
           <span className="text-sm">
-            <span className="font-medium">{extracting ? "Reading contract…" : "Upload a contract to auto-fill"}</span>
+            <span className="font-medium">{extracting ? "Reading contract…" : uploadOnMount ? "Start with a contract" : "Upload a contract to auto-fill"}</span>
             <span className="block text-xs text-inksoft">Upload a PDF or text file and Talby will pull the deal terms for you.</span>
           </span>
         </label>

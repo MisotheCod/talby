@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconMore, IconDownload } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDownload, IconDown, IconUpload } from "@/components/icons";
 import { Button, Chip, Input, Textarea, Select, StatusPill, Spinner } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
@@ -30,8 +30,8 @@ export default function DealsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
-  const [newOverflow, setNewOverflow] = useState(false);
+  const [newOpen, setNewOpen] = useState(false); // dropdown open
+  const [newMode, setNewMode] = useState<"blank" | "contract" | null>(null); // which New deal modal variant
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ export default function DealsPage() {
 
   // Open drawer or new-deal modal via URL params (?open=id, ?new=1)
   useEffect(() => {
-    if (searchParams.get("new") === "1") setShowNew(true);
+    if (searchParams.get("new") === "1") setNewMode("blank");
     if (searchParams.get("open")) setSelectedId(searchParams.get("open"));
   }, [searchParams]);
 
@@ -75,7 +75,7 @@ export default function DealsPage() {
 
   const selected = deals.find((d) => d.id === selectedId) ?? null;
 
-  const onCreated = () => { setShowNew(false); loadDeals(); };
+  const onCreated = () => { setNewMode(null); loadDeals(); };
   const onUpdated = () => loadDeals();
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" /></div>;
@@ -93,26 +93,38 @@ export default function DealsPage() {
         </div>
         <div className="relative">
           <div className="flex items-center gap-2">
-            <Button onClick={() => setShowNew(true)}><IconPlus size={16} /> New deal</Button>
-            <button
-              onClick={() => setNewOverflow((o) => !o)}
-              aria-label="More actions"
-              aria-expanded={newOverflow}
-              className="h-10 w-10 rounded-xl border border-line2 bg-card grid place-items-center hover:bg-card2 cursor-pointer text-inksoft"
-            >
-              <IconMore size={16} />
-            </button>
+            <Button onClick={() => setNewOpen((o) => !o)} aria-expanded={newOpen} aria-haspopup="menu">
+              <IconPlus size={16} /> Add deal <IconDown size={16} />
+            </Button>
           </div>
-          {newOverflow && (
+          {newOpen && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setNewOverflow(false)} />
-              <div className="absolute right-0 top-[calc(100%+6px)] w-56 bg-card border border-line2 rounded-xl shadow-pop p-1.5 z-40 fade-up">
+              <div className="fixed inset-0 z-30" onClick={() => setNewOpen(false)} />
+              <div role="menu" className="absolute right-0 top-[calc(100%+6px)] w-60 bg-card border border-line2 rounded-xl shadow-pop p-1.5 z-40 fade-up">
+                <button
+                  role="menuitem"
+                  onClick={() => { setNewOpen(false); setNewMode("blank"); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer text-left"
+                >
+                  <IconPlus size={16} className="text-inksoft" /> New deal
+                  <span className="ml-auto text-xs text-inkfaint">Start from scratch</span>
+                </button>
+                <button
+                  role="menuitem"
+                  onClick={() => { setNewOpen(false); setNewMode("contract"); }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer text-left"
+                >
+                  <IconUpload size={16} className="text-inksoft" /> Upload contract
+                  <span className="ml-auto text-xs text-inkfaint">Auto-fill from PDF</span>
+                </button>
+                <div className="my-1 h-px bg-line" />
                 <Link
                   href="/app/import"
-                  onClick={() => setNewOverflow(false)}
+                  onClick={() => setNewOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer"
                 >
                   <IconDownload size={16} className="text-inksoft" /> Import deals
+                  <span className="ml-auto text-xs text-inkfaint">Notion or CSV</span>
                 </Link>
               </div>
             </>
@@ -129,7 +141,7 @@ export default function DealsPage() {
         <div className="panel p-10 text-center flex flex-col items-center gap-3">
           <p className="text-sm text-inksoft">No deals in this view yet.</p>
           <div className="flex gap-2 flex-wrap justify-center">
-            <Button variant="secondary" onClick={() => setShowNew(true)}><IconPlus size={16} /> Add a deal</Button>
+            <Button variant="secondary" onClick={() => setNewMode("blank")}><IconPlus size={16} /> Add a deal</Button>
             <Link href="/app/import"><Button variant="secondary"><IconDownload size={16} /> Import deals</Button></Link>
           </div>
         </div>
@@ -157,13 +169,14 @@ export default function DealsPage() {
         </div>
       )}
 
-      {showNew && (
+      {newMode && (
         <NewDealModal
           plan={plan}
           activeCount={activeCount}
-          onClose={() => setShowNew(false)}
+          initialMode={newMode}
+          onClose={() => setNewMode(null)}
           onCreated={onCreated}
-          onUpgrade={() => { setShowNew(false); setShowUpgrade(true); }}
+          onUpgrade={() => { setNewMode(null); setShowUpgrade(true); }}
         />
       )}
 
@@ -191,14 +204,14 @@ function DealStatusBadge({ status, payment_status, active, due }: { status: stri
 }
 
 /* ---------------- New Deal Modal ---------------- */
-function NewDealModal({ plan, activeCount, onClose, onCreated, onUpgrade }: { plan: "free" | "paid"; activeCount: number; onClose: () => void; onCreated: () => void; onUpgrade: () => void }) {
+function NewDealModal({ plan, activeCount, initialMode, onClose, onCreated, onUpgrade }: { plan: "free" | "paid"; activeCount: number; initialMode: "blank" | "contract"; onClose: () => void; onCreated: () => void; onUpgrade: () => void }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const atCap = plan === "free" && activeCount >= FREE_ACTIVE_DEAL_CAP;
 
   return (
-    <Modal onClose={onClose} title="New deal">
+    <Modal onClose={onClose} title={initialMode === "contract" ? "Upload a deal" : "New deal"}>
       {atCap && (
         <div className="rounded-xl bg-accenttint p-4 text-sm mb-4 flex items-start gap-3">
           <IconInfo size={18} className="shrink-0 mt-0.5 accent-ink" />
@@ -211,6 +224,7 @@ function NewDealModal({ plan, activeCount, onClose, onCreated, onUpgrade }: { pl
       <DealForm
         mode="create"
         initial={emptyDealForm()}
+        uploadOnMount={initialMode === "contract"}
         onSaved={onCreated}
         setError={setError}
         pending={saving}
