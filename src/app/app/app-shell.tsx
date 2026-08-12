@@ -142,12 +142,9 @@ export function AppShell({
         <Link href="/app/settings" className="flex items-center gap-2 text-[13px] text-inksoft hover:text-ink no-underline">
           <IconSettings size={16} /> Settings
         </Link>
-        <div className="flex items-center gap-1">
-          <NotificationBell />
-          <button onClick={signOut} aria-label="Sign out" className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer">
-            <IconLogout size={16} />
-          </button>
-        </div>
+        <button onClick={signOut} aria-label="Sign out" className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer">
+          <IconLogout size={16} />
+        </button>
       </div>
     </div>
   );
@@ -165,6 +162,7 @@ export function AppShell({
             <div className="nm truncate">{userName(handler)}</div>
             <div className="hd truncate">@{handle}</div>
           </div>
+          <span className="ml-auto"><NotificationBell /></span>
         </div>
         <nav className="flex flex-col gap-1">{nav}</nav>
         {footer}
