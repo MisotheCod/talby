@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDownload, IconDown, IconUpload } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDownload, IconDown, IconUpload, IconGrid, IconList } from "@/components/icons";
 import { Button, Chip, Input, Textarea, Select, StatusPill, Spinner } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
@@ -18,6 +18,7 @@ type Deal = {
   links: { url: string; label?: string }[]; active: boolean;
   rep_name: string | null; rep_email: string | null; nudge_mode: string;
   payment_status: string; pay_terms: string | null; exclusivity_days: number | null;
+  created_at?: string;
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
@@ -37,6 +38,11 @@ export default function DealsPage() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
   const celeb = useCelebration();
+  const [view, setView] = useState<"list" | "board">("list");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"newest" | "brand" | "value_high" | "value_low" | "due">("newest");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const loadDeals = useCallback(async () => {
     const { data } = await supabase.from("deals").select("*").order("created_at", { ascending: false });
@@ -74,6 +80,25 @@ export default function DealsPage() {
       default: return true;
     }
   });
+
+  const q = query.trim().toLowerCase();
+  const searched = q
+    ? filtered.filter((d) => (d.brand || "").toLowerCase().includes(q) || (d.deliverable || "").toLowerCase().includes(q) || (d.rep_name || "").toLowerCase().includes(q))
+    : filtered;
+
+  const visible = [...searched].sort((a, b) => {
+    switch (sort) {
+      case "brand": return (a.brand || "").localeCompare(b.brand || "");
+      case "value_high": return (b.value ?? 0) - (a.value ?? 0);
+      case "value_low": return (a.value ?? 0) - (b.value ?? 0);
+      case "due": return (a.due_date || "9999").localeCompare(b.due_date || "9999");
+      default: return (b.created_at || "").localeCompare(a.created_at || "");
+    }
+  });
+
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = view === "list" ? visible.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE) : visible;
 
   const selected = deals.find((d) => d.id === selectedId) ?? null;
 
@@ -137,12 +162,28 @@ export default function DealsPage() {
         </div>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex gap-1.5 flex-wrap">
-        {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
+      {/* Filter chips + search + sort + view toggle */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1.5 flex-wrap">
+          {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => { setFilter(f); setPage(1); }}>{f}</Chip>)}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="Search deals…" className="!w-44 !h-9 text-xs" />
+          <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="!w-[130px] !h-9 text-xs">
+            <option value="newest">Newest</option>
+            <option value="brand">Brand A-Z</option>
+            <option value="value_high">Value: high</option>
+            <option value="value_low">Value: low</option>
+            <option value="due">Due date</option>
+          </Select>
+          <div className="flex items-center gap-1 p-1 rounded-xl border border-line2 bg-card">
+            <button onClick={() => setView("list")} aria-label="List view" className={cn("h-9 px-2.5 rounded-lg grid place-items-center cursor-pointer text-inksoft", view === "list" && "bg-card2 text-ink border border-line")}><IconList size={17} /></button>
+            <button onClick={() => setView("board")} aria-label="Board view" className={cn("h-9 px-2.5 rounded-lg grid place-items-center cursor-pointer text-inksoft", view === "board" && "bg-card2 text-ink border border-line")}><IconGrid size={17} /></button>
+          </div>
+        </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {visible.length === 0 ? (
         <div className="panel p-10 text-center flex flex-col items-center gap-3">
           <p className="text-sm text-inksoft">No deals in this view yet.</p>
           <div className="flex gap-2 flex-wrap justify-center">
@@ -150,28 +191,39 @@ export default function DealsPage() {
             <Link href="/app/import"><Button variant="secondary"><IconDownload size={16} /> Import deals</Button></Link>
           </div>
         </div>
+      ) : view === "board" ? (
+        <DealBoard deals={visible} onOpen={(id) => setSelectedId(id)} onChanged={onUpdated} />
       ) : (
-        <div className="panel">
-          {filtered.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setSelectedId(d.id)}
-              className={cn("w-full flex items-center gap-3.5 px-[22px] py-[15px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer", selectedId === d.id && "bg-card2")}
-            >
-              <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
-                {d.brand.charAt(0).toUpperCase()}
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-[15px] font-semibold truncate">{d.brand}</span>
-                <span className="block text-[12.5px] text-inkfaint mt-0.5 truncate">{d.deliverable || "No deliverable"}</span>
-              </span>
-              <span className="text-right flex-none">
-                <span className="block money text-sm font-medium mb-1.5">{formatMoney(d.value)}</span>
-                <DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} />
-              </span>
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="panel">
+            {pageItems.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => setSelectedId(d.id)}
+                className={cn("w-full flex items-center gap-3.5 px-[22px] py-[15px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer", selectedId === d.id && "bg-card2")}
+              >
+                <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
+                  {d.brand.charAt(0).toUpperCase()}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[15px] font-semibold truncate">{d.brand}</span>
+                  <span className="block text-[12.5px] text-inkfaint mt-0.5 truncate">{d.deliverable || "No deliverable"}</span>
+                </span>
+                <span className="text-right flex-none">
+                  <span className="block money text-sm font-medium mb-1.5">{formatMoney(d.value)}</span>
+                  <DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} />
+                </span>
+              </button>
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-1">
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1} className="px-3 h-9 rounded-lg border border-line2 bg-card text-sm text-inksoft hover:text-ink disabled:opacity-40 cursor-pointer disabled:cursor-default">Previous</button>
+              <span className="text-sm text-inksoft px-2">Page {safePage} of {totalPages}</span>
+              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages} className="px-3 h-9 rounded-lg border border-line2 bg-card text-sm text-inksoft hover:text-ink disabled:opacity-40 cursor-pointer disabled:cursor-default">Next</button>
+            </div>
+          )}
+        </>
       )}
 
       {newMode && (
@@ -208,6 +260,73 @@ function DealStatusBadge({ status, payment_status, active, due }: { status: stri
   if (pay === "paid") return <StatusPill kind="paid">Paid</StatusPill>;
   if (isPastDue(due)) return <StatusPill kind="late">Past due</StatusPill>;
   return <StatusPill kind="accent">{active ? "Active" : "Archived"}</StatusPill>;
+}
+
+/* ---------------- Deal Board (kanban) ---------------- */
+const BOARD_COLS: { id: string; label: string; match: (d: Deal) => boolean }[] = [
+  { id: "pipeline", label: "Pipeline", match: (d) => d.status === "pipeline" },
+  { id: "active", label: "Active", match: (d) => d.active && d.status !== "pipeline" && d.status !== "archived" && d.status !== "paid" },
+  { id: "paid", label: "Paid", match: (d) => d.payment_status === "paid" || d.status === "paid" },
+  { id: "archived", label: "Archived", match: (d) => d.status === "archived" },
+];
+
+function DealBoard({ deals, onOpen, onChanged }: { deals: Deal[]; onOpen: (id: string) => void; onChanged: () => void }) {
+  const supabase = createClient();
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<string | null>(null);
+
+  const moveTo = async (col: string) => {
+    if (!dragId) return;
+    const target = BOARD_COLS.find((c) => c.id === col);
+    if (target) {
+      const patch: Record<string, unknown> = {};
+      if (col === "pipeline") { patch.status = "pipeline"; patch.active = false; }
+      else if (col === "archived") { patch.status = "archived"; patch.active = false; }
+      else if (col === "paid") { patch.payment_status = "paid"; patch.status = "active"; patch.active = true; }
+      else { patch.status = "active"; patch.active = true; }
+      await supabase.from("deals").update(patch).eq("id", dragId);
+      onChanged();
+    }
+    setDragId(null); setOverCol(null);
+  };
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {BOARD_COLS.map((col) => (
+        <div
+          key={col.id}
+          onDragOver={(e) => { e.preventDefault(); setOverCol(col.id); }}
+          onDragLeave={() => setOverCol((c) => (c === col.id ? null : c))}
+          onDrop={() => moveTo(col.id)}
+          className={cn("panel p-3 flex flex-col gap-2 min-h-[140px]", overCol === col.id && "ring-2 ring-[var(--accent)]/40")}
+        >
+          <div className="flex items-center justify-between px-1">
+            <span className="text-sm font-semibold">{col.label}</span>
+            <span className="text-xs text-inksoft">{deals.filter(col.match).length}</span>
+          </div>
+          {deals.filter(col.match).length === 0 && <p className="text-xs text-inkfaint px-1 py-4 text-center">Drop a deal here.</p>}
+          {deals.filter(col.match).map((d) => (
+            <div
+              key={d.id}
+              draggable
+              onDragStart={() => setDragId(d.id)}
+              onDragEnd={() => { setDragId(null); setOverCol(null); }}
+              className={cn("border border-line rounded-lg p-3 bg-card cursor-grab active:cursor-grabbing", dragId === d.id && "opacity-40")}
+            >
+              <button onClick={() => onOpen(d.id)} className="block w-full text-left cursor-pointer">
+                <div className="text-sm font-semibold truncate">{d.brand}</div>
+                <div className="text-xs text-inkfaint mt-0.5 truncate">{d.deliverable || "No deliverable"}</div>
+              </button>
+              <div className="flex items-center justify-between mt-2">
+                <span className="money text-sm font-medium">{formatMoney(d.value)}</span>
+                <DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /* ---------------- New Deal Modal ---------------- */

@@ -57,6 +57,8 @@ export default function OverviewPage() {
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [loading, setLoading] = useState(true);
   const [selDay, setSelDay] = useState(0); // index into this week (today first)
+  const [dealPage, setDealPage] = useState(1);
+  const DEAL_PAGE_SIZE = 10;
   const rootRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -142,6 +144,10 @@ export default function OverviewPage() {
     }
   });
 
+  const dealTotalPages = Math.max(1, Math.ceil(filteredDeals.length / DEAL_PAGE_SIZE));
+  const safeDealPage = Math.min(dealPage, dealTotalPages);
+  const pagedDeals = filteredDeals.slice((safeDealPage - 1) * DEAL_PAGE_SIZE, safeDealPage * DEAL_PAGE_SIZE);
+
   // ---- This week (7 days from today) ----
   const today = new Date();
   const week: { date: Date; iso: string }[] = [];
@@ -190,15 +196,6 @@ export default function OverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="search">
-            <svg className="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search your deals by brand"
-              aria-label="Search your deals by brand name"
-            />
-          </div>
           <Link href="/app/deals?new=1" className="no-underline">
             <button className="btn3d"><svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add deal</button>
           </Link>
@@ -233,16 +230,37 @@ export default function OverviewPage() {
         <div className="panel anim">
           <div className="flex items-center justify-between px-[22px] pt-[19px] pb-[15px] flex-wrap gap-3">
             <h3 className="text-[16px] font-head font-bold">Active deals</h3>
-            <div className="filters">
-              {FILTERS.map((f) => (
-                <button key={f} onClick={() => setFilter(f)} className={cn("chip", filter === f && "on")}>{f}</button>
-              ))}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="search !w-40">
+                <svg className="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+                <input
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setDealPage(1); }}
+                  placeholder="Search your deals"
+                  aria-label="Search active deals by brand"
+                />
+              </div>
+              <div className="filters">
+                {FILTERS.map((f) => (
+                  <button key={f} onClick={() => { setFilter(f); setDealPage(1); }} className={cn("chip", filter === f && "on")}>{f}</button>
+                ))}
+              </div>
             </div>
           </div>
           {filteredDeals.length === 0 ? (
             <EmptyDeals search={!!search} />
           ) : (
-            filteredDeals.map((d) => <DealRow key={d.id} deal={d} />)
+            pagedDeals.map((d) => <DealRow key={d.id} deal={d} />)
+          )}
+          {dealTotalPages > 1 && (
+            <div className="flex items-center justify-between px-[22px] py-3 border-t border-line">
+              <span className="text-xs text-inksoft">{filteredDeals.length} deal{filteredDeals.length === 1 ? "" : "s"}</span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setDealPage((p) => Math.max(1, p - 1))} disabled={safeDealPage === 1} className="px-2.5 h-8 rounded-lg border border-line2 text-xs text-inksoft hover:text-ink disabled:opacity-40 cursor-pointer disabled:cursor-default">Previous</button>
+                <span className="text-xs text-inksoft">Page {safeDealPage} of {dealTotalPages}</span>
+                <button onClick={() => setDealPage((p) => Math.min(dealTotalPages, p + 1))} disabled={safeDealPage === dealTotalPages} className="px-2.5 h-8 rounded-lg border border-line2 text-xs text-inksoft hover:text-ink disabled:opacity-40 cursor-pointer disabled:cursor-default">Next</button>
+              </div>
+            </div>
           )}
         </div>
 
