@@ -32,8 +32,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No columns or rows to map." }, { status: 400 });
   }
 
-  // Truncate to a representative sample for mapping (protect token/cost).
-  const sampleRows = rows.slice(0, 20);
+  // No truncation: pass every row so no deal from the source is ever dropped.
+  const allRows = rows;
 
   const system =
     "You map spreadsheet rows into a creator-brand-deal system with THREE linked destinations: " +
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   const user =
     `Source name: ${sourceName || "spreadsheet"}\n` +
     `Columns: ${JSON.stringify(columns)}\n` +
-    `Sample rows (max 20): ${JSON.stringify(sampleRows.slice(0, 20))}`;
+    `Rows to extract (ALL of them, do not skip any): ${JSON.stringify(allRows)}`;
 
   try {
     const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
