@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { IconDelete, IconLink } from "@/components/icons";
+import { IconInfo, IconDelete, IconLink } from "@/components/icons";
 import { Button, Input, Select, Textarea, Spinner } from "@/components/ui";
 
 export type DealFormValues = {
@@ -205,7 +205,7 @@ export function DealForm({
           <Field label="Rep name"><Input value={v.rep_name} onChange={(e) => set("rep_name", e.target.value)} placeholder="e.g. Sam Rivera" /></Field>
           <Field label="Rep email"><Input type="email" value={v.rep_email} onChange={(e) => set("rep_email", e.target.value)} placeholder="sam@brand.com" /></Field>
         </div>
-        <Field label="Nudge mode">
+        <Field label="Nudge mode" hint="Off: no follow-up emails. Notify: flags a past-due payment in-app only. Draft: prepares a follow-up email for you to review and send. Auto: sends follow-ups from your Gmail on schedule until you mark the payment received.">
           <Select value={v.nudge_mode} onChange={(e) => set("nudge_mode", e.target.value)}>
             <option value="off">Off (no nudging)</option>
             <option value="notify">Notify (flag past due in-app)</option>
@@ -239,10 +239,21 @@ export function DealForm({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-ink block mb-1.5">{label}</span>
+      <span className="text-sm font-medium text-ink block mb-1.5">
+        {label}
+        {hint && (
+          <span className="relative inline-flex align-middle ml-1 group">
+            <IconInfo size={13} className="text-inkfaint" />
+            <span className="hidden group-hover:block absolute bottom-[calc(100%+6px)] left-0 w-60 z-50 bg-ink text-white text-[11.5px] leading-relaxed rounded-lg px-3 py-2 shadow-pop pointer-events-none">
+              {hint}
+              <span className="absolute top-full left-3 -mt-[3px] border-4 border-transparent border-t-ink" />
+            </span>
+          </span>
+        )}
+      </span>
       {children}
     </label>
   );
