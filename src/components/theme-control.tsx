@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ACCENT_PRESETS, HEADING_FONTS, DEFAULT_HSL, DEFAULT_HEAD_FONT, applyAccent, applyFont, type HSL } from "@/lib/accent";
+import { ACCENT_PRESETS, HEADING_FONTS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, applyAccent, applyFont, type HSL, type ThemeMode } from "@/lib/accent";
 import { cn } from "@/lib/utils";
 
 /**
@@ -16,30 +16,37 @@ export function ThemeControl({
   variant = "fab",
   current,
   currentFont,
+  currentMode = DEFAULT_MODE,
   onPreview,
   onSave,
   onPreviewFont,
   onSaveFont,
+  onPreviewMode,
+  onSaveMode,
 }: {
   variant?: "fab" | "row";
   current: HSL;
   currentFont: string;
+  currentMode?: ThemeMode;
   onPreview: (hsl: HSL) => void;
   onSave: (hsl: HSL) => Promise<void>;
   onPreviewFont: (name: string) => void;
   onSaveFont: (name: string) => Promise<void>;
+  onPreviewMode?: (m: ThemeMode) => void;
+  onSaveMode?: (m: ThemeMode) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [sat, setSat] = useState(current.s); // saturation 20-100
   const [font, setFont] = useState<string>(currentFont);
+  const [mode, setMode] = useState<ThemeMode>(currentMode);
   const [saved, setSaved] = useState(false);
   const [working, setWorking] = useState(false);
   // Tick forces a re-render after every preview so controlled inputs (hue/sat
   // sliders) repaint. Without it, dragging hue with constant saturation passes
   // the same value to setSat/setSaved, React bails out, and the slider snaps back.
   const [, setTick] = useState(0);
-  const savedRef = useRef<{ hsl: HSL; font: string }>({ hsl: current, font: currentFont });
-  const previewRef = useRef<{ hsl: HSL; font: string }>({ hsl: current, font: currentFont });
+  const savedRef = useRef<{ hsl: HSL; font: string; mode: ThemeMode }>({ hsl: current, font: currentFont, mode: currentMode });
+  const previewRef = useRef<{ hsl: HSL; font: string; mode: ThemeMode }>({ hsl: current, font: currentFont, mode: currentMode });
   const satRef = useRef<HTMLInputElement>(null);
   const openRef = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -54,14 +61,15 @@ export function ThemeControl({
     }
   }, [shown.hsl.h, open]);
 
-  // Keep synced when persisted accent/font changes externally.
+  // Keep synced when persisted accent/font/mode changes externally.
   useEffect(() => {
-    const sync = { hsl: current, font: currentFont };
+    const sync = { hsl: current, font: currentFont, mode: currentMode };
     savedRef.current = sync;
     previewRef.current = sync;
     setSat(current.s);
     setFont(currentFont);
-  }, [current, currentFont]);
+    setMode(currentMode);
+  }, [current, currentFont, currentMode]);
 
   const applyPreview = (hsl: HSL) => {
     previewRef.current = { ...previewRef.current, hsl };
@@ -80,6 +88,12 @@ export function ThemeControl({
     setSaved(false);
     onPreviewFont(name);
   };
+  const pickMode = (m: ThemeMode) => {
+    previewRef.current = { ...previewRef.current, mode: m };
+    setMode(m);
+    setSaved(false);
+    onPreviewMode?.(m);
+  };
 
   const close = (revert: boolean) => {
     setOpen(false);
@@ -89,9 +103,11 @@ export function ThemeControl({
       previewRef.current = s;
       setSat(s.hsl.s);
       setFont(s.font);
+      setMode(s.mode);
       setSaved(false);
       onPreview(s.hsl);
       onPreviewFont(s.font);
+      onPreviewMode?.(s.mode);
     }
   };
 
@@ -100,6 +116,7 @@ export function ThemeControl({
     previewRef.current = s;
     setSat(s.hsl.s);
     setFont(s.font);
+    setMode(s.mode);
     setSaved(false);
     setOpen(true);
     openRef.current = true;
@@ -111,6 +128,7 @@ export function ThemeControl({
     setWorking(true);
     await onSave(toSave.hsl);
     await onSaveFont(toSave.font);
+    await onSaveMode?.(toSave.mode);
     setWorking(false);
     setSaved(true);
     // brief "Saved" then close without reverting
@@ -169,6 +187,19 @@ export function ThemeControl({
     <div ref={wrapRef} className={cn("theme-launch relative", variant === "fab" && "theme-fab-wrap")}>
       {trigger}
       <div className={cn("theme-pop", open && "open")}>
+        {/* Light / Dark mode toggle */}
+        <div className="flex gap-1 p-1 rounded-xl bg-card2 mb-4">
+          {(["light", "dark"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={(e) => { e.stopPropagation(); pickMode(m); }}
+              className={cn("flex-1 h-8 rounded-lg text-[12.5px] font-semibold cursor-pointer transition-colors", mode === m ? "bg-card text-ink shadow-sm border border-line2" : "text-inkfaint hover:text-ink")}
+            >
+              {m === "light" ? "Light" : "Dark"}
+            </button>
+          ))}
+        </div>
+
         <div className="tp-h" style={{ fontFamily: "var(--font-head)" }}>Accent color</div>
 
         <div className="swatches">

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { applyAccent, ACCENT_PRESETS, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
+import { applyAccent, applyFont, applyMode, ACCENT_PRESETS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { ThemeControl } from "@/components/theme-control";
@@ -32,6 +32,7 @@ export function AppShell({
   plan,
   headFont,
   avatarUrl,
+  themeMode,
   children,
 }: {
   handler: string | null;
@@ -39,6 +40,7 @@ export function AppShell({
   plan: string;
   headFont?: string | null;
   avatarUrl?: string | null;
+  themeMode?: ThemeMode;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -46,15 +48,18 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accentState, setAccentState] = useState<HSL>(parseHSL(accent) ?? DEFAULT_HSL);
   const [fontState, setFontState] = useState<string>(headFont ?? DEFAULT_HEAD_FONT);
+  const [modeState, setModeState] = useState<ThemeMode>(themeMode ?? DEFAULT_MODE);
   const [activeDeals, setActiveDeals] = useState(0);
 
   // Apply the user's saved accent + heading font on load.
   useEffect(() => {
-    applyAccent(parseHSL(accent) ?? DEFAULT_HSL);
+    applyAccent(parseHSL(accent) ?? DEFAULT_HSL, themeMode ?? DEFAULT_MODE);
     setAccentState(parseHSL(accent) ?? DEFAULT_HSL);
     applyFont(headFont ?? DEFAULT_HEAD_FONT);
     setFontState(headFont ?? DEFAULT_HEAD_FONT);
-  }, [accent, headFont]);
+    applyMode(themeMode ?? DEFAULT_MODE);
+    setModeState(themeMode ?? DEFAULT_MODE);
+  }, [accent, headFont, themeMode]);
 
   // Load active-deal count for the upsell card + Deals nav badge.
   useEffect(() => {
@@ -71,10 +76,10 @@ export function AppShell({
   // Preview applies live WITHOUT mutating the persisted state (so the
   // saved baseline is preserved for revert); save applies + persists.
   const previewAccent = (hsl: HSL) => {
-    applyAccent(hsl);
+    applyAccent(hsl, modeState);
   };
   const saveAccent = async (hsl: HSL) => {
-    applyAccent(hsl);
+    applyAccent(hsl, modeState);
     setAccentState(hsl);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -90,6 +95,20 @@ export function AppShell({
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase.from("profiles").update({ head_font: name }).eq("id", user.id);
+    }
+  };
+
+  // Light/dark mode: preview applies live; save persists to the profile.
+  const previewMode = (m: ThemeMode) => {
+    applyMode(m);
+    setModeState(m);
+  };
+  const saveMode = async (m: ThemeMode) => {
+    applyMode(m);
+    setModeState(m);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from("profiles").update({ theme_mode: m }).eq("id", user.id);
     }
   };
 
@@ -183,7 +202,7 @@ export function AppShell({
         <main className="main">
           {children}
         </main>
-        <ThemeControl current={accentState} currentFont={fontState} onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont} onSaveFont={saveFont} />
+        <ThemeControl current={accentState} currentFont={fontState} currentMode={modeState} onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont} onSaveFont={saveFont} onPreviewMode={previewMode} onSaveMode={saveMode} />
       </div>
     </div>
   );

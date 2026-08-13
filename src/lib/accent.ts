@@ -7,6 +7,8 @@
 // ============================================================
 
 export type HSL = { h: number; s: number; l: number };
+export type ThemeMode = "light" | "dark";
+export const DEFAULT_MODE: ThemeMode = "light";
 
 /** Heading-font choices (per the reference HTML). */
 export const HEADING_FONTS = [
@@ -47,27 +49,51 @@ export function luminance(h: number, s: number, l: number): number {
   return 0.2126 * lin(r0) + 0.7152 * lin(g0) + 0.0722 * lin(b0);
 }
 
+/** Apply theme mode before/with an accent so derived tints match the mode. */
+export function applyMode(mode: ThemeMode) {
+  const root = document.documentElement;
+  if (mode === "dark") root.setAttribute("data-theme", "dark");
+  else root.removeAttribute("data-theme");
+}
+
+/** WCAG-safe on-accent + accent-ink + tint shades for a given mode. */
+export function accentShades({ h, s, l }: HSL, mode: ThemeMode) {
+  const L = luminance(h, s, l);
+  const contrastWhite = (1.0 + 0.05) / (L + 0.05);
+  const onAccent = contrastWhite >= 3.2 ? "#ffffff" : "#14181f";
+  if (mode === "dark") {
+    return {
+      onAccent,
+      accentInk: `hsl(${h},64%,78%)`,
+      accentTint: `hsl(${h},52%,15%)`,
+      accentTint2: `hsl(${h},44%,22%)`,
+    };
+  }
+  // light
+  const inkL = L > 0.5 ? 30 : 42;
+  return {
+    onAccent,
+    accentInk: `hsl(${h},48%,${inkL}%)`,
+    accentTint: `hsl(${h},70%,96%)`,
+    accentTint2: `hsl(${h},60%,90%)`,
+  };
+}
+
 /**
  * Apply an accent to the document root by setting the hue CSS vars
  * and derived shades (mirrors the reference HTML `apply()`).
  */
-export function applyAccent({ h, s, l }: HSL) {
+export function applyAccent({ h, s, l }: HSL, mode: ThemeMode = "light") {
   const root = document.documentElement;
   root.style.setProperty("--accent-h", String(h));
   root.style.setProperty("--accent-s", s + "%");
   root.style.setProperty("--accent-l", l + "%");
 
-  // WCAG contrast of white text on this accent.
-  const L = luminance(h, s, l);
-  const contrastWhite = (1.0 + 0.05) / (L + 0.05);
-  // If white doesn't clear ~3.2:1 on the solid accent, flip to dark text.
-  root.style.setProperty("--on-accent", contrastWhite >= 3.2 ? "#ffffff" : "#14181f");
-
-  // Keep tint-background ink readable: darken accent-ink more for light hues.
-  const inkL = L > 0.5 ? 30 : 42;
-  root.style.setProperty("--accent-ink", `hsl(${h},48%,${inkL}%)`);
-  root.style.setProperty("--accent-tint", `hsl(${h},70%,96%)`);
-  root.style.setProperty("--accent-tint-2", `hsl(${h},60%,90%)`);
+  const sh = accentShades({ h, s, l }, mode);
+  root.style.setProperty("--on-accent", sh.onAccent);
+  root.style.setProperty("--accent-ink", sh.accentInk);
+  root.style.setProperty("--accent-tint", sh.accentTint);
+  root.style.setProperty("--accent-tint-2", sh.accentTint2);
 }
 
 // --- Serialization (persist accent to the profiles row) ---
@@ -88,19 +114,16 @@ export function parseHSL(str: string | null | undefined): HSL | null {
 /** CSS variable declarations for an accent — server-safe (no DOM needed).
  *  Used to apply the saved accent before first paint to avoid a flash of
  *  the default color. */
-export function accentVars({ h, s, l }: HSL): string {
-  const L = luminance(h, s, l);
-  const contrastWhite = (1.0 + 0.05) / (L + 0.05);
-  const onAccent = contrastWhite >= 3.2 ? "#ffffff" : "#14181f";
-  const inkL = L > 0.5 ? 30 : 42;
+export function accentVars({ h, s, l }: HSL, mode: ThemeMode = "light"): string {
+  const sh = accentShades({ h, s, l }, mode);
   return [
     `--accent-h:${h}`,
     `--accent-s:${s}%`,
     `--accent-l:${l}%`,
-    `--on-accent:${onAccent}`,
-    `--accent-ink:hsl(${h},48%,${inkL}%)`,
-    `--accent-tint:hsl(${h},70%,96%)`,
-    `--accent-tint-2:hsl(${h},60%,90%)`,
+    `--on-accent:${sh.onAccent}`,
+    `--accent-ink:${sh.accentInk}`,
+    `--accent-tint:${sh.accentTint}`,
+    `--accent-tint-2:${sh.accentTint2}`,
   ].join(";");
 }
 
