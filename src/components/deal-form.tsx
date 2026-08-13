@@ -247,9 +247,9 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
         {hint && (
           <span className="relative inline-flex align-middle ml-1 group">
             <IconInfo size={13} className="text-inkfaint" />
-            <span className="hidden group-hover:block absolute bottom-[calc(100%+6px)] left-0 w-60 z-50 bg-ink text-white text-[11.5px] leading-relaxed rounded-lg px-3 py-2 shadow-pop pointer-events-none">
+            <span className="theme-tip hidden group-hover:block absolute bottom-[calc(100%+6px)] left-0 w-60 z-50 text-[11.5px] leading-relaxed rounded-lg px-3 py-2 shadow-pop pointer-events-none">
               {hint}
-              <span className="absolute top-full left-3 -mt-[3px] border-4 border-transparent border-t-ink" />
+              <span className="theme-tip-arrow absolute top-full left-3 -mt-[3px] border-4 border-transparent" />
             </span>
           </span>
         )}

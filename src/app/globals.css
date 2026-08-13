@@ -97,6 +97,12 @@
 [data-theme="dark"] .fchip { background: var(--card); }
 [data-theme="dark"] .fchip.on { background: var(--accent-tint); }
 [data-theme="dark"] .capbar { background: rgba(255, 255, 255, 0.12); }
+/* Tooltip: pin a dark popover surface + light text in BOTH modes (--ink flips
+   to near-white in dark, which would otherwise make bg-ink tooltips unreadable). */
+.theme-tip { background: var(--ink); color: var(--canvas); }
+.theme-tip-arrow { border-top-color: var(--ink); }
+[data-theme="dark"] .theme-tip { background: #2a313d; color: #eef1f6; }
+[data-theme="dark"] .theme-tip-arrow { border-top-color: #2a313d; }
 
 @theme inline {
   --color-canvas: var(--canvas);

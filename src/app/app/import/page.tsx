@@ -387,7 +387,7 @@ function SourceStep({ sources, onPick }: { sources: typeof SOURCES; onPick: (id:
               onClick={() => onPick(s.id)}
               className="card p-6 text-left flex items-start gap-4 transition-colors cursor-pointer hover:border-[var(--accent)]"
             >
-              <span className={cn("h-11 w-11 rounded-xl grid place-items-center flex-none", isBrand ? "bg-white border border-line2" : "accent-tint-bg accent-ink")}>
+              <span className={cn("h-11 w-11 rounded-xl grid place-items-center flex-none", isBrand ? "bg-card border border-line2" : "accent-tint-bg accent-ink")}>
                 <Icon size={22} />
               </span>
               <span>

@@ -99,12 +99,16 @@ export function AppShell({
   };
 
   // Light/dark mode: preview applies live; save persists to the profile.
+  // Also re-apply the accent for the new mode so accent-tinted surfaces (nav,
+  // chips, buttons) flip their tint/ink along with the structural tokens.
   const previewMode = (m: ThemeMode) => {
     applyMode(m);
+    applyAccent(accentState, m);
     setModeState(m);
   };
   const saveMode = async (m: ThemeMode) => {
     applyMode(m);
+    applyAccent(accentState, m);
     setModeState(m);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {

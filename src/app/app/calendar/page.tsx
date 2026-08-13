@@ -362,7 +362,7 @@ function MiniModal({ position, onClose, title, children }: {
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="fixed z-50 w-[330px] bg-white border border-line rounded-xl shadow-lg p-4 fade-up"
+        className="fixed z-50 w-[330px] bg-card border border-line rounded-xl shadow-lg p-4 fade-up"
         style={{ left: Math.max(8, x), top: Math.max(8, y) }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
