@@ -161,11 +161,16 @@ export default function ImportPage() {
     if (!plans.length) { setImporting(false); return; }
 
     // Load existing deals so re-imports UPDATE instead of duplicating.
-    const { data: existingDeals } = await supabase.from("deals").select("id, brand, active, status").eq("user_id", user.id);
-    const brandToDeal = new Map<string, string>();
+    // Fetch current field values so imports only FILL empty slots and never
+    // clobber data the user entered manually.
+    const { data: existingDeals } = await supabase.from("deals").select("id, brand, active, status, value, deliverable, due_date, notes, rep_email").eq("user_id", user.id);
+    const brandToDeal = new Map<string, { id: string; value: number | null; deliverable: string | null; due_date: string | null; notes: string | null; rep_email: string | null }>();
     for (const d of existingDeals ?? []) {
-      const b = norm((d as { brand: string }).brand);
-      if (b && !brandToDeal.has(b)) brandToDeal.set(b, (d as { id: string }).id);
+      const rec = d as { id: string; brand: string; value?: number | null; deliverable?: string | null; due_date?: string | null; notes?: string | null; rep_email?: string | null };
+      const b = norm(rec.brand);
+      if (b && !brandToDeal.has(b)) {
+        brandToDeal.set(b, { id: rec.id, value: rec.value ?? null, deliverable: rec.deliverable ?? null, due_date: rec.due_date ?? null, notes: rec.notes ?? null, rep_email: rec.rep_email ?? null });
+      }
     }
 
     // --- Free-plan hard stop (mirrors the DB trigger; gives a friendly gate) ---
@@ -208,18 +213,32 @@ export default function ImportPage() {
     }
 
     // Assign deal ids to existing-brand plans and update them.
+    // NON-DESTRUCTIVE / FILL-EMPTY-ONLY: for a deal that already exists (e.g.
+    // one the user created by hand), the import only fills fields that are
+    // currently EMPTY. It never overwrites manual values. So a Notion import
+    // can never wipe or replace a manual deal's data.
     let added = newPlans.length, updated = 0;
     for (const p of plans) {
       if (p.dealId) continue;
-      const id = brandToDeal.get(norm(p.brand));
-      if (!id) continue;
-      p.dealId = id;
+      const ex = brandToDeal.get(norm(p.brand));
+      if (!ex) continue;
+      p.dealId = ex.id;
       updated++;
-      await supabase.from("deals").update({
-        value: p.value, status: p.status, deliverable: p.deliverable,
-        due_date: p.due_date, notes: p.notes, rep_email: p.rep_email,
-        active: p.active,
-      }).eq("id", id).eq("user_id", user.id);
+      const patch2: Record<string, unknown> = {};
+      const fill = (field: keyof typeof ex, v: string | number | null | undefined) => {
+        if (v === null || v === undefined || String(v).trim() === "") return;
+        if (ex[field] === null || ex[field] === undefined || String(ex[field]).trim() === "") {
+          patch2[field] = v;
+        }
+      };
+      fill("value", p.value);
+      fill("deliverable", p.deliverable);
+      fill("due_date", p.due_date);
+      fill("notes", p.notes);
+      fill("rep_email", p.rep_email);
+      if (Object.keys(patch2).length) {
+        await supabase.from("deals").update(patch2).eq("id", ex.id).eq("user_id", user.id);
+      }
     }
 
     // Fetch existing linked content + payments for all involved deals.
@@ -408,18 +427,27 @@ function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Load connection status on mount.
+  // Load connection status on mount, then auto-load databases when connected
+  // so a user returning from OAuth lands straight on the board picker.
   useEffect(() => {
-    fetch("/api/notion/status").then((r) => r.json()).then(setStatus).catch(() => ({}));
+    fetch("/api/notion/status")
+      .then((r) => r.json())
+      .then((s) => {
+        setStatus(s);
+        if (s?.connected) loadDatabases(s.workspace);
+      })
+      .catch(() => ({}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadDatabases = async () => {
+  const loadDatabases = async (ws?: string | null) => {
     setLoading(true); setError("");
     try {
       const res = await fetch("/api/notion/databases");
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Could not load databases."); return; }
       setDatabases(data.databases ?? []);
+      if (ws && data.databases?.length) setStatus({ connected: true, workspace: ws, configured: true });
       if (!data.databases?.length) setError("No databases found in this Notion workspace.");
     } catch {
       setError("Could not reach the Notion connection.");
@@ -483,7 +511,7 @@ function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record
           <p className="text-sm text-inksoft mt-0.5">{status.workspace ? `Connected to ${status.workspace}` : "Connected to Notion"}</p>
         </div>
         {!databases.length && !loading && (
-          <Button size="sm" variant="secondary" onClick={loadDatabases}><IconRefresh size={15} /> Load databases</Button>
+          <Button size="sm" variant="secondary" onClick={() => loadDatabases()}><IconRefresh size={15} /> Load databases</Button>
         )}
       </div>
 
@@ -493,7 +521,7 @@ function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record
 
       {!loading && databases.length === 0 && !error && (
         <div className="text-center py-6">
-          <Button onClick={loadDatabases}><IconRefresh size={15} /> Load databases</Button>
+          <Button onClick={() => loadDatabases()}><IconRefresh size={15} /> Load databases</Button>
         </div>
       )}
 
