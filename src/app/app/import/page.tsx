@@ -32,6 +32,21 @@ export default function ImportPage() {
   const [step, setStep] = useState<Step>("source");
   const [plan, setPlan] = useState<"free" | "paid">("free");
 
+  // If a Notion connection already exists (or we just returned from the OAuth
+  // round-trip), skip the "CSV vs Notion" source chooser and go straight to
+  // the board picker. The user asked for connect -> import with no intermediate
+  // chooser step.
+  useEffect(() => {
+    fetch("/api/notion/status")
+      .then((r) => r.json())
+      .then((s) => {
+        if (s?.connected && step === "source") setStep("notion");
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+
   const [columns, setColumns] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [sourceName, setSourceName] = useState("");
