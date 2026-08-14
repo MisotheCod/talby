@@ -49,6 +49,7 @@ export async function GET(req: Request) {
   };
 
   if (error || !code || !user_id) {
+    console.error("notion callback early-return", { hasError: !!error, error, hasCode: !!code, hasUser: !!user_id, stateParam: state, hasStateCookie: !!stateJson, stateCookieMatch: stateJson ? JSON.parse(stateJson || "{}").state === state : false });
     return build("notion=error", redirect_to);
   }
 
@@ -59,7 +60,7 @@ export async function GET(req: Request) {
 
     const tok = await exchangeCode(code);
     const supabase = createServiceClient();
-    await supabase.from("notion_connections").upsert({
+    const { error: upsertErr } = await supabase.from("notion_connections").upsert({
       user_id,
       access_token: tok.access_token,
       workspace_name: tok.workspace_name,
@@ -67,6 +68,7 @@ export async function GET(req: Request) {
       bot_id: tok.bot_id,
       notion_user_id: tok.notion_user_id,
     });
+    if (upsertErr) { console.error("notion_connections upsert error", upsertErr); }
     cookieStore.delete("notion_state");
     return build("notion=connected", redirect_to);
   } catch (e) {
