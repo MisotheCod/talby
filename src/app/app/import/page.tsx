@@ -166,6 +166,7 @@ export default function ImportPage() {
       idx: number; brand: string; value: number | null; status: string;
       deliverable: string | null; due_date: string | null; notes: string | null;
       rep_email: string | null; active: boolean; dealId: string | null;
+      payment_status: string | null;
       content: ContentPart | null | undefined; payment: PaymentPart | null | undefined;
     };
     const plans: Plan[] = [];
@@ -173,6 +174,8 @@ export default function ImportPage() {
       const brand = (r.brand || "").trim();
       if (!brand) continue;
       const status = dealStatus(r.status);
+      // Derive a deal-level payment_status from the payment sub-object.
+      const payStatus = /paid|received/i.test(r.payment?.status ?? "") ? "paid" : "expected";
       plans.push({
         idx: chosen.indexOf(r), brand, value: toNum(r.value), status,
         deliverable: r.deliverable?.trim() || null,
@@ -181,6 +184,7 @@ export default function ImportPage() {
         rep_email: (r.rep_email || "").trim() || null,
         active: status !== "archived",
         dealId: null,
+        payment_status: payStatus,
         content: r.content, payment: r.payment,
       });
     }
@@ -189,13 +193,13 @@ export default function ImportPage() {
     // Load existing deals so re-imports UPDATE instead of duplicating.
     // Fetch current field values so imports only FILL empty slots and never
     // clobber data the user entered manually.
-    const { data: existingDeals } = await supabase.from("deals").select("id, brand, active, status, value, deliverable, due_date, notes, rep_email").eq("user_id", user.id);
-    const brandToDeal = new Map<string, { id: string; value: number | null; deliverable: string | null; due_date: string | null; notes: string | null; rep_email: string | null }>();
+    const { data: existingDeals } = await supabase.from("deals").select("id, brand, active, status, value, deliverable, due_date, notes, rep_email, payment_status").eq("user_id", user.id);
+    const brandToDeal = new Map<string, { id: string; value: number | null; deliverable: string | null; due_date: string | null; notes: string | null; rep_email: string | null; payment_status: string | null }>();
     for (const d of existingDeals ?? []) {
-      const rec = d as { id: string; brand: string; value?: number | null; deliverable?: string | null; due_date?: string | null; notes?: string | null; rep_email?: string | null };
+      const rec = d as { id: string; brand: string; value?: number | null; deliverable?: string | null; due_date?: string | null; notes?: string | null; rep_email?: string | null; payment_status?: string | null };
       const b = norm(rec.brand);
       if (b && !brandToDeal.has(b)) {
-        brandToDeal.set(b, { id: rec.id, value: rec.value ?? null, deliverable: rec.deliverable ?? null, due_date: rec.due_date ?? null, notes: rec.notes ?? null, rep_email: rec.rep_email ?? null });
+        brandToDeal.set(b, { id: rec.id, value: rec.value ?? null, deliverable: rec.deliverable ?? null, due_date: rec.due_date ?? null, notes: rec.notes ?? null, rep_email: rec.rep_email ?? null, payment_status: rec.payment_status ?? null });
       }
     }
 
@@ -231,6 +235,7 @@ export default function ImportPage() {
           user_id: user.id, brand: p.brand, value: p.value, status: p.status,
           deliverable: p.deliverable, due_date: p.due_date, notes: p.notes,
           rep_email: p.rep_email, active: p.active,
+          payment_status: p.payment_status,
         }))
       ).select("id");
       if (error) { setImporting(false); setImportError(error.message); return; }
@@ -262,6 +267,7 @@ export default function ImportPage() {
       fill("due_date", p.due_date);
       fill("notes", p.notes);
       fill("rep_email", p.rep_email);
+      fill("payment_status", p.payment_status);
       if (Object.keys(patch2).length) {
         await supabase.from("deals").update(patch2).eq("id", ex.id).eq("user_id", user.id);
       }
