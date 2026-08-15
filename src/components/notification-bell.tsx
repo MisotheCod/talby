@@ -18,10 +18,14 @@ function timeAgo(iso: string): string {
   return `${d}d`;
 }
 
+const POPOVER_W = 340;
+
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notif[]>([]);
   const [unread, setUnread] = useState(0);
+  const [align, setAlign] = useState<"left" | "right">("right");
+  const wrapRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = async () => {
@@ -40,6 +44,18 @@ export function NotificationBell() {
     return () => { if (timer.current) clearInterval(timer.current); };
   }, []);
 
+  // Compute which side to open the popover based on the bell's position so it
+  // never runs off the viewport (works for both the left sidebar and the
+  // right-aligned mobile topbar).
+  useEffect(() => {
+    if (!open || !wrapRef.current) return;
+    const r = wrapRef.current.getBoundingClientRect();
+    const overflowsRight = r.left + POPOVER_W > window.innerWidth - 8;
+    setAlign(overflowsRight ? "right" : "left");
+  }, [open]);
+
+  const toggle = () => setOpen((o) => !o);
+
   const markAll = async () => {
     await fetch("/api/notifications", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ all: true }) });
     setUnread(0);
@@ -47,9 +63,9 @@ export function NotificationBell() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={wrapRef}>
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-label="Notifications"
         aria-expanded={open}
         className="relative p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"
@@ -65,7 +81,7 @@ export function NotificationBell() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-[calc(100%+6px)] w-[340px] max-w-[85vw] bg-card border border-line2 rounded-xl shadow-pop z-50 overflow-hidden fade-up">
+          <div className={cn("absolute top-[calc(100%+6px)] w-[340px] max-w-[85vw] bg-card border border-line2 rounded-xl shadow-pop z-50 overflow-hidden fade-up", align === "left" ? "left-0" : "right-0")}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <span className="font-semibold text-sm">Notifications</span>
               <div className="flex items-center gap-1">

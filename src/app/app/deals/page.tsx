@@ -154,8 +154,8 @@ export default function DealsPage() {
                   className="flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer"
                 >
                   <IconDownload size={16} className="text-inksoft shrink-0" />
-                  <span className="whitespace-nowrap">Import deals</span>
-                  <span className="ml-auto text-xs text-inkfaint whitespace-nowrap pl-3">Notion or CSV</span>
+                  <span className="whitespace-nowrap">Import from Notion</span>
+                  <span className="ml-auto text-xs text-inkfaint whitespace-nowrap pl-3">Connect & pull deals</span>
                 </Link>
               </div>
             </>
