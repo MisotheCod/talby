@@ -149,7 +149,7 @@ export default function DealsPage() {
                 </button>
                 <div className="my-1 h-px bg-line" />
                 <Link
-                  href="/app/import"
+                  href="/app/import?source=notion"
                   onClick={() => setNewOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer"
                 >

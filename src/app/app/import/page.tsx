@@ -29,7 +29,7 @@ const SOURCES = [
 export default function ImportPage() {
   const supabase = createClient();
   const router = useRouter();
-  const [step, setStep] = useState<Step>("source");
+  const [step, setStep] = useState<Step>(() => (new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source") === "notion" ? "notion" : "source"));
   const [plan, setPlan] = useState<"free" | "paid">("free");
 
   // If a Notion connection already exists (or we just returned from the OAuth
