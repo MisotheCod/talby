@@ -152,10 +152,8 @@ export default function ImportPage() {
       // Map common Notion / source statuses to Talby statuses (belt-and-suspenders
       // protection on top of the AI prompt's status translation).
       const map: Record<string, string> = {
-        signed: "active", "in progress": "active", live: "active", "closed won": "active",
+        signed: "active", "signed on my end": "active", "in progress": "active", live: "active", "closed won": "active",
         negotiation: "pipeline", "in negotiation": "pipeline", proposal: "pipeline", draft: "pipeline",
-        invoiced: "unpaid", "awaiting payment": "unpaid", "payment pending": "unpaid", outstanding: "unpaid",
-        received: "paid", completed: "paid", closed: "paid", fulfilled: "paid",
         cancelled: "archived", lost: "archived", dead: "archived",
       };
       return map[st] ?? "active";
