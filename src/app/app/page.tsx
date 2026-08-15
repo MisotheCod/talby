@@ -137,9 +137,11 @@ export default function OverviewPage() {
       const inNotes = (d.notes ?? "").toLowerCase().includes(q);
       if (!inBrand && !inNotes) return false;
     }
+    const paid = d.payment_status === "paid" || d.status === "paid";
     switch (filter) {
-      case "Unpaid": return d.status === "unpaid";
-      case "Paid": return d.status === "paid";
+      case "Unpaid": return d.status === "unpaid" || (d.status !== "paid" && !paid && d.payment_status !== "none");
+      case "Paid": return paid;
+      case "Active": return !paid && d.status !== "pipeline" && d.status !== "archived";
       default: return true;
     }
   });

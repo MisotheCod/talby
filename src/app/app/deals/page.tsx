@@ -72,15 +72,15 @@ export default function DealsPage() {
   const activeCount = deals.filter((d) => d.active && d.status !== "archived").length;
 
   const filtered = deals.filter((d) => {
+    const paid = d.payment_status === "paid" || d.status === "paid";
     switch (filter) {
-      case "Active": return d.active && d.status !== "archived";
-      case "Pipeline": return d.status === "pipeline" || d.status === "active";
-      case "Unpaid": return d.status === "unpaid";
-      case "Paid": return d.status === "paid";
+      case "Active": return d.active && d.status !== "archived" && !paid && d.status !== "pipeline";
+      case "Pipeline": return d.status === "pipeline";
+      case "Unpaid": return d.status === "unpaid" || (!paid && d.status !== "pipeline" && d.status !== "archived");
+      case "Paid": return paid;
       default: return true;
     }
   });
-
   const q = query.trim().toLowerCase();
   const searched = q
     ? filtered.filter((d) => (d.brand || "").toLowerCase().includes(q) || (d.deliverable || "").toLowerCase().includes(q) || (d.rep_name || "").toLowerCase().includes(q))
