@@ -146,8 +146,19 @@ export default function ImportPage() {
     const toNum = (v?: string) => (v ? Number(String(v).replace(/[$,]/g, "")) || null : null);
     const norm = (s?: string) => (s || "").trim().toLowerCase();
     const dealStatus = (s?: string) => {
-      const st = (s || "active").toLowerCase();
-      return ["active", "pipeline", "unpaid", "paid", "archived"].includes(st) ? st : "active";
+      const st = (s || "active").toLowerCase().trim();
+      const VALID = ["active", "pipeline", "unpaid", "paid", "archived"];
+      if (VALID.includes(st)) return st;
+      // Map common Notion / source statuses to Talby statuses (belt-and-suspenders
+      // protection on top of the AI prompt's status translation).
+      const map: Record<string, string> = {
+        signed: "active", "in progress": "active", live: "active", "closed won": "active",
+        negotiation: "pipeline", "in negotiation": "pipeline", proposal: "pipeline", draft: "pipeline",
+        invoiced: "unpaid", "awaiting payment": "unpaid", "payment pending": "unpaid", outstanding: "unpaid",
+        received: "paid", completed: "paid", closed: "paid", fulfilled: "paid",
+        cancelled: "archived", lost: "archived", dead: "archived",
+      };
+      return map[st] ?? "active";
     };
 
     // Build a plan per chosen row (skip empty brands).

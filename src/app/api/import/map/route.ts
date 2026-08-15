@@ -41,6 +41,10 @@ export async function POST(req: Request) {
     "Given detected columns and sample rows, return a JSON mapping and per-row extracted data. " +
     "TARGETS — prefix each field with its destination: " +
     "deal.brand (required), deal.value (number), deal.status (one of: active, pipeline, unpaid, paid, archived), " +
+    "deal.status (translate source statuses: 'signed'/'in progress'/'live'/'closed won' -> active, 'pipeline'/'negotiation'/'in negotiation'/'proposal'/'draft' -> pipeline, " +
+    "'unpaid'/'invoiced'/'awaiting payment'/'payment pending'/'outstanding' -> unpaid, " +
+    "'paid'/'received'/'completed'/'closed'/'fulfilled' -> paid, " +
+    "'archived'/'cancelled'/'lost'/'dead' -> archived), " +
     "deal.deliverable (string), deal.due_date (YYYY-MM-DD), deal.notes (string), deal.rep_email (email). " +
     "content.event_date (YYYY-MM-DD) for a column holding a post/go-live/publish date, content.title (string), content.platform (e.g. TikTok/Instagram/YouTube). " +
     "payment.expected_date (YYYY-MM-DD) for a column holding a payment/expected/follow-up date, payment.amount (number), payment.status (received if the source says paid/received, else expected). " +
