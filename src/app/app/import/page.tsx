@@ -9,9 +9,8 @@ import { cn } from "@/lib/utils";
 import { IconArrowLeft, IconCheck, IconDownload, IconLink, IconRefresh } from "@/components/icons";
 import { Button, Chip, Input, Select, Spinner, StatusPill } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
-import { NotionLogo } from "@/components/marketing/notion-logo";
 
-type Step = "source" | "notion" | "upload" | "columns" | "mapping" | "review";
+type Step = "notion" | "upload" | "columns" | "mapping" | "review";
 type ContentPart = { title?: string; event_date?: string; platform?: string | null };
 type PaymentPart = { amount?: string; expected_date?: string; status?: string };
 type MapRow = {
@@ -21,35 +20,17 @@ type MapRow = {
 };
 type ImportItem = MapRow & { __selected?: boolean; __review?: boolean };
 
-const SOURCES = [
-  { id: "csv", name: "CSV file", desc: "Upload a .csv export of your deals spreadsheet.", icon: IconDownload },
-  { id: "notion", name: "Notion", desc: "Connect a Notion database and pull your deals straight in.", icon: NotionLogo },
-];
-
 export default function ImportPage() {
   const supabase = createClient();
   const router = useRouter();
-  const [step, setStep] = useState<Step>(() => (new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source") === "notion" ? "notion" : "source"));
+  const [step, setStep] = useState<Step>(() => (new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source") === "notion" ? "notion" : "upload"));
   const [plan, setPlan] = useState<"free" | "paid">("free");
-
-  // If a Notion connection already exists (or we just returned from the OAuth
-  // round-trip), skip the "CSV vs Notion" source chooser and go straight to
-  // the board picker. The user asked for connect -> import with no intermediate
-  // chooser step.
-  useEffect(() => {
-    fetch("/api/notion/status")
-      .then((r) => r.json())
-      .then((s) => {
-        if (s?.connected && step === "source") setStep("notion");
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
 
   const [columns, setColumns] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [sourceName, setSourceName] = useState("");
+  const [uploadedFiles, setUploadedFiles] = useState(0);
 
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [items, setItems] = useState<ImportItem[]>([]);
@@ -75,24 +56,32 @@ export default function ImportPage() {
 
   const back = () => {
     if (done) { router.push("/app/deals"); return; }
-    if (step === "source") { router.push("/app/deals"); return; }
-    if (step === "notion") { setStep("source"); return; }
-    if (step === "upload") { resetUpload(); setStep("source"); return; }
+    if (step === "notion") { router.push("/app/deals"); return; }
+    if (step === "upload") { resetUpload(); router.push("/app/deals"); return; }
     if (step === "columns") { setStep("upload"); return; }
     if (step === "mapping") { setStep("columns"); return; }
     if (step === "review") { setStep("mapping"); return; }
   };
 
-  const resetUpload = () => { setColumns([]); setRows([]); setSourceName(""); };
+  const resetUpload = () => { setColumns([]); setRows([]); setSourceName(""); setUploadedFiles(0); };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    const parsed = parseCSV(text);
-    setColumns(parsed.columns);
-    setRows(parsed.rows);
-    setSourceName(file.name.replace(/\.csv$/i, ""));
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (!files.length) return;
+    // Merge all selected CSVs: union the columns, concat rows, and show how
+    // many files were uploaded so "I uploaded multiple at once" is visible.
+    const allColumns: string[] = [];
+    const allRows: Record<string, string>[] = [];
+    for (const file of files) {
+      const text = await file.text();
+      const parsed = parseCSV(text);
+      for (const c of parsed.columns) if (!allColumns.includes(c)) allColumns.push(c);
+      allRows.push(...parsed.rows);
+    }
+    setColumns(allColumns);
+    setRows(allRows);
+    setSourceName(files.length === 1 ? files[0].name.replace(/\.csv$/i, "") : `${files.length} CSV files`);
+    setUploadedFiles(files.length);
     setStep("columns");
     setMapping({});
     setItems([]);
@@ -352,13 +341,9 @@ export default function ImportPage() {
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link href="/app/deals"><Button>View deals</Button></Link>
-            <Button variant="secondary" onClick={() => { setDone(false); resetUpload(); setStep("source"); }}>Import more</Button>
+            <Button variant="secondary" onClick={() => { setDone(false); resetUpload(); setStep("upload"); }}>Import more</Button>
           </div>
         </div>
-      )}
-
-      {!done && step === "source" && (
-        <SourceStep sources={SOURCES} onPick={(id) => { setStep(id === "notion" ? "notion" : "upload"); }} />
       )}
 
       {!done && step === "notion" && (
@@ -368,11 +353,11 @@ export default function ImportPage() {
       )}
 
       {!done && step === "upload" && (
-        <UploadStep onFile={onFile} fileRef={fileRef} />
+        <UploadStep onFile={onFile} fileRef={fileRef} uploadedFiles={uploadedFiles} />
       )}
 
       {!done && step === "columns" && (
-        <ColumnsStep columns={columns} rowCount={rows.length} onMap={runMapping} />
+        <ColumnsStep columns={columns} rowCount={rows.length} uploadedFiles={uploadedFiles} onMap={runMapping} />
       )}
 
       {!done && step === "mapping" && (
@@ -402,9 +387,9 @@ export default function ImportPage() {
 
 /* ---------- steps ---------- */
 function Stepper({ current }: { current: Step }) {
-  const order: Step[] = ["source", "notion", "upload", "columns", "mapping", "review"];
+  const order: Step[] = ["notion", "upload", "columns", "mapping", "review"];
   const label: Record<Step, string> = {
-    source: "Source", notion: "Notion", upload: "Upload", columns: "Columns", mapping: "AI mapping", review: "Review",
+    notion: "Notion", upload: "Upload", columns: "Columns", mapping: "AI mapping", review: "Review",
   };
   const curIdx = order.indexOf(current);
   return (
@@ -418,35 +403,6 @@ function Stepper({ current }: { current: Step }) {
           {i < order.length - 1 && <span className="text-inkfaint text-[11px]">→</span>}
         </div>
       ))}
-    </div>
-  );
-}
-
-function SourceStep({ sources, onPick }: { sources: typeof SOURCES; onPick: (id: string) => void }) {
-  return (
-    <div>
-      <p className="text-sm text-inksoft mb-5">Where would you like to import your deals from?</p>
-      <div className="grid md:grid-cols-2 gap-4">
-        {sources.map((s) => {
-          const Icon = s.icon;
-          const isBrand = s.id === "notion";
-          return (
-            <button
-              key={s.id}
-              onClick={() => onPick(s.id)}
-              className="card p-6 text-left flex items-start gap-4 transition-colors cursor-pointer hover:border-[var(--accent)]"
-            >
-              <span className={cn("h-11 w-11 rounded-xl grid place-items-center flex-none", isBrand ? "bg-card border border-line2" : "accent-tint-bg accent-ink")}>
-                <Icon size={22} />
-              </span>
-              <span>
-                <span className="block font-semibold">{s.name}</span>
-                <span className="block text-[13px] text-inksoft mt-1">{s.desc}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -528,7 +484,7 @@ function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record
         <span className="h-12 w-12 rounded-2xl accent-tint-bg accent-ink grid place-items-center mx-auto"><IconLink size={22} /></span>
         <h2 className="font-semibold mt-4">Connect Notion</h2>
         <p className="text-sm text-inksoft mt-1 mb-4">Authorize your own Notion account, then pick a database to import.</p>
-        <Button onClick={() => { window.location.href = "/api/notion/connect?redirect_to=/app/import"; }}>Connect Notion</Button>
+        <Button onClick={() => { window.location.href = "/api/notion/connect?redirect_to=/app/import?source=notion"; }}>Connect Notion</Button>
       </div>
     );
   }
@@ -575,34 +531,40 @@ function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record
   );
 }
 
-function UploadStep({ onFile, fileRef }: { onFile: (e: React.ChangeEvent<HTMLInputElement>) => void; fileRef: React.RefObject<HTMLInputElement | null> }) {
+function UploadStep({ onFile, fileRef, uploadedFiles }: { onFile: (e: React.ChangeEvent<HTMLInputElement>) => void; fileRef: React.RefObject<HTMLInputElement | null>; uploadedFiles?: number }) {
   return (
     <div>
       <div className="flex items-center gap-3 mb-5">
         <span className="h-9 w-9 rounded-lg accent-tint-bg accent-ink grid place-items-center flex-none"><IconDownload size={18} /></span>
         <div>
           <p className="text-sm font-semibold">Upload a spreadsheet</p>
-          <p className="text-[13px] text-inksoft">Pick a CSV with your deals list and Talby imports every row as a deal.</p>
+          <p className="text-[13px] text-inksoft">Pick one or more CSVs; every row across all files becomes a deal.</p>
         </div>
       </div>
       <button onClick={() => fileRef.current?.click()} className="w-full border-2 border-dashed border-line2 rounded-2xl p-10 text-center cursor-pointer hover:border-[var(--accent)] transition bg-card">
         <span className="h-11 w-11 rounded-2xl accent-tint-bg accent-ink grid place-items-center mx-auto"><IconDownload size={20} /></span>
-        <span className="block font-semibold mt-3 text-ink">Choose a .csv file</span>
-        <span className="block text-[13px] text-inksoft mt-1">One row per deal, up to a few MB</span>
+        <span className="block font-semibold mt-3 text-ink">Choose your .csv files</span>
+        <span className="block text-[13px] text-inksoft mt-1">One row per deal, up to a few MB each</span>
       </button>
-      <div className="mt-3 text-center">
-        <span className="text-[12px] text-inkfaint">This is a bulk import, not a single contract. Expect these columns: brand, value, status, due date, deliverable…</span>
-      </div>
-      <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
+      {uploadedFiles ? (
+        <div className="mt-3 text-center text-sm font-medium text-accentink">
+          {uploadedFiles} file{uploadedFiles === 1 ? "" : "s"} selected
+        </div>
+      ) : (
+        <div className="mt-3 text-center">
+          <span className="text-[12px] text-inkfaint">This is a bulk import, not a single contract. Expect these columns: brand, value, status, due date, deliverable…</span>
+        </div>
+      )}
+      <input ref={fileRef} type="file" multiple accept=".csv,text/csv" className="hidden" onChange={onFile} />
     </div>
   );
 }
 
-function ColumnsStep({ columns, rowCount, onMap }: { columns: string[]; rowCount: number; onMap: () => void }) {
+function ColumnsStep({ columns, rowCount, uploadedFiles, onMap }: { columns: string[]; rowCount: number; uploadedFiles?: number; onMap: () => void }) {
   return (
     <div className="panel p-6">
-      <h2 className="font-semibold">Detected {rowCount} rows</h2>
-      <p className="text-sm text-inksoft mt-1">Columns found in your file:</p>
+      <h2 className="font-semibold">Detected {rowCount} row{rowCount === 1 ? "" : "s"}{uploadedFiles ? ` from ${uploadedFiles} file${uploadedFiles === 1 ? "" : "s"}` : ""}</h2>
+      <p className="text-sm text-inksoft mt-1">Columns found:</p>
       <div className="flex flex-wrap gap-2 mt-3">
         {columns.map((c) => <Chip key={c} active>{c}</Chip>)}
       </div>
