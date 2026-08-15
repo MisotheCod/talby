@@ -78,15 +78,8 @@ export function DealForm({
   const fileRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof DealFormValues>(k: K, val: DealFormValues[K]) => setV((p) => ({ ...p, [k]: val }));
 
-  // In contract mode, open the file picker immediately on mount so the user
-  // isn't stuck wondering what to click.
-  useEffect(() => {
-    if (uploadOnMount && fileRef.current) {
-      // Defer so the hidden input exists in the DOM after mount.
-      const t = setTimeout(() => fileRef.current?.click(), 150);
-      return () => clearTimeout(t);
-    }
-  }, [uploadOnMount]);
+  // The file picker is opened by clicking the dropzone only; we never auto-open
+// the native finder when the modal appears.
 
   const applyExtracted = (f: Record<string, unknown>) => {
     setV((p) => ({

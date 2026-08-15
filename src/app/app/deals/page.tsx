@@ -10,6 +10,7 @@ import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, Ic
 import { Button, Chip, Input, Textarea, Select, StatusPill, Spinner } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
+import UploadModal from "@/components/upload-modal";
 import { useCelebration } from "@/components/confetti";
 
 type Deal = {
@@ -33,7 +34,7 @@ export default function DealsPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false); // dropdown open
-  const [newMode, setNewMode] = useState<"blank" | "contract" | null>(null); // which New deal modal variant
+  const [newMode, setNewMode] = useState<"blank" | "upload" | null>(null); // which New deal modal variant
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -139,12 +140,12 @@ export default function DealsPage() {
                 </button>
                 <button
                   role="menuitem"
-                  onClick={() => { setNewOpen(false); setNewMode("contract"); }}
+                  onClick={() => { setNewOpen(false); setNewMode("upload"); }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer text-left"
                 >
                   <IconUpload size={16} className="text-inksoft shrink-0" />
-                  <span className="whitespace-nowrap">Upload contract</span>
-                  <span className="ml-auto text-xs text-inkfaint whitespace-nowrap pl-3">Auto-fill from PDF</span>
+                  <span className="whitespace-nowrap">Upload</span>
+                  <span className="ml-auto text-xs text-inkfaint whitespace-nowrap pl-3">Contract or CSV</span>
                 </button>
                 <div className="my-1 h-px bg-line" />
                 <Link
@@ -226,15 +227,19 @@ export default function DealsPage() {
         </>
       )}
 
-      {newMode && (
+      {newMode && newMode === "blank" && (
         <NewDealModal
           plan={plan}
           activeCount={activeCount}
-          initialMode={newMode}
+          initialMode="blank"
           onClose={() => setNewMode(null)}
           onCreated={onCreated}
           onUpgrade={() => { setNewMode(null); setShowUpgrade(true); }}
         />
+      )}
+
+      {newMode === "upload" && (
+        <UploadModal onClose={() => setNewMode(null)} onSaved={onCreated} />
       )}
 
       {selected && (
