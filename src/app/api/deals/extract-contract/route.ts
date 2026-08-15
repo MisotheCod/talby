@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { OPENROUTER_API_KEY } from "@/lib/config";
+import { polyfillPdfjsDom } from "@/lib/pdfjs-polyfill";
 
 export const dynamic = "force-dynamic";
-// pdfjs needs the Node.js runtime and filesystem access; Edge cannot run it.
+// pdfjs needs the Node.js runtime (+ DOM geometry globals); Edge cannot run it.
 export const runtime = "nodejs";
+
+// pdfjs v6 calls DOMMatrix/DOMPoint/Path2D while extracting text; Node lacks
+// them. Polyfill must run before the dynamic pdfjs import below.
+polyfillPdfjsDom();
 
 /** Max upload: 6 MB. */
 const MAX_BYTES = 6 * 1024 * 1024;
@@ -62,7 +67,7 @@ export async function POST(req: Request) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("extract-contract pdfjs error:", msg);
-      return NextResponse.json({ error: "Couldn't read the PDF.", debug: msg }, { status: 422 });
+      return NextResponse.json({ error: "Couldn't read the PDF. It may be a scanned image with no selectable text." }, { status: 422 });
     }
   } else if (isText) {
     text = await file.text();
