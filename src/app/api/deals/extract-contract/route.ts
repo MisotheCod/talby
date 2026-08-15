@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { OPENROUTER_API_KEY } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
+// pdfjs needs the Node.js runtime and filesystem access; Edge cannot run it.
+export const runtime = "nodejs";
 
 /** Max upload: 6 MB. */
 const MAX_BYTES = 6 * 1024 * 1024;
@@ -43,18 +45,24 @@ export async function POST(req: Request) {
 
   let text = "";
   if (isPdf) {
-    // Extract text from the PDF buffer via pdfjs. Set the worker so pdfjs
-    // doesn't try to spawn a bundled worker under webpack.
-    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    pdfjs.GlobalWorkerOptions.workerSrc = "pdfjs-dist/legacy/build/pdf.worker.mjs";
-    const data = new Uint8Array(await file.arrayBuffer());
-    const doc = await pdfjs.getDocument({ data, useSystemFonts: true, disableWorker: true } as unknown as Parameters<typeof pdfjs.getDocument>[0]).promise;
-    for (let i = 1; i <= Math.min(doc.numPages, 30); i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      for (const it of content.items) {
-        if ("str" in it && it.str) text += it.str + " ";
+    try {
+      // Extract text from the PDF buffer via pdfjs. Set the worker so pdfjs
+      // doesn't try to spawn a bundled worker under webpack.
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc = "pdfjs-dist/legacy/build/pdf.worker.mjs";
+      const data = new Uint8Array(await file.arrayBuffer());
+      const doc = await pdfjs.getDocument({ data, useSystemFonts: true, disableWorker: true } as unknown as Parameters<typeof pdfjs.getDocument>[0]).promise;
+      for (let i = 1; i <= Math.min(doc.numPages, 30); i++) {
+        const page = await doc.getPage(i);
+        const content = await page.getTextContent();
+        for (const it of content.items) {
+          if ("str" in it && it.str) text += it.str + " ";
+        }
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("extract-contract pdfjs error:", msg);
+      return NextResponse.json({ error: "Couldn't read the PDF. It may be a scanned image with no selectable text." }, { status: 422 });
     }
   } else if (isText) {
     text = await file.text();
