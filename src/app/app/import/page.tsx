@@ -578,12 +578,21 @@ function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record
 function UploadStep({ onFile, fileRef }: { onFile: (e: React.ChangeEvent<HTMLInputElement>) => void; fileRef: React.RefObject<HTMLInputElement | null> }) {
   return (
     <div>
-      <p className="text-sm text-inksoft mb-5">Upload your CSV export. We&apos;ll detect the columns and map them to deals.</p>
-      <button onClick={() => fileRef.current?.click()} className="w-full border-2 border-dashed border-line2 rounded-2xl p-12 text-center cursor-pointer hover:border-[var(--accent)] transition bg-card">
-        <span className="h-12 w-12 rounded-2xl accent-tint-bg accent-ink grid place-items-center mx-auto"><IconDownload size={22} /></span>
-        <span className="block font-semibold mt-3 text-ink">Choose a CSV file</span>
-        <span className="block text-[13px] text-inksoft mt-1">.csv up to a few MB</span>
+      <div className="flex items-center gap-3 mb-5">
+        <span className="h-9 w-9 rounded-lg accent-tint-bg accent-ink grid place-items-center flex-none"><IconDownload size={18} /></span>
+        <div>
+          <p className="text-sm font-semibold">Upload a spreadsheet</p>
+          <p className="text-[13px] text-inksoft">Pick a CSV with your deals list and Talby imports every row as a deal.</p>
+        </div>
+      </div>
+      <button onClick={() => fileRef.current?.click()} className="w-full border-2 border-dashed border-line2 rounded-2xl p-10 text-center cursor-pointer hover:border-[var(--accent)] transition bg-card">
+        <span className="h-11 w-11 rounded-2xl accent-tint-bg accent-ink grid place-items-center mx-auto"><IconDownload size={20} /></span>
+        <span className="block font-semibold mt-3 text-ink">Choose a .csv file</span>
+        <span className="block text-[13px] text-inksoft mt-1">One row per deal, up to a few MB</span>
       </button>
+      <div className="mt-3 text-center">
+        <span className="text-[12px] text-inkfaint">This is a bulk import, not a single contract. Expect these columns: brand, value, status, due date, deliverable…</span>
+      </div>
       <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
     </div>
   );

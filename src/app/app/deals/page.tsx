@@ -338,6 +338,7 @@ function NewDealModal({ plan, activeCount, initialMode, onClose, onCreated, onUp
 
   return (
     <Modal onClose={onClose} title={initialMode === "contract" ? "Upload a deal" : "New deal"}>
+      {error && <p className="text-sm text-late mb-4" role="alert">{error}</p>}
       {atCap && (
         <div className="rounded-xl bg-accenttint p-4 text-sm mb-4 flex items-start gap-3">
           <IconInfo size={18} className="shrink-0 mt-0.5 accent-ink" />

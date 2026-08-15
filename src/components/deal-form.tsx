@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { IconInfo, IconDelete, IconLink } from "@/components/icons";
@@ -77,6 +77,16 @@ export function DealForm({
   const [extracting, setExtracting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof DealFormValues>(k: K, val: DealFormValues[K]) => setV((p) => ({ ...p, [k]: val }));
+
+  // In contract mode, open the file picker immediately on mount so the user
+  // isn't stuck wondering what to click.
+  useEffect(() => {
+    if (uploadOnMount && fileRef.current) {
+      // Defer so the hidden input exists in the DOM after mount.
+      const t = setTimeout(() => fileRef.current?.click(), 150);
+      return () => clearTimeout(t);
+    }
+  }, [uploadOnMount]);
 
   const applyExtracted = (f: Record<string, unknown>) => {
     setV((p) => ({
