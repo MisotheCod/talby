@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("extract-contract pdfjs error:", msg);
-      return NextResponse.json({ error: "Couldn't read the PDF. It may be a scanned image with no selectable text." }, { status: 422 });
+      return NextResponse.json({ error: "Couldn't read the PDF.", debug: msg }, { status: 422 });
     }
   } else if (isText) {
     text = await file.text();
