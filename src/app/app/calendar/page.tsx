@@ -215,14 +215,14 @@ export default function CalendarPage() {
                         setSelected({ itemId: it.id, type: it.type, x: r.left, y: r.bottom + 6, date: iso });
                       }}
                       className={cn(
-                        "text-[11px] flex items-center gap-1 rounded px-1 py-0.5 cursor-pointer",
-                        it.type === "payment" ? "bg-warn/15 text-warn font-semibold" :
-                        it.type === "todo" ? "bg-purple/15 text-purple" :
-                        it.type === "note" ? "bg-warn/10 text-muted" :
-                        it.type === "content" ? "accent-soft" : "bg-ok/10 text-ok"
+                        "text-[11px] flex items-center gap-1 rounded-full px-2 py-0.5 cursor-pointer",
+                        it.type === "payment" ? "pill-due font-semibold" :
+                        it.type === "todo" ? "pill-purple" :
+                        it.type === "note" ? "pill-note" :
+                        it.type === "content" ? "accent-soft" : "pill-paid font-semibold"
                       )}
                     >
-                      <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide", it.type === "payment" ? "text-warn/80" : it.type === "note" ? "text-muted/70" : "opacity-70")}>{it.label}</span>
+                      <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide", it.type === "payment" ? "text-warn/70" : it.type === "note" ? "text-inkfaint" : "opacity-70")}>{it.label}</span>
                       <span className="truncate">{it.title}</span>
                       {it.time && <span className="shrink-0 ml-auto text-[10px] tabular-nums font-medium opacity-70">{it.time}</span>}
                     </div>

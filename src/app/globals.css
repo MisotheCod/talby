@@ -344,6 +344,8 @@ h1, h2, h3, h4 {
 .pill-paid { background: var(--paid-bg); color: var(--paid); }
 .pill-due { background: var(--due-bg); color: var(--due); }
 .pill-late { background: var(--late-bg); color: var(--late); }
+.pill-note { background: var(--card-2); color: var(--ink-soft); }
+.pill-purple { background: var(--purple-bg); color: var(--purple); }
 .pill-pipe { background: var(--card-2); color: var(--ink-soft); border: 1px solid var(--line-2); }
 
 /* ------- Money figures: JetBrains Mono ------- */
