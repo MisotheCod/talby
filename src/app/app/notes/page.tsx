@@ -13,7 +13,7 @@ const toISO = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.
 const startOfDay = (iso: string) => new Date(iso + "T00:00:00");
 const todayISO = () => toISO(new Date());
 
-// Human, relative due labels + overdue flag (Mobbin best practice).
+// Human, relative due labels + overdue flag.
 function dueLabel(iso: string | null): { text: string; overdue: boolean } {
   if (!iso) return { text: "", overdue: false };
   const today = startOfDay(todayISO());
@@ -29,10 +29,18 @@ function dueLabel(iso: string | null): { text: string; overdue: boolean } {
   return { text: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }), overdue: false };
 }
 
-// Group into time buckets; overdue first (Mobbin). Completed collapse into a
-// separate "Completed" group at the bottom.
-type Group = { key: string; label: string; items: Todo[] };
-function groupTodos(todos: Todo[]): Group[] {
+type GroupKey = "overdue" | "today" | "upcoming" | "someday" | "done";
+type GroupDef = { key: GroupKey; label: string; icon?: "late" | "accent" | "ok" | "muted" | "purple" };
+
+const GROUP_DEFS: GroupDef[] = [
+  { key: "overdue", label: "Overdue", icon: "late" },
+  { key: "today", label: "Today", icon: "accent" },
+  { key: "upcoming", label: "Upcoming", icon: "ok" },
+  { key: "someday", label: "Someday", icon: "muted" },
+  { key: "done", label: "Completed", icon: "ok" },
+];
+
+function groupTodos(todos: Todo[]): Partial<Record<GroupKey, Todo[]>> {
   const today = todayISO();
   const active = todos.filter((t) => !t.done);
   const done = todos.filter((t) => t.done);
@@ -40,20 +48,29 @@ function groupTodos(todos: Todo[]): Group[] {
   const todayItems = active.filter((t) => t.due_date === today);
   const future = active.filter((t) => t.due_date && t.due_date > today).sort((a, b) => (a.due_date! < b.due_date! ? -1 : 1));
   const someday = active.filter((t) => !t.due_date);
-  const groups: Group[] = [];
-  if (overdue.length) groups.push({ key: "overdue", label: "Overdue", items: overdue });
-  groups.push({ key: "today", label: "Today", items: todayItems });
-  if (future.length) groups.push({ key: "upcoming", label: "Upcoming", items: future });
-  if (someday.length) groups.push({ key: "someday", label: "Someday", items: someday });
-  if (done.length) groups.push({ key: "done", label: "Completed", items: done });
-  return groups;
+  const g: Partial<Record<GroupKey, Todo[]>> = {};
+  if (overdue.length) g.overdue = overdue;
+  if (todayItems.length) g.today = todayItems;
+  if (future.length) g.upcoming = future;
+  if (someday.length) g.someday = someday;
+  if (done.length) g.done = done;
+  return g;
 }
+
+const GROUP_META: Record<GroupKey, { color: string; label: string; empty: string }> = {
+  overdue: { color: "text-late", label: "Late", empty: "Nothing overdue. Nice work." },
+  today: { color: "accent-text", label: "Today", empty: "Nothing due today." },
+  upcoming: { color: "text-muted", label: "Scheduled", empty: "No upcoming to-dos." },
+  someday: { color: "text-muted", label: "Any time", empty: "Nothing saved for later." },
+  done: { color: "text-muted", label: "Done now", empty: "Nothing completed yet." },
+};
 
 export default function NotesPage() {
   const supabase = createClient();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [todoInput, setTodoInput] = useState("");
   const [todoDate, setTodoDate] = useState("");
+  const [active, setActive] = useState<GroupKey>("today");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -68,7 +85,12 @@ export default function NotesPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase.from("todos").insert({ user_id: user.id, title: todoInput.trim(), due_date: todoDate || null }).select().single();
-    if (data) { setTodos((t) => [data as unknown as Todo, ...t]); setTodoInput(""); setTodoDate(""); }
+    if (data) {
+      setTodos((t) => [data as unknown as Todo, ...t]);
+      setTodoInput("");
+      setTodoDate("");
+      setActive(todoDate && todoDate < todayISO() ? "overdue" : todoDate === todayISO() ? "today" : todoDate ? "upcoming" : "someday");
+    }
   };
 
   const toggleTodo = async (id: string, done: boolean) => {
@@ -86,70 +108,106 @@ export default function NotesPage() {
     await supabase.from("todos").delete().eq("id", id);
   };
 
-  const remaining = todos.filter((t) => !t.done).length;
   const groups = groupTodos(todos);
+  const activeItems = groups[active] ?? [];
+  const hasOverdue = (groups.overdue?.length ?? 0) > 0;
+  const remaining = todos.filter((t) => !t.done).length;
 
   if (loading) return <div className="skeleton h-48 max-w-2xl" />;
 
+  const iconDot = (icon?: GroupDef["icon"]) =>
+    cn("h-2.5 w-2.5 rounded-full shrink-0",
+      icon === "late" ? "bg-late" :
+      icon === "accent" ? "accent-fill" :
+      icon === "ok" ? "bg-paid" :
+      icon === "purple" ? "bg-purple" : "bg-muted");
+
   return (
-    <div className="space-y-6 fade-up max-w-2xl">
-      <div className="flex items-end justify-between">
+    <div className="space-y-5 fade-up">
+      <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">To-dos</h1>
           <p className="text-muted text-sm mt-1">A quiet checklist for the work that moves your deals forward.</p>
         </div>
-        {/* Progress header: quiet count, not a bar (Mobbin) */}
         <span className="text-sm text-muted tabular-nums">{remaining} of {todos.length} open</span>
       </div>
 
-      {/* Inline add (Mobbin: persistent add row at top of the list) */}
-      <div className="card p-5">
-        <div className="flex gap-2 mb-4 items-center">
-          <Input value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTodo()} placeholder="Add a to-do…" className="!w-auto flex-1 min-w-0" />
-          <Input type="date" value={todoDate} onChange={(e) => setTodoDate(e.target.value)} className="!w-[150px] shrink-0" aria-label="Due date" />
-          <Button onClick={addTodo}><IconPlus size={16} /></Button>
+      <div className="flex gap-5 items-start">
+        {/* Left rail (66chat-style list selector) */}
+        <div className="w-44 shrink-0 flex flex-col gap-0.5">
+          {GROUP_DEFS.map((g) => {
+            const count = groups[g.key]?.length ?? 0;
+            return (
+              <button
+                key={g.key}
+                onClick={() => setActive(g.key)}
+                className={cn(
+                  "flex items-center gap-2.5 w-full px-3 h-9 rounded-lg text-sm transition-colors cursor-pointer",
+                  active === g.key ? "bg-card border border-line font-medium" : "text-muted hover:text-ink hover:bg-card"
+                )}
+              >
+                <span className={iconDot(g.icon)} />
+                <span className="flex-1 text-left">{g.label}</span>
+                {count > 0 && (
+                  <span className={cn("min-w-5 h-5 px-1.5 rounded-full text-[11px] font-semibold grid place-items-center tabular-nums", active === g.key ? "accent-fill" : "bg-card2 text-muted")}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {todos.length === 0 ? (
-          <p className="text-sm text-muted py-6 text-center">No to-dos yet. Add one above.</p>
-        ) : (
-          <div className="space-y-5">
-            {groups.map((g) => (
-              <div key={g.key}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{g.label} · {g.items.length}</span>
-                  {g.key === "overdue" && <span className="text-[11px] font-medium text-late">Reschedule</span>}
-                </div>
-                <ul className="space-y-1">
-                  {g.items.map((t) => {
-                    const dl = dueLabel(t.due_date);
-                    return (
-                      <li key={t.id} className="flex items-center gap-2.5 py-1.5">
-                        {/* Circular checkbox (Mobbin) */}
-                        <button onClick={() => toggleTodo(t.id, !t.done)} aria-label="Toggle to-do" className={cn("h-5 w-5 rounded-full border grid place-items-center shrink-0 cursor-pointer transition-colors", t.done ? "accent-fill border-transparent" : "border-border-strong hover:border-accent")}>
-                          {t.done && <IconCheck size={12} />}
-                        </button>
-                        <span className={cn("text-sm flex-1", t.done && "line-through text-muted opacity-70")}>{t.title}</span>
-                        {/* Relative human due label; red = overdue (Mobbin) */}
-                        <span className={cn("text-xs shrink-0 tabular-nums", dl.overdue ? "text-late font-medium" : "text-muted")}>
-                          {t.due_date ? dl.text : ""}
-                        </span>
-                        <Input
-                          type="date"
-                          value={t.due_date ?? ""}
-                          onChange={(e) => setDate(t.id, e.target.value || null)}
-                          className="!w-[140px] shrink-0 text-xs h-8"
-                          aria-label="Due date"
-                        />
-                        <button onClick={() => deleteTodo(t.id)} aria-label="Delete to-do" className="text-muted hover:text-bad cursor-pointer"><IconDelete size={14} /></button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
+        {/* Main list */}
+        <div className="flex-1 min-w-0 card p-5">
+          <div className="flex gap-2 mb-4 items-center">
+            <Input value={todoInput} onChange={(e) => setTodoInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addTodo()} placeholder="Add a to-do…" className="!w-auto flex-1 min-w-0" />
+            <Input type="date" value={todoDate} onChange={(e) => setTodoDate(e.target.value)} className="!w-[150px] shrink-0" aria-label="Due date" />
+            <Button onClick={addTodo}><IconPlus size={16} /></Button>
           </div>
-        )}
+
+          <div className="flex items-center justify-between mb-2">
+            <span className={cn("text-[11px] font-semibold uppercase tracking-wide", GROUP_META[active].color)}>{GROUP_META[active].label}</span>
+            {hasOverdue && active !== "overdue" && (
+              <button onClick={() => setActive("overdue")} className="text-[11px] font-medium text-late hover:underline cursor-pointer">{groups.overdue!.length} overdue</button>
+            )}
+          </div>
+
+          {activeItems.length === 0 ? (
+            <p className="text-sm text-muted py-8 text-center">{GROUP_META[active].empty}</p>
+          ) : (
+            <ul className="space-y-1">
+              {activeItems.map((t) => {
+                const dl = dueLabel(t.due_date);
+                return (
+                  <li key={t.id} className="flex items-center gap-2.5 py-1.5 group">
+                    <button onClick={() => toggleTodo(t.id, !t.done)} aria-label="Toggle to-do" className={cn("h-5 w-5 rounded-full border grid place-items-center shrink-0 cursor-pointer transition-colors", t.done ? "accent-fill border-transparent" : "border-border-strong hover:border-accent")}>
+                      {t.done && <IconCheck size={12} />}
+                    </button>
+                    <span className={cn("text-sm flex-1", t.done && "line-through text-muted opacity-70")}>{t.title}</span>
+                    {t.due_date ? (
+                      <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium tabular-nums whitespace-nowrap", dl.overdue ? "bg-late/10 text-late" : dl.text === "Today" ? "accent-soft" : "bg-card2 text-muted")}>
+                        {dl.text}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-muted whitespace-nowrap">Anytime</span>
+                    )}
+                    <label className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shrink-0">
+                      <Input
+                        type="date"
+                        value={t.due_date ?? ""}
+                        onChange={(e) => setDate(t.id, e.target.value || null)}
+                        className="!w-[130px] text-xs h-8 !py-0"
+                        aria-label="Due date"
+                      />
+                    </label>
+                    <button onClick={() => deleteTodo(t.id)} aria-label="Delete to-do" className="text-muted hover:text-bad cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"><IconDelete size={14} /></button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );
