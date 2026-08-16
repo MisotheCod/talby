@@ -14,6 +14,7 @@ type Content = {
 type Deal = { id: string; brand: string };
 type Payment = { id: string; amount: number; expected_date: string | null; status: string };
 type Todo = { id: string; title: string; done: boolean; due_date: string | null };
+type CalendarNote = { id: string; body: string; event_date: string; updated_at: string };
 
 const FILTERS = ["All", "Posts", "Deliverables", "Payments"] as const;
 
@@ -55,9 +56,10 @@ export default function CalendarPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [popover, setPopover] = useState<{ date: string; x: number; y: number } | null>(null);
-  const [selected, setSelected] = useState<{ itemId: string; type: "content" | "deliverable" | "payment" | "todo"; x: number; y: number; date: string } | null>(null);
+  const [selected, setSelected] = useState<{ itemId: string; type: "content" | "deliverable" | "payment" | "todo" | "note"; x: number; y: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
 
@@ -76,20 +78,26 @@ export default function CalendarPage() {
     if (!selected || selected.type !== "todo") return null;
     return todos.find((t) => "todo" + t.id === selected.itemId) ?? null;
   }, [selected, todos]);
+  const selectedNote = useMemo(() => {
+    if (!selected || selected.type !== "note") return null;
+    return notes.find((n) => "note" + n.id === selected.itemId) ?? null;
+  }, [selected, notes]);
 
   const load = useCallback(async () => {
     const from = toISO(new Date(cursor.y, cursor.m, 1));
     const to = toISO(new Date(cursor.y, cursor.m + 1, 0));
-    const [c, d, p, t] = await Promise.all([
+    const [c, d, p, t, n] = await Promise.all([
       supabase.from("content").select("*").gte("event_date", from).lte("event_date", to),
       supabase.from("deals").select("id, brand"),
       supabase.from("payments").select("*").gte("expected_date", from).lte("expected_date", to),
       supabase.from("todos").select("*").not("due_date", "is", null).gte("due_date", from).lte("due_date", to),
+      supabase.from("notes").select("id, body, event_date, updated_at").not("event_date", "is", null).gte("event_date", from).lte("event_date", to),
     ]);
     setContent((c.data ?? []) as unknown as Content[]);
     setDeals((d.data ?? []) as unknown as Deal[]);
     setPayments((p.data ?? []) as unknown as Payment[]);
     setTodos((t.data ?? []) as unknown as Todo[]);
+    setNotes((n.data ?? []) as unknown as CalendarNote[]);
     setLoading(false);
   }, [supabase, cursor]);
 
@@ -108,13 +116,15 @@ export default function CalendarPage() {
   }, [cursor]);
 
   const dayItems = (iso: string) => {
-    const items: { type: "content" | "deliverable" | "payment" | "todo"; id: string; title: string; color?: string }[] = [];
+    const items: { type: "content" | "deliverable" | "payment" | "todo" | "note"; id: string; title: string; color?: string }[] = [];
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => items.push({ type: c.status === "published" ? "deliverable" : "content", id: c.id, title: c.title }));
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
     dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: formatMoney(p.amount) }));
     const dayTodos = todos.filter((t) => !t.done && t.due_date === iso);
     dayTodos.forEach((t) => items.push({ type: "todo", id: "todo" + t.id, title: t.title }));
+    const dayNotes = notes.filter((n) => n.event_date === iso);
+    dayNotes.forEach((n) => items.push({ type: "note", id: "note" + n.id, title: n.body }));
     return items;
   };
 
@@ -186,6 +196,7 @@ export default function CalendarPage() {
                         "text-[11px] truncate rounded px-1 py-0.5 cursor-pointer",
                         it.type === "payment" ? "bg-warn/15 text-warn font-semibold" :
                         it.type === "todo" ? "bg-purple/15 text-purple" :
+                        it.type === "note" ? "bg-warn/10 text-muted italic" :
                         it.type === "content" ? "accent-soft" : "bg-ok/10 text-ok"
                       )}
                     >
@@ -236,6 +247,14 @@ export default function CalendarPage() {
           onSaved={() => { setSelected(null); load(); }}
         />
       )}
+      {selected && selectedNote && (
+        <NoteDetailPopover
+          note={selectedNote}
+          position={{ x: selected.x, y: selected.y }}
+          onClose={() => setSelected(null)}
+          onSaved={() => { setSelected(null); load(); }}
+        />
+      )}
     </div>
   );
 
@@ -250,7 +269,9 @@ export default function CalendarPage() {
 /* ---------------- Add event popover (inline, not a heavy modal) ---------------- */
 function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deals: Deal[]; onClose: () => void; onSaved: () => void }) {
   const supabase = createClient();
+  const [kind, setKind] = useState<"post" | "note">("post");
   const [title, setTitle] = useState("");
+  const [note, setNote] = useState("");
   const [platform, setPlatform] = useState("");
   const [postType, setPostType] = useState("");
   const [dealId, setDealId] = useState("");
@@ -261,10 +282,17 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
   const [error, setError] = useState("");
 
   const submit = async () => {
-    if (!title.trim()) { setError("Add a title."); return; }
     setSaving(true); setError("");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError("Not signed in."); setSaving(false); return; }
+    if (kind === "note") {
+      if (!note.trim()) { setError("Write a note."); setSaving(false); return; }
+      const { error } = await supabase.from("notes").insert({ user_id: user.id, body: note.trim(), event_date: date });
+      setSaving(false);
+      if (error) { setError(error.message); return; }
+      onSaved(); return;
+    }
+    if (!title.trim()) { setError("Add a title."); setSaving(false); return; }
     const { error } = await supabase.from("content").insert({
       user_id: user.id, title: title.trim(), platform: platform || null,
       post_type: postType || null, event_date: date, linked_deal_id: dealId || null,
@@ -279,11 +307,21 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
     <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose}>
       <div className="absolute left-4 right-4 sm:left-auto sm:right-6 top-20 sm:top-24 w-auto sm:w-96 bg-surface border border-border rounded-xl shadow-pop p-5 fade-up" onClick={(e) => e.stopPropagation()} role="dialog">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">New post</h3>
+          <h3 className="font-semibold">{kind === "note" ? "New note" : "New post"}</h3>
           <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-subtle cursor-pointer"><IconClose size={16} /></button>
         </div>
+        <div className="flex gap-1.5 mb-4">
+          <button type="button" onClick={() => setKind("post")} className={cn("px-3 h-8 rounded-lg text-sm font-medium cursor-pointer border", kind === "post" ? "accent-soft border-accent/30" : "border-border text-muted hover:text-foreground")}>Post</button>
+          <button type="button" onClick={() => setKind("note")} className={cn("px-3 h-8 rounded-lg text-sm font-medium cursor-pointer border", kind === "note" ? "accent-soft border-accent/30" : "border-border text-muted hover:text-foreground")}>Note</button>
+        </div>
         <div className="space-y-3">
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Post title" autoFocus />
+          {kind === "note" ? (
+            <>
+              <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Write a note for this day…" autoFocus />
+            </>
+          ) : (
+          <>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Post title" autoFocus />
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs text-muted mb-1 block">Platform</span>
@@ -343,6 +381,8 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             <Button onClick={submit} disabled={saving}>{saving ? <Spinner /> : <IconPlus size={16} />} Add</Button>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>
@@ -513,6 +553,45 @@ function TodoDetailPopover({ todo, position, onClose, onSaved }: {
             <Button variant="secondary" onClick={markDone} disabled={saving} className="w-full"><IconCheck size={15} /> Mark done</Button>
           )}
           <Button onClick={reschedule} disabled={saving} className="w-full">{saving ? <Spinner /> : "Save date"}</Button>
+        </div>
+      </div>
+    </MiniModal>
+  );
+}
+
+/* Note — view + edit + delete */
+function NoteDetailPopover({ note, position, onClose, onSaved }: {
+  note: CalendarNote; position: { x: number; y: number }; onClose: () => void; onSaved: () => void;
+}) {
+  const supabase = createClient();
+  const [body, setBody] = useState(note.body);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const save = async () => {
+    setSaving(true); setError("");
+    const { error } = await supabase.from("notes").update({ body }).eq("id", note.id);
+    setSaving(false);
+    if (error) { setError(error.message); return; }
+    onSaved();
+  };
+
+  const remove = async () => {
+    await supabase.from("notes").delete().eq("id", note.id);
+    onSaved();
+  };
+
+  return (
+    <MiniModal position={position} onClose={onClose} title="Note">
+      <div className="space-y-3">
+        <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Write a note…" />
+        {error && <p className="text-sm text-bad" role="alert">{error}</p>}
+        <div className="flex items-center justify-between pt-1">
+          <Button variant="ghost" onClick={remove} className="text-bad"><IconDelete size={15} /> Delete</Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button onClick={save} disabled={saving}>{saving ? <Spinner /> : <IconCheck size={15} />} Save</Button>
+          </div>
         </div>
       </div>
     </MiniModal>
