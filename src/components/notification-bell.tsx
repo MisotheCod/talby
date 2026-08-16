@@ -24,7 +24,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notif[]>([]);
   const [unread, setUnread] = useState(0);
-  const [align, setAlign] = useState<"left" | "right">("right");
+  const [pos, setPos] = useState<{ x: number; right: boolean; top: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -44,14 +44,14 @@ export function NotificationBell() {
     return () => { if (timer.current) clearInterval(timer.current); };
   }, []);
 
-  // Compute which side to open the popover based on the bell's position so it
-  // never runs off the viewport (works for both the left sidebar and the
-  // right-aligned mobile topbar).
+  // Measure the bell in absolute viewport coordinates so the popover can be
+  // `fixed` and escape the sidebar's overflow clipping while staying on-screen.
   useEffect(() => {
     if (!open || !wrapRef.current) return;
     const r = wrapRef.current.getBoundingClientRect();
-    const overflowsRight = r.left + POPOVER_W > window.innerWidth - 8;
-    setAlign(overflowsRight ? "right" : "left");
+    const roomRight = r.left + POPOVER_W <= window.innerWidth - 8;
+    setPos({ x: roomRight ? r.left : window.innerWidth - r.right, right: !roomRight, top: r.bottom + 6 });
+    return () => setPos(null);
   }, [open]);
 
   const toggle = () => setOpen((o) => !o);
@@ -78,10 +78,13 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && (
+      {open && pos && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className={cn("absolute top-[calc(100%+6px)] w-[340px] max-w-[85vw] bg-card border border-line2 rounded-xl shadow-pop z-50 overflow-hidden fade-up", align === "left" ? "left-0" : "right-0")}>
+          <div
+            className="fixed w-[340px] max-w-[85vw] bg-card border border-line2 rounded-xl shadow-pop z-50 overflow-hidden fade-up"
+            style={{ left: pos.right ? undefined : pos.x, right: pos.right ? pos.x : undefined, top: pos.top }}
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
               <span className="font-semibold text-sm">Notifications</span>
               <div className="flex items-center gap-1">

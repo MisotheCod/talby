@@ -44,7 +44,7 @@ function toISO(d: Date) {
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function CalendarPage() {
   const supabase = createClient();
@@ -105,10 +105,19 @@ export default function CalendarPage() {
 
   const prevMonth = () => setCursor((c) => ({ y: c.m === 0 ? c.y - 1 : c.y, m: c.m === 0 ? 11 : c.m - 1 }));
   const nextMonth = () => setCursor((c) => ({ y: c.m === 11 ? c.y + 1 : c.y, m: c.m === 11 ? 0 : c.m + 1 }));
+  const goToday = () => { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }); };
+  const openDay = (date = toISO(new Date())) => setPopover({ date, x: 0, y: 0 });
+
+  const monthRange = useMemo(() => {
+    const first = `${MONTHS[cursor.m].slice(0, 3)} ${String(cursor.m + 1).padStart(2, "0")}-01, ${cursor.y}`;
+    const lastDay = new Date(cursor.y, cursor.m + 1, 0).getDate();
+    const last = `${MONTHS[cursor.m].slice(0, 3)} ${String(cursor.m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}, ${cursor.y}`;
+    return { first, last };
+  }, [cursor]);
 
   const cells = useMemo(() => {
     const first = new Date(cursor.y, cursor.m, 1);
-    const startOffset = first.getDay();
+    const startOffset = (first.getDay() + 6) % 7; // Monday-first
     const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate();
     const arr: (string | null)[] = Array(startOffset).fill(null);
     for (let d = 1; d <= daysInMonth; d++) arr.push(toISO(new Date(cursor.y, cursor.m, d)));
@@ -143,13 +152,6 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-semibold">Content</h1>
           <p className="text-muted text-sm mt-1">Plan posts and track deliverables by day.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={prevMonth}>‹ Prev</Button>
-          <span className="font-semibold px-2 min-w-[130px] text-center">
-            {MONTHS[cursor.m]} {cursor.y}
-          </span>
-          <Button variant="secondary" onClick={nextMonth}>Next ›</Button>
-        </div>
       </div>
 
       {/* Filters */}
@@ -163,6 +165,21 @@ export default function CalendarPage() {
 
       {/* Month grid */}
       <div className="card overflow-hidden">
+        {/* Month panel header */}
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-border">
+          <div>
+            <h2 className="text-lg font-semibold leading-tight">{MONTHS[cursor.m]} {cursor.y}</h2>
+            <p className="text-xs text-muted mt-0.5">{monthRange.first} to {monthRange.last}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={goToday} className="h-9">Today</Button>
+            <div className="flex items-center gap-0.5 border border-border rounded-lg overflow-hidden">
+              <button onClick={prevMonth} aria-label="Previous month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-subtle cursor-pointer">‹</button>
+              <button onClick={nextMonth} aria-label="Next month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-subtle cursor-pointer">›</button>
+            </div>
+            <Button onClick={() => openDay()} className="h-9"><IconPlus size={16} /> Add event</Button>
+          </div>
+        </div>
         <div className="grid grid-cols-7 border-b border-border">
           {WEEKDAYS.map((d) => (
             <div key={d} className="px-2 py-2 text-xs font-medium text-muted text-center">{d}</div>
