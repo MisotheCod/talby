@@ -317,11 +317,11 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
         <div className="space-y-3">
           {kind === "note" ? (
             <>
-              <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Write a note for this day…" autoFocus />
+              <Textarea value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3} placeholder="Write a note for this day…" autoFocus />
             </>
           ) : (
           <>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Post title" autoFocus />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }} placeholder="Post title" autoFocus />
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs text-muted mb-1 block">Platform</span>
