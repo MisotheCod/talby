@@ -116,15 +116,18 @@ export default function CalendarPage() {
   }, [cursor]);
 
   const dayItems = (iso: string) => {
-    const items: { type: "content" | "deliverable" | "payment" | "todo" | "note"; id: string; title: string; color?: string }[] = [];
+    const items: { type: "content" | "deliverable" | "payment" | "todo" | "note"; id: string; title: string; label: string; color?: string }[] = [];
     const dayContent = content.filter((c) => c.event_date === iso);
-    dayContent.forEach((c) => items.push({ type: c.status === "published" ? "deliverable" : "content", id: c.id, title: c.title }));
+    dayContent.forEach((c) => {
+      const deliv = c.status === "published";
+      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: c.title, label: deliv ? "DUE" : "POST" });
+    });
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
-    dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: p.deal?.brand ? `${p.deal.brand} · ${formatMoney(p.amount)}` : formatMoney(p.amount) }));
+    dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: p.deal?.brand ? `${p.deal.brand} · ${formatMoney(p.amount)}` : formatMoney(p.amount), label: "PAYMENT" }));
     const dayTodos = todos.filter((t) => !t.done && t.due_date === iso);
-    dayTodos.forEach((t) => items.push({ type: "todo", id: "todo" + t.id, title: t.title }));
+    dayTodos.forEach((t) => items.push({ type: "todo", id: "todo" + t.id, title: t.title, label: "TODO" }));
     const dayNotes = notes.filter((n) => n.event_date === iso);
-    dayNotes.forEach((n) => items.push({ type: "note", id: "note" + n.id, title: n.body }));
+    dayNotes.forEach((n) => items.push({ type: "note", id: "note" + n.id, title: n.body, label: "NOTE" }));
     return items;
   };
 
@@ -193,14 +196,15 @@ export default function CalendarPage() {
                         setSelected({ itemId: it.id, type: it.type, x: r.left, y: r.bottom + 6, date: iso });
                       }}
                       className={cn(
-                        "text-[11px] truncate rounded px-1 py-0.5 cursor-pointer",
+                        "text-[11px] flex items-center gap-1 rounded px-1 py-0.5 cursor-pointer",
                         it.type === "payment" ? "bg-warn/15 text-warn font-semibold" :
                         it.type === "todo" ? "bg-purple/15 text-purple" :
-                        it.type === "note" ? "bg-warn/10 text-muted italic" :
+                        it.type === "note" ? "bg-warn/10 text-muted" :
                         it.type === "content" ? "accent-soft" : "bg-ok/10 text-ok"
                       )}
                     >
-                      {it.title}
+                      <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide", it.type === "payment" ? "text-warn/80" : it.type === "note" ? "text-muted/70" : "opacity-70")}>{it.label}</span>
+                      <span className="truncate">{it.title}</span>
                     </div>
                   ))}
                   {dayItems(iso).length > 2 && (
