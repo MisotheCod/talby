@@ -375,14 +375,13 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
               </div>
             )}
           </div>
-
+          </>
+          )}
           {error && <p className="text-sm text-bad" role="alert">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
             <Button onClick={submit} disabled={saving}>{saving ? <Spinner /> : <IconPlus size={16} />} Add</Button>
           </div>
-          </>
-          )}
         </div>
       </div>
     </div>
