@@ -9,7 +9,7 @@ import { Button, Input, Select, Spinner, Textarea } from "@/components/ui";
 type Content = {
   id: string; title: string; platform: string | null; post_type: string | null;
   status: string; event_date: string; linked_deal_id: string | null;
-  caption: string | null;
+  caption: string | null; scheduled_time: string | null;
 };
 type Deal = { id: string; brand: string };
 type Payment = { id: string; amount: number; expected_date: string | null; status: string; deal?: { brand: string } | null };
@@ -62,6 +62,7 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState<{ itemId: string; type: "content" | "deliverable" | "payment" | "todo" | "note"; x: number; y: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dayHighlight, setDayHighlight] = useState<string | null>(() => toISO(new Date()));
 
   const selectedContent = useMemo(() => {
     if (!selected || selected.type === "payment") return null;
@@ -125,11 +126,11 @@ export default function CalendarPage() {
   }, [cursor]);
 
   const dayItems = (iso: string) => {
-    const items: { type: "content" | "deliverable" | "payment" | "todo" | "note"; id: string; title: string; label: string; color?: string }[] = [];
+    const items: { type: "content" | "deliverable" | "payment" | "todo" | "note"; id: string; title: string; label: string; time?: string; color?: string }[] = [];
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => {
       const deliv = c.status === "published";
-      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: c.title, label: deliv ? "DUE" : "POST" });
+      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: c.title, label: deliv ? "DUE" : "POST", time: c.scheduled_time?.slice(0, 5) || undefined });
     });
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
     dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: p.deal?.brand ? `${p.deal.brand} · ${formatMoney(p.amount)}` : formatMoney(p.amount), label: "PAYMENT" }));
@@ -142,6 +143,7 @@ export default function CalendarPage() {
 
   const showPopover = (e: React.MouseEvent, iso: string) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setDayHighlight(iso);
     setPopover({ date: iso, x: rect.left, y: rect.top });
   };
 
@@ -192,10 +194,10 @@ export default function CalendarPage() {
             ) : (
               <div
                 key={iso}
-                className="border-r border-b border-border p-1.5 relative group cursor-pointer min-h-0"
+                className={cn("border-r border-b border-border p-1.5 relative group cursor-pointer min-h-0", dayHighlight === iso && "bg-subtle/60")}
                 onClick={(e) => { if (!dragId) showPopover(e, iso); }}
               >
-                <span className={cn("text-xs font-medium", iso === toISO(new Date()) ? "h-5 w-5 grid place-items-center rounded-full accent-fill text-xs" : "text-muted")}>
+                <span className={cn("inline-grid place-items-center rounded-full text-xs", iso === toISO(new Date()) ? "h-5 min-w-5 px-1 accent-fill font-semibold" : dayHighlight === iso ? "h-5 min-w-5 px-1 font-semibold ring-1 ring-[var(--accent)] text-accentink" : "text-muted h-5 w-5")}>
                   {Number(iso.slice(8))}
                 </span>
                 <div className="mt-1 space-y-0.5">
@@ -222,6 +224,7 @@ export default function CalendarPage() {
                     >
                       <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide", it.type === "payment" ? "text-warn/80" : it.type === "note" ? "text-muted/70" : "opacity-70")}>{it.label}</span>
                       <span className="truncate">{it.title}</span>
+                      {it.time && <span className="shrink-0 ml-auto text-[10px] tabular-nums font-medium opacity-70">{it.time}</span>}
                     </div>
                   ))}
                   {dayItems(iso).length > 2 && (
@@ -296,6 +299,7 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
   const [platform, setPlatform] = useState("");
   const [postType, setPostType] = useState("");
   const [dealId, setDealId] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
   const [showRepeat, setShowRepeat] = useState(false);
   const [repeat, setRepeat] = useState<string>("");
   const [repeatUntil, setRepeatUntil] = useState("");
@@ -317,6 +321,7 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
     const { error } = await supabase.from("content").insert({
       user_id: user.id, title: title.trim(), platform: platform || null,
       post_type: postType || null, event_date: date, linked_deal_id: dealId || null,
+      scheduled_time: scheduledTime || null,
       repeat_type: repeat || null, repeat_until: repeatUntil || null,
     });
     setSaving(false);
@@ -366,6 +371,12 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
               {deals.map((d) => <option key={d.id} value={d.id}>{d.brand}</option>)}
             </Select>
             <span className="text-[11px] text-muted mt-1 block">Optional: attach this post to one of your deals.</span>
+          </label>
+
+          <label className="block">
+            <span className="text-xs text-muted mb-1 block">Time</span>
+            <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+            <span className="text-[11px] text-muted mt-1 block">Optional: set a time of day to show on the calendar.</span>
           </label>
 
           {/* Inline repeat option */}
@@ -446,6 +457,7 @@ function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
   const [platform, setPlatform] = useState(item.platform ?? "");
   const [postType, setPostType] = useState(item.post_type ?? "");
   const [dealId, setDealId] = useState(item.linked_deal_id ?? "");
+  const [scheduledTime, setScheduledTime] = useState(item.scheduled_time ?? "");
   const [caption, setCaption] = useState(item.caption ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -455,7 +467,7 @@ function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
     setSaving(true); setError("");
     const { error } = await supabase.from("content").update({
       title: title.trim(), platform: platform || null, post_type: postType || null,
-      linked_deal_id: dealId || null, caption: caption || null,
+      linked_deal_id: dealId || null, scheduled_time: scheduledTime || null, caption: caption || null,
     }).eq("id", item.id);
     setSaving(false);
     if (error) { setError(error.message); return; }
@@ -491,6 +503,10 @@ function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
           <option value="">No linked deal</option>
           {deals.map((d) => <option key={d.id} value={d.id}>{d.brand}</option>)}
         </Select>
+        <label className="block">
+          <span className="text-xs text-muted mb-1 block">Time</span>
+          <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+        </label>
         <label className="block">
           <span className="text-xs text-muted mb-1 block">Caption / notes</span>
           <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} placeholder="Optional caption or notes…" />
