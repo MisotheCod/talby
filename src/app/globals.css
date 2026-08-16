@@ -348,6 +348,10 @@ h1, h2, h3, h4 {
 .pill-purple { background: var(--purple-bg); color: var(--purple); }
 .pill-pipe { background: var(--card-2); color: var(--ink-soft); border: 1px solid var(--line-2); }
 
+/* ------- Popover shadow ------- */
+.shadow-pop { box-shadow: 0 8px 28px -6px rgba(13, 15, 19, 0.18), 0 2px 8px rgba(13, 15, 19, 0.06); }
+[data-theme="dark"] .shadow-pop { box-shadow: 0 10px 34px -6px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35); }
+
 /* ------- Money figures: JetBrains Mono ------- */
 .money { font-family: var(--font-mono-mono); font-variant-numeric: tabular-nums; }
 
