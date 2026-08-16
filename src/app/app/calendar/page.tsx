@@ -12,7 +12,7 @@ type Content = {
   caption: string | null;
 };
 type Deal = { id: string; brand: string };
-type Payment = { id: string; amount: number; expected_date: string | null; status: string };
+type Payment = { id: string; amount: number; expected_date: string | null; status: string; deal?: { brand: string } | null };
 type Todo = { id: string; title: string; done: boolean; due_date: string | null };
 type CalendarNote = { id: string; body: string; event_date: string; updated_at: string };
 
@@ -89,7 +89,7 @@ export default function CalendarPage() {
     const [c, d, p, t, n] = await Promise.all([
       supabase.from("content").select("*").gte("event_date", from).lte("event_date", to),
       supabase.from("deals").select("id, brand"),
-      supabase.from("payments").select("*").gte("expected_date", from).lte("expected_date", to),
+      supabase.from("payments").select("*, deal:deals(brand)").gte("expected_date", from).lte("expected_date", to),
       supabase.from("todos").select("*").not("due_date", "is", null).gte("due_date", from).lte("due_date", to),
       supabase.from("notes").select("id, body, event_date, updated_at").not("event_date", "is", null).gte("event_date", from).lte("event_date", to),
     ]);
@@ -120,7 +120,7 @@ export default function CalendarPage() {
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => items.push({ type: c.status === "published" ? "deliverable" : "content", id: c.id, title: c.title }));
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
-    dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: formatMoney(p.amount) }));
+    dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: p.deal?.brand ? `${p.deal.brand} · ${formatMoney(p.amount)}` : formatMoney(p.amount) }));
     const dayTodos = todos.filter((t) => !t.done && t.due_date === iso);
     dayTodos.forEach((t) => items.push({ type: "todo", id: "todo" + t.id, title: t.title }));
     const dayNotes = notes.filter((n) => n.event_date === iso);
