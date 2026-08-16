@@ -130,7 +130,7 @@ export default function CalendarPage() {
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => {
       const deliv = c.status === "published";
-      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: c.title, label: deliv ? "DUE" : "POST", time: c.scheduled_time?.slice(0, 5) || undefined });
+      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: c.title, label: deliv ? "DUE" : "DEAL", time: c.scheduled_time?.slice(0, 5) || undefined });
     });
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
     dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: p.deal?.brand ? `${p.deal.brand} · ${formatMoney(p.amount)}` : formatMoney(p.amount), label: "PAYMENT" }));
