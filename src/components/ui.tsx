@@ -82,38 +82,70 @@ export function Select({
   );
 }
 
-/** Status pill — uses fixed functional colors (never themeable). */
-export function StatusPill({
+/** Reusable tinted pill — one source color, tinted bg + same-hue text + subtle
+ *  same-hue border, all derived via color-mix from a single token. Supply a
+ *  CSS var or color string as `source`, and a `size` ("md" | "sm" | "dot"). */
+export function Pill({
+  source = "var(--ink-soft)",
+  size = "md",
+  dot = true,
   className,
-  kind = "neutral",
+  style,
   children,
-}: {
-  className?: string;
-  kind?: "neutral" | "paid" | "due" | "late" | "pipeline" | "accent";
-  children: React.ReactNode;
+  ...rest
+}: React.HTMLAttributes<HTMLSpanElement> & {
+  source?: string;
+  size?: "md" | "sm" | "dot";
+  dot?: boolean;
 }) {
-  const kinds: Record<string, string> = {
-    neutral: "bg-card2 text-inksoft border border-line2",
-    paid: "bg-paidbg text-paid",
-    due: "bg-duebg text-due",
-    late: "bg-latebg text-late",
-    pipeline: "bg-card2 text-inksoft border border-line2",
-    accent: "bg-accenttint text-accentink",
-  };
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap",
-        kinds[kind],
+        "tpill inline-flex items-center gap-1.5",
+        size === "sm" && "tpill-sm",
+        size === "dot" && "tpill-dot",
         className
       )}
+      style={{ "--pill-source": source, ...style } as React.CSSProperties}
+      {...rest}
     >
       {children}
     </span>
   );
 }
 
-/** Filter chip. */
+/** Status pill — semantic source colors (never themeable). */
+export function StatusPill({
+  className,
+  kind = "neutral",
+  size = "md",
+  children,
+}: {
+  className?: string;
+  kind?: "neutral" | "paid" | "due" | "late" | "pipeline" | "accent";
+  size?: "md" | "sm";
+  children: React.ReactNode;
+}) {
+  const sources: Record<string, string> = {
+    neutral: "var(--ink-soft)",
+    paid: "var(--paid)",
+    due: "var(--due)",
+    late: "var(--late)",
+    pipeline: "var(--ink-soft)",
+    accent: "var(--accent)",
+  };
+  return (
+    <Pill
+      source={sources[kind]}
+      size={size}
+      className={className}
+    >
+      {children}
+    </Pill>
+  );
+}
+
+/** Filter chip — accent-derived when active (live re-tint), neutral otherwise. */
 export function Chip({
   className,
   active,
@@ -123,10 +155,13 @@ export function Chip({
   return (
     <button
       className={cn(
-        "text-xs font-medium px-3.5 py-1.5 rounded-full bg-card2 text-inksoft border border-transparent transition cursor-pointer hover:border-line2 font-sans",
-        active && "bg-accenttint text-accentink font-semibold",
+        "inline-flex items-center gap-1.5 rounded-full font-semibold text-xs px-3.5 h-8 transition cursor-pointer font-sans",
+        active
+          ? "tpill"
+          : "bg-card text-inksoft border border-line hover:border-line2 hover:text-ink",
         className
       )}
+      style={{ ...(active ? { "--pill-source": "var(--accent)" } : {}) } as React.CSSProperties}
       {...props}
     >
       {children}

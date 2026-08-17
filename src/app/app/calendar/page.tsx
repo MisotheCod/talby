@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
-import { Button, Input, Select, Spinner, Textarea } from "@/components/ui";
+import { Button, Input, Select, Spinner, Textarea, Pill } from "@/components/ui";
 
 type Content = {
   id: string; title: string; platform: string | null; post_type: string | null;
@@ -163,7 +163,7 @@ export default function CalendarPage() {
       {/* Filters */}
       <div className="flex gap-2 flex-wrap">
         {FILTERS.map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={cn("px-3.5 h-9 rounded-lg text-sm font-medium transition-colors cursor-pointer border", filter === f ? "accent-soft border-accent/30 font-semibold" : "border-border bg-surface text-muted hover:text-foreground")}>
+          <button key={f} onClick={() => setFilter(f)} className={cn("px-3.5 h-9 rounded-full text-sm font-medium transition-colors cursor-pointer border", filter === f ? "pill-accent font-semibold" : "border-border bg-surface text-muted hover:text-foreground")}>
             {f}
           </button>
         ))}
@@ -223,16 +223,16 @@ export default function CalendarPage() {
                         it.type === "payment" ? "pill-due font-semibold" :
                         it.type === "todo" ? "pill-purple" :
                         it.type === "note" ? "pill-note" :
-                        it.type === "content" ? "accent-soft" : "pill-paid font-semibold"
+                        it.type === "content" ? "pill-accent" : "pill-paid font-semibold"
                       )}
                     >
-                      <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide", it.type === "payment" ? "text-warn/70" : it.type === "note" ? "text-inkfaint" : "opacity-70")}>{it.label}</span>
+                      <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide opacity-60")}>{it.label}</span>
                       <span className={cn("truncate", it.type === "content" && "font-semibold")}>{it.title}</span>
                       {it.time && <span className="shrink-0 ml-auto text-[10px] tabular-nums font-medium opacity-70">{it.time}</span>}
                     </div>
                   ))}
                   {dayItems(iso).length > 2 && (
-                    <span className="text-[11px] text-muted">+{dayItems(iso).length - 2} more</span>
+                    <Pill size="sm" source="var(--ink-soft)" className="px-2 py-0.5">+{dayItems(iso).length - 2} more</Pill>
                   )}
                 </div>
               </div>

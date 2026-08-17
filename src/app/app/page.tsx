@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { IconPlus } from "@/components/icons";
+import { Pill } from "@/components/ui";
 
 type Deal = {
   id: string; brand: string; status: string; value: number | null;
@@ -38,12 +39,12 @@ function addDays(d: Date, n: number) {
 }
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Type metadata: [label, tint bg, color] — matching the prototype
-const TYPE: Record<string, [string, string, string]> = {
-  payment: ["PAY", "#fdf1d8", "#e0a32e"],
-  received: ["PAY", "#e4f5ec", "#2f9e6f"],
-  post: ["POST", "var(--accent-tint)", "var(--accent-ink)"],
-  deliv: ["DUE", "#fde7e2", "#f2705b"],
+// Type metadata: label + source color (tint/text/border derived via color-mix)
+const TYPE: Record<string, [string, string]> = {
+  payment: ["PAY", "var(--due)"],
+  received: ["PAY", "var(--paid)"],
+  post: ["POST", "var(--accent)"],
+  deliv: ["DUE", "var(--late)"],
 };
 
 export default function OverviewPage() {
@@ -307,7 +308,7 @@ export default function OverviewPage() {
                     <div className="dd">{date.getDate()}</div>
                     <div className="dots">
                       {items.slice(0, 3).map((it, k) => (
-                        <span key={k} className="dt" style={{ background: TYPE[it.t]?.[2] || "var(--ink-faint)" }} />
+                        <Pill key={k} size="dot" source={TYPE[it.t]?.[1] || "var(--ink-soft)"} />
                       ))}
                     </div>
                   </button>
@@ -322,7 +323,7 @@ export default function OverviewPage() {
               ) : (
                 dayItems(week[selDay].iso).map((it, k) => (
                   <div key={k} className="ditem">
-                    <span className="dtag" style={{ background: TYPE[it.t]?.[1], color: TYPE[it.t]?.[2] }}>{TYPE[it.t]?.[0]}</span>
+                    <Pill size="sm" source={TYPE[it.t]?.[1] || "var(--ink-soft)"} className="px-2 py-0.5">{TYPE[it.t]?.[0]}</Pill>
                     <span className="n">{it.n}</span>
                     {it.a && <span className="a">{it.a}</span>}
                   </div>

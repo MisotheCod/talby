@@ -351,14 +351,61 @@ h1, h2, h3, h4 {
 }
 @media (min-width: 1001px) { .shell .topbar { display: none; } }
 
-/* ------- Status pills ------- */
+/* ------- Tinted pills -------
+   One source color -> three derived shades via color-mix:
+     --pill-bg  : faint tint under text
+     --pill-fg  : the source color (mixed toward ink for legibility)
+     --pill-bd  : subtle same-hue 1px border
+   Light mode leans on the tint; dark mode leans on the brightened text and
+   the border. Both are derivations of the SAME source token, not two sets. */
+.tpill {
+  --pill-bg: color-mix(in srgb, var(--pill-source) 14%, var(--canvas));
+  --pill-bd: color-mix(in srgb, var(--pill-source) 38%, var(--canvas));
+  --pill-fg: color-mix(in srgb, var(--pill-source) 55%, var(--ink));
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--pill-bg); color: var(--pill-fg);
+  border: 1px solid var(--pill-bd);
+  border-radius: 999px; font-weight: 600; line-height: 1; white-space: nowrap;
+  font-size: 11px; padding: 5px 12px;
+}
+[data-theme="dark"] .tpill {
+  --pill-bg: color-mix(in srgb, var(--pill-source) 16%, transparent);
+  --pill-bd: color-mix(in srgb, var(--pill-source) 52%, transparent);
+  --pill-fg: color-mix(in srgb, var(--pill-source) 72%, var(--ink));
+}
+.tpill-sm { font-size: 9.5px; padding: 3.5px 9px; gap: 4px; }
+.tpill-dot { padding: 0; width: 6px; height: 6px; border-radius: 999px; align-items: center; justify-content: center; }
+
+/* Status pills - each derives tint/text/border from its single source token */
 .pill { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap; }
-.pill-paid { background: var(--paid-bg); color: var(--paid-ink); }
-.pill-due { background: var(--due-bg); color: var(--due-ink); }
-.pill-late { background: var(--late-bg); color: var(--late-ink); }
-.pill-note { background: var(--card-2); color: var(--ink-soft); }
-.pill-purple { background: var(--purple-bg); color: var(--purple-ink); }
-.pill-pipe { background: var(--card-2); color: var(--ink-soft); border: 1px solid var(--line-2); }
+.pill.pill-tint { font-size: 11px; padding: 4px 11px; }
+.pill-paid { --pill-source: var(--paid); }
+.pill-due { --pill-source: var(--due); }
+.pill-late { --pill-source: var(--late); }
+.pill-note { --pill-source: var(--ink-soft); }
+.pill-purple { --pill-source: var(--purple); }
+.pill-pipe { --pill-source: var(--ink-soft); }
+.pill-accent { --pill-source: var(--accent); }
+.pill-paid, .pill-due, .pill-late, .pill-note,
+.pill-purple, .pill-pipe, .pill-accent,
+.pill.pill-paid, .pill.pill-due, .pill.pill-late, .pill.pill-note,
+.pill.pill-purple, .pill.pill-pipe, .pill.pill-accent {
+  background: color-mix(in srgb, var(--pill-source) 14%, var(--canvas));
+  color: color-mix(in srgb, var(--pill-source) 55%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--pill-source) 38%, var(--canvas));
+}
+[data-theme="dark"] .pill-paid, [data-theme="dark"] .pill-due,
+[data-theme="dark"] .pill-late, [data-theme="dark"] .pill-note,
+[data-theme="dark"] .pill-purple, [data-theme="dark"] .pill-pipe,
+[data-theme="dark"] .pill-accent,
+[data-theme="dark"] .pill.pill-paid, [data-theme="dark"] .pill.pill-due,
+[data-theme="dark"] .pill.pill-late, [data-theme="dark"] .pill.pill-note,
+[data-theme="dark"] .pill.pill-purple, [data-theme="dark"] .pill.pill-pipe,
+[data-theme="dark"] .pill.pill-accent {
+  background: color-mix(in srgb, var(--pill-source) 16%, transparent);
+  color: color-mix(in srgb, var(--pill-source) 72%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--pill-source) 52%, transparent);
+}
 
 /* ------- Popover shadow ------- */
 .shadow-pop { box-shadow: 0 8px 28px -6px rgba(13, 15, 19, 0.18), 0 2px 8px rgba(13, 15, 19, 0.06); }
@@ -510,7 +557,7 @@ input[type="range"].hue::-moz-range-thumb {
 .day:hover { border-color: var(--line-2); }
 .day .dn { font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-faint); }
 .day .dd { font-family: var(--font-head), sans-serif; font-size: 16px; font-weight: 600; margin-top: 3px; }
-.day .dots { display: flex; gap: 3px; justify-content: center; margin-top: 6px; height: 5px; }
+.day .dots { display: flex; gap: 3px; justify-content: center; align-items: center; margin-top: 6px; min-height: 6px; }
 .day .dt { width: 4px; height: 4px; border-radius: 50%; }
 .day.today { background: var(--accent-tint); }
 .day.today .dd { color: var(--accent-ink); }

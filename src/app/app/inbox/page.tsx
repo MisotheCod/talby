@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Button, Spinner } from "@/components/ui";
+import { Button, Spinner, Pill } from "@/components/ui";
 import { IconClose } from "@/components/icons";
 
 type Lead = {
@@ -15,11 +15,11 @@ type Lead = {
 
 type Filter = "New" | "Added" | "Not interested";
 
-function confidenceLabel(c: number | null): { text: string; cls: string } {
-  if (c == null) return { text: "low", cls: "bg-duebg text-due" };
-  if (c >= 0.7) return { text: `${Math.round(c * 100)}%`, cls: "bg-paidbg text-paid" };
-  if (c >= 0.5) return { text: `${Math.round(c * 100)}%`, cls: "bg-duebg text-due" };
-  return { text: `${Math.round(c * 100)}%`, cls: "bg-latebg text-late" };
+function confidenceLabel(c: number | null): { text: string; source: string } {
+  if (c == null) return { text: "low", source: "var(--due)" };
+  if (c >= 0.7) return { text: `${Math.round(c * 100)}%`, source: "var(--paid)" };
+  if (c >= 0.5) return { text: `${Math.round(c * 100)}%`, source: "var(--due)" };
+  return { text: `${Math.round(c * 100)}%`, source: "var(--late)" };
 }
 
 export default function InboxPage() {
@@ -162,7 +162,7 @@ export default function InboxPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold">{lead.brand_name || lead.subject || "Detected lead"}</span>
-                      <span className={cn("text-[11px] font-semibold px-2 py-0.5 rounded-full", conf.cls)}>{conf.text}</span>
+                      <Pill size="sm" source={conf.source} className="px-2 py-0.5">{conf.text}</Pill>
                     </div>
                     <div className="text-xs text-muted mt-0.5">
                       {lead.deal_type || "Potential lead"} {lead.sender_email && <>· from {lead.sender_email}</>}

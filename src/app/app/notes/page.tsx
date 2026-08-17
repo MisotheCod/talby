@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { IconPlus, IconCheck, IconCalendar, IconMore, IconEdit, IconDelete, IconClose } from "@/components/icons";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, Pill } from "@/components/ui";
 
 type Todo = {
   id: string; title: string; done: boolean; due_date: string | null;
@@ -274,9 +274,9 @@ export default function NotesPage() {
                   <span className="text-sm flex-1 min-w-0 truncate text-ink">{t.title}</span>
                 )}
                 {timePill && (
-                  <span className={cn("px-2.5 py-1 rounded-full text-[11px] font-medium tabular-nums whitespace-nowrap", hasTime ? "accent-soft" : due.includes("overdue") ? "bg-latebg text-late" : "bg-card2 text-muted")}>
+                  <Pill size="sm" source={hasTime ? "var(--accent)" : due.includes("overdue") ? "var(--late)" : "var(--ink-soft)"} className="px-2.5 py-1 tabular-nums">
                     {timePill}
-                  </span>
+                  </Pill>
                 )}
                 <div className="relative">
                   <button onClick={() => setMenuFor(menuFor === t.id ? null : t.id)} aria-label="More actions" className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-card2 cursor-pointer"><IconMore size={16} /></button>
