@@ -26,7 +26,7 @@ type Payment = { id: string; deal_id: string | null; amount: number; expected_da
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null };
 
-const FILTERS = ["Active", "Pipeline", "Unpaid", "Paid", "All"] as const;
+const FILTERS = ["Pipeline", "Active", "Paid", "All"] as const;
 
 export default function DealsPage() {
   const supabase = createClient();
@@ -76,9 +76,8 @@ export default function DealsPage() {
   const filtered = deals.filter((d) => {
     const paid = d.payment_status === "paid" || d.status === "paid";
     switch (filter) {
-      case "Active": return d.active && d.status !== "archived" && !paid && d.status !== "pipeline";
       case "Pipeline": return d.status === "pipeline";
-      case "Unpaid": return d.status === "unpaid" || (!paid && d.status !== "pipeline" && d.status !== "archived");
+      case "Active": return d.active && d.status !== "archived" && !paid && d.status !== "pipeline";
       case "Paid": return paid;
       default: return true;
     }
