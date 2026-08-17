@@ -144,11 +144,11 @@ export default function PaymentsPage() {
         <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add expected payment</Button>
       </div>
 
-      {/* Summary (live totals, re-tint with the theme accent) */}
+      {/* Summary (live totals; font follows the theme heading font) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Summary label="Income (booked)" value={income} tone="accent" />
-        <Summary label="Expected" value={expected} tone="accent" />
-        <Summary label="Received" value={received} tone="accent" />
+        <Summary label="Income (booked)" value={income} />
+        <Summary label="Expected" value={expected} tone="warn" />
+        <Summary label="Received" value={received} tone="ok" />
       </div>
 
       {/* Two columns, mirroring Overview: timeline left, chart rail right */}
