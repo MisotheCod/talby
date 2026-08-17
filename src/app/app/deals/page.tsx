@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList } from "@/components/icons";
-import { Button, Chip, Input, Textarea, Select, StatusPill, Spinner } from "@/components/ui";
+import { Button, Input, Textarea, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
@@ -167,7 +167,7 @@ export default function DealsPage() {
       {/* Filter chips + search + sort + view toggle */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1.5 flex-wrap">
-          {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => { setFilter(f); setPage(1); }}>{f}</Chip>)}
+          <Segmented options={FILTERS} value={filter} onChange={(f) => { setFilter(f); setPage(1); }} />
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="Search deals…" className="!w-44 !h-9 text-xs" />

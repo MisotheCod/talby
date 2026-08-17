@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { IconPlus } from "@/components/icons";
-import { Pill } from "@/components/ui";
+import { Pill, Segmented } from "@/components/ui";
 
 type Deal = {
   id: string; brand: string; status: string; value: number | null;
@@ -264,11 +264,7 @@ export default function OverviewPage() {
                   aria-label="Search active deals by brand"
                 />
               </div>
-              <div className="filters">
-                {FILTERS.map((f) => (
-                  <button key={f} onClick={() => { setFilter(f); setDealPage(1); }} className={cn("chip", filter === f && "on")}>{f}</button>
-                ))}
-              </div>
+              <Segmented options={FILTERS} value={filter} onChange={(f) => { setFilter(f); setDealPage(1); }} />
             </div>
           </div>
           {filteredDeals.length === 0 ? (

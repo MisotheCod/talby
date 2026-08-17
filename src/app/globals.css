@@ -64,6 +64,10 @@
   /* --- Content max-width caps (wide: data-dense; narrow: reading/forms) --- */
   --content-w: 1400px;
   --content-n: 900px;
+
+  /* --- Sidebar sugar: barely-perceptible accent tint (capped, derives from
+     the live accent via color-mix so it re-tints on theme preview/save). --- */
+  --side-bg: color-mix(in srgb, var(--accent) 4%, var(--panel-glass));
 }
 
 /* ============================================================
@@ -84,6 +88,7 @@
   --line: #242b36;
   --line-2: #303845;
   --panel-glass: rgba(23, 28, 36, 0.9);
+  --side-bg: color-mix(in srgb, var(--accent) 5%, var(--panel-glass));
 
   /* status surfaces: stronger tint bg + lighter fg for contrast on dark */
   --paid-bg: #123026;
@@ -217,7 +222,7 @@ h1, h2, h3, h4 {
 .shell { display: grid; grid-template-columns: 258px 1fr; gap: 0; min-height: 100vh; padding: 14px; }
 .side {
   position: sticky; top: 14px; height: calc(100vh - 28px);
-  background: var(--panel-glass);
+  background: var(--side-bg);
   border: 1px solid var(--line); border-radius: var(--r-lg);
   box-shadow: var(--sh-float); padding: 20px 16px;
   display: flex; flex-direction: column; gap: 3px; overflow-y: auto;
@@ -496,6 +501,28 @@ h1, h2, h3, h4 {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: color-mix(in srgb, var(--accent) 78%, var(--ink));
   border: 1px solid color-mix(in srgb, var(--accent) 44%, transparent);
+}
+
+/* ------- Segmented control (view filters) -------
+   Neutral track, raised active segment. Navigation, not status: no accent,
+   no status colors. */
+.seg {
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+}
+.seg-seg {
+  border: none; background: transparent;
+  color: var(--ink-soft); font-size: 12.5px; font-weight: 500;
+  padding: 5px 14px; border-radius: 999px; cursor: pointer;
+  transition: background 0.15s, color 0.15s; white-space: nowrap; font-family: inherit;
+}
+.seg-seg:hover { color: var(--ink); }
+.seg-seg.on {
+  background: var(--card);
+  color: var(--ink); font-weight: 600;
+  box-shadow: 0 1px 2px rgba(13, 15, 19, 0.08), 0 2px 6px rgba(13, 15, 19, 0.06);
 }
 
 /* ------- Drawer ------- */

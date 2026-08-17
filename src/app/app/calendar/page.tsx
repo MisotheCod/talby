@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
-import { Button, Input, Select, Spinner, Textarea, Pill } from "@/components/ui";
+import { Button, Input, Select, Spinner, Textarea, Pill, Segmented } from "@/components/ui";
 
 type Content = {
   id: string; title: string; platform: string | null; post_type: string | null;
@@ -161,12 +161,8 @@ export default function CalendarPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
-        {FILTERS.map((f) => (
-          <button key={f} onClick={() => setFilter(f)} className={cn("px-3.5 h-9 rounded-full text-sm font-medium transition-colors cursor-pointer border", filter === f ? "pill-accent font-semibold" : "border-border bg-surface text-muted hover:text-foreground")}>
-            {f}
-          </button>
-        ))}
+      <div className="flex gap-2 flex-wrap items-center">
+        <Segmented options={FILTERS} value={filter} onChange={setFilter} />
       </div>
 
       {/* Month grid */}

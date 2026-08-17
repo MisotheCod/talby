@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, isPastDue, cn } from "@/lib/utils";
 import { IconPlus, IconMore, IconCheck, IconSend } from "@/components/icons";
-import { Button, Input, Select, Spinner, Chip, StatusPill } from "@/components/ui";
+import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 
 /* ---------- types ---------- */
 type Payment = {
@@ -301,17 +301,8 @@ export default function PaymentsPage() {
             <h2 className="font-semibold text-[15px]">Income over time</h2>
             <p className="text-xs text-muted mt-0.5">Received payments only</p>
           </div>
-          <div className="flex gap-1 bg-card2 rounded-lg p-0.5">
-            {RANGES.map((r) => (
-              <button
-                key={r}
-                onClick={() => setRange(r)}
-                className={cn("px-3 h-7 rounded-md text-xs font-medium transition cursor-pointer", range === r ? "chip on" : "text-muted hover:text-ink")}
-              >
-                {r === "month" ? "Month" : r === "quarter" ? "Quarter" : r === "year" ? "Year" : "All"}
-              </button>
-            ))}
-          </div>
+          <Segmented options={RANGES} value={range} onChange={setRange}
+            getLabel={(r) => r === "month" ? "Month" : r === "quarter" ? "Quarter" : r === "year" ? "Year" : "All"} />
         </div>
         {incomeBuckets.length === 0 ? (
           <p className="text-sm text-muted py-10 text-center">No received payments yet. Mark payments received to see your income trend.</p>
@@ -371,9 +362,7 @@ export default function PaymentsPage() {
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <h2 className="font-semibold text-[15px]">Coming up</h2>
           <div className="flex gap-1.5">
-            {(["All", "Expected", "Received"] as const).map((f) => (
-              <Chip key={f} active={listFilter === f} onClick={() => setListFilter(f)}>{f}</Chip>
-            ))}
+            <Segmented options={(["All", "Expected", "Received"] as const)} value={listFilter} onChange={setListFilter} />
           </div>
         </div>
         {listItems.length === 0 ? (

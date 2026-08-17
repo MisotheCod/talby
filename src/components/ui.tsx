@@ -169,6 +169,39 @@ export function Chip({
   );
 }
 
+/** Segmented control for view-switching filters — one neutral track, the
+ *  active segment is a raised surface with dark text. Deliberately NOT the
+ *  tinted-pill pattern: this is navigation, not a status. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  getLabel,
+  className,
+}: {
+  options: readonly T[];
+  value: T;
+  onChange: (v: T) => void;
+  getLabel?: (v: T) => string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("seg inline-flex items-center gap-0.5", className)} role="tablist">
+      {options.map((o) => (
+        <button
+          key={o}
+          role="tab"
+          aria-selected={value === o}
+          onClick={() => onChange(o)}
+          className={cn("seg-seg", value === o && "on")}
+        >
+          {getLabel ? getLabel(o) : o}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Spinner({ className }: { className?: string }) {
   return (
     <span
