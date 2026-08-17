@@ -6,9 +6,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDownload, IconDown, IconUpload, IconGrid, IconList } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList } from "@/components/icons";
 import { Button, Chip, Input, Textarea, Select, StatusPill, Spinner } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
+import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
 import UploadModal from "@/components/upload-modal";
 import { useCelebration } from "@/components/confetti";
@@ -153,7 +154,7 @@ export default function DealsPage() {
                   onClick={() => setNewOpen(false)}
                   className="flex items-center gap-2.5 px-3 py-2 text-sm text-ink rounded-lg hover:bg-card2 cursor-pointer"
                 >
-                  <IconDownload size={16} className="text-inksoft shrink-0" />
+                  <NotionLogo size={16} className="shrink-0" />
                   <span className="whitespace-nowrap">Import from Notion</span>
                   <span className="ml-auto text-xs text-inkfaint whitespace-nowrap pl-3">Connect & pull deals</span>
                 </Link>
@@ -189,7 +190,7 @@ export default function DealsPage() {
           <p className="text-sm text-inksoft">No deals in this view yet.</p>
           <div className="flex gap-2 flex-wrap justify-center">
             <Button variant="secondary" onClick={() => setNewMode("blank")}><IconPlus size={16} /> Add a deal</Button>
-            <Link href="/app/import"><Button variant="secondary"><IconDownload size={16} /> Import deals</Button></Link>
+            <Link href="/app/import"><Button variant="secondary"><NotionLogo size={16} className="shrink-0" /> Import deals</Button></Link>
           </div>
         </div>
       ) : view === "board" ? (
