@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { IconCheck, IconPlus, IconDelete } from "@/components/icons";
@@ -72,6 +72,9 @@ export default function NotesPage() {
   const [todoDate, setTodoDate] = useState("");
   const [active, setActive] = useState<GroupKey>("today");
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const dateRef = useRef<HTMLInputElement>(null);
+  const [pickerTarget, setPickerTarget] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("todos").select("*").order("created_at", { ascending: true });
@@ -108,9 +111,33 @@ export default function NotesPage() {
     await supabase.from("todos").delete().eq("id", id);
   };
 
+  const renameTodo = async (id: string, title: string) => {
+    setEditingId(null);
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    setTodos(todos.map((t) => (t.id === id ? { ...t, title: trimmed } : t)));
+    await supabase.from("todos").update({ title: trimmed }).eq("id", id);
+  };
+
+  const openDatePicker = (id: string) => {
+    setPickerTarget(id);
+    // Set the shared hidden input's value from the target todo, then open it.
+    requestAnimationFrame(() => {
+      const el = dateRef.current;
+      if (!el) return;
+      const target = todos.find((t) => t.id === id);
+      el.value = target?.due_date ?? "";
+      el.showPicker?.();
+    });
+  };
+
+  const commitDate = (value: string) => {
+    if (pickerTarget) setDate(pickerTarget, value || null);
+    setPickerTarget(null);
+  };
+
   const groups = groupTodos(todos);
   const activeItems = groups[active] ?? [];
-  const hasOverdue = (groups.overdue?.length ?? 0) > 0;
   const remaining = todos.filter((t) => !t.done).length;
 
   if (loading) return <div className="skeleton h-48 max-w-2xl" />;
@@ -168,10 +195,15 @@ export default function NotesPage() {
 
           <div className="flex items-center justify-between mb-2">
             <span className={cn("text-[11px] font-semibold uppercase tracking-wide", GROUP_META[active].color)}>{GROUP_META[active].label}</span>
-            {hasOverdue && active !== "overdue" && (
-              <button onClick={() => setActive("overdue")} className="text-[11px] font-medium text-late hover:underline cursor-pointer">{groups.overdue!.length} overdue</button>
+            {active !== "done" && activeItems.length > 0 && (
+              <span className="text-[11px] text-muted tabular-nums">{activeItems.filter((x) => x.done).length} of {activeItems.length} done</span>
             )}
           </div>
+          {active !== "done" && activeItems.length > 1 && (
+            <div className="h-1 rounded-full bg-card2 overflow-hidden mb-3">
+              <div className="h-full accent-fill transition-all" style={{ width: `${(activeItems.filter((x) => x.done).length / activeItems.length) * 100}%` }} />
+            </div>
+          )}
 
           {activeItems.length === 0 ? (
             <p className="text-sm text-muted py-8 text-center">{GROUP_META[active].empty}</p>
@@ -184,29 +216,42 @@ export default function NotesPage() {
                     <button onClick={() => toggleTodo(t.id, !t.done)} aria-label="Toggle to-do" className={cn("h-5 w-5 rounded-full border grid place-items-center shrink-0 cursor-pointer transition-colors", t.done ? "accent-fill border-transparent" : "border-border-strong hover:border-accent")}>
                       {t.done && <IconCheck size={12} />}
                     </button>
-                    <span className={cn("text-sm flex-1", t.done && "line-through text-muted opacity-70")}>{t.title}</span>
-                    {t.due_date ? (
-                      <span className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium tabular-nums whitespace-nowrap", dl.overdue ? "bg-late/10 text-late" : dl.text === "Today" ? "accent-soft" : "bg-card2 text-muted")}>
-                        {dl.text}
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-muted whitespace-nowrap">Anytime</span>
-                    )}
-                    <label className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer shrink-0">
+                    {editingId === t.id ? (
                       <Input
-                        type="date"
-                        value={t.due_date ?? ""}
-                        onChange={(e) => setDate(t.id, e.target.value || null)}
-                        className="!w-[130px] text-xs h-8 !py-0"
-                        aria-label="Due date"
+                        autoFocus
+                        defaultValue={t.title}
+                        onBlur={(e) => renameTodo(t.id, e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } if (e.key === "Escape") setEditingId(null); }}
+                        className="!w-auto flex-1 min-w-0 text-sm"
+                        aria-label="Edit to-do title"
                       />
-                    </label>
-                    <button onClick={() => deleteTodo(t.id)} aria-label="Delete to-do" className="text-muted hover:text-bad cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"><IconDelete size={14} /></button>
+                    ) : (
+                      <span
+                        onClick={() => setEditingId(t.id)}
+                        title="Click to rename"
+                        className={cn("text-sm flex-1 cursor-text", t.done && "line-through text-muted opacity-70")}
+                      >{t.title}</span>
+                    )}
+                    <button
+                      onClick={() => openDatePicker(t.id)}
+                      className={cn("px-2 py-0.5 rounded-full text-[11px] font-medium tabular-nums whitespace-nowrap cursor-pointer transition-colors", dl.overdue ? "bg-late/10 text-late hover:bg-late/20" : dl.text === "Today" ? "accent-soft hover:opacity-80" : "bg-card2 text-muted hover:bg-line")}
+                    >
+                      {t.due_date ? dl.text : "Anytime"}
+                    </button>
+                    <button onClick={() => deleteTodo(t.id)} aria-label="Delete to-do" className="text-muted hover:text-bad cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"><IconDelete size={14} /></button>
                   </li>
                 );
               })}
             </ul>
           )}
+          <input
+            ref={dateRef}
+            type="date"
+            defaultValue=""
+            onChange={(e) => commitDate(e.target.value)}
+            className="hidden"
+            aria-label="Due date"
+          />
         </div>
       </div>
     </div>
