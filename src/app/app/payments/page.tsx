@@ -144,11 +144,11 @@ export default function PaymentsPage() {
         <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add expected payment</Button>
       </div>
 
-      {/* Summary (unchanged, live totals) */}
+      {/* Summary (live totals, re-tint with the theme accent) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Summary label="Income (booked)" value={income} tone="accent" />
-        <Summary label="Expected" value={expected} tone="warn" />
-        <Summary label="Received" value={received} tone="ok" />
+        <Summary label="Expected" value={expected} tone="accent" />
+        <Summary label="Received" value={received} tone="accent" />
       </div>
 
       {/* Two columns, mirroring Overview: timeline left, chart rail right */}
@@ -321,7 +321,7 @@ function Tooltip({ title, rows, total }: {
 }) {
   return (
     <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 hidden group-hover:block">
-      <div className="w-52 bg-ink text-white text-[11px] rounded-lg px-3 py-2.5 shadow-pop">
+      <div className="w-52 bg-card text-ink border border-line2 text-[11px] rounded-lg px-3 py-2.5 shadow-pop">
         <div className="font-semibold mb-1">{title} · {formatMoney(total)}</div>
         {rows.map((r, i) => (
           <div key={i} className="flex items-center justify-between gap-3 py-0.5">
