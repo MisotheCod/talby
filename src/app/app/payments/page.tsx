@@ -146,7 +146,7 @@ export default function PaymentsPage() {
 
       {/* Summary (unchanged, live totals) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Summary label="Income (booked)" value={income} />
+        <Summary label="Income (booked)" value={income} tone="accent" />
         <Summary label="Expected" value={expected} tone="warn" />
         <Summary label="Received" value={received} tone="ok" />
       </div>
@@ -335,11 +335,11 @@ function Tooltip({ title, rows, total }: {
   );
 }
 
-function Summary({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "neutral" | "warn" | "ok" }) {
+function Summary({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "neutral" | "warn" | "ok" | "accent" }) {
   return (
     <div className="card p-5">
       <div className="text-sm text-muted font-medium">{label}</div>
-      <div className={cn("text-2xl font-semibold mt-1 tabular-nums", tone === "ok" && "text-ok", tone === "warn" && "text-warn")}>
+      <div className={cn("text-2xl font-semibold mt-1 tabular-nums", tone === "ok" && "text-ok", tone === "warn" && "text-warn", tone === "accent" && "text-accentink")}>
         {formatMoney(value)}
       </div>
     </div>
