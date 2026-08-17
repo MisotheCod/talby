@@ -11,7 +11,7 @@ type Content = {
   status: string; event_date: string; linked_deal_id: string | null;
   caption: string | null; scheduled_time: string | null;
 };
-type Deal = { id: string; brand: string };
+type Deal = { id: string; brand: string; value: number | null };
 type Payment = { id: string; amount: number; expected_date: string | null; status: string; deal?: { brand: string } | null };
 type Todo = { id: string; title: string; done: boolean; due_date: string | null };
 type CalendarNote = { id: string; body: string; event_date: string; updated_at: string };
@@ -89,7 +89,7 @@ export default function CalendarPage() {
     const to = toISO(new Date(cursor.y, cursor.m + 1, 0));
     const [c, d, p, t, n] = await Promise.all([
       supabase.from("content").select("*").gte("event_date", from).lte("event_date", to),
-      supabase.from("deals").select("id, brand"),
+      supabase.from("deals").select("id, brand, value"),
       supabase.from("payments").select("*, deal:deals(brand)").gte("expected_date", from).lte("expected_date", to),
       supabase.from("todos").select("*").not("due_date", "is", null).gte("due_date", from).lte("due_date", to),
       supabase.from("notes").select("id, body, event_date, updated_at").not("event_date", "is", null).gte("event_date", from).lte("event_date", to),
@@ -130,7 +130,11 @@ export default function CalendarPage() {
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => {
       const deliv = c.status === "published";
-      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: c.title, label: deliv ? "DUE" : "DEAL", time: c.scheduled_time?.slice(0, 5) || undefined });
+      // For a content item linked to a deal, surface the deal value on the pill
+      // (e.g. "Haleon · $10,550") so the calendar shows what it's worth.
+      const deal = c.linked_deal_id ? deals.find((d) => d.id === c.linked_deal_id) : undefined;
+      const worth = deal?.value ? ` · ${formatMoney(deal.value)}` : "";
+      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: `${c.title}${worth}`, label: deliv ? "DUE" : "DEAL", time: c.scheduled_time?.slice(0, 5) || undefined });
     });
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
     dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: p.deal?.brand ? `${p.deal.brand} · ${formatMoney(p.amount)}` : formatMoney(p.amount), label: "PAYMENT" }));
