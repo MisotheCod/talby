@@ -150,41 +150,45 @@ export default function PaymentsPage() {
 
   const incomeMax = Math.max(...incomeBuckets.map((b) => b.value), 1);
 
-  /* ---------- deals-by-month (when deals come in) ---------- */
+  /* ---------- deals-by-month (deals signed per month) ---------- */
+  // Full trailing-12-month series so the chart always has all month labels,
+  // with empty months sitting at zero instead of disappearing.
   const dealsByMonth = useMemo(() => {
     const map: Record<string, number> = {};
     for (const d of activeDeals) {
       const m = d.created_at?.slice(0, 7);
       if (m) map[m] = (map[m] || 0) + 1;
     }
-    const keys = Object.keys(map).sort();
-    return keys.map((k) => ({ key: k, label: fmtMonth(k), count: map[k] }));
+    const now = new Date();
+    const out: { key: string; label: string; value: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      out.push({ key, label: fmtMonth(key), value: map[key] || 0 });
+    }
+    return out;
   }, [activeDeals]);
 
-  const dealsMax = Math.max(...dealsByMonth.map((b) => b.count), 1);
-  const dealsAvg = dealsByMonth.length ? dealsByMonth.reduce((s, b) => s + b.count, 0) / dealsByMonth.length : 0;
+  const dealsMax = Math.max(...dealsByMonth.map((b) => b.value), 1);
 
-  /* Seasonality takeaway: only show with ~1yr of data (≥10 months) */
-  const showTakeaway = dealsByMonth.length >= 10;
+  /* Seasonality takeaway: only show with ~1yr of data (≥10 active months) */
+  const showTakeaway = dealsByMonth.filter((b) => b.value > 0).length >= 10;
   const takeaway = useMemo(() => {
     if (!showTakeaway || dealsByMonth.length < 10) return null;
-    const sorted = [...dealsByMonth].sort((a, b) => b.count - a.count);
-    const top = sorted.filter((b) => b.count >= dealsAvg * 1.2);
-    if (top.length < 2) return null;
-    // Find the single most common month across the year
+    // Sum deal volume by calendar month name across the trailing year.
     const counts: Record<string, number> = {};
-    for (const d of dealsByMonth) {
-      const m = d.label.slice(0, 3);
-      counts[m] = (counts[m] || 0) + 1;
-    }
-    const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    for (const d of dealsByMonth) counts[d.label.slice(0, 3)] = (counts[d.label.slice(0, 3)] || 0) + d.value;
+    const ranked = Object.entries(counts).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     if (!ranked.length) return null;
+    const top = ranked.filter(([, v]) => v === ranked[0][1]);
+    // Only claim a pattern if the busiest month clearly stands out.
+    if (top.length > 1) return null;
     const [busyMonth] = ranked[0];
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     const idx = monthNames.indexOf(busyMonth);
     const pitchMonth = idx <= 0 ? monthNames[11] : monthNames[idx - 1];
     return { busy: busyMonth, pitch: pitchMonth };
-  }, [showTakeaway, dealsByMonth, dealsAvg]);
+  }, [showTakeaway, dealsByMonth]);
 
   /* ---------- coming up list ---------- */
   const listItems = (() => {
@@ -302,12 +306,11 @@ export default function PaymentsPage() {
         {/* Deals signed per month */}
         <div className="card p-6">
           <h2 className="font-semibold text-[15px] mb-2">Deals signed per month</h2>
-          {dealsByMonth.length === 0 ? (
+          {dealsByMonth.every((b) => b.value === 0) ? (
             <p className="text-sm text-muted py-10 text-center">Add deals with a created date to see your signing patterns.</p>
           ) : (
             <>
-              <BarChart data={dealsByMonth.map((b) => ({ key: b.key, label: b.label, value: b.count }))}
-                max={dealsMax} h={220} hMax={190} color={undefined} accentHighlight={dealsAvg} />
+              <LineChart data={dealsByMonth} max={dealsMax} h={220} />
               {showTakeaway && takeaway && (
                 <p className="text-xs text-muted mt-3">
                   {takeaway.busy} is your busiest signing month. Pitch in {takeaway.pitch} to lock in work.
@@ -411,29 +414,73 @@ function StatCard({ label, value, color, trend }: { label: string; value: string
   );
 }
 
-function BarChart({ data, max, h, hMax, color, accentHighlight }: {
+function BarChart({ data, max, h, hMax, color }: {
   data: { key: string; label: string; value: number }[];
   max: number; h: number; hMax: number;
-  color?: string; accentHighlight?: number;
+  color?: string;
 }) {
   return (
-    <div className="flex gap-2 items-end" style={{ height: `${h}px` }}>
-      {data.map((b) => {
-        const barH = Math.max(4, Math.round((b.value / max) * hMax));
-        const isHighlight = accentHighlight !== undefined && b.value >= accentHighlight * 1.2;
-        return (
-          <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group">
-            <div className="relative w-full flex items-end justify-center flex-1">
+    <div>
+      <div className="flex gap-3 items-end relative" style={{ height: `${h}px` }}>
+        {/* Baseline so bars sit on a chart line, not floating */}
+        <div className="absolute left-0 right-0 bottom-0 border-t border-line" />
+        {data.map((b) => {
+          const barH = b.value > 0 ? Math.max(4, Math.round((b.value / max) * hMax)) : 2;
+          return (
+            <div key={b.key} className="flex-1 flex flex-col items-center justify-end min-w-0 group h-full">
               <div
-                className="w-full max-w-5 rounded-t-sm transition-all group-hover:opacity-85"
-                style={{ height: `${barH}px`, background: color || (isHighlight ? "var(--accent)" : "color-mix(in srgb, var(--accent) 42%, var(--canvas))") }}
+                className="w-full max-w-10 sm:max-w-12 rounded-t-sm transition-all group-hover:opacity-85"
+                style={{ height: `${barH}px`, background: color || "var(--accent)" }}
               />
             </div>
-            <span className="text-[9px] text-inksoft mt-1.5 leading-tight text-center truncate max-w-full">{b.label}</span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      <div className="flex gap-3 mt-2">
+        {data.map((b) => (
+          <span key={b.key} className="flex-1 text-[9px] text-inksoft text-center truncate">{b.label}</span>
+        ))}
+      </div>
     </div>
+  );
+}
+
+/* Line graph — shows the trend of a series over time. Renders a connected
+   polyline with a soft same-hue glow area, a baseline, and a label for every
+   point (including empty months at zero). */
+function LineChart({ data, max, h }: {
+  data: { key: string; label: string; value: number }[];
+  max: number; h: number;
+}) {
+  const W = 640;
+  const H = h;
+  const padL = 8, padR = 8, padT = 16, padB = 26;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const n = data.length;
+  const pts = data.map((d, i) => {
+    const x = n === 1 ? W / 2 : padL + (i / (n - 1)) * innerW;
+    const y = padT + innerH - (d.value / max) * innerH;
+    return { x, y, ...d };
+  });
+  const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L ${(pts[n - 1]?.x ?? W / 2).toFixed(1)} ${(padT + innerH).toFixed(1)} L ${(pts[0]?.x ?? W / 2).toFixed(1)} ${(padT + innerH).toFixed(1)} Z`;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Deals signed per month">
+      {/* baseline */}
+      <line x1={padL} y1={padT + innerH} x2={W - padR} y2={padT + innerH} stroke="var(--line)" strokeWidth="1" />
+      {/* soft area fill */}
+      <path d={areaPath} fill="var(--accent)" opacity="0.08" />
+      {/* line */}
+      <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* points + labels (every month, empty at zero) */}
+      {pts.map((p) => (
+        <g key={p.key}>
+          <circle cx={p.x} cy={p.y} r={p.value > 0 ? 3.5 : 1.5} fill="var(--accent)" />
+          <text x={p.x} y={H - 8} textAnchor="middle" fontSize="9" fill="var(--ink-soft)">{p.label}</text>
+        </g>
+      ))}
+    </svg>
   );
 }
 
