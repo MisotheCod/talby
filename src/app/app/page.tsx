@@ -383,21 +383,18 @@ function DealRow({ deal }: { deal: Deal }) {
     if (deal.status === "unpaid" || deal.payment_status === "expected") return <span className="pill pill-due">Awaiting pay</span>;
     return <span className="pill pill">Active</span>;
   })();
-  // colored logo per the prototype (green/gold/coral/purple variety)
-  const logoColors = ["var(--due)", "var(--paid)", "var(--late)", "var(--purple)"];
-  const logoColor = logoColors[(deal.brand.charCodeAt(0) + deal.brand.length) % logoColors.length];
   return (
     <button
       onClick={() => { window.location.href = `/app/deals?open=${deal.id}`; }}
       className="deal rowanim"
     >
-      <span className="dlogo" style={{ background: logoColor }}>{deal.brand.charAt(0).toUpperCase()}</span>
+      <span className="dlogo dlogo-ink">{deal.brand.charAt(0).toUpperCase()}</span>
       <span className="dmid">
         <span className="dbrand truncate">{deal.brand}</span>
       </span>
-      <span className="text-right flex-none">
+      <span className="text-right flex-none flex items-center gap-2.5">
+        <span className="flex-none">{pill}</span>
         <span className="damt">{formatMoney(deal.value)}</span>
-        <span className="block">{pill}</span>
       </span>
     </button>
   );
