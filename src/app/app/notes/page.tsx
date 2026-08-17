@@ -110,7 +110,7 @@ function TimePickerGrid({ start, end, onChange, onClose }: {
 }
 
 /* ---------------- Create task popover ---------------- */
-function CreateTaskPopover({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function CreateTaskPopover({ onClose, onSaved, position }: { onClose: () => void; onSaved: () => void; position: { right: number; top: number } }) {
   const supabase = createClient();
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
@@ -138,7 +138,7 @@ function CreateTaskPopover({ onClose, onSaved }: { onClose: () => void; onSaved:
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute right-0 top-[calc(100%+8px)] w-[380px] max-w-[90vw] bg-card border border-line2 rounded-2xl shadow-pop p-5 fade-up z-50" onClick={(e) => e.stopPropagation()} role="dialog">
+      <div className="fixed w-[380px] max-w-[90vw] bg-card border border-line2 rounded-2xl shadow-pop p-5 fade-up z-50" style={{ right: position.right, top: position.top }} onClick={(e) => e.stopPropagation()} role="dialog">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Create task</h3>
           <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={16} /></button>
@@ -178,6 +178,21 @@ export default function NotesPage() {
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
+  const createWrapRef = useRef<HTMLDivElement>(null);
+  const [createPos, setCreatePos] = useState<{ right: number; top: number } | null>(null);
+
+  // Measure the create button so the popover can be `fixed` and sit above
+  // everything (the main column has overflow:hidden and creates a stacking
+  // context, which would otherwise clip an absolute dropdown).
+  const toggleCreate = () => {
+    setCreateOpen((o) => {
+      if (!o && createWrapRef.current) {
+        const r = createWrapRef.current.getBoundingClientRect();
+        setCreatePos({ right: window.innerWidth - r.right, top: r.bottom + 8 });
+      }
+      return !o;
+    });
+  };
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("todos").select("*").order("created_at", { ascending: true });
@@ -230,9 +245,9 @@ export default function NotesPage() {
           {todos.length > 0 && (
             <span className="text-sm text-muted tabular-nums">{doneCount} of {todos.length} done</span>
           )}
-          <div className="relative">
-            <Button onClick={() => setCreateOpen((o) => !o)} aria-expanded={createOpen}><IconPlus size={16} /> Create new task</Button>
-            {createOpen && <CreateTaskPopover onClose={() => setCreateOpen(false)} onSaved={() => { setCreateOpen(false); load(); }} />}
+          <div className="relative" ref={createWrapRef}>
+            <Button onClick={toggleCreate} aria-expanded={createOpen}><IconPlus size={16} /> Create new task</Button>
+            {createOpen && createPos && <CreateTaskPopover onClose={() => setCreateOpen(false)} onSaved={() => { setCreateOpen(false); load(); }} position={createPos} />}
           </div>
         </div>
       </div>
