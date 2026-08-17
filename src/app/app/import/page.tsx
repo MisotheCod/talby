@@ -23,7 +23,7 @@ type ImportItem = MapRow & { __selected?: boolean; __review?: boolean };
 export default function ImportPage() {
   const supabase = createClient();
   const router = useRouter();
-  const [step, setStep] = useState<Step>(() => (new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source") === "notion" ? "notion" : "upload"));
+  const [step, setStep] = useState<Step>(() => (new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source") === "csv" ? "upload" : "notion"));
   const [plan, setPlan] = useState<"free" | "paid">("free");
 
 
@@ -341,7 +341,7 @@ export default function ImportPage() {
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link href="/app/deals"><Button>View deals</Button></Link>
-            <Button variant="secondary" onClick={() => { setDone(false); resetUpload(); setStep("upload"); }}>Import more</Button>
+            <Button variant="secondary" onClick={() => { setDone(false); resetUpload(); setStep("notion"); }}>Import more</Button>
           </div>
         </div>
       )}

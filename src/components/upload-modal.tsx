@@ -53,7 +53,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
     const anyCsv = files.some((f) => f.name.toLowerCase().endsWith(".csv") || f.type === "text/csv");
     if (anyCsv) {
       onClose();
-      router.push("/app/import");
+      router.push("/app/import?source=csv");
       return;
     }
 
