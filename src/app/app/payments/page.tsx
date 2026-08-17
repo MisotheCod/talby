@@ -186,20 +186,6 @@ export default function PaymentsPage() {
     return { busy: busyMonth, pitch: pitchMonth };
   }, [showTakeaway, dealsByMonth, dealsAvg]);
 
-  /* ---------- income by deal type ---------- */
-  const typeBuckets = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const d of activeDeals) {
-      const t = d.deal_type || "Uncategorized";
-      // Normalise common variations
-      const norm = t.replace(/^Potential Opportunity \/ /, "").replace(/ \/ .*/, "");
-      map[norm] = (map[norm] || 0) + (d.value ?? 0);
-    }
-    const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
-    return sorted.map(([label, value]) => ({ label, value }));
-  }, [activeDeals]);
-  const typeMax = Math.max(...typeBuckets.map((b) => b.value), 1);
-
   /* ---------- coming up list ---------- */
   const listItems = (() => {
     const base = listFilter === "All" ? payments
@@ -294,65 +280,40 @@ export default function PaymentsPage() {
           trend={bestMonthAmount ? formatMoney(bestMonthAmount) : "Not enough data yet"} />
       </div>
 
-      {/* === 2. Income over time hero chart === */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
-          <div>
-            <h2 className="font-semibold text-[15px]">Income over time</h2>
-            <p className="text-xs text-muted mt-0.5">Received payments only</p>
-          </div>
-          <Segmented options={RANGES} value={range} onChange={setRange}
-            getLabel={(r) => r === "month" ? "Month" : r === "quarter" ? "Quarter" : r === "year" ? "Year" : "All"} />
-        </div>
-        {incomeBuckets.length === 0 ? (
-          <p className="text-sm text-muted py-10 text-center">No received payments yet. Mark payments received to see your income trend.</p>
-        ) : (
-          <BarChart data={incomeBuckets} max={incomeMax} h={220} hMax={190} color="var(--accent)" />
-        )}
-      </div>
-
-      {/* === 3. Two analytics cards === */}
+      {/* === 2 & 3. Income over time (left) + Deals signed per month (right) === */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* When deals come in */}
+        {/* Income over time */}
         <div className="card p-6">
-          <h2 className="font-semibold text-[15px] mb-2">When deals come in</h2>
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+            <div>
+              <h2 className="font-semibold text-[15px]">Income over time</h2>
+              <p className="text-xs text-muted mt-0.5">Received payments only</p>
+            </div>
+            <Segmented options={RANGES} value={range} onChange={setRange}
+              getLabel={(r) => r === "month" ? "Month" : r === "quarter" ? "Quarter" : r === "year" ? "Year" : "All"} />
+          </div>
+          {incomeBuckets.length === 0 ? (
+            <p className="text-sm text-muted py-10 text-center">No received payments yet. Mark payments received to see your income trend.</p>
+          ) : (
+            <BarChart data={incomeBuckets} max={incomeMax} h={220} hMax={190} color="var(--accent)" />
+          )}
+        </div>
+
+        {/* Deals signed per month */}
+        <div className="card p-6">
+          <h2 className="font-semibold text-[15px] mb-2">Deals signed per month</h2>
           {dealsByMonth.length === 0 ? (
             <p className="text-sm text-muted py-10 text-center">Add deals with a created date to see your signing patterns.</p>
           ) : (
             <>
               <BarChart data={dealsByMonth.map((b) => ({ key: b.key, label: b.label, value: b.count }))}
-                max={dealsMax} h={140} hMax={120} color={undefined} accentHighlight={dealsAvg} />
+                max={dealsMax} h={220} hMax={190} color={undefined} accentHighlight={dealsAvg} />
               {showTakeaway && takeaway && (
                 <p className="text-xs text-muted mt-3">
                   {takeaway.busy} is your busiest signing month. Pitch in {takeaway.pitch} to lock in work.
                 </p>
               )}
             </>
-          )}
-        </div>
-
-        {/* Income by deal type */}
-        <div className="card p-6">
-          <h2 className="font-semibold text-[15px] mb-2">Income by deal type</h2>
-          {typeBuckets.length === 0 ? (
-            <p className="text-sm text-muted py-10 text-center">Tag deals with a type to see earnings broken out here.</p>
-          ) : (
-            <div className="space-y-2.5">
-              {typeBuckets.map((b) => {
-                const pct = Math.max(4, (b.value / typeMax) * 100);
-                return (
-                  <div key={b.label}>
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-muted">{b.label}</span>
-                      <span className="font-medium tabular-nums">{formatMoney(b.value)}</span>
-                    </div>
-                    <div className="h-4 rounded-full overflow-hidden" style={{ background: "color-mix(in srgb, var(--accent) 14%, var(--canvas))" }}>
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--accent)" }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           )}
         </div>
       </div>
