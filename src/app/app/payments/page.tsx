@@ -1,53 +1,51 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatMoney, formatDate, isPastDue, cn } from "@/lib/utils";
-import { IconCheck, IconPlus } from "@/components/icons";
-import { Button, Input, Select, Spinner, Chip } from "@/components/ui";
+import { formatMoney, isPastDue, cn } from "@/lib/utils";
+import { IconPlus, IconMore, IconCheck, IconSend } from "@/components/icons";
+import { Button, Input, Select, Spinner, Chip, StatusPill } from "@/components/ui";
 
+/* ---------- types ---------- */
 type Payment = {
   id: string; deal_id: string | null; amount: number;
   expected_date: string | null; status: string;
   deal?: { brand: string } | null;
 };
-type Deal = { id: string; brand: string };
+type Deal = {
+  id: string; brand: string; value: number | null; deal_type: string | null;
+  created_at: string; active: boolean; status: string;
+};
+type Range = "month" | "quarter" | "year" | "all";
+const RANGES: Range[] = ["month", "quarter", "year", "all"];
 
-const FILTERS = ["All", "Past due", "Expected", "Received"] as const;
-type Filter = (typeof FILTERS)[number];
+/* ---------- helpers ---------- */
+function fmtMonth(iso: string): string {
+  const d = new Date(iso + "-01");
+  return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+}
+function fmtQuarter(iso: string): string {
+  const m = Number(iso.slice(5, 7));
+  return `Q${Math.ceil(m / 3)} ${iso.slice(2, 4)}`;
+}
+function fmtYear(iso: string): string { return iso.slice(0, 4); }
 
-// Recent window so the timeline doesn't become an endless scroll; "View all"
-// lifts it. Received rows sort most-recent-first.
-const DEFAULT_WINDOW = 20;
-// Chart window: trailing months (received income vs expected) shown in the rail.
-const CHART_MONTHS = 6;
-
-function rowStatus(p: Payment): "past_due" | "expected" | "received" {
+function rowsStatus(p: Payment): "past_due" | "expected" | "received" {
   if (p.status === "received") return "received";
   return isPastDue(p.expected_date) ? "past_due" : "expected";
 }
 
-type MonthBucket = { key: string; label: string; expected: number; received: number; expectedRows: { brand: string; amount: number }[]; receivedRows: { brand: string; amount: number }[] };
-
-function monthBuckets(payments: Payment[], months: number): MonthBucket[] {
-  const now = new Date();
-  const buckets: MonthBucket[] = [];
-  for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    buckets.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleDateString("en-US", { month: "short" }), expected: 0, received: 0, expectedRows: [], receivedRows: [] });
-  }
-  for (const p of payments) {
-    if (!p.expected_date) continue;
-    const key = p.expected_date.slice(0, 7);
-    const b = buckets.find((x) => x.key === key);
-    if (!b) continue;
-    const brand = p.deal?.brand ?? "Payment";
-    if (p.status === "received") { b.received += p.amount; b.receivedRows.push({ brand, amount: p.amount }); }
-    else { b.expected += p.amount; b.expectedRows.push({ brand, amount: p.amount }); }
-  }
-  return buckets;
+/* Year-over-year line helper: given a numeric for this period and a
+   function retrieving the same metric for the prior year, produce a
+   trend string and arrow direction — only when both values exist. */
+function trendLine(current: number, prior: number): string | null {
+  if (prior <= 0 || current <= 0) return null;
+  const pct = Math.round(((current - prior) / prior) * 100);
+  if (pct === 0) return null;
+  return `${pct > 0 ? "↑" : "↓"} ${Math.abs(pct)}% vs last year`;
 }
 
+/* ---------- page component ---------- */
 export default function PaymentsPage() {
   const supabase = createClient();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -56,13 +54,25 @@ export default function PaymentsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
   const [nudgeMsg, setNudgeMsg] = useState<{ paymentId: string; kind: "ok" | "warn"; text: string } | null>(null);
-  const [filter, setFilter] = useState<Filter>("All");
-  const [showAll, setShowAll] = useState(false);
+  const [listFilter, setListFilter] = useState<"All" | "Expected" | "Received">("All");
+  const [range, setRange] = useState<Range>("month");
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  /* Close ⋮ menu on outside click */
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
 
   const load = useCallback(async () => {
     const [p, d] = await Promise.all([
       supabase.from("payments").select("*, deal:deals(brand)").order("expected_date", { ascending: true }),
-      supabase.from("deals").select("id, brand"),
+      supabase.from("deals").select("id, brand, value, deal_type, created_at, active, status").order("created_at", { ascending: true }),
     ]);
     setPayments((p.data ?? []) as unknown as Payment[]);
     setDeals((d.data ?? []) as unknown as Deal[]);
@@ -71,39 +81,165 @@ export default function PaymentsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const income = payments.reduce((s, p) => s + p.amount, 0);
-  const expected = payments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
-  const received = payments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
+  /* ---------- derived stats ---------- */
+  const now = new Date();
+  const thisYear = now.getFullYear();
+  const lastYear = thisYear - 1;
 
-  // Unified timeline: past due first (oldest due first), then expected by date,
-  // then received most-recent-first (newest at top).
-  const pastDue = payments
-    .filter((p) => rowStatus(p) === "past_due")
-    .sort((a, b) => (b.expected_date ?? "").localeCompare(a.expected_date ?? ""));
-  const expectedList = payments
-    .filter((p) => rowStatus(p) === "expected")
-    .sort((a, b) => (a.expected_date ?? "").localeCompare(b.expected_date ?? ""));
-  const receivedList = payments
-    .filter((p) => rowStatus(p) === "received")
-    .sort((a, b) => (b.expected_date ?? "").localeCompare(a.expected_date ?? ""));
+  const received = payments.filter((p) => p.status === "received");
+  const pending = payments.filter((p) => p.status !== "received");
 
-  const filtered = filter === "All" ? [...pastDue, ...expectedList, ...receivedList]
-    : filter === "Past due" ? pastDue
-    : filter === "Expected" ? expectedList
-    : receivedList;
+  const receivedYtd = received.filter((p) => p.expected_date?.startsWith(String(thisYear)));
+  const receivedYtdTotal = receivedYtd.reduce((s, p) => s + p.amount, 0);
+  const receivedLastYtd = received.filter((p) => p.expected_date?.startsWith(String(lastYear)));
+  const receivedLastYtdTotal = receivedLastYtd.reduce((s, p) => s + p.amount, 0);
 
-  const truncated = !showAll;
-  const visible = truncated ? filtered.slice(0, DEFAULT_WINDOW) : filtered;
-  const hasMore = filtered.length > DEFAULT_WINDOW;
+  const expectedTotal = pending.reduce((s, p) => s + p.amount, 0);
+  const expectedCount = pending.length;
 
-  // Live, RLS-scoped chart data: trailing months of received vs expected.
-  const buckets = monthBuckets(payments, CHART_MONTHS);
+  const activeDeals = deals.filter((d) => d.active && d.status !== "archived" && d.brand?.trim());
+  const dealValues = activeDeals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
+  const avgDealValue = dealValues.length
+    ? Math.round(dealValues.reduce((a, b) => a + b, 0) / dealValues.length)
+    : null;
 
+  // Monthly received for the best-month stat
+  const monthlyReceived: Record<string, number> = {};
+  for (const p of received) {
+    if (!p.expected_date) continue;
+    const key = p.expected_date.slice(0, 7);
+    monthlyReceived[key] = (monthlyReceived[key] || 0) + p.amount;
+  }
+  const entries = Object.entries(monthlyReceived);
+  const bestMonthEntry = entries.length ? entries.sort((a, b) => b[1] - a[1])[0] : null;
+  const bestMonthName = bestMonthEntry ? fmtMonth(bestMonthEntry[0]) : null;
+  const bestMonthAmount = bestMonthEntry ? bestMonthEntry[1] : null;
+
+  // Trend for avg deal value vs prior year deals
+  const priorDeals = deals.filter((d) => d.created_at?.startsWith(String(lastYear)));
+  const priorDealValues = priorDeals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
+  const priorAvg = priorDealValues.length
+    ? Math.round(priorDealValues.reduce((a, b) => a + b, 0) / priorDealValues.length)
+    : null;
+
+  /* ---------- income over time (hero chart) ---------- */
+  const incomeBuckets = useMemo(() => {
+    if (!received.length) return [];
+    if (range === "all") {
+      const allYears = [...new Set(received.map((p) => p.expected_date?.slice(0, 4) || "").filter(Boolean))].sort();
+      return allYears.map((y) => {
+        const total = received.filter((p) => p.expected_date?.startsWith(y)).reduce((s, p) => s + p.amount, 0);
+        return { key: y, label: y, value: total };
+      });
+    }
+    const map: Record<string, number> = {};
+    for (const p of received) {
+      if (!p.expected_date) continue;
+      const key = range === "month" ? p.expected_date.slice(0, 7)
+        : range === "quarter" ? `${p.expected_date.slice(0, 4)}-Q${Math.ceil(Number(p.expected_date.slice(5, 7)) / 3)}`
+        : p.expected_date.slice(0, 4);
+      map[key] = (map[key] || 0) + p.amount;
+    }
+    const keys = Object.keys(map).sort();
+    return keys.map((k) => {
+      const label = range === "quarter" ? fmtQuarter(k) : range === "month" ? fmtMonth(k) : k;
+      return { key: k, label, value: map[k] };
+    });
+  }, [received, range]);
+
+  const incomeMax = Math.max(...incomeBuckets.map((b) => b.value), 1);
+
+  /* ---------- deals-by-month (when deals come in) ---------- */
+  const dealsByMonth = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const d of activeDeals) {
+      const m = d.created_at?.slice(0, 7);
+      if (m) map[m] = (map[m] || 0) + 1;
+    }
+    const keys = Object.keys(map).sort();
+    return keys.map((k) => ({ key: k, label: fmtMonth(k), count: map[k] }));
+  }, [activeDeals]);
+
+  const dealsMax = Math.max(...dealsByMonth.map((b) => b.count), 1);
+  const dealsAvg = dealsByMonth.length ? dealsByMonth.reduce((s, b) => s + b.count, 0) / dealsByMonth.length : 0;
+
+  /* Seasonality takeaway: only show with ~1yr of data (≥10 months) */
+  const showTakeaway = dealsByMonth.length >= 10;
+  const takeaway = useMemo(() => {
+    if (!showTakeaway || dealsByMonth.length < 10) return null;
+    const sorted = [...dealsByMonth].sort((a, b) => b.count - a.count);
+    const top = sorted.filter((b) => b.count >= dealsAvg * 1.2);
+    if (top.length < 2) return null;
+    // Find the single most common month across the year
+    const counts: Record<string, number> = {};
+    for (const d of dealsByMonth) {
+      const m = d.label.slice(0, 3);
+      counts[m] = (counts[m] || 0) + 1;
+    }
+    const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    if (!ranked.length) return null;
+    const [busyMonth] = ranked[0];
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const idx = monthNames.indexOf(busyMonth);
+    const pitchMonth = idx <= 0 ? monthNames[11] : monthNames[idx - 1];
+    return { busy: busyMonth, pitch: pitchMonth };
+  }, [showTakeaway, dealsByMonth, dealsAvg]);
+
+  /* ---------- income by deal type ---------- */
+  const typeBuckets = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const d of activeDeals) {
+      const t = d.deal_type || "Uncategorized";
+      // Normalise common variations
+      const norm = t.replace(/^Potential Opportunity \/ /, "").replace(/ \/ .*/, "");
+      map[norm] = (map[norm] || 0) + (d.value ?? 0);
+    }
+    const sorted = Object.entries(map).sort((a, b) => b[1] - a[1]);
+    return sorted.map(([label, value]) => ({ label, value }));
+  }, [activeDeals]);
+  const typeMax = Math.max(...typeBuckets.map((b) => b.value), 1);
+
+  /* ---------- coming up list ---------- */
+  const listItems = (() => {
+    const base = listFilter === "All" ? payments
+      : listFilter === "Expected" ? pending
+      : received;
+    // Group by month (expected_date)
+    const groups: Record<string, Payment[]> = {};
+    for (const p of base) {
+      const m = (p.expected_date || "").slice(0, 7);
+      if (!m) continue;
+      if (!groups[m]) groups[m] = [];
+      groups[m].push(p);
+    }
+    // Sort months most-recent-first for received, upcoming-first for expected
+    const months = Object.keys(groups).sort((a, b) => {
+      if (listFilter === "Received") return b.localeCompare(a);
+      // For All/Expected: expected first, then received at end
+      const aRecv = groups[a].every((p) => p.status === "received");
+      const bRecv = groups[b].every((p) => p.status === "received");
+      if (aRecv && !bRecv) return 1; if (!aRecv && bRecv) return -1;
+      return a.localeCompare(b);
+    });
+    return months.map((m) => ({
+      month: m,
+      label: fmtMonth(m),
+      payments: groups[m].sort((a, b) => {
+        // Past due first, then by date
+        const sa = rowsStatus(a), sb = rowsStatus(b);
+        if (sa === "past_due" && sb !== "past_due") return -1;
+        if (sa !== "past_due" && sb === "past_due") return 1;
+        return (a.expected_date || "").localeCompare(b.expected_date || "");
+      }),
+    }));
+  })();
+
+  /* ---------- actions ---------- */
   const markReceived = async (id: string) => {
     await supabase.from("payments").update({ status: "received" }).eq("id", id);
+    setMenuOpen(null);
     load();
   };
-
   const nudgePayment = async (p: Payment) => {
     const dealId = p.deal_id;
     let repEmail: string | null = null;
@@ -130,9 +266,10 @@ export default function PaymentsPage() {
       else setNudgeMsg({ paymentId: p.id, kind: "warn", text: data.message || data.error || "Could not prepare the nudge." });
     } catch { setNudgeMsg({ paymentId: p.id, kind: "warn", text: "Could not reach the nudge service." }); }
     setNudgeBusy(null);
+    setMenuOpen(null);
   };
 
-  if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="grid grid-cols-3 gap-4"><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /></div></div>;
+  if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="grid grid-cols-4 gap-4"><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /></div></div>;
 
   return (
     <div className="space-y-6 fade-up">
@@ -144,124 +281,204 @@ export default function PaymentsPage() {
         <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add expected payment</Button>
       </div>
 
-      {/* Summary (live totals; font follows the theme heading font) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Summary label="Income (booked)" value={income} />
-        <Summary label="Expected" value={expected} tone="warn" />
-        <Summary label="Received" value={received} tone="ok" />
+      {/* === 1. Four stat cards === */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Earned this year" value={formatMoney(receivedYtdTotal)} color="text-ok"
+          trend={trendLine(receivedYtdTotal, receivedLastYtdTotal)} />
+        <StatCard label="Expected" value={formatMoney(expectedTotal)} color="text-warn"
+          trend={`${expectedCount} payment${expectedCount === 1 ? "" : "s"}`} />
+        <StatCard label="Avg deal value" value={avgDealValue ? formatMoney(avgDealValue) : "–"} color="text-ink"
+          trend={priorAvg ? trendLine(avgDealValue || 0, priorAvg) : null} />
+        <StatCard label="Best month" value={bestMonthName || "–"} color="text-ink"
+          trend={bestMonthAmount ? formatMoney(bestMonthAmount) : "Not enough data yet"} />
       </div>
 
-      {/* Two columns, mirroring Overview: timeline left, chart rail right */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5 items-start">
-        {/* Left: unified timeline (primary surface) */}
-        <div className="min-w-0">
-          <div className="card p-5">
-            {/* Filter chips, inside the payments card */}
-            <div className="flex gap-1.5 flex-wrap mb-4">
-              {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
-            </div>
-
-            {visible.length === 0 ? (
-              <p className="text-sm text-muted py-8 text-center">{filter === "All" ? "No payments yet." : `No ${filter.toLowerCase()} payments.`}</p>
-            ) : (
-              <ul className="space-y-1">
-                {visible.map((p) => <TimelineRow key={p.id} p={p} nudgeBusy={nudgeBusy} onMarkReceived={markReceived} onNudge={nudgePayment} />)}
-              </ul>
-            )}
-            {hasMore && (
-              <button onClick={() => setShowAll((s) => !s)} className="mt-4 w-full text-sm font-medium accent-text hover:underline cursor-pointer">
-                {truncated ? `View all ${filtered.length} payments` : "Show fewer"}
-              </button>
-            )}
+      {/* === 2. Income over time hero chart === */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+          <div>
+            <h2 className="font-semibold text-[15px]">Income over time</h2>
+            <p className="text-xs text-muted mt-0.5">Received payments only</p>
           </div>
+          <div className="flex gap-1 bg-card2 rounded-lg p-0.5">
+            {RANGES.map((r) => (
+              <button
+                key={r}
+                onClick={() => setRange(r)}
+                className={cn("px-3 h-7 rounded-md text-xs font-medium transition cursor-pointer", range === r ? "chip on" : "text-muted hover:text-ink")}
+              >
+                {r === "month" ? "Month" : r === "quarter" ? "Quarter" : r === "year" ? "Year" : "All"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {incomeBuckets.length === 0 ? (
+          <p className="text-sm text-muted py-10 text-center">No received payments yet. Mark payments received to see your income trend.</p>
+        ) : (
+          <BarChart data={incomeBuckets} max={incomeMax} h={220} hMax={190} color="var(--accent)" />
+        )}
+      </div>
 
-          {nudgeMsg && (
-            <p className={cn("text-xs mt-3", nudgeMsg.kind === "ok" ? "text-ok" : "text-warn")}>{nudgeMsg.text}</p>
+      {/* === 3. Two analytics cards === */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* When deals come in */}
+        <div className="card p-6">
+          <h2 className="font-semibold text-[15px] mb-2">When deals come in</h2>
+          {dealsByMonth.length === 0 ? (
+            <p className="text-sm text-muted py-10 text-center">Add deals with a created date to see your signing patterns.</p>
+          ) : (
+            <>
+              <BarChart data={dealsByMonth.map((b) => ({ key: b.key, label: b.label, value: b.count }))}
+                max={dealsMax} h={140} hMax={120} color={undefined} accentHighlight={dealsAvg} />
+              {showTakeaway && takeaway && (
+                <p className="text-xs text-muted mt-3">
+                  {takeaway.busy} is your busiest signing month. Pitch in {takeaway.pitch} to lock in work.
+                </p>
+              )}
+            </>
           )}
         </div>
 
-        {/* Right rail: chart cards */}
-        <div className="min-w-0">
-          <div className="rcard">
-            <h3>Income over time</h3>
-            <IncomeChart buckets={buckets} />
-          </div>
-          <div className="rcard">
-            <h3>Expected vs received</h3>
-            <CompareChart buckets={buckets} />
-          </div>
+        {/* Income by deal type */}
+        <div className="card p-6">
+          <h2 className="font-semibold text-[15px] mb-2">Income by deal type</h2>
+          {typeBuckets.length === 0 ? (
+            <p className="text-sm text-muted py-10 text-center">Tag deals with a type to see earnings broken out here.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {typeBuckets.map((b) => {
+                const pct = Math.max(4, (b.value / typeMax) * 100);
+                return (
+                  <div key={b.label}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-muted">{b.label}</span>
+                      <span className="font-medium tabular-nums">{formatMoney(b.value)}</span>
+                    </div>
+                    <div className="h-4 rounded-full overflow-hidden" style={{ background: "color-mix(in srgb, var(--accent) 14%, var(--canvas))" }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--accent)" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* === 4. Coming up list === */}
+      <div>
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <h2 className="font-semibold text-[15px]">Coming up</h2>
+          <div className="flex gap-1.5">
+            {(["All", "Expected", "Received"] as const).map((f) => (
+              <Chip key={f} active={listFilter === f} onClick={() => setListFilter(f)}>{f}</Chip>
+            ))}
+          </div>
+        </div>
+        {listItems.length === 0 ? (
+          <p className="text-sm text-muted text-center py-10">No payments yet.</p>
+        ) : (
+          <div className="space-y-6">
+            {listItems.map((group) => (
+              <div key={group.month}>
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">{group.label}</div>
+                <div className="card divide-y divide-line">
+                  {group.payments.map((p) => {
+                    const st = rowsStatus(p);
+                    const isRecv = st === "received";
+                    const isPast = st === "past_due";
+                    const day = p.expected_date ? Number(p.expected_date.slice(8)) : null;
+                    return (
+                      <div key={p.id} className="flex items-center gap-3 px-5 py-3">
+                        <span className={cn("w-8 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>
+                          {day ?? "–"}
+                        </span>
+                        <span className={cn("flex-1 min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>
+                          {p.deal?.brand ?? "Payment"}
+                        </span>
+                        <span className="shrink-0">
+                          {isRecv ? (
+                            <StatusPill size="sm" kind="paid">Received</StatusPill>
+                          ) : isPast ? (
+                            <StatusPill size="sm" kind="late">Past due</StatusPill>
+                          ) : (
+                            <StatusPill size="sm" kind="due">Expected</StatusPill>
+                          )}
+                        </span>
+                        <span className={cn("shrink-0 text-sm font-semibold tabular-nums w-20 text-right", isRecv ? "text-ok" : "text-ink")}>
+                          {formatMoney(p.amount)}
+                        </span>
+                        {!isRecv && (
+                          <div className="relative shrink-0">
+                            <button onClick={() => setMenuOpen(menuOpen === p.id ? null : p.id)} aria-label="Actions" className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-card2 cursor-pointer">
+                              <IconMore size={16} />
+                            </button>
+                            {menuOpen === p.id && (
+                              <div ref={menuRef} className="absolute right-0 top-7 z-20 w-44 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up">
+                                <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
+                                  <IconCheck size={14} /> Mark received
+                                </button>
+                                {isPast && (
+                                  <button onClick={() => { setMenuOpen(null); nudgePayment(p); }} disabled={nudgeBusy === p.id} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
+                                    <IconSend size={14} /> Send a nudge
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {nudgeMsg && (
+        <p className={cn("text-xs", nudgeMsg.kind === "ok" ? "text-ok" : "text-warn")}>{nudgeMsg.text}</p>
+      )}
+
       {showAdd && (
-        <AddPaymentModal deals={deals} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
+        <AddPaymentModal deals={deals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
       )}
     </div>
   );
 }
 
-/* One unified timeline row. Actions shorten to icon-only on narrow widths so the
-   row never wraps. */
-function TimelineRow({ p, nudgeBusy, onMarkReceived, onNudge }: {
-  p: Payment; nudgeBusy: string | null;
-  onMarkReceived: (id: string) => void; onNudge: (p: Payment) => void;
-}) {
-  const st = rowStatus(p);
-  const isPast = st === "past_due";
-  const isRecv = st === "received";
+/* ---------- sub-components ---------- */
 
-  const barColor = isRecv ? "bg-ok" : isPast ? "bg-late" : "bg-due";
-  const textColor = isRecv ? "text-ok" : isPast ? "text-late" : "text-due";
-  const amountColor = isRecv ? "text-ok" : isPast ? "text-late" : "text-ink";
-  const dateLabel = p.expected_date
-    ? (isPast ? "Past due " : isRecv ? "Received " : "Expected ") + formatDate(p.expected_date)
-    : isRecv ? "Received" : isPast ? "Past due" : "Expected";
-
+function StatCard({ label, value, color, trend }: { label: string; value: string; color: string; trend: string | null }) {
   return (
-    <li className="flex items-center gap-3 py-2.5 border-b border-line last:border-0">
-      <span className={cn("w-1 self-stretch rounded-full shrink-0", barColor)} />
-      <div className="min-w-0 flex-1">
-        <div className="font-medium truncate">{p.deal?.brand ?? "Payment"}</div>
-        <div className={cn("text-xs font-medium", textColor)}>{dateLabel}</div>
-      </div>
-      <span className={cn("font-semibold tabular-nums shrink-0", amountColor)}>{formatMoney(p.amount)}</span>
-      {!isRecv && (
-        <div className="flex items-center gap-1 shrink-0">
-          {isPast && (
-            <Button size="sm" variant="ghost" onClick={() => onNudge(p)} disabled={nudgeBusy === p.id} title="Send a nudge">
-              <NudgeSendIcon /><span className="hidden min-[540px]:inline">Send a nudge</span>
-            </Button>
-          )}
-          <Button size="sm" variant="secondary" onClick={() => onMarkReceived(p.id)} title="Mark received">
-            <IconCheck size={14} /><span className="hidden min-[540px]:inline">Mark received</span>
-          </Button>
-        </div>
-      )}
-    </li>
+    <div className="card p-5">
+      <div className="text-sm text-muted font-medium">{label}</div>
+      <div className={cn("font-head text-2xl font-semibold mt-1 tabular-nums", color)}>{value}</div>
+      {trend && <div className="text-xs text-muted mt-1">{trend}</div>}
+    </div>
   );
 }
 
-/* Income over time: received totals by month, accent-tinted (live re-tint).
-   Taller bars for legibility; hovering a bar shows which deals make it up. */
-function IncomeChart({ buckets }: { buckets: MonthBucket[] }) {
-  const hasData = buckets.some((b) => b.received > 0);
-  if (!hasData) {
-    return <p className="text-[13px] text-inksoft py-8 text-center">No income received yet. Mark payments received to see your growth.</p>;
-  }
-  const max = Math.max(...buckets.map((b) => b.received), 1);
+function BarChart({ data, max, h, hMax, color, accentHighlight }: {
+  data: { key: string; label: string; value: number }[];
+  max: number; h: number; hMax: number;
+  color?: string; accentHighlight?: number;
+}) {
   return (
-    <div className="flex gap-3 items-end h-[240px]">
-      {buckets.map((b) => {
-        const h = Math.max(6, Math.round((b.received / max) * 200));
+    <div className="flex gap-2 items-end" style={{ height: `${h}px` }}>
+      {data.map((b) => {
+        const barH = Math.max(4, Math.round((b.value / max) * hMax));
+        const isHighlight = accentHighlight !== undefined && b.value >= accentHighlight * 1.2;
         return (
           <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group">
             <div className="relative w-full flex items-end justify-center flex-1">
-              <div className="w-10 sm:w-12 rounded-t-md transition-all group-hover:opacity-90" style={{ height: `${h}px`, background: "var(--accent)" }} />
-              {b.received > 0 && (
-                <Tooltip title={`${b.label} income`} rows={b.receivedRows} total={b.received} />
-              )}
+              <div
+                className="w-full max-w-5 rounded-t-sm transition-all group-hover:opacity-85"
+                style={{ height: `${barH}px`, background: color || (isHighlight ? "var(--accent)" : "color-mix(in srgb, var(--accent) 42%, var(--canvas))") }}
+              />
             </div>
-            <span className="text-[10px] font-medium text-inksoft mt-2">{b.label}</span>
+            <span className="text-[9px] text-inksoft mt-1.5 leading-tight text-center truncate max-w-full">{b.label}</span>
           </div>
         );
       })}
@@ -269,84 +486,7 @@ function IncomeChart({ buckets }: { buckets: MonthBucket[] }) {
   );
 }
 
-/* Expected vs received by month: two bars per month, fixed status colors.
-   Hovering a month shows both the expected and received deals for it. */
-function CompareChart({ buckets }: { buckets: MonthBucket[] }) {
-  const hasData = buckets.some((b) => b.expected > 0 || b.received > 0);
-  if (!hasData) {
-    return <p className="text-[13px] text-inksoft py-8 text-center">No payment history yet. Your expected vs received will show here.</p>;
-  }
-  const max = Math.max(...buckets.map((b) => Math.max(b.expected, b.received)), 1);
-  return (
-    <div>
-      <div className="flex gap-3 items-end h-[240px]">
-        {buckets.map((b) => {
-          const exp = Math.max(6, Math.round((b.expected / max) * 200));
-          const rec = Math.max(6, Math.round((b.received / max) * 200));
-          return (
-            <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group relative">
-              <div className="flex items-end justify-center gap-1.5 flex-1">
-                <div className="w-5 sm:w-6 rounded-t-md" title={`${b.label}: expected ${formatMoney(b.expected)}`} style={{ height: `${exp}px`, background: "var(--due)" }} />
-                <div className="w-5 sm:w-6 rounded-t-md" title={`${b.label}: received ${formatMoney(b.received)}`} style={{ height: `${rec}px`, background: "var(--paid)" }} />
-              </div>
-              <span className="text-[10px] font-medium text-inksoft mt-2">{b.label}</span>
-              {(b.expected > 0 || b.received > 0) && (
-                <Tooltip
-                  title={`${b.label} payments`}
-                  rows={[
-                    ...b.expectedRows.map((r) => ({ ...r, kind: "expected" as const })),
-                    ...b.receivedRows.map((r) => ({ ...r, kind: "received" as const })),
-                  ]}
-                  total={b.expected + b.received}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-      <div className="flex items-center gap-4 mt-3 text-[11px] text-inksoft">
-        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm inline-block" style={{ background: "var(--due)" }} />Expected</span>
-        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm inline-block" style={{ background: "var(--paid)" }} />Received</span>
-      </div>
-    </div>
-  );
-}
-
-/* Hover tooltip for a chart bar: lists the deals (brand + amount) that make up
-   the bar's total. Follows the cursor via the bar's absolute container. */
-function Tooltip({ title, rows, total }: {
-  title: string;
-  rows: { brand: string; amount: number; kind?: "expected" | "received" }[];
-  total: number;
-}) {
-  return (
-    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 hidden group-hover:block">
-      <div className="w-52 bg-card text-ink border border-line2 text-[11px] rounded-lg px-3 py-2.5 shadow-pop">
-        <div className="font-semibold mb-1">{title} · {formatMoney(total)}</div>
-        {rows.map((r, i) => (
-          <div key={i} className="flex items-center justify-between gap-3 py-0.5">
-            <span className="truncate flex-1">{r.brand}</span>
-            {r.kind && <span className={r.kind === "received" ? "text-[9px] font-semibold" : "text-[9px] font-semibold"} style={{ color: r.kind === "received" ? "var(--paid)" : "var(--due)" }}>{r.kind === "received" ? "received" : "expected"}</span>}
-            <span className="tabular-nums font-medium">{formatMoney(r.amount)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Summary({ label, value, tone = "neutral" }: { label: string; value: number; tone?: "neutral" | "warn" | "ok" | "accent" }) {
-  return (
-    <div className="card p-5">
-      <div className="text-sm text-muted font-medium">{label}</div>
-      <div className={cn("font-head text-2xl font-semibold mt-1 tabular-nums", tone === "ok" && "text-ok", tone === "warn" && "text-warn", tone === "accent" && "text-accentink")}>
-        {formatMoney(value)}
-      </div>
-    </div>
-  );
-}
-
-function AddPaymentModal({ deals, onClose, onSaved }: { deals: Deal[]; onClose: () => void; onSaved: () => void }) {
+function AddPaymentModal({ deals, onClose, onSaved }: { deals: { id: string; brand: string }[]; onClose: () => void; onSaved: () => void }) {
   const supabase = createClient();
   const [dealId, setDealId] = useState("");
   const [amount, setAmount] = useState("");
@@ -396,8 +536,4 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: Deal[]; onClose: 
       </div>
     </div>
   );
-}
-
-function NudgeSendIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" /></svg>;
 }
