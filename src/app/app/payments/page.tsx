@@ -27,22 +27,23 @@ function rowStatus(p: Payment): "past_due" | "expected" | "received" {
   return isPastDue(p.expected_date) ? "past_due" : "expected";
 }
 
-type MonthBucket = { key: string; label: string; expected: number; received: number };
+type MonthBucket = { key: string; label: string; expected: number; received: number; expectedRows: { brand: string; amount: number }[]; receivedRows: { brand: string; amount: number }[] };
 
 function monthBuckets(payments: Payment[], months: number): MonthBucket[] {
   const now = new Date();
   const buckets: MonthBucket[] = [];
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    buckets.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleDateString("en-US", { month: "short" }), expected: 0, received: 0 });
+    buckets.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleDateString("en-US", { month: "short" }), expected: 0, received: 0, expectedRows: [], receivedRows: [] });
   }
   for (const p of payments) {
     if (!p.expected_date) continue;
     const key = p.expected_date.slice(0, 7);
     const b = buckets.find((x) => x.key === key);
     if (!b) continue;
-    if (p.status === "received") b.received += p.amount;
-    else b.expected += p.amount;
+    const brand = p.deal?.brand ?? "Payment";
+    if (p.status === "received") { b.received += p.amount; b.receivedRows.push({ brand, amount: p.amount }); }
+    else { b.expected += p.amount; b.expectedRows.push({ brand, amount: p.amount }); }
   }
   return buckets;
 }
@@ -240,23 +241,27 @@ function TimelineRow({ p, nudgeBusy, onMarkReceived, onNudge }: {
   );
 }
 
-/* Income over time: received totals by month, accent-tinted (live re-tint). */
+/* Income over time: received totals by month, accent-tinted (live re-tint).
+   Taller bars for legibility; hovering a bar shows which deals make it up. */
 function IncomeChart({ buckets }: { buckets: MonthBucket[] }) {
   const hasData = buckets.some((b) => b.received > 0);
   if (!hasData) {
-    return <p className="text-[13px] text-inksoft py-6 text-center">No income received yet. Mark payments received to see your growth.</p>;
+    return <p className="text-[13px] text-inksoft py-8 text-center">No income received yet. Mark payments received to see your growth.</p>;
   }
   const max = Math.max(...buckets.map((b) => b.received), 1);
   return (
-    <div className="flex gap-2 items-end h-[92px]">
+    <div className="flex gap-2 items-end h-[150px]">
       {buckets.map((b) => {
-        const h = Math.max(4, Math.round((b.received / max) * 72));
+        const h = Math.max(5, Math.round((b.received / max) * 118));
         return (
-          <div key={b.key} className="flex-1 flex flex-col items-center min-w-0">
-            <div className="w-full flex items-end justify-center flex-1">
-              <div className="w-3 rounded-t-sm" style={{ height: `${h}px`, background: "var(--accent)" }} />
+          <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group">
+            <div className="relative w-full flex items-end justify-center flex-1">
+              <div className="w-4 sm:w-5 rounded-t-sm transition-all group-hover:opacity-90" style={{ height: `${h}px`, background: "var(--accent)" }} />
+              {b.received > 0 && (
+                <Tooltip title={`${b.label} income`} rows={b.receivedRows} total={b.received} />
+              )}
             </div>
-            <span className="text-[9px] text-inksoft mt-1">{b.label}</span>
+            <span className="text-[9px] text-inksoft mt-1.5">{b.label}</span>
           </div>
         );
       })}
@@ -264,26 +269,37 @@ function IncomeChart({ buckets }: { buckets: MonthBucket[] }) {
   );
 }
 
-/* Expected vs received by month: two bars per month, fixed status colors. */
+/* Expected vs received by month: two bars per month, fixed status colors.
+   Hovering a month shows both the expected and received deals for it. */
 function CompareChart({ buckets }: { buckets: MonthBucket[] }) {
   const hasData = buckets.some((b) => b.expected > 0 || b.received > 0);
   if (!hasData) {
-    return <p className="text-[13px] text-inksoft py-6 text-center">No payment history yet. Your expected vs received will show here.</p>;
+    return <p className="text-[13px] text-inksoft py-8 text-center">No payment history yet. Your expected vs received will show here.</p>;
   }
   const max = Math.max(...buckets.map((b) => Math.max(b.expected, b.received)), 1);
   return (
     <div>
-      <div className="flex gap-2 items-end h-[92px]">
+      <div className="flex gap-2 items-end h-[150px]">
         {buckets.map((b) => {
-          const exp = Math.max(4, Math.round((b.expected / max) * 72));
-          const rec = Math.max(4, Math.round((b.received / max) * 72));
+          const exp = Math.max(5, Math.round((b.expected / max) * 118));
+          const rec = Math.max(5, Math.round((b.received / max) * 118));
           return (
-            <div key={b.key} className="flex-1 flex flex-col items-center min-w-0">
+            <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group relative">
               <div className="flex items-end justify-center gap-1 flex-1">
-                <div className="w-2 rounded-t-sm" style={{ height: `${exp}px`, background: "var(--due)" }} />
-                <div className="w-2 rounded-t-sm" style={{ height: `${rec}px`, background: "var(--paid)" }} />
+                <div className="w-2 sm:w-2.5 rounded-t-sm" title={`${b.label}: expected ${formatMoney(b.expected)}`} style={{ height: `${exp}px`, background: "var(--due)" }} />
+                <div className="w-2 sm:w-2.5 rounded-t-sm" title={`${b.label}: received ${formatMoney(b.received)}`} style={{ height: `${rec}px`, background: "var(--paid)" }} />
               </div>
-              <span className="text-[9px] text-inksoft mt-1">{b.label}</span>
+              <span className="text-[9px] text-inksoft mt-1.5">{b.label}</span>
+              {(b.expected > 0 || b.received > 0) && (
+                <Tooltip
+                  title={`${b.label} payments`}
+                  rows={[
+                    ...b.expectedRows.map((r) => ({ ...r, kind: "expected" as const })),
+                    ...b.receivedRows.map((r) => ({ ...r, kind: "received" as const })),
+                  ]}
+                  total={b.expected + b.received}
+                />
+              )}
             </div>
           );
         })}
@@ -291,6 +307,29 @@ function CompareChart({ buckets }: { buckets: MonthBucket[] }) {
       <div className="flex items-center gap-4 mt-3 text-[11px] text-inksoft">
         <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm inline-block" style={{ background: "var(--due)" }} />Expected</span>
         <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm inline-block" style={{ background: "var(--paid)" }} />Received</span>
+      </div>
+    </div>
+  );
+}
+
+/* Hover tooltip for a chart bar: lists the deals (brand + amount) that make up
+   the bar's total. Follows the cursor via the bar's absolute container. */
+function Tooltip({ title, rows, total }: {
+  title: string;
+  rows: { brand: string; amount: number; kind?: "expected" | "received" }[];
+  total: number;
+}) {
+  return (
+    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 hidden group-hover:block">
+      <div className="w-52 bg-ink text-white text-[11px] rounded-lg px-3 py-2.5 shadow-pop">
+        <div className="font-semibold mb-1">{title} · {formatMoney(total)}</div>
+        {rows.map((r, i) => (
+          <div key={i} className="flex items-center justify-between gap-3 py-0.5">
+            <span className="truncate flex-1">{r.brand}</span>
+            {r.kind && <span className={r.kind === "received" ? "text-[9px] font-semibold" : "text-[9px] font-semibold"} style={{ color: r.kind === "received" ? "var(--paid)" : "var(--due)" }}>{r.kind === "received" ? "received" : "expected"}</span>}
+            <span className="tabular-nums font-medium">{formatMoney(r.amount)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
