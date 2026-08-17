@@ -62,15 +62,14 @@ export function AppShell({
   }, [accent, headFont, themeMode]);
 
   // Load active-deal count for the upsell card + Deals nav badge.
+  // Matches the Deals page count exactly (active && not archived).
   useEffect(() => {
     (async () => {
       const { data } = await supabase
         .from("deals")
         .select("id")
         .eq("active", true)
-        .not("status", "eq", "archived")
-        .not("brand", "is", "")
-        .gt("brand", "");
+        .not("status", "eq", "archived");
       setActiveDeals((data ?? []).length);
     })();
   }, [supabase, pathname]);
