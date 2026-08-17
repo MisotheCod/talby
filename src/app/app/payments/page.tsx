@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatMoney, formatDateLong, isPastDue, cn } from "@/lib/utils";
+import { formatMoney, formatDate, isPastDue, cn } from "@/lib/utils";
 import { IconCheck, IconPlus } from "@/components/icons";
-import { Button, Input, Select, Spinner } from "@/components/ui";
+import { Button, Input, Select, Spinner, Chip } from "@/components/ui";
 
 type Payment = {
   id: string; deal_id: string | null; amount: number;
@@ -12,6 +12,18 @@ type Payment = {
   deal?: { brand: string } | null;
 };
 type Deal = { id: string; brand: string };
+
+const FILTERS = ["All", "Past due", "Expected", "Received"] as const;
+type Filter = (typeof FILTERS)[number];
+
+// Recent window so the timeline doesn't become an endless scroll; "View all"
+// lifts it. Received rows sort most-recent-first.
+const DEFAULT_WINDOW = 20;
+
+function rowStatus(p: Payment): "past_due" | "expected" | "received" {
+  if (p.status === "received") return "received";
+  return isPastDue(p.expected_date) ? "past_due" : "expected";
+}
 
 export default function PaymentsPage() {
   const supabase = createClient();
@@ -21,6 +33,8 @@ export default function PaymentsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
   const [nudgeMsg, setNudgeMsg] = useState<{ paymentId: string; kind: "ok" | "warn"; text: string } | null>(null);
+  const [filter, setFilter] = useState<Filter>("All");
+  const [showAll, setShowAll] = useState(false);
 
   const load = useCallback(async () => {
     const [p, d] = await Promise.all([
@@ -38,11 +52,26 @@ export default function PaymentsPage() {
   const expected = payments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
   const received = payments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
 
-  const pastDue = payments.filter((p) => p.status !== "received" && isPastDue(p.expected_date));
-  const upcoming = payments
-    .filter((p) => p.status !== "received" && !isPastDue(p.expected_date))
+  // Unified timeline: past due first (oldest due first), then expected by date,
+  // then received most-recent-first (newest at top).
+  const pastDue = payments
+    .filter((p) => rowStatus(p) === "past_due")
+    .sort((a, b) => (b.expected_date ?? "").localeCompare(a.expected_date ?? ""));
+  const expectedList = payments
+    .filter((p) => rowStatus(p) === "expected")
     .sort((a, b) => (a.expected_date ?? "").localeCompare(b.expected_date ?? ""));
-  const receivedList = payments.filter((p) => p.status === "received");
+  const receivedList = payments
+    .filter((p) => rowStatus(p) === "received")
+    .sort((a, b) => (b.expected_date ?? "").localeCompare(a.expected_date ?? ""));
+
+  const filtered = filter === "All" ? [...pastDue, ...expectedList, ...receivedList]
+    : filter === "Past due" ? pastDue
+    : filter === "Expected" ? expectedList
+    : receivedList;
+
+  const truncated = !showAll;
+  const visible = truncated ? filtered.slice(0, DEFAULT_WINDOW) : filtered;
+  const hasMore = filtered.length > DEFAULT_WINDOW;
 
   const markReceived = async (id: string) => {
     await supabase.from("payments").update({ status: "received" }).eq("id", id);
@@ -50,7 +79,6 @@ export default function PaymentsPage() {
   };
 
   const nudgePayment = async (p: Payment) => {
-    // Resolve deal rep email + nudge mode for the message.
     const dealId = p.deal_id;
     let repEmail: string | null = null;
     let nudgeMode = "draft";
@@ -90,92 +118,79 @@ export default function PaymentsPage() {
         <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add expected payment</Button>
       </div>
 
-      {/* Summary */}
+      {/* Summary (unchanged, live totals) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Summary label="Income (booked)" value={income} />
         <Summary label="Expected" value={expected} tone="warn" />
         <Summary label="Received" value={received} tone="ok" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Past due */}
-        <div className="card p-5">
-          <h2 className="font-semibold mb-3">Past due</h2>
-          {pastDue.length === 0 ? (
-            <p className="text-sm text-muted">Nothing past due, you&apos;re all clear.</p>
-          ) : (
-            <ul className="space-y-2">
-              {pastDue.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0">
-                  <div>
-                    <div className="font-medium">{p.deal?.brand ?? "Payment"}</div>
-                    <div className="text-xs text-bad">{formatDateLong(p.expected_date)} · Past due</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold text-bad tabular-nums">{formatMoney(p.amount)}</span>
-                    <Button size="sm" variant="ghost" onClick={() => nudgePayment(p)} disabled={nudgeBusy === p.id}><NudgeSendIcon /> Send a nudge</Button>
-                    <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Received</Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          {pastDue.some((p) => nudgeMsg?.paymentId === p.id) && (
-            <p className={cn("text-xs mt-3", nudgeMsg?.kind === "ok" ? "text-ok" : "text-warn")}>{nudgeMsg?.text}</p>
-          )}
-        </div>
-
-        {/* Upcoming */}
-        <div className="card p-5">
-          <h2 className="font-semibold mb-3">Upcoming</h2>
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-muted">No expected payments scheduled.</p>
-          ) : (
-            <ul className="space-y-2">
-              {upcoming.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0">
-                  <div>
-                    <div className="font-medium">{p.deal?.brand ?? "Payment"}</div>
-                    <div className="text-xs text-muted">{formatDateLong(p.expected_date)}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold tabular-nums">{formatMoney(p.amount)}</span>
-                    <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Received</Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      {/* Filter chips (same active styling as deals) */}
+      <div className="flex gap-1.5 flex-wrap">
+        {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
       </div>
 
-      {/* Received history */}
+      {/* Unified timeline */}
       <div className="card p-5">
-        <h2 className="font-semibold mb-3">Received</h2>
-        {receivedList.length === 0 ? (
-          <p className="text-sm text-muted">Payments you mark as received appear here.</p>
+        {visible.length === 0 ? (
+          <p className="text-sm text-muted py-8 text-center">{filter === "All" ? "No payments yet." : `No ${filter.toLowerCase()} payments.`}</p>
         ) : (
           <ul className="space-y-1">
-            {receivedList.map((p) => (
-              <li key={p.id} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-3">
-                  <span className="h-2 w-2 rounded-full bg-ok" />
-                  <div>
-                    <div className="font-medium">{p.deal?.brand ?? "Payment"}</div>
-                    <div className="text-xs text-muted">Received · {formatDateLong(p.expected_date)}</div>
-                  </div>
-                </div>
-                <span className="font-semibold text-ok tabular-nums">{formatMoney(p.amount)}</span>
-              </li>
-            ))}
+            {visible.map((p) => <TimelineRow key={p.id} p={p} nudgeBusy={nudgeBusy} onMarkReceived={markReceived} onNudge={nudgePayment} />)}
           </ul>
         )}
+        {hasMore && (
+          <button onClick={() => setShowAll((s) => !s)} className="mt-4 w-full text-sm font-medium accent-text hover:underline cursor-pointer">
+            {truncated ? `View all ${filtered.length} payments` : "Show fewer"}
+          </button>
+        )}
       </div>
+
+      {nudgeMsg && (
+        <p className={cn("text-xs", nudgeMsg.kind === "ok" ? "text-ok" : "text-warn")}>{nudgeMsg.text}</p>
+      )}
 
       {showAdd && (
         <AddPaymentModal deals={deals} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
       )}
     </div>
+  );
+}
+
+/* One unified timeline row. */
+function TimelineRow({ p, nudgeBusy, onMarkReceived, onNudge }: {
+  p: Payment; nudgeBusy: string | null;
+  onMarkReceived: (id: string) => void; onNudge: (p: Payment) => void;
+}) {
+  const st = rowStatus(p);
+  const isPast = st === "past_due";
+  const isRecv = st === "received";
+
+  const barColor = isRecv ? "bg-ok" : isPast ? "bg-late" : "bg-due";
+  const textColor = isRecv ? "text-ok" : isPast ? "text-late" : "text-due";
+  const amountColor = isRecv ? "text-ok" : isPast ? "text-late" : "text-ink";
+  const badge = isRecv ? "Received" : isPast ? "Past due" : "Expected";
+  const dateLabel = p.expected_date
+    ? (isPast ? "Past due " : isRecv ? "Received " : "Expected ") + formatDate(p.expected_date)
+    : badge;
+
+  return (
+    <li className="flex items-center gap-3 py-2.5 border-b border-line last:border-0">
+      <span className={cn("w-1 self-stretch rounded-full", barColor)} />
+      <div className="min-w-0 flex-1">
+        <div className="font-medium truncate">{p.deal?.brand ?? "Payment"}</div>
+        <div className={cn("text-xs font-medium", textColor)}>{dateLabel}</div>
+      </div>
+      <span className={cn("font-semibold tabular-nums shrink-0", amountColor)}>{formatMoney(p.amount)}</span>
+      {!isRecv && (
+        <div className="flex items-center gap-2 shrink-0">
+          {isPast && (
+            <Button size="sm" variant="ghost" onClick={() => onNudge(p)} disabled={nudgeBusy === p.id}><NudgeSendIcon /> Send a nudge</Button>
+          )}
+          <Button size="sm" variant="secondary" onClick={() => onMarkReceived(p.id)}><IconCheck size={14} /> Mark received</Button>
+        </div>
+      )}
+    </li>
   );
 }
 
