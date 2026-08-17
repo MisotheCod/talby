@@ -155,12 +155,12 @@ export default function PaymentsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5 items-start">
         {/* Left: unified timeline (primary surface) */}
         <div className="min-w-0">
-          {/* Filter chips */}
-          <div className="flex gap-1.5 flex-wrap mb-4">
-            {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
-          </div>
-
           <div className="card p-5">
+            {/* Filter chips, inside the payments card */}
+            <div className="flex gap-1.5 flex-wrap mb-4">
+              {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
+            </div>
+
             {visible.length === 0 ? (
               <p className="text-sm text-muted py-8 text-center">{filter === "All" ? "No payments yet." : `No ${filter.toLowerCase()} payments.`}</p>
             ) : (
@@ -256,7 +256,7 @@ function IncomeChart({ buckets }: { buckets: MonthBucket[] }) {
         return (
           <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group">
             <div className="relative w-full flex items-end justify-center flex-1">
-              <div className="w-6 sm:w-7 rounded-t-md transition-all group-hover:opacity-90" style={{ height: `${h}px`, background: "var(--accent)" }} />
+              <div className="w-10 sm:w-12 rounded-t-md transition-all group-hover:opacity-90" style={{ height: `${h}px`, background: "var(--accent)" }} />
               {b.received > 0 && (
                 <Tooltip title={`${b.label} income`} rows={b.receivedRows} total={b.received} />
               )}
@@ -286,8 +286,8 @@ function CompareChart({ buckets }: { buckets: MonthBucket[] }) {
           return (
             <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group relative">
               <div className="flex items-end justify-center gap-1.5 flex-1">
-                <div className="w-3 sm:w-3.5 rounded-t-md" title={`${b.label}: expected ${formatMoney(b.expected)}`} style={{ height: `${exp}px`, background: "var(--due)" }} />
-                <div className="w-3 sm:w-3.5 rounded-t-md" title={`${b.label}: received ${formatMoney(b.received)}`} style={{ height: `${rec}px`, background: "var(--paid)" }} />
+                <div className="w-5 sm:w-6 rounded-t-md" title={`${b.label}: expected ${formatMoney(b.expected)}`} style={{ height: `${exp}px`, background: "var(--due)" }} />
+                <div className="w-5 sm:w-6 rounded-t-md" title={`${b.label}: received ${formatMoney(b.received)}`} style={{ height: `${rec}px`, background: "var(--paid)" }} />
               </div>
               <span className="text-[10px] font-medium text-inksoft mt-2">{b.label}</span>
               {(b.expected > 0 || b.received > 0) && (
