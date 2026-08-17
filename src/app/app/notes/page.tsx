@@ -136,8 +136,9 @@ function CreateTaskPopover({ onClose, onSaved }: { onClose: () => void; onSaved:
   };
 
   return (
-    <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose}>
-      <div className="absolute bottom-24 left-1/2 -translate-x-1/2 w-[92vw] sm:w-[420px] max-w-full bg-card border border-line2 rounded-2xl shadow-pop p-5 fade-up" onClick={(e) => e.stopPropagation()} role="dialog">
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute right-0 top-[calc(100%+8px)] w-[380px] max-w-[90vw] bg-card border border-line2 rounded-2xl shadow-pop p-5 fade-up z-50" onClick={(e) => e.stopPropagation()} role="dialog">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Create task</h3>
           <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={16} /></button>
@@ -161,11 +162,11 @@ function CreateTaskPopover({ onClose, onSaved }: { onClose: () => void; onSaved:
           {error && <p className="text-sm text-bad" role="alert">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={save} disabled={saving} className="btn3d">{saving ? "Saving…" : <>Save task</>}</Button>
+            <Button onClick={save} disabled={saving} className="btn3d">{saving ? "Saving…" : "Save task"}</Button>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -229,7 +230,10 @@ export default function NotesPage() {
           {todos.length > 0 && (
             <span className="text-sm text-muted tabular-nums">{doneCount} of {todos.length} done</span>
           )}
-          <Button onClick={() => setCreateOpen(true)}><IconPlus size={16} /> Create new task</Button>
+          <div className="relative">
+            <Button onClick={() => setCreateOpen((o) => !o)} aria-expanded={createOpen}><IconPlus size={16} /> Create new task</Button>
+            {createOpen && <CreateTaskPopover onClose={() => setCreateOpen(false)} onSaved={() => { setCreateOpen(false); load(); }} />}
+          </div>
         </div>
       </div>
 
@@ -281,7 +285,6 @@ export default function NotesPage() {
         </div>
       )}
 
-      {createOpen && <CreateTaskPopover onClose={() => setCreateOpen(false)} onSaved={() => { setCreateOpen(false); load(); }} />}
     </div>
   );
 }
