@@ -250,18 +250,18 @@ function IncomeChart({ buckets }: { buckets: MonthBucket[] }) {
   }
   const max = Math.max(...buckets.map((b) => b.received), 1);
   return (
-    <div className="flex gap-2 items-end h-[150px]">
+    <div className="flex gap-3 items-end h-[240px]">
       {buckets.map((b) => {
-        const h = Math.max(5, Math.round((b.received / max) * 118));
+        const h = Math.max(6, Math.round((b.received / max) * 200));
         return (
           <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group">
             <div className="relative w-full flex items-end justify-center flex-1">
-              <div className="w-4 sm:w-5 rounded-t-sm transition-all group-hover:opacity-90" style={{ height: `${h}px`, background: "var(--accent)" }} />
+              <div className="w-6 sm:w-7 rounded-t-md transition-all group-hover:opacity-90" style={{ height: `${h}px`, background: "var(--accent)" }} />
               {b.received > 0 && (
                 <Tooltip title={`${b.label} income`} rows={b.receivedRows} total={b.received} />
               )}
             </div>
-            <span className="text-[9px] text-inksoft mt-1.5">{b.label}</span>
+            <span className="text-[10px] font-medium text-inksoft mt-2">{b.label}</span>
           </div>
         );
       })}
@@ -279,17 +279,17 @@ function CompareChart({ buckets }: { buckets: MonthBucket[] }) {
   const max = Math.max(...buckets.map((b) => Math.max(b.expected, b.received)), 1);
   return (
     <div>
-      <div className="flex gap-2 items-end h-[150px]">
+      <div className="flex gap-3 items-end h-[240px]">
         {buckets.map((b) => {
-          const exp = Math.max(5, Math.round((b.expected / max) * 118));
-          const rec = Math.max(5, Math.round((b.received / max) * 118));
+          const exp = Math.max(6, Math.round((b.expected / max) * 200));
+          const rec = Math.max(6, Math.round((b.received / max) * 200));
           return (
             <div key={b.key} className="flex-1 flex flex-col items-center min-w-0 group relative">
-              <div className="flex items-end justify-center gap-1 flex-1">
-                <div className="w-2 sm:w-2.5 rounded-t-sm" title={`${b.label}: expected ${formatMoney(b.expected)}`} style={{ height: `${exp}px`, background: "var(--due)" }} />
-                <div className="w-2 sm:w-2.5 rounded-t-sm" title={`${b.label}: received ${formatMoney(b.received)}`} style={{ height: `${rec}px`, background: "var(--paid)" }} />
+              <div className="flex items-end justify-center gap-1.5 flex-1">
+                <div className="w-3 sm:w-3.5 rounded-t-md" title={`${b.label}: expected ${formatMoney(b.expected)}`} style={{ height: `${exp}px`, background: "var(--due)" }} />
+                <div className="w-3 sm:w-3.5 rounded-t-md" title={`${b.label}: received ${formatMoney(b.received)}`} style={{ height: `${rec}px`, background: "var(--paid)" }} />
               </div>
-              <span className="text-[9px] text-inksoft mt-1.5">{b.label}</span>
+              <span className="text-[10px] font-medium text-inksoft mt-2">{b.label}</span>
               {(b.expected > 0 || b.received > 0) && (
                 <Tooltip
                   title={`${b.label} payments`}
