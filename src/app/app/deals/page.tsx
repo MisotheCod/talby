@@ -197,24 +197,31 @@ export default function DealsPage() {
         <DealBoard deals={visible} onOpen={(id) => setSelectedId(id)} onChanged={onUpdated} />
       ) : (
         <>
-          <div className="panel">
+          <div className="panel overflow-hidden">
+            {/* Column headers */}
+            <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
+              <span>Brand</span>
+              <span>Deliverable</span>
+              <span>Due date</span>
+              <span className="text-right">Amount</span>
+            </div>
             {pageItems.map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelectedId(d.id)}
-                className={cn("w-full flex items-center gap-3.5 px-[22px] py-[15px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer", selectedId === d.id && "bg-card2")}
+                className={cn("w-full grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer", selectedId === d.id && "bg-card2")}
               >
-                <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
-                  {d.brand.charAt(0).toUpperCase()}
+                <span className="flex items-center gap-3 min-w-0">
+                  <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
+                    {d.brand.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="text-[15px] font-semibold truncate">{d.brand}</span>
                 </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[15px] font-semibold truncate">{d.brand}</span>
-                  <span className="block text-[12.5px] text-inkfaint mt-0.5 truncate">{d.deliverable || "No deliverable"}</span>
+                <span className="text-[12.5px] text-inkfaint truncate min-w-0">{d.deliverable || "No deliverable"}</span>
+                <span className={cn("text-sm tabular-nums", d.due_date && isPastDue(d.due_date) ? "text-late font-medium" : "text-inksoft")}>
+                  {d.due_date ? formatDate(d.due_date) : "–"}
                 </span>
-                <span className="text-right flex-none">
-                  <span className="block money text-sm font-medium mb-1.5">{formatMoney(d.value)}</span>
-                  <DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} />
-                </span>
+                <span className="money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
               </button>
             ))}
           </div>
