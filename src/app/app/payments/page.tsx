@@ -24,9 +24,10 @@ function fmtMonth(iso: string): string {
   const d = new Date(iso + "-01");
   return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
 }
-function fmtQuarter(iso: string): string {
-  const m = Number(iso.slice(5, 7));
-  return `Q${Math.ceil(m / 3)} ${iso.slice(2, 4)}`;
+function fmtQuarter(key: string): string {
+  const m = key.match(/^(\d{4})-Q(\d)/);
+  if (!m) return key;
+  return `Q${m[2]} ${m[1].slice(2)}`;
 }
 function fmtYear(iso: string): string { return iso.slice(0, 4); }
 
