@@ -191,7 +191,7 @@ export default function CalendarPage() {
             <div key={d} className="px-2 py-2 text-xs font-medium text-muted text-center">{d}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 auto-rows-[92px] md:auto-rows-[110px]">
+        <div className="grid grid-cols-7 auto-rows-[104px] md:auto-rows-[124px]">
           {cells.map((iso, idx) =>
             iso === null ? (
               <div key={`e${idx}`} className="border-r border-b border-border bg-subtle/40" />
@@ -227,7 +227,7 @@ export default function CalendarPage() {
                       )}
                     >
                       <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide", it.type === "payment" ? "text-warn/70" : it.type === "note" ? "text-inkfaint" : "opacity-70")}>{it.label}</span>
-                      <span className="truncate">{it.title}</span>
+                      <span className={cn("truncate", it.type === "content" && "font-semibold")}>{it.title}</span>
                       {it.time && <span className="shrink-0 ml-auto text-[10px] tabular-nums font-medium opacity-70">{it.time}</span>}
                     </div>
                   ))}
