@@ -124,10 +124,9 @@ export function AppShell({
     return pathname.startsWith(href);
   };
 
-  // Content max-width tier. Wide for data-dense pages; everything else
-  // (Settings, Ideas, To-dos, single-column flows) uses the narrow default.
-  const WIDE_PAGES = ["/app/deals", "/app/calendar", "/app/payments", "/app/inbox"];
-  const isWide = pathname === "/app" || WIDE_PAGES.some((p) => pathname?.startsWith(p));
+  // Content max-width: the wide cap applies to every page so the whole app
+  // keeps a consistent column width. No per-page variance.
+  const isWide = true;
 
   const signOut = async () => {
     await supabase.auth.signOut();
