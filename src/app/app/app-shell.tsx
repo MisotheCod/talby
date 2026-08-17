@@ -68,7 +68,9 @@ export function AppShell({
         .from("deals")
         .select("id")
         .eq("active", true)
-        .not("status", "eq", "archived");
+        .not("status", "eq", "archived")
+        .not("brand", "is", "")
+        .gt("brand", "");
       setActiveDeals((data ?? []).length);
     })();
   }, [supabase, pathname]);

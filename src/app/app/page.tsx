@@ -123,12 +123,20 @@ export default function OverviewPage() {
     return () => ctx.revert();
   }, [loading]);
 
-  const activeDeals = deals.filter((d) => d.active && d.status !== "archived");
+  const activeDeals = deals.filter((d) => d.brand?.trim() && d.active && d.status !== "archived");
   const booked = deals.reduce((s, d) => s + (d.value ?? 0), 0);
   const received = payments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
   const outstanding = payments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
   const pendingPayments = payments.filter((p) => p.status !== "received");
   const pastDue = pendingPayments.filter((p) => isPastDue(p.expected_date)).length;
+
+  // Payment-due lookup so the Active list can default-sort by soonest payment.
+  const firstDueByDeal = new Map<string, string>();
+  for (const p of pendingPayments) {
+    if (!p.deal_id) continue;
+    const cur = firstDueByDeal.get(p.deal_id);
+    if (!cur || (p.expected_date ?? "") < cur) firstDueByDeal.set(p.deal_id, p.expected_date ?? "");
+  }
 
   const filteredDeals = activeDeals.filter((d) => {
     if (search) {
@@ -139,11 +147,21 @@ export default function OverviewPage() {
     }
     const paid = d.payment_status === "paid" || d.status === "paid";
     switch (filter) {
-      case "Unpaid": return d.status === "unpaid" || (d.status !== "paid" && !paid && d.payment_status !== "none");
+      case "Unpaid": return !paid;
       case "Paid": return paid;
-      case "Active": return !paid && d.status !== "pipeline" && d.status !== "archived";
-      default: return true;
+      default: return true; // Active and All show every active deal (incl. paid & pipeline)
     }
+  })
+  // Defined default sort: soonest payment due first (deals with no pending
+  // payment fall back to most recently added), so the money landing soonest is
+  // at the top.
+  .sort((a, b) => {
+    const da = firstDueByDeal.get(a.id) ?? "";
+    const db = firstDueByDeal.get(b.id) ?? "";
+    if (da && db) return da < db ? -1 : da > db ? 1 : 0;
+    if (da && !db) return -1;
+    if (!da && db) return 1;
+    return (b.created_at ?? "").localeCompare(a.created_at ?? "");
   });
 
   const dealTotalPages = Math.max(1, Math.ceil(filteredDeals.length / DEAL_PAGE_SIZE));
@@ -174,9 +192,12 @@ export default function OverviewPage() {
     return items;
   };
 
-  const timeline = [...payments]
-    .filter((p) => !p.expected_date || true)
-    .sort((a, b) => (b.expected_date ?? "").localeCompare(a.expected_date ?? ""))
+  // "This week" strip and the Payments card both read from the same `payments`
+  // data (correlation). The card shows expected/past-due payments soonest-first
+  // so the next money landing is at the top, matching what the week drives.
+  const timeline = pendingPayments
+    .filter((p) => p.expected_date)
+    .sort((a, b) => (a.expected_date ?? "").localeCompare(b.expected_date ?? ""))
     .slice(0, 5);
 
   if (loading) return <OverviewSkeleton />;
@@ -233,7 +254,7 @@ export default function OverviewPage() {
           <div className="flex items-center justify-between px-[22px] pt-[19px] pb-[15px] flex-wrap gap-3">
             <h3 className="text-[16px] font-head font-bold">Active deals</h3>
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="search !w-40">
+              <div className="search !w-56">
                 <svg className="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
                 <input
                   value={search}
@@ -355,10 +376,11 @@ function CapacityCard({ used, cap }: { used: number; cap: number }) {
 function DealRow({ deal }: { deal: Deal }) {
   const paid = deal.payment_status === "paid" || deal.status === "paid";
   const pill = (() => {
-    if (paid) return <span className="pill pill-paid">Paid</span>;
-    if (deal.status === "unpaid" || deal.payment_status === "expected") return <span className="pill pill-due">Awaiting pay</span>;
-    if (isPastDue(deal.due_date)) return <span className="pill pill-late">Past due</span>;
+    if (deal.status === "archived") return <span className="pill pill-pipe">Archived</span>;
     if (deal.status === "pipeline") return <span className="pill pill-pipe">Pipeline</span>;
+    if (paid) return <span className="pill pill-paid">Paid</span>;
+    if (isPastDue(deal.due_date)) return <span className="pill pill-late">Past due</span>;
+    if (deal.status === "unpaid" || deal.payment_status === "expected") return <span className="pill pill-due">Awaiting pay</span>;
     return <span className="pill pill">Active</span>;
   })();
   // colored logo per the prototype (green/gold/coral/purple variety)
