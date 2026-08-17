@@ -124,6 +124,11 @@ export function AppShell({
     return pathname.startsWith(href);
   };
 
+  // Content max-width tier. Wide for data-dense pages; everything else
+  // (Settings, Ideas, To-dos, single-column flows) uses the narrow default.
+  const WIDE_PAGES = ["/app/deals", "/app/calendar", "/app/payments", "/app/inbox"];
+  const isWide = pathname === "/app" || WIDE_PAGES.some((p) => pathname?.startsWith(p));
+
   const signOut = async () => {
     await supabase.auth.signOut();
     window.location.href = "/";
@@ -205,7 +210,7 @@ export function AppShell({
             <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
           </div>
         </div>
-        <main className="main">
+        <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
           {children}
         </main>
         <ThemeControl current={accentState} currentFont={fontState} currentMode={modeState} onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont} onSaveFont={saveFont} onPreviewMode={previewMode} onSaveMode={saveMode} />
