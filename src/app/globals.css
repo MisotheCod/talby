@@ -465,12 +465,29 @@ h1, h2, h3, h4 {
 /* ------- Chips (filters) ------- */
 .chip {
   font-size: 12px; font-weight: 500; padding: 6px 13px;
-  border-radius: var(--r-pill); background: var(--card-2);
-  color: var(--ink-soft); cursor: pointer; border: 1px solid transparent;
+  border-radius: var(--r-pill); background: color-mix(in srgb, var(--accent) 8%, var(--canvas));
+  color: color-mix(in srgb, var(--accent) 62%, var(--ink)); cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--canvas));
   transition: 0.15s; white-space: nowrap;
 }
-.chip:hover { border-color: var(--line-2); }
-.chip.on { background: var(--accent-tint); color: var(--accent-ink); font-weight: 600; }
+.chip:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); }
+.chip.on {
+  background: color-mix(in srgb, var(--accent) 16%, var(--canvas));
+  color: color-mix(in srgb, var(--accent) 60%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--canvas));
+  font-weight: 600;
+}
+[data-theme="dark"] .chip {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: color-mix(in srgb, var(--accent) 74%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+[data-theme="dark"] .chip:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+[data-theme="dark"] .chip.on {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: color-mix(in srgb, var(--accent) 78%, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
+}
 
 /* ------- Drawer ------- */
 .drawer-in { animation: talby-slide-in 0.22s cubic-bezier(0.32, 0.72, 0, 1); }
