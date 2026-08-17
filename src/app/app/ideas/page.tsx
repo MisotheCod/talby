@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { IconPlus, IconClose, IconLink, IconPaperclip, IconCheck } from "@/components/icons";
+import { IconPlus, IconClose, IconLink, IconPaperclip, IconCheck, IconUpload } from "@/components/icons";
 import { Button, Input, Select } from "@/components/ui";
 
 type IdeaStatus = "unsorted" | "pitch-ready" | "parked" | "archived";
@@ -16,12 +16,16 @@ type Idea = {
   tags: string[];
   status: IdeaStatus;
   linked_deal_id: string | null;
-  refs: string[];
+  refs: IdeaRef[];
   created_at: string | null;
   updated_at: string | null;
 };
 
 type Deal = { id: string; brand: string };
+
+// A reference is either a pasted link (kind 'link' with a url) or an uploaded
+// file (kind 'file' with a public url + name).
+type IdeaRef = { kind: "link" | "file"; url: string; name?: string };
 
 const FILTERS = ["All", "Unsorted", "Pitch-ready", "Parked"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -168,6 +172,20 @@ export default function IdeasPage() {
   );
 }
 
+// Refs may have been stored as plain URL strings (legacy) or as {kind,url,name}.
+function normalizeRefs(raw: unknown): IdeaRef[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((r): IdeaRef => {
+    if (typeof r === "string") return { kind: "link", url: r };
+    const o = r as Record<string, unknown>;
+    return {
+      kind: o.kind === "file" ? "file" : "link",
+      url: (o.url as string) ?? "",
+      name: o.name ? (o.name as string) : undefined,
+    };
+  });
+}
+
 function normalizeIdea(raw: Record<string, unknown>): Idea {
   return {
     id: raw.id as string,
@@ -177,7 +195,7 @@ function normalizeIdea(raw: Record<string, unknown>): Idea {
     tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
     status: ((raw.status as IdeaStatus) ?? "unsorted"),
     linked_deal_id: (raw.linked_deal_id as string) ?? null,
-    refs: Array.isArray(raw.refs) ? (raw.refs as string[]) : [],
+    refs: normalizeRefs(raw.refs),
     created_at: (raw.created_at as string) ?? null,
     updated_at: (raw.updated_at as string) ?? null,
   };
@@ -195,13 +213,15 @@ function CaptureField({ deals, onCreated, onFocus }: {
 }) {
   const supabase = createClient();
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [focused, setFocused] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [title, setTitle] = useState("");
   const [platform, setPlatform] = useState("");
   const [notes, setNotes] = useState("");
-  const [refs, setRefs] = useState<string[]>([]);
+  const [refs, setRefs] = useState<IdeaRef[]>([]);
   const [refInput, setRefInput] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [status, setStatus] = useState<IdeaStatus>("unsorted");
@@ -235,8 +255,22 @@ function CaptureField({ deals, onCreated, onFocus }: {
 
   const addRef = () => {
     const v = refInput.trim();
-    if (v && !refs.includes(v)) setRefs((r) => [...r, v]);
+    if (v && !refs.some((r) => r.kind === "link" && r.url === v)) setRefs((r) => [...r, { kind: "link", url: v }]);
     setRefInput("");
+  };
+  const uploadRef = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setUploading(false); return; }
+    const path = `${user.id}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("idea-files").upload(path, file);
+    setUploading(false);
+    if (error) return;
+    const { data: pub } = supabase.storage.from("idea-files").getPublicUrl(path);
+    setRefs((r) => [...r, { kind: "file", url: pub.publicUrl, name: file.name }]);
   };
   const addTag = () => {
     const v = tagInput.trim().replace(/^#/, "");
@@ -286,14 +320,21 @@ function CaptureField({ deals, onCreated, onFocus }: {
                   {refs.map((r, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs text-inksoft">
                       <IconPaperclip size={13} className="shrink-0" />
-                      <span className="truncate flex-1">{r}</span>
+                      {r.kind === "link" ? (
+                        <a href={r.url} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">{r.url}</a>
+                      ) : (
+                        <a href={r.url} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">{r.name ?? r.url}</a>
+                      )}
                       <button onClick={() => setRefs((x) => x.filter((_, j) => j !== i))} aria-label="Remove reference" className="text-inkfaint hover:text-ink cursor-pointer"><IconClose size={13} /></button>
                     </div>
                   ))}
                   <div className="flex gap-1.5">
-                    <Input value={refInput} onChange={(e) => setRefInput(e.target.value)} placeholder="Paste a link or reference" className="!h-8 text-xs" onKeyDown={(e) => { if (e.key === "Enter") addRef(); }} />
+                    <Input value={refInput} onChange={(e) => setRefInput(e.target.value)} placeholder="Paste a link" className="!h-8 text-xs" onKeyDown={(e) => { if (e.key === "Enter") addRef(); }} />
+                    <button onClick={() => fileRef.current?.click()} aria-label="Upload reference" title="Upload a doc or image" className="h-8 w-8 grid place-items-center rounded-lg border border-line text-inksoft hover:text-ink hover:border-line2 cursor-pointer shrink-0"><IconUpload size={15} /></button>
+                    {uploading && <span className="text-xs text-inkfaint self-center">Uploading…</span>}
                     <Button size="sm" variant="secondary" onClick={addRef}>Add</Button>
                   </div>
+                  <input ref={fileRef} type="file" className="hidden" onChange={uploadRef} />
                 </div>
               </div>
               {/* Right: status + links */}
@@ -404,8 +445,10 @@ function IdeaModal({ idea, deals, onClose, onSaved, onArchived }: {
   const [platform, setPlatform] = useState(idea.platform ?? "");
   const [status, setStatus] = useState<IdeaStatus>(idea.status);
   const [linkedDealId, setLinkedDealId] = useState(idea.linked_deal_id ?? "");
-  const [refs, setRefs] = useState<string[]>(idea.refs);
+  const [refs, setRefs] = useState<IdeaRef[]>(idea.refs);
   const [refInput, setRefInput] = useState("");
+  const modalFileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const [tags, setTags] = useState<string[]>(idea.tags);
   const [tagInput, setTagInput] = useState("");
   const [turning, setTurning] = useState(false);
@@ -437,8 +480,23 @@ function IdeaModal({ idea, deals, onClose, onSaved, onArchived }: {
 
   const addRef = () => {
     const v = refInput.trim();
-    if (v && !refs.includes(v)) setRefs((r) => [...r, v]);
+    if (v && !refs.some((r) => r.kind === "link" && r.url === v)) setRefs((r) => [...r, { kind: "link", url: v }]);
     setRefInput("");
+  };
+  const uploadRef = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setUploading(false); return; }
+    const path = `${user.id}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("idea-files").upload(path, file);
+    setUploading(false);
+    if (error) return;
+    const { data: pub } = supabase.storage.from("idea-files").getPublicUrl(path);
+    setRefs((r) => [...r, { kind: "file", url: pub.publicUrl, name: file.name }]);
+    persist();
   };
   const addTag = () => {
     const v = tagInput.trim().replace(/^#/, "");
@@ -495,14 +553,21 @@ function IdeaModal({ idea, deals, onClose, onSaved, onArchived }: {
                 {refs.map((r, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-inksoft bg-card2 rounded-lg px-2.5 py-1.5">
                     <IconPaperclip size={13} className="shrink-0" />
-                    <span className="truncate flex-1">{r}</span>
+                    {r.kind === "link" ? (
+                      <a href={r.url} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">{r.url}</a>
+                    ) : (
+                      <a href={r.url} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">{r.name ?? r.url}</a>
+                    )}
                     <button onClick={() => setRefs((x) => x.filter((_, j) => j !== i))} aria-label="Remove reference" className="text-inkfaint hover:text-ink cursor-pointer"><IconClose size={13} /></button>
                   </div>
                 ))}
                 <div className="flex gap-1.5">
-                  <Input value={refInput} onChange={(e) => setRefInput(e.target.value)} placeholder="Add reference" className="!h-8 text-xs" onKeyDown={(e) => { if (e.key === "Enter") addRef(); }} onBlur={persist} />
+                  <Input value={refInput} onChange={(e) => setRefInput(e.target.value)} placeholder="Add link reference" className="!h-8 text-xs" onKeyDown={(e) => { if (e.key === "Enter") addRef(); }} onBlur={persist} />
+                  <button onClick={() => modalFileRef.current?.click()} aria-label="Upload reference" title="Upload a doc or image" className="h-8 w-8 grid place-items-center rounded-lg border border-line text-inksoft hover:text-ink hover:border-line2 cursor-pointer shrink-0"><IconUpload size={15} /></button>
+                  {uploading && <span className="text-xs text-inkfaint self-center">Uploading…</span>}
                   <Button size="sm" variant="secondary" onClick={addRef}>Add</Button>
                 </div>
+                <input ref={modalFileRef} type="file" className="hidden" onChange={uploadRef} />
               </div>
             </div>
           </div>
