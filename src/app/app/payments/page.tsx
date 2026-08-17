@@ -19,10 +19,32 @@ type Filter = (typeof FILTERS)[number];
 // Recent window so the timeline doesn't become an endless scroll; "View all"
 // lifts it. Received rows sort most-recent-first.
 const DEFAULT_WINDOW = 20;
+// Chart window: trailing months (received income vs expected) shown in the rail.
+const CHART_MONTHS = 6;
 
 function rowStatus(p: Payment): "past_due" | "expected" | "received" {
   if (p.status === "received") return "received";
   return isPastDue(p.expected_date) ? "past_due" : "expected";
+}
+
+type MonthBucket = { key: string; label: string; expected: number; received: number };
+
+function monthBuckets(payments: Payment[], months: number): MonthBucket[] {
+  const now = new Date();
+  const buckets: MonthBucket[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: d.toLocaleDateString("en-US", { month: "short" }), expected: 0, received: 0 });
+  }
+  for (const p of payments) {
+    if (!p.expected_date) continue;
+    const key = p.expected_date.slice(0, 7);
+    const b = buckets.find((x) => x.key === key);
+    if (!b) continue;
+    if (p.status === "received") b.received += p.amount;
+    else b.expected += p.amount;
+  }
+  return buckets;
 }
 
 export default function PaymentsPage() {
@@ -72,6 +94,9 @@ export default function PaymentsPage() {
   const truncated = !showAll;
   const visible = truncated ? filtered.slice(0, DEFAULT_WINDOW) : filtered;
   const hasMore = filtered.length > DEFAULT_WINDOW;
+
+  // Live, RLS-scoped chart data: trailing months of received vs expected.
+  const buckets = monthBuckets(payments, CHART_MONTHS);
 
   const markReceived = async (id: string) => {
     await supabase.from("payments").update({ status: "received" }).eq("id", id);
@@ -125,30 +150,47 @@ export default function PaymentsPage() {
         <Summary label="Received" value={received} tone="ok" />
       </div>
 
-      {/* Filter chips (same active styling as deals) */}
-      <div className="flex gap-1.5 flex-wrap">
-        {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
-      </div>
+      {/* Two columns, mirroring Overview: timeline left, chart rail right */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5 items-start">
+        {/* Left: unified timeline (primary surface) */}
+        <div className="min-w-0">
+          {/* Filter chips */}
+          <div className="flex gap-1.5 flex-wrap mb-4">
+            {FILTERS.map((f) => <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>)}
+          </div>
 
-      {/* Unified timeline */}
-      <div className="card p-5">
-        {visible.length === 0 ? (
-          <p className="text-sm text-muted py-8 text-center">{filter === "All" ? "No payments yet." : `No ${filter.toLowerCase()} payments.`}</p>
-        ) : (
-          <ul className="space-y-1">
-            {visible.map((p) => <TimelineRow key={p.id} p={p} nudgeBusy={nudgeBusy} onMarkReceived={markReceived} onNudge={nudgePayment} />)}
-          </ul>
-        )}
-        {hasMore && (
-          <button onClick={() => setShowAll((s) => !s)} className="mt-4 w-full text-sm font-medium accent-text hover:underline cursor-pointer">
-            {truncated ? `View all ${filtered.length} payments` : "Show fewer"}
-          </button>
-        )}
-      </div>
+          <div className="card p-5">
+            {visible.length === 0 ? (
+              <p className="text-sm text-muted py-8 text-center">{filter === "All" ? "No payments yet." : `No ${filter.toLowerCase()} payments.`}</p>
+            ) : (
+              <ul className="space-y-1">
+                {visible.map((p) => <TimelineRow key={p.id} p={p} nudgeBusy={nudgeBusy} onMarkReceived={markReceived} onNudge={nudgePayment} />)}
+              </ul>
+            )}
+            {hasMore && (
+              <button onClick={() => setShowAll((s) => !s)} className="mt-4 w-full text-sm font-medium accent-text hover:underline cursor-pointer">
+                {truncated ? `View all ${filtered.length} payments` : "Show fewer"}
+              </button>
+            )}
+          </div>
 
-      {nudgeMsg && (
-        <p className={cn("text-xs", nudgeMsg.kind === "ok" ? "text-ok" : "text-warn")}>{nudgeMsg.text}</p>
-      )}
+          {nudgeMsg && (
+            <p className={cn("text-xs mt-3", nudgeMsg.kind === "ok" ? "text-ok" : "text-warn")}>{nudgeMsg.text}</p>
+          )}
+        </div>
+
+        {/* Right rail: chart cards */}
+        <div className="min-w-0">
+          <div className="rcard">
+            <h3>Income over time</h3>
+            <IncomeChart buckets={buckets} />
+          </div>
+          <div className="rcard">
+            <h3>Expected vs received</h3>
+            <CompareChart buckets={buckets} />
+          </div>
+        </div>
+      </div>
 
       {showAdd && (
         <AddPaymentModal deals={deals} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
@@ -157,7 +199,8 @@ export default function PaymentsPage() {
   );
 }
 
-/* One unified timeline row. */
+/* One unified timeline row. Actions shorten to icon-only on narrow widths so the
+   row never wraps. */
 function TimelineRow({ p, nudgeBusy, onMarkReceived, onNudge }: {
   p: Payment; nudgeBusy: string | null;
   onMarkReceived: (id: string) => void; onNudge: (p: Payment) => void;
@@ -169,28 +212,87 @@ function TimelineRow({ p, nudgeBusy, onMarkReceived, onNudge }: {
   const barColor = isRecv ? "bg-ok" : isPast ? "bg-late" : "bg-due";
   const textColor = isRecv ? "text-ok" : isPast ? "text-late" : "text-due";
   const amountColor = isRecv ? "text-ok" : isPast ? "text-late" : "text-ink";
-  const badge = isRecv ? "Received" : isPast ? "Past due" : "Expected";
   const dateLabel = p.expected_date
     ? (isPast ? "Past due " : isRecv ? "Received " : "Expected ") + formatDate(p.expected_date)
-    : badge;
+    : isRecv ? "Received" : isPast ? "Past due" : "Expected";
 
   return (
     <li className="flex items-center gap-3 py-2.5 border-b border-line last:border-0">
-      <span className={cn("w-1 self-stretch rounded-full", barColor)} />
+      <span className={cn("w-1 self-stretch rounded-full shrink-0", barColor)} />
       <div className="min-w-0 flex-1">
         <div className="font-medium truncate">{p.deal?.brand ?? "Payment"}</div>
         <div className={cn("text-xs font-medium", textColor)}>{dateLabel}</div>
       </div>
       <span className={cn("font-semibold tabular-nums shrink-0", amountColor)}>{formatMoney(p.amount)}</span>
       {!isRecv && (
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           {isPast && (
-            <Button size="sm" variant="ghost" onClick={() => onNudge(p)} disabled={nudgeBusy === p.id}><NudgeSendIcon /> Send a nudge</Button>
+            <Button size="sm" variant="ghost" onClick={() => onNudge(p)} disabled={nudgeBusy === p.id} title="Send a nudge">
+              <NudgeSendIcon /><span className="hidden min-[540px]:inline">Send a nudge</span>
+            </Button>
           )}
-          <Button size="sm" variant="secondary" onClick={() => onMarkReceived(p.id)}><IconCheck size={14} /> Mark received</Button>
+          <Button size="sm" variant="secondary" onClick={() => onMarkReceived(p.id)} title="Mark received">
+            <IconCheck size={14} /><span className="hidden min-[540px]:inline">Mark received</span>
+          </Button>
         </div>
       )}
     </li>
+  );
+}
+
+/* Income over time: received totals by month, accent-tinted (live re-tint). */
+function IncomeChart({ buckets }: { buckets: MonthBucket[] }) {
+  const hasData = buckets.some((b) => b.received > 0);
+  if (!hasData) {
+    return <p className="text-[13px] text-inksoft py-6 text-center">No income received yet. Mark payments received to see your growth.</p>;
+  }
+  const max = Math.max(...buckets.map((b) => b.received), 1);
+  return (
+    <div className="flex gap-2 items-end h-[92px]">
+      {buckets.map((b) => {
+        const h = Math.max(4, Math.round((b.received / max) * 72));
+        return (
+          <div key={b.key} className="flex-1 flex flex-col items-center min-w-0">
+            <div className="w-full flex items-end justify-center flex-1">
+              <div className="w-3 rounded-t-sm" style={{ height: `${h}px`, background: "var(--accent)" }} />
+            </div>
+            <span className="text-[9px] text-inksoft mt-1">{b.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* Expected vs received by month: two bars per month, fixed status colors. */
+function CompareChart({ buckets }: { buckets: MonthBucket[] }) {
+  const hasData = buckets.some((b) => b.expected > 0 || b.received > 0);
+  if (!hasData) {
+    return <p className="text-[13px] text-inksoft py-6 text-center">No payment history yet. Your expected vs received will show here.</p>;
+  }
+  const max = Math.max(...buckets.map((b) => Math.max(b.expected, b.received)), 1);
+  return (
+    <div>
+      <div className="flex gap-2 items-end h-[92px]">
+        {buckets.map((b) => {
+          const exp = Math.max(4, Math.round((b.expected / max) * 72));
+          const rec = Math.max(4, Math.round((b.received / max) * 72));
+          return (
+            <div key={b.key} className="flex-1 flex flex-col items-center min-w-0">
+              <div className="flex items-end justify-center gap-1 flex-1">
+                <div className="w-2 rounded-t-sm" style={{ height: `${exp}px`, background: "var(--due)" }} />
+                <div className="w-2 rounded-t-sm" style={{ height: `${rec}px`, background: "var(--paid)" }} />
+              </div>
+              <span className="text-[9px] text-inksoft mt-1">{b.label}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-4 mt-3 text-[11px] text-inksoft">
+        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm inline-block" style={{ background: "var(--due)" }} />Expected</span>
+        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm inline-block" style={{ background: "var(--paid)" }} />Received</span>
+      </div>
+    </div>
   );
 }
 
