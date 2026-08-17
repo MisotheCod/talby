@@ -220,14 +220,17 @@ export default function NotesPage() {
 
   return (
     <div className="space-y-5 fade-up max-w-3xl mx-auto">
-      <div className="flex items-end justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">To-dos</h1>
           <p className="text-muted text-sm mt-1">A quiet checklist for the work that moves your deals forward.</p>
         </div>
-        {todos.length > 0 && (
-          <span className="text-sm text-muted tabular-nums">{doneCount} of {todos.length} done</span>
-        )}
+        <div className="flex items-center gap-3">
+          {todos.length > 0 && (
+            <span className="text-sm text-muted tabular-nums">{doneCount} of {todos.length} done</span>
+          )}
+          <Button onClick={() => setCreateOpen(true)}><IconPlus size={16} /> Create new task</Button>
+        </div>
       </div>
 
       {openItems.length === 0 ? (
@@ -277,14 +280,6 @@ export default function NotesPage() {
           })}
         </div>
       )}
-
-      {/* Bottom floating create bar (reference bottom bar, Talby styled) */}
-      <button
-        onClick={() => setCreateOpen(true)}
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 inline-flex items-center gap-2 px-5 h-11 rounded-full bg-ink text-white text-sm font-semibold shadow-pop hover:brightness-110 transition cursor-pointer z-30"
-      >
-        <IconPlus size={16} /> Create new task
-      </button>
 
       {createOpen && <CreateTaskPopover onClose={() => setCreateOpen(false)} onSaved={() => { setCreateOpen(false); load(); }} />}
     </div>
