@@ -4,14 +4,19 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ACCENT_PRESETS, HEADING_FONTS, applyAccent, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
+import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
 import { cn } from "@/lib/utils";
-import { IconCheck, IconCrown, IconUpload } from "@/components/icons";
-import { StatusPill, Button, Spinner } from "@/components/ui";
+import { IconCheck } from "@/components/icons";
+import { Button, Spinner } from "@/components/ui";
 import { NudgeSettings } from "@/components/nudge-settings";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { GmailLogo } from "@/components/marketing/gmail-logo";
 
 type Profile = { handler: string | null; accent: string | null; plan: string; head_font: string | null; avatar_url: string | null };
+
+function userName(handler: string | null): string {
+  return (handler || "").replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 // Settings are grouped into sections with a side-scroll section nav.
 const SECTIONS = [
@@ -29,6 +34,9 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [activeCount, setActiveCount] = useState(0);
+  const handlerRef = useRef<{ save: () => Promise<void>; saved: boolean } | null>(null);
+  const pwRef = useRef<{ update: () => Promise<void>; busy: boolean; hasValue: boolean } | null>(null);
   const [section, setSection] = useState<SectionId>(
     (searchParams.get("section") as SectionId) && SECTIONS.some((s) => s.id === searchParams.get("section"))
       ? (searchParams.get("section") as SectionId)
@@ -52,6 +60,14 @@ export default function SettingsPage() {
       const { data } = await supabase.from("profiles").select("handler, accent, plan, head_font, avatar_url").eq("id", user.id).single();
       const p = (data as unknown as Profile) ?? null;
       setProfile(p);
+      const { data: deals } = await supabase
+        .from("deals")
+        .select("id")
+        .eq("active", true)
+        .not("status", "eq", "archived")
+        .not("brand", "is", "")
+        .gt("brand", "");
+      setActiveCount((deals ?? []).length);
       const hsl = parseHSL(p?.accent) ?? DEFAULT_HSL;
       setCurrent(hsl);
       setSavedTheme(hsl);
@@ -146,43 +162,44 @@ export default function SettingsPage() {
 
       <div className="space-y-6">
         {/* ============ ACCOUNT ============ */}
-        {section === "account" && (
-          <>
-            <div className="bg-card border border-line rounded-[16px] p-6 flex items-center justify-between flex-wrap gap-4 shadow-card">
-              <div>
-                <h2 className="font-semibold">Your plan</h2>
-                <p className="text-sm text-inksoft mt-1">
-                  {profile?.plan === "free" ? "Free, complete app up to 5 active deals." : "Paid, unlimited active deals + file uploads."}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {profile?.plan === "free" ? (
-                  <Button onClick={startUpgrade} disabled={saving}>{saving ? <Spinner /> : <IconCrown size={16} />} Go unlimited</Button>
-                ) : (
-                  <StatusPill kind="accent" className="px-3 py-1"><IconCrown size={14} /> Paid</StatusPill>
+                {section === "account" && (
+                  <>
+                    {/* Profile header card: identity, not a setting */}
+                    <AvatarField handler={profile?.handler ?? ""} initial={profile?.avatar_url ?? null} onChanged={(url) => setProfile((p) => (p ? { ...p, avatar_url: url } : p))} />
+
+                    {/* Settings card: three labeled rows */}
+                    <div className="bg-card border border-line rounded-[16px] shadow-card overflow-hidden">
+                      {/* Creator handle */}
+                      <div className="flex items-center gap-4 px-6 py-5 border-b border-line flex-wrap">
+                        <div className="w-[140px] shrink-0 text-sm text-inksoft">Creator handle</div>
+                        <div className="flex-1 min-w-0">
+                          <HandlerField initial={profile?.handler ?? ""} />
+                        </div>
+                        <Button onClick={() => handlerRef.current?.save()} disabled={handlerRef.current?.saved}>{handlerRef.current?.saved ? "Saved" : "Save"}</Button>
+                      </div>
+
+                      {/* Password */}
+                      <div className="flex items-center gap-4 px-6 py-5 border-b border-line flex-wrap">
+                        <div className="w-[140px] shrink-0 text-sm text-inksoft">Password</div>
+                        <div className="flex-1 min-w-0">
+                          <PasswordField />
+                        </div>
+                        <Button onClick={() => pwRef.current?.update()} disabled={pwRef.current?.busy || !pwRef.current?.hasValue}>{pwRef.current?.busy ? <Spinner /> : "Update"}</Button>
+                      </div>
+
+                      {/* Plan */}
+                      {profile?.plan === "free" ? (
+                        <FreePlanPanel used={activeCount} cap={FREE_ACTIVE_DEAL_CAP} onUpgrade={startUpgrade} saving={saving} />
+                      ) : (
+                        <div className="flex items-center gap-4 px-6 py-5 border-b border-line">
+                          <div className="w-[140px] shrink-0 text-sm text-inksoft">Plan</div>
+                          <div className="flex-1 min-w-0 text-sm">Paid · unlimited deals + file uploads</div>
+                          <Button variant="ghost" size="sm" onClick={startUpgrade} disabled={saving}>Manage</Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
-              </div>
-            </div>
-
-            <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
-              <h2 className="font-semibold mb-1">Creator handle</h2>
-              <p className="text-sm text-inksoft mb-3">Shown in your greeting on the Overview.</p>
-              <HandlerField initial={profile?.handler ?? ""} />
-            </div>
-
-            <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
-              <h2 className="font-semibold mb-1">Profile photo</h2>
-              <p className="text-sm text-inksoft mb-3">Shown at the top of your navigation. Leave empty to keep your initial.</p>
-              <AvatarField handler={profile?.handler ?? ""} initial={profile?.avatar_url ?? null} onChanged={(url) => setProfile((p) => (p ? { ...p, avatar_url: url } : p))} />
-            </div>
-
-            <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
-              <h2 className="font-semibold mb-1">Password</h2>
-              <p className="text-sm text-inksoft mb-3">Set a new password for your Talby account.</p>
-              <PasswordField />
-            </div>
-          </>
-        )}
 
         {/* ============ APPEARANCE ============ */}
         {section === "appearance" && (
@@ -298,18 +315,17 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     };
+    handlerRef.current = { save, saved };
     return (
-      <div className="flex gap-2 max-w-sm">
-        <div className="relative flex-1">
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-inksoft">@</span>
-          <input
-            value={val}
-            onChange={(e) => { setVal(e.target.value.replace(/\s/g, "")); setSaved(false); }}
-            className="w-full bg-card border border-line2 rounded-xl pl-9 pr-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
-            maxLength={30}
-          />
-        </div>
-        <Button onClick={save} disabled={saved}>{saved ? "Saved" : "Save"}</Button>
+      <div className="relative">
+        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-inksoft">@</span>
+        <input
+          value={val}
+          onChange={(e) => { setVal(e.target.value.replace(/\s/g, "")); setSaved(false); }}
+          className="w-full bg-card border border-line2 rounded-xl pl-9 pr-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
+          maxLength={30}
+          aria-label="Creator handle"
+        />
       </div>
     );
   }
@@ -352,18 +368,20 @@ export default function SettingsPage() {
     };
 
     return (
-      <div className="flex items-center gap-4">
-        <div className="avatar h-14 w-14 text-xl overflow-hidden grid place-items-center">
+      <div className="bg-card border border-line rounded-[16px] px-6 py-5 flex items-center gap-4 shadow-card flex-wrap">
+        <div className="avatar h-12 w-12 text-lg overflow-hidden grid place-items-center flex-none">
           {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : initialLetter}
         </div>
-        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={upload} />
-        <div className="flex flex-col items-start gap-1">
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}><IconUpload size={14} /> {busy ? <Spinner /> : "Upload photo"}</Button>
-            {initial && <Button variant="ghost" size="sm" disabled={busy} onClick={remove}>Remove</Button>}
-          </div>
-          {msg && <span className={cn("text-xs", msg.kind === "ok" ? "text-paid" : "text-late")}>{msg.text}</span>}
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold truncate">{userName(handler)}</div>
+          <div className="text-sm text-inksoft truncate">@{handler || "your handle"}</div>
         </div>
+        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={upload} />
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? <Spinner /> : <>Change photo</>}</Button>
+          {initial && <Button variant="ghost" size="sm" disabled={busy} onClick={remove}>Remove</Button>}
+        </div>
+        {msg && <span className={cn("w-full text-xs", msg.kind === "ok" ? "text-paid" : "text-late")}>{msg.text}</span>}
       </div>
     );
   }
@@ -372,7 +390,7 @@ export default function SettingsPage() {
     const [pw, setPw] = useState("");
     const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
     const [busy, setBusy] = useState(false);
-    const change = async () => {
+    const update = async () => {
       if (pw.length < 8) { setMsg({ kind: "bad", text: "Password must be at least 8 characters." }); return; }
       setBusy(true); setMsg(null);
       const { error } = await supabase.auth.updateUser({ password: pw });
@@ -381,8 +399,9 @@ export default function SettingsPage() {
       setPw("");
       setMsg({ kind: "ok", text: "Password updated." });
     };
+    pwRef.current = { update, busy, hasValue: pw.length > 0 };
     return (
-      <div className="max-w-sm">
+      <div>
         <input
           type="password"
           value={pw}
@@ -390,14 +409,34 @@ export default function SettingsPage() {
           placeholder="New password"
           className="w-full bg-card border border-line2 rounded-xl px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
           autoComplete="new-password"
+          aria-label="New password"
         />
-        <div className="flex items-center gap-3 mt-3">
-          <Button onClick={change} disabled={busy || !pw}>{busy ? <Spinner /> : "Update password"}</Button>
-        </div>
         {msg && <p className={cn("text-sm mt-2", msg.kind === "ok" ? "text-paid" : "text-late")}>{msg.text}</p>}
       </div>
     );
   }
+}
+
+/** Free-plan upgrade panel: accent-tinted, growth-framed, sits at the card bottom. */
+function FreePlanPanel({ used, cap, onUpgrade, saving }: { used: number; cap: number; onUpgrade: () => void; saving: boolean }) {
+  const chips = ["Unlimited deals", "File uploads", "Payment nudges"];
+  const left = cap - used;
+  return (
+    <div className="accent-soft px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
+      <div className="min-w-0">
+        <div className="font-semibold text-sm">Free · {used} of {cap} deals used</div>
+        <p className="text-[13px] mt-1">
+          {left > 0 ? `One more and you'll want unlimited. Good problem to have.` : "You're at the free limit. Upgrade for unlimited deals."}
+        </p>
+        <div className="flex gap-1.5 mt-2.5 flex-wrap">
+          {chips.map((c) => (
+            <span key={c} className="inline-flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full bg-accenttint2 text-accentink">{c}</span>
+          ))}
+        </div>
+      </div>
+      <Button onClick={onUpgrade} disabled={saving}>{saving ? <Spinner /> : "Go unlimited"}</Button>
+    </div>
+  );
 }
 
 /** Connection cards (Notion + Gmail) with their official logos. */
