@@ -339,7 +339,7 @@ function Summary({ label, value, tone = "neutral" }: { label: string; value: num
   return (
     <div className="card p-5">
       <div className="text-sm text-muted font-medium">{label}</div>
-      <div className={cn("text-2xl font-semibold mt-1 tabular-nums", tone === "ok" && "text-ok", tone === "warn" && "text-warn", tone === "accent" && "text-accentink")}>
+      <div className={cn("font-head text-2xl font-semibold mt-1 tabular-nums", tone === "ok" && "text-ok", tone === "warn" && "text-warn", tone === "accent" && "text-accentink")}>
         {formatMoney(value)}
       </div>
     </div>
