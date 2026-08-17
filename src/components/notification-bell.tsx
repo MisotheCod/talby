@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { IconRemind, IconClose } from "@/components/icons";
 
@@ -78,11 +79,11 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && pos && (
+      {open && pos && createPortal(
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="fixed inset-0 z-[90]" onClick={() => setOpen(false)} />
           <div
-            className="fixed w-[340px] max-w-[85vw] bg-card border border-line2 rounded-xl shadow-pop z-50 overflow-hidden fade-up"
+            className="fixed w-[340px] max-w-[85vw] bg-card border border-line2 rounded-xl shadow-pop z-[100] overflow-hidden fade-up"
             style={{ left: pos.right ? undefined : pos.x, right: pos.right ? pos.x : undefined, top: pos.top }}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-line">
@@ -122,7 +123,8 @@ export function NotificationBell() {
               )}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
