@@ -219,7 +219,7 @@ export default function NotesPage() {
   if (loading) return <div className="skeleton h-48 max-w-2xl" />;
 
   return (
-    <div className="space-y-5 fade-up max-w-3xl mx-auto">
+    <div className="space-y-6 fade-up">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">To-dos</h1>
