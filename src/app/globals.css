@@ -368,8 +368,8 @@ h1, h2, h3, h4 {
    Light mode leans on the tint; dark mode leans on the brightened text and
    the border. Both are derivations of the SAME source token, not two sets. */
 .tpill {
-  --pill-bg: color-mix(in srgb, var(--pill-source) 14%, var(--canvas));
-  --pill-bd: color-mix(in srgb, var(--pill-source) 38%, var(--canvas));
+  --pill-bg: color-mix(in srgb, var(--pill-source) 9%, var(--canvas));
+  --pill-bd: color-mix(in srgb, var(--pill-source) 26%, var(--canvas));
   --pill-fg: color-mix(in srgb, var(--pill-source) 55%, var(--ink));
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--pill-bg); color: var(--pill-fg);
@@ -378,8 +378,8 @@ h1, h2, h3, h4 {
   font-size: 11px; padding: 5px 12px;
 }
 [data-theme="dark"] .tpill {
-  --pill-bg: color-mix(in srgb, var(--pill-source) 16%, transparent);
-  --pill-bd: color-mix(in srgb, var(--pill-source) 52%, transparent);
+  --pill-bg: color-mix(in srgb, var(--pill-source) 10%, transparent);
+  --pill-bd: color-mix(in srgb, var(--pill-source) 40%, transparent);
   --pill-fg: color-mix(in srgb, var(--pill-source) 72%, var(--ink));
 }
 .tpill-sm { font-size: 9.5px; padding: 3.5px 9px; gap: 4px; }
@@ -399,9 +399,9 @@ h1, h2, h3, h4 {
 .pill-purple, .pill-pipe, .pill-accent,
 .pill.pill-paid, .pill.pill-due, .pill.pill-late, .pill.pill-note,
 .pill.pill-purple, .pill.pill-pipe, .pill.pill-accent {
-  background: color-mix(in srgb, var(--pill-source) 14%, var(--canvas));
+  background: color-mix(in srgb, var(--pill-source) 9%, var(--canvas));
   color: color-mix(in srgb, var(--pill-source) 55%, var(--ink));
-  border: 1px solid color-mix(in srgb, var(--pill-source) 38%, var(--canvas));
+  border: 1px solid color-mix(in srgb, var(--pill-source) 26%, var(--canvas));
 }
 [data-theme="dark"] .pill-paid, [data-theme="dark"] .pill-due,
 [data-theme="dark"] .pill-late, [data-theme="dark"] .pill-note,
@@ -411,9 +411,9 @@ h1, h2, h3, h4 {
 [data-theme="dark"] .pill.pill-late, [data-theme="dark"] .pill.pill-note,
 [data-theme="dark"] .pill.pill-purple, [data-theme="dark"] .pill.pill-pipe,
 [data-theme="dark"] .pill.pill-accent {
-  background: color-mix(in srgb, var(--pill-source) 16%, transparent);
+  background: color-mix(in srgb, var(--pill-source) 10%, transparent);
   color: color-mix(in srgb, var(--pill-source) 72%, var(--ink));
-  border: 1px solid color-mix(in srgb, var(--pill-source) 52%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pill-source) 40%, transparent);
 }
 
 /* ------- Popover shadow ------- */
@@ -474,28 +474,28 @@ h1, h2, h3, h4 {
 /* ------- Chips (filters) ------- */
 .chip {
   font-size: 12px; font-weight: 500; padding: 6px 13px;
-  border-radius: var(--r-pill); background: color-mix(in srgb, var(--accent) 8%, var(--canvas));
+  border-radius: var(--r-pill); background: color-mix(in srgb, var(--accent) 6%, var(--canvas));
   color: color-mix(in srgb, var(--accent) 62%, var(--ink)); cursor: pointer;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--canvas));
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--canvas));
   transition: 0.15s; white-space: nowrap;
 }
-.chip:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--canvas)); }
+.chip:hover { border-color: color-mix(in srgb, var(--accent) 30%, var(--canvas)); }
 .chip.on {
-  background: color-mix(in srgb, var(--accent) 16%, var(--canvas));
+  background: color-mix(in srgb, var(--accent) 12%, var(--canvas));
   color: color-mix(in srgb, var(--accent) 60%, var(--ink));
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--canvas));
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--canvas));
   font-weight: 600;
 }
 [data-theme="dark"] .chip {
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: color-mix(in srgb, var(--accent) 74%, var(--ink));
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
-[data-theme="dark"] .chip:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+[data-theme="dark"] .chip:hover { border-color: color-mix(in srgb, var(--accent) 42%, transparent); }
 [data-theme="dark"] .chip.on {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: color-mix(in srgb, var(--accent) 78%, var(--ink));
-  border: 1px solid color-mix(in srgb, var(--accent) 58%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 44%, transparent);
 }
 
 /* ------- Drawer ------- */
