@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { GoUnlimitedButton } from "@/components/marketing/go-unlimited-button";
 import { IconCheck } from "@/components/icons";
 
 export const metadata: Metadata = {
@@ -52,13 +53,13 @@ export default function PricingPage() {
           </div>
 
           {/* Paid */}
-          <div className="rounded-2xl bg-dark text-white p-7 flex flex-col">
+          <div className="rounded-2xl bg-ink text-canvas p-7 flex flex-col" style={{ background: "var(--ink)", color: "var(--canvas)" }}>
             <span className="inline-flex self-start px-2.5 py-1 rounded-full accent-fill text-xs font-semibold mb-3">Most popular</span>
             <h2 className="text-lg font-semibold">Unlimited</h2>
-            <p className="text-sm text-white/70 mt-1">For creators with a growing pipeline.</p>
+            <p className="text-sm opacity-70 mt-1">For creators with a growing pipeline.</p>
             <div className="mt-4">
               <span className="text-4xl font-semibold">$9</span>
-              <span className="text-white/60">/month</span>
+              <span className="opacity-60">/month</span>
             </div>
             <ul className="mt-6 space-y-2.5 text-sm flex-1">
               <Feature dark>Everything in Free</Feature>
@@ -66,9 +67,7 @@ export default function PricingPage() {
               <Feature dark>File &amp; attachment uploads</Feature>
               <Feature dark>Priority support</Feature>
             </ul>
-            <Link href="/signup" className="mt-8 block text-center px-6 h-12 rounded-lg accent-fill font-semibold inline-flex items-center justify-center">
-              Go unlimited
-            </Link>
+            <GoUnlimitedButton />
           </div>
         </div>
 
@@ -94,7 +93,7 @@ function Feature({ children, dark = false, className = "" }: { children: React.R
   return (
     <li className={`flex items-start gap-2.5 ${className}`}>
       <span className={`h-5 w-5 rounded-full grid place-items-center shrink-0 mt-0.5 ${dark ? "bg-white/10" : "accent-soft"} ${className.includes("line-through") ? "opacity-50" : ""}`}>
-        <IconCheck size={12} className={dark ? "text-white" : ""} />
+        <IconCheck size={12} className={dark ? "text-canvas" : ""} />
       </span>
       <span>{children}</span>
     </li>
