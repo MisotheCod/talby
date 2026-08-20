@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
@@ -10,6 +10,7 @@ type Content = {
   id: string; title: string; platform: string | null; post_type: string | null;
   status: string; event_date: string; linked_deal_id: string | null;
   caption: string | null; scheduled_time: string | null;
+  repeat_type: string | null;
 };
 type Deal = { id: string; brand: string; value: number | null };
 type Payment = { id: string; amount: number; expected_date: string | null; status: string; deal?: { brand: string } | null };
@@ -62,7 +63,11 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState<{ itemId: string; type: "content" | "deliverable" | "payment" | "todo" | "note"; x: number; y: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [dragType, setDragType] = useState<"content" | "deliverable" | "payment" | "todo" | "note" | null>(null);
+  const [dragOrigin, setDragOrigin] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dayHighlight, setDayHighlight] = useState<string | null>(() => toISO(new Date()));
+  const clickLock = useRef(false); // suppress click immediately after a drag drop
 
   const selectedContent = useMemo(() => {
     if (!selected || selected.type === "payment") return null;
@@ -194,42 +199,52 @@ export default function CalendarPage() {
             ) : (
               <div
                 key={iso}
-                className={cn("border-r border-b border-border p-1.5 relative group cursor-pointer min-h-0", dayHighlight === iso && "bg-subtle/60")}
-                onClick={(e) => { if (!dragId) showPopover(e, iso); }}
+                data-day={iso}
+                onDragOver={(e) => { if (dragId) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropTarget(iso); } }}
+                onDragLeave={() => { if (dropTarget === iso) setDropTarget(null); }}
+                onDrop={(e) => { if (dragId) { e.preventDefault(); e.stopPropagation(); onDropToDay(iso, dragId, dragType); } }}
+                className={cn("border-r border-b border-border p-1.5 relative group cursor-pointer min-h-0", dayHighlight === iso && !dropTarget && "bg-subtle/60", dropTarget === iso && "bg-subtle/80 ring-2 ring-inset ring-[var(--accent)]")}
+                onClick={(e) => { if (!dragId && !clickLock.current) showPopover(e, iso); }}
               >
                 <span className={cn("inline-grid place-items-center rounded-full text-xs", iso === toISO(new Date()) ? "h-5 min-w-5 px-1 accent-fill font-semibold" : dayHighlight === iso ? "h-5 min-w-5 px-1 font-semibold ring-1 ring-[var(--accent)] text-accentink" : "text-muted h-5 w-5")}>
                   {Number(iso.slice(8))}
                 </span>
-                <div className="mt-1 space-y-0.5">
-                  {dayItems(iso).slice(0, 2).map((it) => (
-                    <div
-                      key={it.id}
-                      draggable
-                      onDragStart={() => setDragId(it.id)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.stopPropagation(); onDropToDay(iso, it.id); }}
-                      onClick={(e) => {
-                        if (dragId) return;
-                        e.stopPropagation();
-                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        setSelected({ itemId: it.id, type: it.type, x: r.left, y: r.bottom + 6, date: iso });
-                      }}
-                      className={cn(
-                        "text-[11px] flex items-center gap-1 rounded-full px-2 py-0.5 cursor-pointer",
-                        it.type === "payment" ? "pill-due font-semibold" :
-                        it.type === "todo" ? "pill-purple" :
-                        it.type === "note" ? "pill-note" :
-                        it.type === "content" ? "pill-accent" : "pill-paid font-semibold"
-                      )}
-                    >
-                      <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide opacity-60")}>{it.label}</span>
-                      <span className={cn("truncate", it.type === "content" && "font-semibold")}>{it.title}</span>
-                      {it.time && <span className="shrink-0 ml-auto text-[10px] tabular-nums font-medium opacity-70">{it.time}</span>}
-                    </div>
-                  ))}
-                  {dayItems(iso).length > 2 && (
-                    <Pill size="sm" source="var(--ink-soft)" className="px-2 py-0.5">+{dayItems(iso).length - 2} more</Pill>
-                  )}
+                <div className="mt-1 space-y-0.5 px-1">
+                  {dayItems(iso).slice(0, 2).map((it) => {
+                    const activeId = it.id.replace(/^(pay|todo|note)/, "");
+                    const isDragging = dragId === activeId;
+                    const canDrag = it.type !== "payment";
+                    return (
+                      <div
+                        key={it.id}
+                        draggable={canDrag}
+                        onDragStart={(e) => { e.stopPropagation(); clickLock.current = true; setDragId(activeId); setDragType(it.type); setDragOrigin(iso); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", activeId); } catch {} }}
+                        onDragEnd={() => { setDragId(null); setDragType(null); setDragOrigin(null); setDropTarget(null); setTimeout(() => { clickLock.current = false; }, 60); }}
+                        onClick={(e) => {
+                          if (dragId || clickLock.current) return;
+                          e.stopPropagation();
+                          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setSelected({ itemId: it.id, type: it.type, x: r.left, y: r.bottom + 6, date: iso });
+                        }}
+                        className={cn(
+                          "text-[11px] flex items-center gap-1 rounded-full px-2 py-0.5 cursor-grab",
+                          it.type === "payment" ? "pill-due font-semibold cursor-pointer" :
+                          it.type === "todo" ? "pill-purple" :
+                          it.type === "note" ? "pill-note" :
+                          it.type === "content" ? "pill-accent" : "pill-paid font-semibold",
+                          isDragging && "opacity-40",
+                          dragId && !isDragging && "opacity-60"
+                        )}
+                      >
+                        <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide opacity-60")}>{it.label}</span>
+                        <span className={cn("truncate", it.type === "content" && "font-semibold")}>{it.title}</span>
+                        {it.time && <span className="shrink-0 ml-auto text-[10px] tabular-nums font-medium opacity-70">{it.time}</span>}
+                      </div>
+                    );
+                                        })}
+                                      {dayItems(iso).length > 2 && (
+                                        <Pill size="sm" source="var(--ink-soft)" className="px-2 py-0.5">+{dayItems(iso).length - 2} more</Pill>
+                                      )}
                 </div>
               </div>
             )
@@ -282,11 +297,36 @@ export default function CalendarPage() {
     </div>
   );
 
-  async function onDropToDay(targetDay: string, itemId: string) {
-    setDragId(null);
-    if (itemId.startsWith("pay")) return;
-    await supabase.from("content").update({ event_date: targetDay }).eq("id", itemId);
+  async function onDropToDay(targetDay: string, activeId: string, type: "content" | "deliverable" | "payment" | "todo" | "note" | null) {
+    if (!activeId) { resetDrag(); return; }
+
+    // Received payments are not draggable: their date is a historical fact.
+    // dayItems() already omits received payments, but guard here too.
+    if (type === "payment") {
+      const { data: p } = await supabase.from("payments").select("status").eq("id", activeId).single();
+      if ((p as { status?: string } | null)?.status === "received") { resetDrag(); return; }
+    }
+
+    if (type === "content" || type === "deliverable") {
+      // Recurring posts are materialized as separate rows (the base row carries
+      // repeat_type; expanded instances have repeat_type null via the DB trigger).
+      // Updating event_date on the dragged row moves only that instance, never the
+      // whole series. Dragging the base (repeat_type set) still only moves that one
+      // row; the series is not silently rescheduled.
+      await supabase.from("content").update({ event_date: targetDay }).eq("id", activeId);
+    } else if (type === "payment") {
+      await supabase.from("payments").update({ expected_date: targetDay }).eq("id", activeId);
+    } else if (type === "todo") {
+      await supabase.from("todos").update({ due_date: targetDay }).eq("id", activeId);
+    } else if (type === "note") {
+      await supabase.from("notes").update({ event_date: targetDay }).eq("id", activeId);
+    }
     load();
+
+    function resetDrag() {
+      setDragId(null); setDragType(null); setDragOrigin(null); setDropTarget(null);
+    }
+    resetDrag();
   }
 }
 
