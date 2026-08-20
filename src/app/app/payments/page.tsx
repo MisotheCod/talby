@@ -10,6 +10,7 @@ import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/compone
 type Payment = {
   id: string; deal_id: string | null; amount: number;
   expected_date: string | null; status: string;
+  invoice_state: string | null;
   deal?: { brand: string } | null;
 };
 type Deal = {
@@ -36,6 +37,19 @@ function rowsStatus(p: Payment): "past_due" | "expected" | "received" {
   return isPastDue(p.expected_date) ? "past_due" : "expected";
 }
 
+/* Invoice state label + pill kind. null/undefined -> "Not invoiced" so the
+   creators can spot a payment approaching that hasn't had an invoice sent. */
+function invoiceLabel(s: string | null): string {
+  if (s === "invoiced") return "Invoiced";
+  if (s === "no_invoice_needed") return "No invoice needed";
+  return "Not invoiced";
+}
+function invoiceKind(s: string | null): "paid" | "due" | "neutral" {
+  if (s === "invoiced") return "paid";
+  if (s === "no_invoice_needed") return "neutral";
+  return "due";
+}
+
 /* Year-over-year line helper: given a numeric for this period and a
    function retrieving the same metric for the prior year, produce a
    trend string and arrow direction — only when both values exist. */
@@ -55,7 +69,7 @@ export default function PaymentsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
   const [nudgeMsg, setNudgeMsg] = useState<{ paymentId: string; kind: "ok" | "warn"; text: string } | null>(null);
-  const [listFilter, setListFilter] = useState<"All" | "Expected" | "Received">("All");
+  const [listFilter, setListFilter] = useState<"All" | "Expected" | "Received" | "Not invoiced">("All");
   const [range, setRange] = useState<Range>("month");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -194,7 +208,8 @@ export default function PaymentsPage() {
   const listItems = (() => {
     const base = listFilter === "All" ? payments
       : listFilter === "Expected" ? pending
-      : received;
+      : listFilter === "Received" ? received
+      : payments.filter((p) => (p.invoice_state ?? "not_invoiced") === "not_invoiced");
     // Group by month (expected_date)
     const groups: Record<string, Payment[]> = {};
     for (const p of base) {
@@ -228,6 +243,11 @@ export default function PaymentsPage() {
   /* ---------- actions ---------- */
   const markReceived = async (id: string) => {
     await supabase.from("payments").update({ status: "received" }).eq("id", id);
+    setMenuOpen(null);
+    load();
+  };
+  const setInvoice = async (id: string, state: string) => {
+    await supabase.from("payments").update({ invoice_state: state }).eq("id", id);
     setMenuOpen(null);
     load();
   };
@@ -326,7 +346,7 @@ export default function PaymentsPage() {
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <h2 className="font-semibold text-[15px]">Coming up</h2>
           <div className="flex gap-1.5">
-            <Segmented options={(["All", "Expected", "Received"] as const)} value={listFilter} onChange={setListFilter} />
+            <Segmented options={(["All", "Expected", "Received", "Not invoiced"] as const)} value={listFilter} onChange={setListFilter} />
           </div>
         </div>
         {listItems.length === 0 ? (
@@ -359,6 +379,9 @@ export default function PaymentsPage() {
                             <StatusPill size="sm" kind="due">Expected</StatusPill>
                           )}
                         </span>
+                        <span className="shrink-0">
+                          <StatusPill size="sm" kind={invoiceKind(p.invoice_state)}>{invoiceLabel(p.invoice_state)}</StatusPill>
+                        </span>
                         <span className={cn("shrink-0 text-sm font-semibold tabular-nums w-20 text-right", isRecv ? "text-ok" : "text-ink")}>
                           {formatMoney(p.amount)}
                         </span>
@@ -368,7 +391,11 @@ export default function PaymentsPage() {
                               <IconMore size={16} />
                             </button>
                             {menuOpen === p.id && (
-                              <div ref={menuRef} className="absolute right-0 top-7 z-20 w-44 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up">
+                              <div ref={menuRef} className="absolute right-0 top-7 z-20 w-48 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up">
+                                <button onClick={() => setInvoice(p.id, "invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">Mark invoiced</button>
+                                <button onClick={() => setInvoice(p.id, "not_invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer" disabled={(p.invoice_state ?? "not_invoiced") === "not_invoiced"}>Mark not invoiced</button>
+                                <button onClick={() => setInvoice(p.id, "no_invoice_needed")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">No invoice needed</button>
+                                <div className="my-1 h-px bg-line" />
                                 <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
                                   <IconCheck size={14} /> Mark received
                                 </button>
@@ -489,6 +516,7 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: { id: string; bra
   const [dealId, setDealId] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
+  const [invoiceState, setInvoiceState] = useState("not_invoiced");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -499,6 +527,7 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: { id: string; bra
     if (!user) { setError("Not signed in."); setSaving(false); return; }
     const { error } = await supabase.from("payments").insert({
       user_id: user.id, deal_id: dealId || null, amount: Number(amount), expected_date: date || null,
+      invoice_state: invoiceState,
     });
     setSaving(false);
     if (error) { setError(error.message); return; }
@@ -524,6 +553,14 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: { id: string; bra
           <label className="block">
             <span className="text-sm font-medium block mb-1.5">Expected date</span>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium block mb-1.5">Invoice</span>
+            <Select value={invoiceState} onChange={(e) => setInvoiceState(e.target.value)}>
+              <option value="not_invoiced">Not invoiced</option>
+              <option value="invoiced">Invoiced</option>
+              <option value="no_invoice_needed">No invoice needed</option>
+            </Select>
           </label>
           {error && <p className="text-sm text-bad" role="alert">{error}</p>}
           <div className="flex justify-end gap-2 pt-2">

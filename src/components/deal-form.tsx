@@ -75,6 +75,8 @@ export function DealForm({
   const supabase = createClient();
   const [v, setV] = useState<DealFormValues>(initial);
   const [extracting, setExtracting] = useState(false);
+  const [stagedFiles, setStagedFiles] = useState<{ file: File; extracted: boolean }[]>([]);
+  const [plan, setPlan] = useState<"free" | "paid">("free");
   const fileRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof DealFormValues>(k: K, val: DealFormValues[K]) => setV((p) => ({ ...p, [k]: val }));
 
@@ -98,19 +100,36 @@ export function DealForm({
 
   const uploadContract = async (file: File) => {
     setExtracting(true); setError("");
+    // A contract attached at creation is a paid-tier file upload. Free users
+    // can still upload to auto-fill (that reads the file without storing it),
+    // but skip persisting the file.
     const fd = new FormData();
     fd.append("file", file);
     try {
       const res = await fetch("/api/deals/extract-contract", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Could not read the contract."); return; }
+      setStagedFiles((prev) => [...prev, { file, extracted: false }]);
+      if (!res.ok) { setError(data.error || "Could not read the contract. The file is saved to the deal's Files tab."); return; }
       applyExtracted(data.fields ?? {});
+      setError("");
     } catch {
-      setError("Could not reach the contract parser.");
+      setError("Could not read the contract.");
     } finally {
       setExtracting(false);
     }
   };
+
+  // On mount, resolve the current plan for file gating.
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+        setPlan(((p.data as unknown as { plan?: string })?.plan === "paid") ? "paid" : "free");
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase]);
 
   const submit = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -133,8 +152,19 @@ export function DealForm({
     };
 
     if (mode === "create") {
-      const { error } = await supabase.from("deals").insert({ user_id: user.id, brand: v.brand.trim(), ...payload });
+      const { data: created, error } = await supabase.from("deals").insert({ user_id: user.id, brand: v.brand.trim(), ...payload }).select("id").single();
       if (error) { setError(error.message); return; }
+      const createdId = (created as unknown as { id?: string } | null)?.id;
+      // Persist any contract files attached at creation into the deal's Files
+      // tab (same destination as files added later). Paid tier only; free
+      // users' staged files are not stored (they uploaded only to auto-fill).
+      if (plan === "paid" && stagedFiles.length && createdId) {
+        for (const { file } of stagedFiles) {
+          const path = `${user.id}/${createdId}/${Date.now()}-${file.name}`;
+          await supabase.storage.from("deal-files").upload(path, file);
+          await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: file.name, path, size_bytes: file.size, mime: file.type });
+        }
+      }
     } else {
       if (!dealId) { setError("Missing deal."); return; }
       const { error } = await supabase.from("deals").update(payload).eq("id", dealId);
@@ -146,22 +176,46 @@ export function DealForm({
   return (
     <div className="space-y-4">
       {mode === "create" && (
-        <label className={cn("flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 cursor-pointer hover:border-accent transition-colors", uploadOnMount ? "border-accent/40 bg-accenttint" : "border-line2 bg-card2")}>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.txt,.md,text/plain,application/pdf"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadContract(f); e.target.value = ""; }}
-          />
-          <span className="shrink-0 h-9 w-9 rounded-lg accent-soft grid place-items-center text-accentink">
-            {extracting ? <Spinner /> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 16V4M12 4L7 9M12 4l5 5M4 20h16" /></svg>}
-          </span>
-          <span className="text-sm">
-            <span className="font-medium">{extracting ? "Reading contract…" : uploadOnMount ? "Start with a contract" : "Upload a contract to auto-fill"}</span>
-            <span className="block text-xs text-inksoft">Upload a PDF or text file and Talby will pull the deal terms for you.</span>
-          </span>
-        </label>
+        <div>
+          <label className={cn("flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 cursor-pointer hover:border-accent transition-colors", uploadOnMount ? "border-accent/40 bg-accenttint" : "border-line2 bg-card2")}>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.txt,.md,text/plain,application/pdf"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadContract(f); e.target.value = ""; }}
+            />
+            <span className="shrink-0 h-9 w-9 rounded-lg accent-soft grid place-items-center text-accentink">
+              {extracting ? <Spinner /> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 16V4M12 4L7 9M12 4l5 5M4 20h16" /></svg>}
+            </span>
+            <span className="text-sm">
+              <span className="font-medium">{extracting ? "Reading contract…" : uploadOnMount ? "Start with a contract" : "Upload a contract to auto-fill"}</span>
+              <span className="block text-xs text-inksoft">{plan === "paid" ? "Upload a PDF or text file. Talby pulls the deal terms, and saves the file to the deal." : "Upload a PDF to auto-fill the deal terms."}</span>
+            </span>
+          </label>
+          {plan !== "paid" && stagedFiles.length === 0 && (
+            <p className="text-xs text-inksoft mt-1.5 ml-1">
+              Saving contract files is on the paid plan. Go unlimited to keep the file attached to the deal.
+            </p>
+          )}
+          {stagedFiles.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {stagedFiles.map((s, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm">
+                  <span className="truncate flex-1">{s.file.name}</span>
+                  {plan === "free" ? (
+                    <span className="text-[11px] font-semibold text-due shrink-0">Paid plan keeps files</span>
+                  ) : (
+                    <button onClick={() => setStagedFiles(stagedFiles.filter((_, j) => j !== i))} className="text-inksoft hover:text-late cursor-pointer shrink-0" aria-label="Remove file"><IconDelete size={14} /></button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {plan === "free" && stagedFiles.length > 0 && (
+            <a href="/pricing" className="inline-block mt-2"><Button size="sm" variant="secondary">Go unlimited to save files</Button></a>
+          )}
+        </div>
       )}
 
       {mode === "create" && (

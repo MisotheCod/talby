@@ -501,6 +501,12 @@ function NotionStep({ onColumns }: { onColumns: (columns: string[], rows: Record
         )}
       </div>
 
+      {/* Attachments don't transfer — tell the user up front instead of
+          silently dropping their contracts/filed docs. */}
+      <div className="rounded-xl border border-due/30 bg-duebg px-3.5 py-2.5 text-[13px] text-due mb-4">
+        Files and attachments on Notion pages won&apos;t transfer with the import. Deal fields (value, status, dates, notes, rep contact) come across; for contracts and docs, add them to each deal&apos;s Files tab after importing.
+      </div>
+
       {loading && (
         <div className="flex items-center gap-2 text-inksoft py-6"><Spinner /><span className="text-sm font-medium">Reading database…</span></div>
       )}

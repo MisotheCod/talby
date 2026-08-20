@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail } from "@/components/icons";
 import { Button, Input, Textarea, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
@@ -22,7 +22,7 @@ type Deal = {
   payment_status: string; pay_terms: string | null; exclusivity_days: number | null;
   created_at?: string;
 };
-type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null };
+type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null };
 
@@ -440,6 +440,16 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
             <button onClick={onClose} aria-label="Close drawer" className="p-1.5 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
           </div>
           <div className="mt-3"><DealStatusBadge status={deal.status} payment_status={deal.payment_status} active={deal.active} due={deal.due_date} /></div>
+          {(deal.links as { url: string; label?: string }[] ?? []).filter((l) => /^From inbox/.test(l.label || "")).map((l, i) => (
+            <a
+              key={i}
+              href={l.url}
+              onClick={(e) => { e.preventDefault(); history.pushState(null, "", "/app/inbox"); window.dispatchEvent(new PopStateEvent("popstate")); }}
+              className="mt-3 flex items-center gap-2 text-xs text-accent-ink rounded-lg bg-card2 border border-line px-2.5 py-1.5 hover:border-[var(--accent)] transition w-fit cursor-pointer"
+            >
+              <IconMail size={13} /> {l.label}{l.url.startsWith("mailto:") ? " · Reply in Gmail" : ""}
+            </a>
+          ))}
         </header>
 
         {/* Tabs */}
@@ -611,7 +621,16 @@ function FilesTab({ dealId, files, setFiles, plan }: { dealId: string; files: De
         {files.map((f) => (
           <li key={f.id} className="flex items-center gap-3 py-2 text-sm">
             <IconPaperclip size={16} className="text-inksoft" />
-            <span className="flex-1 truncate">{f.name}</span>
+            <button
+              onClick={async () => {
+                const { data } = await supabase.storage.from("deal-files").createSignedUrl(f.path, 300);
+                if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+              }}
+              className="flex-1 truncate text-left hover:text-[var(--accent)] cursor-pointer"
+              title="Open or download"
+            >
+              {f.name}
+            </button>
             {f.size_bytes != null && <span className="text-xs text-inkfaint">{Math.round(f.size_bytes / 1024)} KB</span>}
             <button onClick={() => supabase.storage.from("deal-files").remove([f.path]).then(() => supabase.from("deal_files").delete().eq("id", f.id).then(() => setFiles(files.filter((x) => x.id !== f.id))))} aria-label="Delete" className="text-inksoft hover:text-late cursor-pointer"><IconDelete size={14} /></button>
           </li>
@@ -676,7 +695,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
     if (!amount) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: Number(amount), expected_date: date || null }).select().single();
+    const { data } = await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: Number(amount), expected_date: date || null, invoice_state: "not_invoiced" }).select().single();
     if (data) { setPayments([data as unknown as Payment, ...payments]); setAmount(""); setDate(""); onChanged(); }
   };
   const markReceived = async (id: string) => {
@@ -684,6 +703,10 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
     setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received" } : p)));
     onChanged();
     onCelebrate?.();
+  };
+  const setInvoiceState = async (p: Payment, state: string) => {
+    await supabase.from("payments").update({ invoice_state: state }).eq("id", p.id);
+    setPayments(payments.map((x) => (x.id === p.id ? { ...x, invoice_state: state } : x)));
   };
   return (
     <div className="space-y-4">
@@ -698,8 +721,23 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-semibold money tabular-nums">{formatMoney(p.amount)}</div>
-                <div className={cn("text-xs", p.status === "received" ? "text-paid" : isPastDue(p.expected_date) ? "text-late" : "text-inksoft")}>
-                  {p.status === "received" ? "Received" : isPastDue(p.expected_date) ? "Past due" : formatDate(p.expected_date)}
+                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                  <span className={cn("text-xs", p.status === "received" ? "text-paid" : isPastDue(p.expected_date) ? "text-late" : "text-inksoft")}>
+                    {p.status === "received" ? "Received" : isPastDue(p.expected_date) ? "Past due" : formatDate(p.expected_date)}
+                  </span>
+                  {p.status !== "received" && (
+                    <button
+                      onClick={() => { const s = p.invoice_state ?? "not_invoiced"; const next = s === "invoiced" ? "not_invoiced" : s === "not_invoiced" ? "no_invoice_needed" : "invoiced"; setInvoiceState(p, next); }}
+                      className={cn(
+                        "text-[10.5px] font-semibold rounded-full px-2 py-0.5 border cursor-pointer transition-colors",
+                        (p.invoice_state ?? "not_invoiced") === "invoiced" && "bg-paidbg text-paid border-paid/30",
+                        (p.invoice_state ?? "not_invoiced") === "not_invoiced" && "bg-duebg text-due border-due/30",
+                        (p.invoice_state ?? "not_invoiced") === "no_invoice_needed" && "bg-card2 text-inksoft border-line2"
+                      )}
+                    >
+                      {(p.invoice_state ?? "not_invoiced") === "invoiced" ? "Invoiced" : (p.invoice_state ?? "not_invoiced") === "no_invoice_needed" ? "No invoice needed" : "Not invoiced"}
+                    </button>
+                  )}
                 </div>
               </div>
               {p.status !== "received" && (
