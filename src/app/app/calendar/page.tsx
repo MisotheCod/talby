@@ -60,6 +60,7 @@ export default function CalendarPage() {
   const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [popover, setPopover] = useState<{ date: string; x: number; y: number } | null>(null);
+  const [dayReveal, setDayReveal] = useState<{ iso: string; x: number; y: number } | null>(null);
   const [selected, setSelected] = useState<{ itemId: string; type: "content" | "deliverable" | "payment" | "todo" | "note"; x: number; y: number; date: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -129,6 +130,14 @@ export default function CalendarPage() {
   }, [supabase, cursor]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Dismiss the "+N more" day reveal with Escape.
+  useEffect(() => {
+    if (!dayReveal) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDayReveal(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dayReveal]);
 
   const prevMonth = () => setCursor((c) => ({ y: c.m === 0 ? c.y - 1 : c.y, m: c.m === 0 ? 11 : c.m - 1 }));
   const nextMonth = () => setCursor((c) => ({ y: c.m === 11 ? c.y + 1 : c.y, m: c.m === 11 ? 0 : c.m + 1 }));
@@ -329,7 +338,18 @@ export default function CalendarPage() {
                     );
                                         })}
                                       {dayItems(iso).length > 2 && (
-                                        <Pill size="sm" source="var(--ink-soft)" className="px-2 py-0.5">+{dayItems(iso).length - 2} more</Pill>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation(); // never trigger the day cell's add flow
+                                            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                            setDayReveal({ iso, x: r.left, y: r.bottom + 6 });
+                                          }}
+                                          className="block w-full text-left cursor-pointer"
+                                          aria-expanded={dayReveal?.iso === iso}
+                                        >
+                                          <Pill size="sm" source="var(--ink-soft)" className="px-2 py-0.5">+{dayItems(iso).length - 2} more</Pill>
+                                        </button>
                                       )}
                 </div>
               </div>
@@ -345,6 +365,40 @@ export default function CalendarPage() {
           onClose={() => setPopover(null)}
           onSaved={() => { setPopover(null); load(); }}
         />
+      )}
+
+      {dayReveal && (
+        <MiniModal
+          position={{ x: dayReveal.x, y: dayReveal.y }}
+          onClose={() => setDayReveal(null)}
+          title={`${MONTHS[cursor.m]} ${dayReveal.iso.slice(8)}`}
+        >
+          <div className="space-y-1.5">
+            {dayItems(dayReveal.iso).map((it) => {
+              return (
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDayReveal(null);
+                    setSelected({ itemId: it.id, type: it.type, x: dayReveal.x, y: dayReveal.y, date: dayReveal.iso });
+                  }}
+                  className="w-full text-left cursor-pointer flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-card2 transition-colors"
+                >
+                  <Pill size="sm" className={cn(
+                    it.type === "payment" ? "pill-due" :
+                    it.type === "todo" ? "pill-purple" :
+                    it.type === "note" ? "pill-note" :
+                    it.type === "content" ? "pill-accent" : "pill-paid"
+                  )}>{it.label}</Pill>
+                  <span className="flex-1 truncate text-sm">{it.title}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-inksoft mt-2.5">Click an item to open it, or click outside to close.</p>
+        </MiniModal>
       )}
 
       {selected && selectedContent && (
