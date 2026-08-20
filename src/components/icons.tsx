@@ -34,6 +34,7 @@ export {
   PreviewClose as IconEyeInvisible,
   Search as IconSearch,
   Star as IconStar,
+  Magic as IconAuto,            // AI auto-filled marker
   Upload as IconUpload,
   Download as IconDownload,
   Paperclip as IconPaperclip,
