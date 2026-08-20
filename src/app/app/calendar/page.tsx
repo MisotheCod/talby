@@ -247,7 +247,7 @@ export default function CalendarPage() {
                             startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
                             engaged: false, timerId: null,
                           };
-                          e.currentTarget.setPointerCapture(e.pointerId);
+                          try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* non-fatal */ }
                           // Touch: long-press (~260ms) engages drag, so scrolling the page
                           // still works unless the user deliberately holds. Mouse engages
                           // on first move (below).
