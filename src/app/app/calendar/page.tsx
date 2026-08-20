@@ -69,6 +69,27 @@ export default function CalendarPage() {
   const [dayHighlight, setDayHighlight] = useState<string | null>(() => toISO(new Date()));
   const clickLock = useRef(false); // suppress click immediately after a drag drop
 
+  // --- Pointer-based drag (unified mouse + touch, since HTML5 draggable is mouse-only) ---
+  // Long-press on touch, threshold-movement on mouse to distinguish scroll vs grab.
+  const dragRef = useRef<{
+    id: string; type: "content" | "deliverable" | "payment" | "todo" | "note";
+    origin: string; startX: number; startY: number; pointerId: number;
+    engaged: boolean; timerId: number | null;
+  } | null>(null);
+
+  const engageDrag = (id: string, type: "content" | "deliverable" | "payment" | "todo" | "note", origin: string) => {
+    if (!dragRef.current || dragRef.current.engaged) return;
+    dragRef.current.engaged = true;
+    clickLock.current = true;
+    setDragId(id); setDragType(type); setDragOrigin(origin);
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+    setDropTarget(null); setDragId(null); setDragType(null); setDragOrigin(null);
+    setTimeout(() => { clickLock.current = false; }, 80);
+  };
+
   const selectedContent = useMemo(() => {
     if (!selected || selected.type === "payment") return null;
     const c = content.find((x) => x.id === selected.itemId);
@@ -199,12 +220,9 @@ export default function CalendarPage() {
             ) : (
               <div
                 key={iso}
-                data-day={iso}
-                onDragOver={(e) => { if (dragId) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDropTarget(iso); } }}
-                onDragLeave={() => { if (dropTarget === iso) setDropTarget(null); }}
-                onDrop={(e) => { if (dragId) { e.preventDefault(); e.stopPropagation(); onDropToDay(iso, dragId, dragType); } }}
-                className={cn("border-r border-b border-border p-1.5 relative group cursor-pointer min-h-0", dayHighlight === iso && !dropTarget && "bg-subtle/60", dropTarget === iso && "bg-subtle/80 ring-2 ring-inset ring-[var(--accent)]")}
-                onClick={(e) => { if (!dragId && !clickLock.current) showPopover(e, iso); }}
+                                data-day={iso}
+                                className={cn("border-r border-b border-border p-1.5 relative group cursor-pointer min-h-0", dayHighlight === iso && !dropTarget && "bg-subtle/60", dropTarget === iso && "bg-subtle/80 ring-2 ring-inset ring-[var(--accent)]")}
+                                onClick={(e) => { if (!dragId && !clickLock.current) showPopover(e, iso); }}
               >
                 <span className={cn("inline-grid place-items-center rounded-full text-xs", iso === toISO(new Date()) ? "h-5 min-w-5 px-1 accent-fill font-semibold" : dayHighlight === iso ? "h-5 min-w-5 px-1 font-semibold ring-1 ring-[var(--accent)] text-accentink" : "text-muted h-5 w-5")}>
                   {Number(iso.slice(8))}
@@ -217,22 +235,83 @@ export default function CalendarPage() {
                     return (
                       <div
                         key={it.id}
-                        draggable={canDrag}
-                        onDragStart={(e) => { e.stopPropagation(); clickLock.current = true; setDragId(activeId); setDragType(it.type); setDragOrigin(iso); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", activeId); } catch {} }}
-                        onDragEnd={() => { setDragId(null); setDragType(null); setDragOrigin(null); setDropTarget(null); setTimeout(() => { clickLock.current = false; }, 60); }}
+                        onPointerDown={(e) => {
+                          // Payments are not draggable; ignore the grab to keep touch scroll
+                          if (!canDrag) return;
+                          const sel = window.getSelection?.();
+                          sel?.removeAllRanges();
+                          // Cancel any prior long-press state
+                          if (dragRef.current?.timerId) { window.clearTimeout(dragRef.current.timerId); dragRef.current.timerId = null; }
+                          dragRef.current = {
+                            id: activeId, type: it.type, origin: iso,
+                            startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
+                            engaged: false, timerId: null,
+                          };
+                          e.currentTarget.setPointerCapture(e.pointerId);
+                          // Touch: long-press (~260ms) engages drag, so scrolling the page
+                          // still works unless the user deliberately holds. Mouse engages
+                          // on first move (below).
+                          if (e.pointerType === "touch") {
+                            dragRef.current.timerId = window.setTimeout(() => {
+                              if (dragRef.current && !dragRef.current.engaged) engageDrag(activeId, it.type, iso);
+                            }, 260);
+                          }
+                        }}
+                        onPointerMove={(e) => {
+                          const d = dragRef.current;
+                          if (!d || d.pointerId !== e.pointerId) return;
+                          const dx = e.clientX - d.startX;
+                          const dy = e.clientY - d.startY;
+                          // Cancel long-press if the finger moves a lot first (a scroll).
+                          if (!d.engaged && e.pointerType === "touch" && Math.hypot(dx, dy) > 10) {
+                            if (d.timerId) window.clearTimeout(d.timerId);
+                            dragRef.current = null;
+                            return;
+                          }
+                          // Mouse engages after a small movement threshold so click still works.
+                          if (!d.engaged && e.pointerType !== "touch" && Math.hypot(dx, dy) > 4) {
+                            engageDrag(d.id, d.type, d.origin);
+                          }
+                          if (d.engaged) {
+                            e.preventDefault();
+                            // Highlight the day cell currently under the pointer.
+                            const el = document.elementFromPoint(e.clientX, e.clientY);
+                            const cell = el?.closest?.("[data-day]") as HTMLElement | null;
+                            setDropTarget(cell?.dataset.day ?? null);
+                          }
+                        }}
+                        onPointerUp={(e) => {
+                          const d = dragRef.current;
+                          if (!d || d.pointerId !== e.pointerId) return;
+                          if (d.timerId) window.clearTimeout(d.timerId);
+                          if (d.engaged) {
+                            const el = document.elementFromPoint(e.clientX, e.clientY);
+                            const cell = el?.closest?.("[data-day]") as HTMLElement | null;
+                            const day = cell?.dataset.day ?? null;
+                            if (day) onDropToDay(day, d.id, d.type);
+                            else endDrag();
+                          }
+                          dragRef.current = null;
+                          setTimeout(() => { clickLock.current = false; }, 80);
+                        }}
+                        onPointerCancel={(e) => {
+                          const d = dragRef.current;
+                          if (d && d.pointerId === e.pointerId) endDrag();
+                        }}
                         onClick={(e) => {
                           if (dragId || clickLock.current) return;
                           e.stopPropagation();
                           const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                           setSelected({ itemId: it.id, type: it.type, x: r.left, y: r.bottom + 6, date: iso });
                         }}
+                        style={{ touchAction: canDrag ? "none" : "auto" }}
                         className={cn(
-                          "text-[11px] flex items-center gap-1 rounded-full px-2 py-0.5 cursor-grab",
+                          "text-[11px] flex items-center gap-1 rounded-full px-2 py-0.5 cursor-grab select-none",
                           it.type === "payment" ? "pill-due font-semibold cursor-pointer" :
                           it.type === "todo" ? "pill-purple" :
                           it.type === "note" ? "pill-note" :
                           it.type === "content" ? "pill-accent" : "pill-paid font-semibold",
-                          isDragging && "opacity-40",
+                          isDragging && "opacity-40 ring-2 ring-inset ring-[var(--accent)]",
                           dragId && !isDragging && "opacity-60"
                         )}
                       >
