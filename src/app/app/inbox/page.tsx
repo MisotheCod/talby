@@ -98,7 +98,7 @@ export default function InboxPage() {
             Talby can read your inbox and surface genuine brand-deal outreach so you never miss a paid
             opportunity landing in Gmail. Upgrade to turn it on.
           </p>
-          <a href="/pricing" className="inline-block mt-4"><Button>Go unlimited</Button></a>
+          <a href="/#pricing" className="inline-block mt-4"><Button>Go unlimited</Button></a>
         </div>
       </div>
     );

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { IconClose, IconCrown, IconCheck } from "@/components/icons";
-import { Button, Spinner } from "@/components/ui";
+import { Button } from "@/components/ui";
 
 /**
  * Upgrade prompt shown when a free user hits the active-deal cap.
@@ -15,25 +14,9 @@ export function UpgradeModal({
   onClose: () => void;
   feature?: string;
 }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const startCheckout = async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setError(data.error || "Could not start checkout.");
-        setLoading(false);
-      }
-    } catch {
-      setError("Could not start checkout.");
-      setLoading(false);
-    }
+  const go = () => {
+    onClose();
+    window.location.href = "/#pricing";
   };
 
   return (
@@ -65,10 +48,7 @@ export function UpgradeModal({
           <li className="flex items-center gap-2"><IconCheck size={16} className="text-accentink shrink-0" /> File &amp; attachment uploads</li>
           <li className="flex items-center gap-2"><IconCheck size={16} className="text-accentink shrink-0" /> Everything you use today, kept forever</li>
         </ul>
-        <Button className="w-full mt-6" size="lg" onClick={startCheckout} disabled={loading}>
-          {loading ? <Spinner /> : "Go unlimited"}
-        </Button>
-        {error && <p className="text-sm text-late mt-3" role="alert">{error}</p>}
+        <Button className="w-full mt-6" size="lg" onClick={go}>Go unlimited</Button>
         <p className="text-xs text-inksoft mt-3">Cancel anytime. Price: $9/month.</p>
       </div>
     </div>

@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  const publicRoutes = ["/", "/pricing", "/login", "/signup", "/terms", "/privacy", "/forgot-password", "/reset-password"];
+  const publicRoutes = ["/", "/login", "/signup", "/terms", "/privacy", "/forgot-password", "/reset-password"];
   const isPublic = publicRoutes.some((r) => path === r || path.startsWith(r + "/"));
 
   if (!user && (path.startsWith("/app") || path.startsWith("/onboarding"))) {
@@ -51,7 +51,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && path === "/") {
+  // A signed-in user navigating to the marketing homepage (e.g. the pricing
+  // comparison at #pricing) should see that page, not be bounced to /app.
+  // Only redirect a bare "/" visit to the app.
+  if (user && path === "/" && !request.nextUrl.hash) {
     const url = request.nextUrl.clone();
     url.pathname = "/app";
     return NextResponse.redirect(url);

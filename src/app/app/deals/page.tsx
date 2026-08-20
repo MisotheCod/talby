@@ -356,7 +356,7 @@ function NewDealModal({ plan, activeCount, initialMode, onClose, onCreated, onUp
           <IconInfo size={18} className="shrink-0 mt-0.5 accent-ink" />
           <div>
             <div className="font-semibold accent-ink">You&apos;ve reached the free-plan limit</div>
-            <p className="text-inksoft mt-0.5">You have {activeCount} active deals, the free plan holds {FREE_ACTIVE_DEAL_CAP}. Go unlimited to keep adding.</p>
+            <p className="text-inksoft mt-0.5">You have {activeCount} active deals, the free plan holds {FREE_ACTIVE_DEAL_CAP}. <a href="/#pricing" onClick={onClose} className="accent-ink font-semibold underline underline-offset-2 hover:opacity-80">Go unlimited</a> to keep adding.</p>
           </div>
         </div>
       )}

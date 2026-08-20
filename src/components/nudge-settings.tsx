@@ -112,7 +112,7 @@ export function NudgeSettings() {
         <p className="text-sm text-inksoft mt-1">
           Chasing overdue invoices? Talby can draft warm follow-ups from your own Gmail on the paid plan.
         </p>
-        <a href="/pricing" className="inline-block mt-3">
+        <a href="/#pricing" className="inline-block mt-3">
           <Button><IconCrownMini /> Go unlimited</Button>
         </a>
       </div>

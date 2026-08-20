@@ -123,13 +123,8 @@ export default function SettingsPage() {
   };
 
   const startUpgrade = async () => {
-    setSaving(true); setError("");
-    try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST" });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else { setError(data.error || "Could not start checkout."); setSaving(false); }
-    } catch { setError("Could not start checkout."); setSaving(false); }
+    setSaving(false);
+    window.location.href = "/#pricing";
   };
 
   const isOn = (p: (typeof ACCENT_PRESETS)[number]) =>

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 /** Pricing-page upgrade button: starts Stripe checkout if the visitor is
  *  signed in, otherwise sends them to signup first. */
-export function GoUnlimitedButton({ label = "Go unlimited" }: { label?: string }) {
+export function GoUnlimitedButton({ label = "Go unlimited", className = "" }: { label?: string; className?: string }) {
   const [loading, setLoading] = useState(false);
 
   const go = async () => {
@@ -32,7 +32,7 @@ export function GoUnlimitedButton({ label = "Go unlimited" }: { label?: string }
     <button
       onClick={go}
       disabled={loading}
-      className="mt-8 block text-center px-6 h-12 rounded-lg accent-fill font-semibold inline-flex items-center justify-center w-full disabled:opacity-60"
+      className={"btn btn-3d btn-lg w-full " + className}
     >
       {loading ? "Redirecting…" : label}
     </button>

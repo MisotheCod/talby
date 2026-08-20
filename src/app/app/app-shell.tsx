@@ -235,7 +235,7 @@ function UpsellCard({ used, cap }: { used: number; cap: number }) {
     <div className="upsell">
       <div className="t">{used} of {cap} deals used</div>
       <div className="d">One more and you&apos;ll want unlimited. Good problem to have.</div>
-      <button className="btn3d full">Go unlimited</button>
+      <a href="/#pricing" className="btn3d full no-underline block text-center">Go unlimited</a>
     </div>
   );
 }

@@ -292,6 +292,34 @@
 .mkt .fcol a:hover { color: var(--ink); }
 .mkt .fbot { display: flex; justify-content: space-between; padding-top: 22px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-3); flex-wrap: wrap; gap: 10px; }
 
+/* ---- Pricing comparison ---- */
+.mkt .pricing { padding: 40px 0 40px; }
+.mkt .pricegrid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 860px; margin: 0 auto; align-items: stretch; }
+.mkt .pcard { background: #fff; border: 1px solid var(--line); border-radius: var(--r-lg); padding: 34px 32px; display: flex; flex-direction: column; box-shadow: var(--sh); position: relative; }
+.mkt .pcard.pdark { background: var(--ink); color: #fff; border-color: transparent; }
+.mkt .phead { margin-bottom: 6px; }
+.mkt .pname { font-size: 21px; font-weight: 800; letter-spacing: -.03em; }
+.mkt .pcard.pdark .pname { margin-top: 12px; }
+.mkt .pbadge { display: inline-block; background: var(--blue); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 100px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.mkt .pamt { font-size: 40px; font-weight: 800; letter-spacing: -.04em; line-height: 1; margin: 10px 0 6px; letter-spacing: -.04em; display: flex; align-items: baseline; gap: 8px; }
+.mkt .pamt .pper { font-size: 14px; font-weight: 600; color: var(--ink-2); }
+.mkt .pcard.pdark .pamt .pper { color: rgba(255,255,255,.6); }
+.mkt .pcard p { font-size: 14.5px; color: var(--ink-2); margin: 0 0 6px; }
+.mkt .pcard.pdark p { color: rgba(255,255,255,.72); }
+.mkt .plabel { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin: 18px 0 8px; }
+.mkt .pcard.pdark .plabel { color: rgba(255,255,255,.55); }
+.mkt .pfeat { list-style: none; margin: 0 0 26px; flex: 1; }
+.mkt .pfeat li { display: flex; align-items: center; gap: 10px; padding: 6.5px 0; font-size: 15px; font-weight: 600; }
+.mkt .pcard.pdark .pfeat li { color: #fff; }
+.mkt .pmark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+.mkt .pmark svg { width: 11px; height: 11px; stroke-width: 3; fill: none; stroke: #fff; }
+.mkt .pm-free { background: var(--soft); }
+.mkt .pm-free svg { stroke: var(--ink-3); }
+.mkt .pm-un { background: var(--blue); }
+.mkt .pdark .pfeat .pmark svg { stroke: #fff; }
+.mkt .pcard .btn3d, .mkt .pcard .btn-3d { margin-top: auto; }
+.mkt .pnote { text-align: center; font-size: 14px; color: var(--ink-2); margin-top: 26px; max-width: 520px; margin-left: auto; margin-right: auto; }
+@media (max-width: 720px) { .mkt .pricegrid { grid-template-columns: 1fr; } }
 .mkt .reveal { opacity: 0; transform: translateY(34px); }
 
 .mkt :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

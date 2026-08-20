@@ -213,7 +213,7 @@ export function DealForm({
             </ul>
           )}
           {plan === "free" && stagedFiles.length > 0 && (
-            <a href="/pricing" className="inline-block mt-2"><Button size="sm" variant="secondary">Go unlimited to save files</Button></a>
+            <a href="/#pricing" className="inline-block mt-2"><Button size="sm" variant="secondary">Go unlimited to save files</Button></a>
           )}
         </div>
       )}

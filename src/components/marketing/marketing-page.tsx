@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { TalbyLogo } from "@/components/marketing/talby-logo";
+import { GoUnlimitedButton } from "@/components/marketing/go-unlimited-button";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -383,7 +384,7 @@ export function MarketingPage() {
             <div className="dcard reveal">
               <div className="demo"><div className="ring" /><div style={{ fontSize: 13, fontWeight: 600 }}>4 of 5 free deals used<br /><span style={{ color: "var(--ink-2)", fontWeight: 500 }}>Growth looks good on you.</span></div></div>
               <h4>Honest free plan</h4>
-              <p>The whole app is free up to 5 active deals. Hit the cap and it means business is good. Ten dollars a month removes it.</p>
+              <p>The whole app is free up to 5 active deals. Hit the cap and it means business is good. Nine dollars a month removes it.</p>
             </div>
             <div className="dcard reveal">
               <div className="demo"><div className="swrow">
@@ -414,9 +415,57 @@ export function MarketingPage() {
             <details open><summary>Is this just another Notion template?<IconChev /></summary><p>No. Notion makes you build the system before you can use it. Talby is the finished thing. Sign up, add a deal, and it works. Nothing to configure, no template to buy.</p></details>
             <details><summary>What makes it different from a deal tracker?<IconChev /></summary><p>Most trackers stop at deal status. Talby follows the money (expected, overdue, and received) and ties it to a content calendar, so the business side and posting side finally live together.</p></details>
             <details><summary>Do you post to my social accounts?<IconChev /></summary><p>Not right now. Talby plans and organizes your content. It doesn't publish for you. It's your command center, not your scheduler.</p></details>
-            <details><summary>What happens when I hit 5 deals?<IconChev /></summary><p>Only active deals count. Anything you've wrapped and archived is free and unlimited. When you've got more than five going at once, go unlimited for $10 a month. Usually that means business is good.</p></details>
+            <details><summary>What happens when I hit 5 deals?<IconChev /></summary><p>Only active deals count. Anything you've wrapped and archived is free and unlimited. When you've got more than five going at once, go unlimited for $9 a month. Usually that means business is good.</p></details>
             <details><summary>Is my data private?<IconChev /></summary><p>Yes. Everything you add is tied to your account and yours alone. Nobody else can see your deals, your money, or your numbers.</p></details>
           </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="pricing" id="pricing">
+        <div className="wrap">
+          <div className="shead reveal">
+            <span className="tag">Pricing</span>
+            <h2>Free while you grow.</h2>
+            <p>The whole app is free up to 5 active deals. When business is good, go unlimited. $9 a month, cancel anytime.</p>
+          </div>
+          <div className="pricegrid">
+            {/* Free */}
+            <div className="pcard reveal">
+              <div className="phead">
+                <div className="pname">Free</div>
+                <div className="pamt">$0<span className="pper">/month</span></div>
+                <p>The full app, capped at 5 active deals.</p>
+              </div>
+              <div className="plabel">Included</div>
+              <ul className="pfeat">
+                <PLi>Unlimited archived deals</PLi>
+                <PLi>Payment timeline</PLi>
+                <PLi>Content calendar with recurring posts</PLi>
+                <PLi>Ideas, notes and to-dos</PLi>
+                <PLi>Custom theming</PLi>
+              </ul>
+              <a href="/signup" className="btn btn-3d btn-lg w-full" style={{ background: "var(--soft)", color: "var(--blue-deep)", boxShadow: "inset 0 0 0 1px var(--line-2)" }}>Start free</a>
+            </div>
+            {/* Unlimited */}
+            <div className="pcard pdark reveal">
+              <div className="phead">
+                <div className="pbadge">Most popular</div>
+              </div>
+              <div className="pname">Unlimited</div>
+              <div className="pamt">$9<small className="pper">/month</small></div>
+              <p>Everything in Free, minus the cap.</p>
+              <div className="plabel">Everything in Free, plus</div>
+              <ul className="pfeat">
+                <UnLi>Unlimited active deals</UnLi>
+                <UnLi>File and contract uploads</UnLi>
+                <UnLi>Gmail inbox deal scanner</UnLi>
+                <UnLi>Payment nudge automation</UnLi>
+              </ul>
+              <GoUnlimitedButton />
+            </div>
+          </div>
+          <p className="pnote reveal">Hitting the cap means business is good. Archived and completed deals never count toward it.</p>
         </div>
       </section>
 
@@ -455,5 +504,17 @@ export function MarketingPage() {
 function IconChev() {
   return (
     <svg className="chev" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+  );
+}
+
+/* Pricing feature row: check + text. Free card uses muted checks; Unlimited uses accent. */
+function PLi({ children }: { children: React.ReactNode }) {
+  return (
+    <li><span className="pmark pm-free"><IconCheck /></span>{children}</li>
+  );
+}
+function UnLi({ children }: { children: React.ReactNode }) {
+  return (
+    <li><span className="pmark pm-un"><IconCheck /></span>{children}</li>
   );
 }
