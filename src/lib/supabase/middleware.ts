@@ -51,14 +51,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // A signed-in user navigating to the marketing homepage (e.g. the pricing
-  // comparison at #pricing) should see that page, not be bounced to /app.
-  // Only redirect a bare "/" visit to the app.
-  if (user && path === "/" && !request.nextUrl.hash) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/app";
-    return NextResponse.redirect(url);
-  }
+  // The homepage (marketing, incl. the #pricing comparison) stays reachable for
+  // signed-in users so in-app upgrade prompts can link to it. Signing in or up
+  // already lands users on /app, so no forced redirect is needed here.
 
   return supabaseResponse;
 }
