@@ -74,7 +74,7 @@ export default function CalendarPage() {
   const dragRef = useRef<{
     id: string; type: "content" | "deliverable" | "payment" | "todo" | "note";
     origin: string; startX: number; startY: number; pointerId: number;
-    engaged: boolean; timerId: number | null;
+    engaged: boolean; timerId: number | null; lastDay: string | null;
   } | null>(null);
 
   const engageDrag = (id: string, type: "content" | "deliverable" | "payment" | "todo" | "note", origin: string) => {
@@ -245,7 +245,7 @@ export default function CalendarPage() {
                           dragRef.current = {
                             id: activeId, type: it.type, origin: iso,
                             startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
-                            engaged: false, timerId: null,
+                            engaged: false, timerId: null, lastDay: null,
                           };
                           try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* non-fatal */ }
                           // Touch: long-press (~260ms) engages drag, so scrolling the page
@@ -277,7 +277,9 @@ export default function CalendarPage() {
                             // Highlight the day cell currently under the pointer.
                             const el = document.elementFromPoint(e.clientX, e.clientY);
                             const cell = el?.closest?.("[data-day]") as HTMLElement | null;
-                            setDropTarget(cell?.dataset.day ?? null);
+                            const day = cell?.dataset.day ?? null;
+                            d.lastDay = day;
+                            setDropTarget(day);
                           }
                         }}
                         onPointerUp={(e) => {
@@ -285,9 +287,14 @@ export default function CalendarPage() {
                           if (!d || d.pointerId !== e.pointerId) return;
                           if (d.timerId) window.clearTimeout(d.timerId);
                           if (d.engaged) {
-                            const el = document.elementFromPoint(e.clientX, e.clientY);
-                            const cell = el?.closest?.("[data-day]") as HTMLElement | null;
-                            const day = cell?.dataset.day ?? null;
+                            // Prefer the last day we highlighted; fall back to a fresh
+                            // elementFromPoint on release.
+                            let day = d.lastDay;
+                            if (!day) {
+                              const el = document.elementFromPoint(e.clientX, e.clientY);
+                              const cell = el?.closest?.("[data-day]") as HTMLElement | null;
+                              day = cell?.dataset.day ?? null;
+                            }
                             if (day) onDropToDay(day, d.id, d.type);
                             else endDrag();
                           }
