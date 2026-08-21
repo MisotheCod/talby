@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ACCENT_PRESETS, HEADING_FONTS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, applyAccent, applyFont, type HSL, type ThemeMode } from "@/lib/accent";
 import { cn } from "@/lib/utils";
+import { IconPalette } from "@/components/icons";
 
 /**
  * Theme control. Two variants:
@@ -160,24 +161,12 @@ export function ThemeControl({
         aria-expanded={open}
         className="theme-fab"
       >
-        <svg className="ic" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 3a9 9 0 000 18c1.7 0 2-1.5 1.2-2.5-.7-1 .2-2 1.3-2H17a4 4 0 004-4c0-5-4-9-9-9z" />
-          <circle cx="8" cy="10" r="1" fill="currentColor" stroke="none" />
-          <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none" />
-          <circle cx="16" cy="10" r="1" fill="currentColor" stroke="none" />
-        </svg>
+        <IconPalette size={22} className="ic" />
         <span className="theme-fab-dot" />
       </button>
     ) : (
       <button onClick={(e) => { e.stopPropagation(); open ? close(true) : openPop(); }} className="theme-btn">
-        <svg className="ic" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 3a9 9 0 000 18c1.7 0 2-1.5 1.2-2.5-.7-1 .2-2 1.3-2H17a4 4 0 004-4c0-5-4-9-9-9z" />
-          <circle cx="8" cy="10" r="1" fill="currentColor" stroke="none" />
-          <circle cx="12" cy="7.5" r="1" fill="currentColor" stroke="none" />
-          <circle cx="16" cy="10" r="1" fill="currentColor" stroke="none" />
-        </svg>
+        <IconPalette size={18} className="ic" />
         Theme
         <span className="dotcol" />
       </button>

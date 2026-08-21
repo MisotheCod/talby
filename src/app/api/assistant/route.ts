@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { complete, embed, type AssistantMsg } from "@/lib/assistant-ai";
+import { completeStream, embed, type AssistantMsg } from "@/lib/assistant-ai";
 import { OPENROUTER_API_KEY } from "@/lib/config";
 
 /**
@@ -32,7 +32,7 @@ function detectIntent(q: string): "money" | "schedule" | "contract" | "conflict"
   const has = (arr: string[]) => arr.some((k) => s.includes(k));
 
   if (has(["write a", "write me", "caption", "help me write", "help me with", "give me a", "recommend me", "make me a", "post idea", "content ideas", "what should i post", "recipe", "code ", "predict", "general advice", "creative"])) return "off_topic";
-  if (has(["competing", "competition", "conflict", "overlap", "can i take", "can i work", "take on a", "work with a", "competing brand", "another brand", "am i allowed", "am i free", "haircare", "category of"]) && has(["deal", "brand", "post", "content", "category", "contract", "exclusive", "rights"])) return "conflict";
+  if (has(["competing", "competition", "conflict", "overlap", "can i take", "can i work", "can't i work", "can i not", "take on a", "work with a", "competing brand", "another brand", "am i allowed", "am i free", "haircare", "category of", "which brands", "can't work", "can't take", "not allowed to", "what brands", "restrict", "restricted", "prohibit", "blocked from", "exclusivity", "exclusive"]) && has(["deal", "brand", "post", "content", "category", "categories", "contract", "clause", "rights", "work", "client", "competing", "blocked", "exclusive"])) return "conflict";
   // Terms/policy questions (exclusivity, usage, clause, license) are contract and MUST
   // trigger retrieval, so they are checked before the looser schedule/money keywords.
   if (has(["usage rights", "usage", "clause", "contract", "license", "exclusivity", "rights for", "rights", "terms of", "quote the", "exclusive"])) return "contract";
@@ -180,14 +180,40 @@ export async function POST(req: Request) {
     ].join("\n"),
   });
 
-  const answerRaw = await complete({ messages: userContent });
-  const [body0, citeLine = ""] = answerRaw.split(/CITATIONS?:/i);
-  const answer = (body0 || answerRaw).trim();
-  const citedBrands = citeLine.split(",").map((s) => s.trim()).filter(Boolean);
-  const citations = citedBrands
-    .map((b) => deals.find((d) => (d.brand as string).toLowerCase() === b.toLowerCase()))
-    .filter((d): d is Row => !!d)
-    .map((d) => ({ dealId: d.id as string, brand: d.brand as string }));
+  // ---- Stream the grounded answer to the client (tokens appear live) ----
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const chunks: string[] = [];
+        for await (const chunk of completeStream({ messages: userContent })) {
+          chunks.push(chunk);
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", text: chunk })}\n\n`));
+        }
+        // Parse the accumulated text into answer + CITATIONS.
+        const answerRaw = chunks.join("");
+        const [body0, citeLine = ""] = answerRaw.split(/CITATIONS?:/i);
+        const answer = (body0 || answerRaw).trim();
+        const citedBrands = citeLine.split(",").map((s) => s.trim()).filter(Boolean);
+        const citations = citedBrands
+          .map((b) => deals.find((d) => (d.brand as string).toLowerCase() === b.toLowerCase()))
+          .filter((d): d is Row => !!d)
+          .map((d) => ({ dealId: d.id as string, brand: d.brand as string }));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", citations, intent: norm, hasContracts: !!clauseCtx, answer })}\n\n`));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Assistant generation failed.";
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", error: msg })}\n\n`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
 
-  return NextResponse.json({ ok: true, intent: norm, answer, citations, hasContracts: !!clauseCtx });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+    },
+  });
 }

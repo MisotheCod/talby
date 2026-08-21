@@ -22,6 +22,70 @@ const PRIVACY_PARAMS = {
 
 export type AssistantMsg = { role: "system" | "user" | "assistant"; content: string };
 
+/**
+ * Streaming variant of `complete`. Deepseek (and most OpenRouter routes) support
+ * prompt caching automatically when the system prefix is stable, which this
+ * caller keeps identical per request. Returns a POST body a server route can
+ * stream to the client as SSE deltas.
+ */
+export async function* completeStream({
+  messages,
+  max_tokens = 1600,
+}: {
+  messages: AssistantMsg[];
+  max_tokens?: number;
+}): AsyncGenerator<string, void, void> {
+  const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": SITE,
+      "X-Title": "Talby Assistant",
+    },
+    body: JSON.stringify({
+      model: ASSISTANT_MODEL_ID,
+      messages,
+      max_tokens,
+      temperature: 0.1,
+      stream: true,
+      ...PRIVACY_PARAMS,
+    }),
+  });
+  if (!resp.ok || !resp.body) {
+    const raw = await resp.text().catch(() => "");
+    throw new Error(`assistant stream failed: ${resp.status} ${raw.slice(0, 200)}`);
+  }
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      // frame = SSE "data: {json}\n\n" chunks
+      while (buf.includes("\n")) {
+        const nl = buf.indexOf("\n");
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") return;
+        try {
+          const j = JSON.parse(payload);
+          const delta = j?.choices?.[0]?.delta?.content;
+          if (typeof delta === "string" && delta) yield delta;
+        } catch {
+          /* partial keep-alive frame */
+        }
+      }
+    }
+  } finally {
+    reader.cancel();
+  }
+}
+
 /** Complete (chat) call for the grounded assistant. */
 export async function complete({
   messages,

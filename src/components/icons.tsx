@@ -54,6 +54,7 @@ import {
   FilterRegular,
   ArrowSyncRegular,
   ClockRegular,
+  AlertRegular,
   WarningRegular,
   InfoRegular,
   CheckmarkCircleRegular,
@@ -64,6 +65,7 @@ import {
   CrownRegular,
   LockClosedRegular,
   ColorRegular,
+  DarkThemeRegular,
   DragRegular,
   MusicNote1Regular,
   VideoRegular,
@@ -133,7 +135,7 @@ export const IconGrid = fit(GridRegular);
 export const IconList = fit(ListRegular);
 export const IconFilter = fit(FilterRegular);
 export const IconRefresh = fit(ArrowSyncRegular);
-export const IconRemind = fit(ClockRegular);
+export const IconRemind = fit(AlertRegular);
 export const IconWarning = fit(WarningRegular);
 export const IconInfo = fit(InfoRegular);
 export const IconSuccess = fit(CheckmarkCircleRegular);
@@ -143,7 +145,7 @@ export const IconLogout = fit(SignOutRegular);
 export const IconUser = fit(PersonRegular);
 export const IconCrown = fit(CrownRegular);
 export const IconLock = fit(LockClosedRegular);
-export const IconPalette = fit(ColorRegular);
+export const IconPalette = fit(DarkThemeRegular);
 export const IconDrag = fit(DragRegular);
 export const IconMusic = fit(MusicNote1Regular);
 export const IconVideo = fit(VideoRegular);

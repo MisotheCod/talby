@@ -171,14 +171,13 @@ export function AppShell({
         onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont}
         onSaveFont={saveFont} onPreviewMode={previewMode} onSaveMode={saveMode}
         variant="row" />
-      <div className="flex items-center justify-between px-2 pt-2">
-        <Link href="/app/settings" className="flex items-center gap-2 text-[13px] text-inksoft hover:text-ink no-underline">
-          <IconSettings size={16} /> Settings
-        </Link>
+      <Link href="/app/settings" className="settings-link">
+        <IconSettings size={18} className="ic" />
+        <span className="flex-1">Settings</span>
         <button onClick={signOut} aria-label="Sign out" className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer">
           <IconLogout size={16} />
         </button>
-      </div>
+      </Link>
     </div>
   );
 

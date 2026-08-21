@@ -250,12 +250,25 @@ h1, h2, h3, h4 {
 .nav-item .ic { width: 18px; height: 18px; flex: none; }
 .nav-item .badge { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
 .nav-item.on .badge { color: var(--accent-ink); }
-/* Thin-line icons: Fluent glyphs are filled; render them at a light stroke so
-   they read as clean line icons (not thick smudges) in the nav + theme row. */
-.nav-item .ic, .nav-item.on .ic { stroke: currentColor; stroke-width: 1.05; fill: currentColor; opacity: 0.92; }
-.theme-btn .ic { stroke: currentColor; stroke-width: 1.05; fill: currentColor; opacity: 0.92; }
-.theme-fab .ic { stroke: var(--accent-ink); stroke-width: 1.05; fill: var(--accent-ink); opacity: 0.92; }
-/* ------- Theme row (nav-item-shaped) + popover, per prototype ------- */
+/* Thin-line icons: Fluent Regular glyphs are outlined; render them as slim
+   strokes (fill: none) so they read as clean line icons in the nav. */
+.nav-item .ic, .nav-item.on .ic { stroke: currentColor; stroke-width: 1.35; fill: none; }
+.theme-btn .ic { stroke: currentColor; stroke-width: 1.35; fill: none; }
+.theme-fab .ic { stroke: var(--accent-ink); stroke-width: 1.35; fill: none; }
+.side-foot {
+  margin-top: auto; padding: 8px 0 6px;
+  display: flex; flex-direction: column; gap: 2px;
+  border-top: 1px solid var(--line);
+}
+/* Settings row matches nav-item look: icon left, consistent padding */
+.side-foot .settings-link {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 12px; font-size: 14px; color: var(--ink-soft);
+}
+.side-foot .settings-link:hover { background: var(--soft); color: var(--ink); }
+.side-foot .settings-link a { text-decoration: none; display: inline-flex; align-items: center; gap: 9px; }
+.side-foot .settings-link .ic { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.35; fill: none; flex: none; }
+/* Theme row (nav-item-shaped) + popover, per prototype ------- */
 .theme-launch { position: relative; }
 .theme-btn {
   display: flex; align-items: center; gap: 12px; width: 100%;
@@ -346,6 +359,21 @@ h1, h2, h3, h4 {
 }
 .chat-ai .font-semibold, .chat-strong { color: var(--ink); }
 .chat-ai strong { color: var(--ink); font-weight: 650; }
+
+/* Send button + its inline spinner stay a consistent size while loading. */
+.send-btn { position: relative; width: 36px; height: 34px; display: grid; place-items: center; }
+.send-btn svg { transition: transform 0.15s; }
+.send-spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Streaming live-caret: a subtle blinking block while tokens arrive. */
+.live-caret {
+  display: inline-block; width: 7px; height: 13px; margin-left: 2px;
+  border-radius: 2px; background: var(--ink-soft);
+  animation: caretBlink 0.9s step-start infinite; vertical-align: text-bottom;
+  opacity: 0.55;
+}
+@keyframes caretBlink { 0%, 50% { opacity: 0.55; } 51%, 100% { opacity: 0.05; } }
 .theme-fab-dot {
   position: absolute; right: -2px; top: -2px;
   width: 14px; height: 14px; border-radius: 50%;
