@@ -88,11 +88,32 @@ function fit(Icon: AnyIcon) {
   };
 }
 
+/** Clean, thin stroke-based dollar-sign glyph (Payments nav). Uses currentColor,
+ *  matches the thin-line look of the nav; not a filled coin/bill. */
+function DollarGlyph(props: SVGProps<SVGSVGElement> & { size?: number }) {
+  const { size, style, ...rest } = props;
+  const dim = size ?? 20;
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width={dim} height={dim}
+      fill="none" stroke="currentColor"
+      strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ ...style, fontSize: dim }}
+      {...rest}
+    >
+      <path d="M10 3v14" />
+      <path d="M8 8.2c0 1.6 1.3 2 3 2.6s3 1.3 3 2.9c0 1.5-1.4 2.4-3 2.4s-2.9-.9-2.9-2.3" />
+    </svg>
+  );
+}
+
 export const IconHome = fit(HomeRegular);
 export const IconBriefcase = fit(BriefcaseRegular);
 export const IconCalendar = fit(CalendarRegular);
 export const IconMoney = fit(MoneyRegular);
-export const IconDollar = fit(MoneyRegular);
+export const IconDollar = DollarGlyph;
 export const IconIdea = fit(LightbulbRegular);
 export const IconNotes = fit(NotebookRegular);
 export const IconPlug = fit(PlugConnectedRegular);
