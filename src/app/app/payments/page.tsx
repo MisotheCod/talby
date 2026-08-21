@@ -455,6 +455,11 @@ function BarChart({ data, max, h, hMax, color }: {
           const barH = b.value > 0 ? Math.max(4, Math.round((b.value / max) * hMax)) : 2;
           return (
             <div key={b.key} className="flex-1 flex flex-col items-center justify-end min-w-0 group h-full">
+              {/* Hover label: reused theme-tip surface (dark + light text in both modes) */}
+              <div className="hidden group-hover:flex absolute -top-2 z-10 px-2 py-0.5 rounded-md text-[10px] whitespace-nowrap theme-tip shadow-sm pointer-events-none">
+                <span className="tabular-nums">{formatMoney(b.value)}</span>
+                <span> · {b.label}</span>
+              </div>
               <div
                 className="w-full max-w-10 sm:max-w-12 rounded-t-sm transition-all group-hover:opacity-85"
                 style={{ height: `${barH}px`, background: color || "var(--accent)" }}
