@@ -41,11 +41,12 @@ export function UpgradeModal({
         <h2 className="text-xl font-semibold mt-4 tracking-tight">You&apos;ve got more deals than the free plan holds</h2>
         <p className="text-inksoft text-sm mt-2">
           You&apos;ve hit the free plan&apos;s limit of active deals. Go unlimited
-          to keep growing — unlock unlimited deals and file uploads.
+          to keep growing — unlock unlimited deals, file uploads and the AI assistant.
         </p>
         <ul className="text-left mt-5 space-y-2 text-sm">
           <li className="flex items-center gap-2"><IconCheck size={16} className="text-accentink shrink-0" /> Unlimited active deals</li>
           <li className="flex items-center gap-2"><IconCheck size={16} className="text-accentink shrink-0" /> File &amp; attachment uploads</li>
+          <li className="flex items-center gap-2"><IconCheck size={16} className="text-accentink shrink-0" /> AI assistant for your deals, payments and contracts</li>
           <li className="flex items-center gap-2"><IconCheck size={16} className="text-accentink shrink-0" /> Everything you use today, kept forever</li>
         </ul>
         <Button className="w-full mt-6" size="lg" onClick={go}>Go unlimited</Button>
