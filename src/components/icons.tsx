@@ -72,12 +72,17 @@ import {
 
 type AnyIcon = ComponentType<SVGProps<SVGSVGElement> | Record<string, unknown>>;
 
-/** Adapter: maps the old icon-park `size` prop onto Fluent width/height = size. */
+/** Adapter: maps the old icon-park `size` prop onto Fluent sizing.
+ * Fluent's factory hardcodes width/height to the intrinsic '1em', overriding any
+ * width/height we pass. The icon IS set to width="1em", so the clean lever is
+ * font-size: 1em resolves against it. `style.fontSize` therefore sizes the icon
+ * reliably. className/style/data-* still pass through.
+ */
 function fit(Icon: AnyIcon) {
   return function Fitted(props: SVGProps<SVGSVGElement> & { size?: number }) {
-    const { size, ...rest } = props;
+    const { size, style, ...rest } = props;
     const dim = size ?? 24;
-    return <Icon width={dim} height={dim} {...rest} />;
+    return <Icon style={{ ...style, fontSize: dim }} {...rest} />;
   };
 }
 
