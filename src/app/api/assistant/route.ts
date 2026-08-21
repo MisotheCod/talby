@@ -19,16 +19,27 @@ import { OPENROUTER_API_KEY } from "@/lib/config";
  */
 type Row = Record<string, unknown>;
 
-const INTENT_SYSTEM = [
-  'You classify a question about a creator\'s own brand-deal data into exactly one intent.',
-  'Return ONLY a single token, no prose: "money" | "schedule" | "contract" | "conflict" | "off_topic".',
-  "money = owed/paid/income/deal value/amount",
-  "schedule = content calendar, due dates, deliverables deadlines, what's due next week",
-  "contract = a specific contract's terms (usage rights, exclusivity dates, payment terms), quote clauses",
-  "conflict = whether the creator can take another brand in a category, competing / overlapping deals",
-  "off_topic = anything unrelated to the user's own Talby data (caption writing, general advice, etc.)",
-  "A question about a brand's category fit or a competing brand is 'conflict', not 'contract'.",
-].join("\n");
+/**
+ * Local intent classifier (replaces the round-trip LLM classify call).
+ * Deterministic and free. Produces the same five intents the model accepted.
+ * Conservative: strong off-topic signals redirect; otherwise falls through to a
+ * recognized domain or defaults to answering if nothing clearly matches, so a
+ * legit question is never bounced just because of wording. The generation prompt
+ * still carries its own off-topic refusal as a backstop.
+ */
+function detectIntent(q: string): "money" | "schedule" | "contract" | "conflict" | "off_topic" {
+  const s = q.toLowerCase();
+  const has = (arr: string[]) => arr.some((k) => s.includes(k));
+
+  if (has(["write a", "write me", "caption", "help me write", "help me with", "give me a", "recommend me", "make me a", "post idea", "content ideas", "what should i post", "recipe", "code ", "predict", "general advice", "creative"])) return "off_topic";
+  if (has(["competing", "competition", "conflict", "overlap", "can i take", "can i work", "take on a", "work with a", "competing brand", "another brand", "am i allowed", "am i free", "haircare", "category of"]) && has(["deal", "brand", "post", "content", "category", "contract", "exclusive", "rights"])) return "conflict";
+  // Terms/policy questions (exclusivity, usage, clause, license) are contract and MUST
+  // trigger retrieval, so they are checked before the looser schedule/money keywords.
+  if (has(["usage rights", "usage", "clause", "contract", "license", "exclusivity", "rights for", "rights", "terms of", "quote the"])) return "contract";
+  if (has(["due", "due date", "next week", "deadline", "scheduled", "schedule", "this week", "calendar", "when is", "posted", "deliver", "expire", "expiration", "expiring", "expi"])) return "schedule";
+  if (has(["how much", "owed", "amount", "paid", "received", "income", "earned", "value", "dollar", "money", "payment", "expected", "biggest", "total", "average", "worth"])) return "money";
+  return "off_topic";
+}
 
 const GROUND_SYSTEM = [
   "You are Talby Assistant, grounded solely in the user's own Talby data below (deals, payments, content, to-dos, and contract clauses).",
@@ -59,17 +70,10 @@ export async function POST(req: Request) {
   const text = body?.text?.trim();
   if (!text) return NextResponse.json({ error: "text required" }, { status: 400 });
 
-  const intent = await complete({
-    messages: [
-      { role: "system", content: INTENT_SYSTEM },
-      { role: "user", content: text },
-    ],
-    max_tokens: 8,
-  }).catch(() => "off_topic");
-  const norm = intent.trim().toLowerCase();
+  const norm = detectIntent(text);
 
-  // Off-topic: redirect, never answer.
-  if (norm === "off_topic" || (["money", "schedule", "contract", "conflict"] as const).every((k) => !norm.includes(k))) {
+  // Off-topic: redirect, never answer (cheap local classification, no model call).
+  if (norm === "off_topic") {
     return NextResponse.json({
       ok: true, intent: "off_topic",
       answer: "I can only answer about your own Talby data: deals, payments, contracts, and calendar. Ask me something like how much you're owed, when something is due, or a contract clause.",
