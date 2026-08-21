@@ -235,7 +235,10 @@ export function AssistantLauncher() {
                       <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeDasharray="40" strokeLinecap="round" />
                     </svg>
                   ) : (
-                    <IconSend size={15} />
+                    <svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M4 10l12-6-4 12-2.5-4.5L4 10z" />
+                      <path d="M9.5 11.5L16 5.5" />
+                    </svg>
                   )}
                 </Button>
               </form>
