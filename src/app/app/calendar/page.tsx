@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
@@ -511,16 +511,18 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
 
   return (
     <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose}>
-      <div className="absolute left-4 right-4 sm:left-auto sm:right-6 top-20 sm:top-24 w-auto sm:w-96 bg-surface border border-border rounded-xl shadow-pop p-5 fade-up" onClick={(e) => e.stopPropagation()} role="dialog">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">{kind === "note" ? "New note" : "New post"}</h3>
-          <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-subtle cursor-pointer"><IconClose size={16} /></button>
+      <div className="absolute left-4 right-4 sm:left-auto sm:right-6 top-20 sm:top-24 w-auto sm:w-96 bg-surface border border-border rounded-xl shadow-pop fade-up flex flex-col max-h-[calc(100dvh-6.5rem)]" onClick={(e) => e.stopPropagation()} role="dialog">
+        <div className="shrink-0 px-5 pt-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">{kind === "note" ? "New note" : "New post"}</h3>
+            <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-subtle cursor-pointer"><IconClose size={16} /></button>
+          </div>
+          <div className="flex gap-1.5 mb-4">
+            <button type="button" onClick={() => setKind("post")} className={cn("px-3 h-8 rounded-lg text-sm font-medium cursor-pointer border", kind === "post" ? "accent-soft border-accent/30" : "border-border text-muted hover:text-foreground")}>Post</button>
+            <button type="button" onClick={() => setKind("note")} className={cn("px-3 h-8 rounded-lg text-sm font-medium cursor-pointer border", kind === "note" ? "accent-soft border-accent/30" : "border-border text-muted hover:text-foreground")}>Note</button>
+          </div>
         </div>
-        <div className="flex gap-1.5 mb-4">
-          <button type="button" onClick={() => setKind("post")} className={cn("px-3 h-8 rounded-lg text-sm font-medium cursor-pointer border", kind === "post" ? "accent-soft border-accent/30" : "border-border text-muted hover:text-foreground")}>Post</button>
-          <button type="button" onClick={() => setKind("note")} className={cn("px-3 h-8 rounded-lg text-sm font-medium cursor-pointer border", kind === "note" ? "accent-soft border-accent/30" : "border-border text-muted hover:text-foreground")}>Note</button>
-        </div>
-        <div className="space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 space-y-3">
           {kind === "note" ? (
             <>
               <Textarea value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3} placeholder="Write a note for this day…" autoFocus />
@@ -600,29 +602,88 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
   );
 }
 
-/* ---------------- Mini detail/edit modals (anchored next to the clicked item) ---------------- */
-function MiniModal({ position, onClose, title, children }: {
+/* ---------------- Mini detail/edit modals (anchored next to the clicked item) ----------------
+   Collision-aware: measures itself, then flips above / shifts sideways so the whole panel
+   (header + body + pinned footer) stays inside the viewport at any window size. Overly tall
+   content scrolls inside the body. Narrow viewports fall back to a bottom sheet. */
+function MiniModal({ position, onClose, title, children, footer }: {
   position: { x: number; y: number };
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
-  const x = Math.min(position.x, window.innerWidth - 340);
-  const y = Math.min(position.y, window.innerHeight - 200);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [place, setPlace] = useState<{ x: number; y: number; sheet: boolean } | null>(() => {
+    if (typeof window === "undefined" || window.innerWidth < 420) return null;
+    // Best-effort initial placement (refined by useLayoutEffect after measurement).
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const x = Math.max(MARGIN, Math.min(position.x + GAP, vw - MARGIN - Math.min(W, vw - MARGIN * 2)));
+    const y = Math.max(MARGIN, Math.min(position.y + GAP, vh - MARGIN - 300));
+    return { x, y, sheet: false };
+  });
+  const GAP = 12, MARGIN = 8, W = 340;
+  // Reliable cross-browser cap so the body scrolls internally when content is tall.
+  const bodyMax = typeof window === "undefined" ? 400 : Math.max(160, (place?.sheet ? window.innerHeight * 0.55 : window.innerHeight) - (place?.sheet ? 0 : 152));
+
+  useLayoutEffect(() => {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // Narrow viewport: fall back to a full-width bottom sheet instead of a cramped anchor.
+    if (vw < 420) { setPlace({ x: 0, y: 0, sheet: true }); return; }
+
+    const el = panelRef.current;
+    // Probe height from the rendered panel; if unknown yet, assume a typical height.
+    const rect = el?.getBoundingClientRect();
+    const H = Math.min(rect?.height || Math.min(400, vh - MARGIN * 2), vh - MARGIN * 2);
+    const width = Math.min(W, vw - MARGIN * 2);
+
+    // Horizontal: place beside (to the right of) the anchor, shifting left if it overflows.
+    let x = position.x + GAP;
+    if (x + width > vw - MARGIN) x = Math.max(MARGIN, position.x - GAP - width);
+    if (x + width > vw - MARGIN) x = vw - MARGIN - width;
+    x = Math.max(MARGIN, x);
+
+    // Vertical: prefer below; flip above when there isn't room below; clamp to a visible range.
+    let y = position.y + GAP;
+    if (y + H > vh - MARGIN && position.y - GAP - H >= MARGIN) y = position.y - GAP - H;
+    y = Math.max(MARGIN, Math.min(y, vh - MARGIN - H));
+
+    setPlace({ x, y, sheet: false });
+  }, [position]);
+
+  if (place?.sheet) {
+    return (
+      <>
+        <div className="fixed inset-0 z-40" onClick={onClose} />
+        <div role="dialog" className="fixed z-50 inset-x-0 bottom-0 bg-card border-t border-line rounded-t-2xl shadow-lg fade-up">
+          <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-line">
+            <h4 className="font-semibold text-[15px]">{title}</h4>
+            <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-soft cursor-pointer"><IconClose size={16} /></button>
+          </div>
+          <div className="overflow-y-auto px-5 py-3" style={{ maxHeight: bodyMax }}>{children}</div>
+          {footer && <div className="px-5 py-3 border-t border-line">{footer}</div>}
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="fixed z-50 w-[330px] bg-card border border-line rounded-xl shadow-lg p-4 fade-up"
-        style={{ left: Math.max(8, x), top: Math.max(8, y) }}
-        onClick={(e) => e.stopPropagation()}
+        ref={panelRef}
         role="dialog"
+        className="fixed z-50 flex flex-col bg-card border border-line rounded-xl shadow-lg fade-up"
+        style={{ left: place ? place.x : position.x, top: place ? place.y : position.y, width: W }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-line shrink-0">
           <h4 className="font-semibold text-[15px]">{title}</h4>
           <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-soft cursor-pointer"><IconClose size={16} /></button>
         </div>
-        {children}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3" style={{ maxHeight: bodyMax }}>{children}</div>
+        {footer && <div className="px-4 pb-4 pt-2 border-t border-line shrink-0">{footer}</div>}
       </div>
     </>
   );
@@ -660,7 +721,15 @@ function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
   };
 
   return (
-    <MiniModal position={position} onClose={onClose} title="Post details">
+    <MiniModal position={position} onClose={onClose} title="Post details" footer={
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={remove} className="text-bad"><IconDelete size={15} /> Delete</Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={saving}>{saving ? <Spinner /> : <IconCheck size={15} />} Save</Button>
+        </div>
+      </div>
+    }>
       <div className="space-y-3">
         <Input value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="grid grid-cols-2 gap-3">
@@ -692,13 +761,6 @@ function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
           <Textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={2} placeholder="Optional caption or notes…" />
         </label>
         {error && <p className="text-sm text-bad" role="alert">{error}</p>}
-        <div className="flex items-center justify-between pt-1">
-          <Button variant="ghost" onClick={remove} className="text-bad"><IconDelete size={15} /> Delete</Button>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>{saving ? <Spinner /> : <IconCheck size={15} />} Save</Button>
-          </div>
-        </div>
       </div>
     </MiniModal>
   );
@@ -798,17 +860,18 @@ function NoteDetailPopover({ note, position, onClose, onSaved }: {
   };
 
   return (
-    <MiniModal position={position} onClose={onClose} title="Note">
+    <MiniModal position={position} onClose={onClose} title="Note" footer={
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={remove} className="text-bad"><IconDelete size={15} /> Delete</Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={saving}>{saving ? <Spinner /> : <IconCheck size={15} />} Save</Button>
+        </div>
+      </div>
+    }>
       <div className="space-y-3">
         <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Write a note…" />
         {error && <p className="text-sm text-bad" role="alert">{error}</p>}
-        <div className="flex items-center justify-between pt-1">
-          <Button variant="ghost" onClick={remove} className="text-bad"><IconDelete size={15} /> Delete</Button>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={save} disabled={saving}>{saving ? <Spinner /> : <IconCheck size={15} />} Save</Button>
-          </div>
-        </div>
       </div>
     </MiniModal>
   );
