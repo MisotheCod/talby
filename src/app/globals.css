@@ -366,8 +366,8 @@ h1, h2, h3, h4 {
 .chat-ai strong { color: var(--ink); font-weight: 650; }
 
 /* Send button + its inline spinner stay a consistent size while loading. */
-.send-btn { position: relative; width: 36px; height: 34px; display: grid; place-items: center; }
-.send-btn svg { transition: transform 0.15s; }
+.send-btn { position: relative; width: 36px; height: 34px; flex: none !important; display: grid !important; place-items: center; }
+.send-btn svg { transition: transform 0.15s; flex: none !important; }
 .send-btn svg { width: 16px !important; height: 16px !important; }
 .send-spin { animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
