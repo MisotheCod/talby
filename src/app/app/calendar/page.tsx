@@ -15,7 +15,7 @@ type Content = {
 type Deal = { id: string; brand: string; value: number | null };
 type Payment = { id: string; amount: number; expected_date: string | null; status: string; deal?: { brand: string } | null };
 type Todo = { id: string; title: string; done: boolean; due_date: string | null };
-type CalendarNote = { id: string; body: string; event_date: string; updated_at: string };
+type CalendarNote = { id: string; body: string; event_date: string; updated_at: string; done: boolean; details: string | null };
 
 const FILTERS = ["All", "Posts", "Deliverables", "Payments"] as const;
 
@@ -119,7 +119,7 @@ export default function CalendarPage() {
       supabase.from("deals").select("id, brand, value"),
       supabase.from("payments").select("*, deal:deals(brand)").gte("expected_date", from).lte("expected_date", to),
       supabase.from("todos").select("*").not("due_date", "is", null).gte("due_date", from).lte("due_date", to),
-      supabase.from("notes").select("id, body, event_date, updated_at").not("event_date", "is", null).gte("event_date", from).lte("event_date", to),
+      supabase.from("notes").select("id, body, event_date, updated_at, done, details").not("event_date", "is", null).gte("event_date", from).lte("event_date", to),
     ]);
     setContent((c.data ?? []) as unknown as Content[]);
     setDeals((d.data ?? []) as unknown as Deal[]);
@@ -476,6 +476,9 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
   const [kind, setKind] = useState<"post" | "note">("post");
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
+  const [noteDone, setNoteDone] = useState(false);
+  const [noteDetails, setNoteDetails] = useState("");
+  const [noteDate, setNoteDate] = useState(date);
   const [platform, setPlatform] = useState("");
   const [postType, setPostType] = useState("");
   const [dealId, setDealId] = useState("");
@@ -492,7 +495,7 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
     if (!user) { setError("Not signed in."); setSaving(false); return; }
     if (kind === "note") {
       if (!note.trim()) { setError("Write a note."); setSaving(false); return; }
-      const { error } = await supabase.from("notes").insert({ user_id: user.id, body: note.trim(), event_date: date });
+      const { error } = await supabase.from("notes").insert({ user_id: user.id, body: note.trim(), event_date: noteDate || date, done: noteDone, details: noteDetails.trim() || null });
       setSaving(false);
       if (error) { setError(error.message); return; }
       onSaved(); return;
@@ -525,7 +528,22 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
         <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 space-y-3">
           {kind === "note" ? (
             <>
-              <Textarea value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }} rows={3} placeholder="Write a note for this day…" autoFocus />
+              <label className="block">
+                <span className="text-xs text-muted mb-1 block">Note / reminder</span>
+                <Input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }} placeholder="Follow up with Panera about contract" autoFocus />
+              </label>
+              <label className="block">
+                <span className="text-xs text-muted mb-1 block">Date</span>
+                <Input type="date" value={noteDate} onChange={(e) => setNoteDate(e.target.value)} />
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" className="h-4 w-4" style={{ accentColor: "var(--accent)" }} checked={noteDone} onChange={(e) => setNoteDone(e.target.checked)} />
+                <span>Done</span>
+              </label>
+              <label className="block">
+                <span className="text-xs text-muted mb-1 block">Details (optional)</span>
+                <Textarea value={noteDetails} onChange={(e) => setNoteDetails(e.target.value)} rows={3} placeholder="Add more context for this note…" />
+              </label>
             </>
           ) : (
           <>
@@ -843,8 +861,16 @@ function NoteDetailPopover({ note, position, onClose, onSaved }: {
 }) {
   const supabase = createClient();
   const [body, setBody] = useState(note.body);
+  const [done, setDoneLocal] = useState(note.done);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const setDone = async (next: boolean) => {
+    setDoneLocal(next);
+    const { error } = await supabase.from("notes").update({ done: next }).eq("id", note.id);
+    if (error) { setDoneLocal(!next); setError(error.message); return; }
+    onSaved();
+  };
 
   const save = async () => {
     setSaving(true); setError("");
@@ -870,7 +896,12 @@ function NoteDetailPopover({ note, position, onClose, onSaved }: {
       </div>
     }>
       <div className="space-y-3">
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" className="h-4 w-4" style={{ accentColor: "var(--accent)" }} checked={done} onChange={(e) => setDone(e.target.checked)} />
+          <span>Done</span>
+        </label>
         <Textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} placeholder="Write a note…" />
+        {note.details && <p className="text-xs text-muted">{note.details}</p>}
         {error && <p className="text-sm text-bad" role="alert">{error}</p>}
       </div>
     </MiniModal>
