@@ -117,9 +117,11 @@ export async function POST(req: Request) {
   if (norm.includes("contract") || norm.includes("conflict")) {
     const qEmbed = await embed(text).catch(() => []);
     let lines: string[] = [];
+    // Retrieve enough to cover a broad conflict (a category question can span many
+    // contracts). 10 chunks (~2-10 contracts) balances cost vs recall for this stress.
     if (qEmbed.length) {
       const hits = ((await supabase.rpc("match_contract_chunks", {
-        query_embedding: qEmbed as number[], match_user_id: user.id, match_count: 6,
+        query_embedding: qEmbed as number[], match_user_id: user.id, match_count: 10,
       }) as { data?: Row[] }).data ?? []) as Row[];
       lines = hits.map((h) => {
         const d = deals.find((x) => x.id === h.deal_id);
@@ -134,11 +136,20 @@ export async function POST(req: Request) {
         return `[${(d?.brand as string) ?? "Contract"}]\n${h.content}`;
       });
     }
+    // Coverage accounting: how many total deal-contracts exist vs how many we fetched.
+    // If the query's answer needs a clause we didn't retrieve, we must say the picture
+    // may be incomplete rather than present a partial set as complete.
+    const { count: totalContracts } = (await supabase.from("deal_contracts")
+      .select("deal_id", { count: "exact", head: true }).eq("user_id", user.id)) as { count: number };
+    const seenDeals = new Set(lines.map((l) => { const m = l.match(/^\[(.+?)\]/); return m ? m[1] : ""; }));
+    const coveredCount = lines.filter((l) => l.startsWith("[")).length;
     const brands = activeDeals.map((d) => d.brand as string).join("; ");
     clauseCtx = [
       `Active deals: ${brands || "(none)"}`,
       "Clauses from the user's own contracts (quote verbatim):",
       lines.length ? lines.join("\n\n") : "(no contract clauses stored)",
+      "",
+      `Coverage note: you are seeing ${coveredCount ? seenDeals.size + " of " + (totalContracts || 0) + " contract(s)" : "0 of " + (totalContracts || 0) + " contracts"}. If the question needs a contract you do not see listed, say so plainly rather than guessing its terms.`,
     ].join("\n\n");
   }
 
