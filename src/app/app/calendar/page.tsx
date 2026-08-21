@@ -614,6 +614,7 @@ function MiniModal({ position, onClose, title, children, footer }: {
   footer?: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const GAP = 12, MARGIN = 8, W = 340;
   const [place, setPlace] = useState<{ x: number; y: number; sheet: boolean } | null>(() => {
     if (typeof window === "undefined" || window.innerWidth < 420) return null;
     // Best-effort initial placement (refined by useLayoutEffect after measurement).
@@ -622,7 +623,6 @@ function MiniModal({ position, onClose, title, children, footer }: {
     const y = Math.max(MARGIN, Math.min(position.y + GAP, vh - MARGIN - 300));
     return { x, y, sheet: false };
   });
-  const GAP = 12, MARGIN = 8, W = 340;
   // Reliable cross-browser cap so the body scrolls internally when content is tall.
   const bodyMax = typeof window === "undefined" ? 400 : Math.max(160, (place?.sheet ? window.innerHeight * 0.55 : window.innerHeight) - (place?.sheet ? 0 : 152));
 
