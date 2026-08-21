@@ -247,11 +247,14 @@ h1, h2, h3, h4 {
 }
 .nav-item:hover { background: var(--soft); color: var(--ink); }
 .nav-item.on { background: var(--accent-tint); color: var(--accent-ink); font-weight: 600; }
-.nav-item .ic { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; fill: none; flex: none; }
+.nav-item .ic { width: 18px; height: 18px; flex: none; }
 .nav-item .badge { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
 .nav-item.on .badge { color: var(--accent-ink); }
-.side-foot { margin-top: auto; padding-top: 16px; }
-
+/* Thin-line icons: Fluent glyphs are filled; render them at a light stroke so
+   they read as clean line icons (not thick smudges) in the nav + theme row. */
+.nav-item .ic, .nav-item.on .ic { stroke: currentColor; stroke-width: 1.05; fill: currentColor; opacity: 0.92; }
+.theme-btn .ic { stroke: currentColor; stroke-width: 1.05; fill: currentColor; opacity: 0.92; }
+.theme-fab .ic { stroke: var(--accent-ink); stroke-width: 1.05; fill: var(--accent-ink); opacity: 0.92; }
 /* ------- Theme row (nav-item-shaped) + popover, per prototype ------- */
 .theme-launch { position: relative; }
 .theme-btn {
@@ -262,7 +265,7 @@ h1, h2, h3, h4 {
   background: none; border: none; font-family: inherit; text-align: left;
 }
 .theme-btn:hover { background: var(--soft); color: var(--ink); }
-.theme-btn .ic { width: 18px; height: 18px; stroke: currentColor; stroke-width: 1.8; fill: none; flex: none; }
+.theme-btn .ic { width: 18px; height: 18px; flex: none; }
 .theme-btn .dotcol {
   width: 14px; height: 14px; border-radius: 50%;
   background: var(--accent); margin-left: auto;
@@ -281,7 +284,7 @@ h1, h2, h3, h4 {
   display: grid; place-items: center; cursor: pointer;
   transition: transform 0.12s, box-shadow 0.15s;
 }
-.theme-fab .ic { width: 22px; height: 22px; stroke: var(--accent-ink); stroke-width: 1.8; fill: none; }
+.theme-fab .ic { width: 22px; height: 22px; }
 .theme-fab:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(13, 15, 19, 0.2); }
 .theme-fab:active { transform: translateY(1px); }
 
@@ -322,6 +325,27 @@ h1, h2, h3, h4 {
   display: flex; gap: 4; padding: 10px 12px; border-top: 1px solid var(--line);
 }
 .assistant-input > * { min-width: 0; }
+
+/* ---- iMessage-style bubbles ---- */
+.chat-bubble {
+  max-width: 86%; word-break: break-word; overflow-wrap: anywhere;
+  padding: 9px 13px; font-size: 13.5px; line-height: 1.45;
+  border-radius: 17px; box-shadow: 0 1px 2px rgba(13, 15, 19, 0.08);
+}
+/* Sent (user): iMessage blue bubble, right-aligned white text */
+.chat-user {
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 6px;
+}
+/* Received (assistant): subtle surface, left-aligned, adapts to dark mode */
+.chat-ai {
+  background: color-mix(in srgb, var(--card-2) 82%, var(--panel-glass));
+  color: var(--ink);
+  border-bottom-left-radius: 6px;
+}
+.chat-ai .font-semibold, .chat-strong { color: var(--ink); }
+.chat-ai strong { color: var(--ink); font-weight: 650; }
 .theme-fab-dot {
   position: absolute; right: -2px; top: -2px;
   width: 14px; height: 14px; border-radius: 50%;

@@ -6,6 +6,22 @@ import { cn } from "@/lib/utils";
 import { Button, Input, Spinner } from "@/components/ui";
 import { IconClose, IconSend } from "@/components/icons";
 import { FluentBotSparkle28Regular } from "@/components/fluent-icons";
+import ReactMarkdown from "react-markdown";
+
+/** Render assistant markdown (bold/italic/lists) without showing literal **. */
+function Md({ text }: { text: string }) {
+  return (
+    <ReactMarkdown
+      components={{
+        p: ({ children }) => <span className="leading-relaxed">{children}</span>,
+        strong: ({ children }) => <strong className="font-semibold text-inksoft">{children}</strong>,
+        em: ({ children }) => <em>{children}</em>,
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+}
 
 /**
  * Talby Assistant launcher (paid tier). Floating control in the bottom-right.
@@ -135,20 +151,25 @@ export function AssistantLauncher() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-2.5 px-4 py-3">
+                  <div className="flex flex-col gap-2 px-3 py-3">
                     {history.map((m, i) => (
-                      <div key={i} className={cn("text-[13.5px] leading-relaxed whitespace-pre-wrap", m.role === "user" ? "text-ink font-medium" : "text-inksoft")}>
-                        {m.role === "assistant" && <span className="text-accentink mr-1">›</span>}
-                        {m.text}
-                        {m.role === "assistant" && m.citations && m.citations.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-1.5">
-                            {m.citations.map((c) => (
-                              <a key={c.dealId} href={`/app/deals?focus=${c.dealId}`} className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-accenttint text-accentink hover:bg-accenttint2 no-underline">
-                                {c.brand}
-                              </a>
-                            ))}
-                          </div>
-                        )}
+                      <div key={i} className={cn("flex w-full", m.role === "user" ? "justify-end" : "justify-start")}>
+                        <div className={cn("chat-bubble", m.role === "user" ? "chat-user" : "chat-ai")}>
+                          {m.role === "assistant" ? (
+                            <Md text={m.text} />
+                          ) : (
+                            <span>{m.text}</span>
+                          )}
+                          {m.role === "assistant" && m.citations && m.citations.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {m.citations.map((c) => (
+                                <a key={c.dealId} href={`/app/deals?focus=${c.dealId}`} className="inline-flex items-center text-[11px] px-2 py-0.5 rounded-full bg-accenttint text-accentink hover:bg-accenttint2 no-underline">
+                                  {c.brand}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                     {busy && <div className="flex items-center gap-2 text-[13px] text-inksoft"><Spinner className="h-3.5 w-3.5" /> Checking your data</div>}

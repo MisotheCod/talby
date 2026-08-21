@@ -35,8 +35,10 @@ function detectIntent(q: string): "money" | "schedule" | "contract" | "conflict"
   if (has(["competing", "competition", "conflict", "overlap", "can i take", "can i work", "take on a", "work with a", "competing brand", "another brand", "am i allowed", "am i free", "haircare", "category of"]) && has(["deal", "brand", "post", "content", "category", "contract", "exclusive", "rights"])) return "conflict";
   // Terms/policy questions (exclusivity, usage, clause, license) are contract and MUST
   // trigger retrieval, so they are checked before the looser schedule/money keywords.
-  if (has(["usage rights", "usage", "clause", "contract", "license", "exclusivity", "rights for", "rights", "terms of", "quote the"])) return "contract";
-  if (has(["due", "due date", "next week", "deadline", "scheduled", "schedule", "this week", "calendar", "when is", "posted", "deliver", "expire", "expiration", "expiring", "expi"])) return "schedule";
+  if (has(["usage rights", "usage", "clause", "contract", "license", "exclusivity", "rights for", "rights", "terms of", "quote the", "exclusive"])) return "contract";
+  // Deal/brand lookup: "find/show/where is my <brand> deal", "which deal", etc.
+  if (has(["find my", "find me", "show my", "show me", "where is", "where's", "my deal", "which deal", "which brand", "which contract", "what deals", "get my", "show ", "find ", "search", "deal for", "get the"]) && has(["deal", "brand", "contract", "campaign", "client", "rep", "gruns", "exclusive", "exclusivity", "tums", "nioxin", "glow"])) return "contract";
+  if (has(["due", "due date", "next week", "deadline", "scheduled", "schedule", "this week", "calendar", "when is", "posted", "deliver", "expire", "expiration", "expiring"])) return "schedule";
   if (has(["how much", "owed", "amount", "paid", "received", "income", "earned", "value", "dollar", "money", "payment", "expected", "biggest", "total", "average", "worth"])) return "money";
   return "off_topic";
 }
