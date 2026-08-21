@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button, Input, Spinner } from "@/components/ui";
-import { IconClose, IconSend, IconAuto } from "@/components/icons";
+import { IconClose, IconSend } from "@/components/icons";
+import { FluentBotSparkle28Regular } from "@/components/fluent-icons";
 
 /**
  * Talby Assistant launcher (paid tier). Floating control in the bottom-right.
@@ -87,12 +88,7 @@ export function AssistantLauncher() {
       className="assistant-fab"
     >
       <span className="assistant-fab-svg">
-        <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M12 3.5a3 3 0 00 6 0c.5.5 1.5 2 1-1.8-.8 0-0.6-.9 1.2 2.5h1.2a3 3 0 00 6c0" />
-          <circle cx="12" cy="7" r="1" />
-          <circle cx="12" cy="12" r="1" />
-          <circle cx="12" cy="17" r="1" />
-        </svg>
+        <FluentBotSparkle28Regular width={22} height={22} className="text-accent" />
       </span>
     </button>
   );
@@ -106,7 +102,7 @@ export function AssistantLauncher() {
           <div className="assistant-panel sticky-scroll" onClick={(e) => e.stopPropagation()}>
           <div className="assistant-head">
             <div className="flex items-center gap-2">
-              <IconAuto size={17} className="text-accentink" />
+              <FluentBotSparkle28Regular width={17} height={17} className="text-accentink" />
               <span className="font-semibold text-[14px]">Talby Assistant</span>
             </div>
             <button onClick={() => setOpen(false)} aria-label="Close assistant" className="p-1 rounded-lg hover:bg-subtle cursor-pointer">
