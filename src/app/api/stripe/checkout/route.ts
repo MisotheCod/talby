@@ -51,7 +51,7 @@ export async function POST() {
     // Managed Payments (default on new accounts) requires a product tax_code;
     // without one the session creation fails. We aren't collecting taxes, so
     // opt out of the managed-payments flow for this session so checkout works
-    // directly. No tax configuration needed for a $9 creator subscription.
+    // directly. No tax configuration needed for a $20 creator subscription.
     managed_payments: { enabled: false },
   });
 

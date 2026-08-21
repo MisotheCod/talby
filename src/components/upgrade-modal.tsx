@@ -49,7 +49,7 @@ export function UpgradeModal({
           <li className="flex items-center gap-2"><IconCheck size={16} className="text-accentink shrink-0" /> Everything you use today, kept forever</li>
         </ul>
         <Button className="w-full mt-6" size="lg" onClick={go}>Go unlimited</Button>
-        <p className="text-xs text-inksoft mt-3">Cancel anytime. Price: $9/month.</p>
+        <p className="text-xs text-inksoft mt-3">Cancel anytime. Price: $20/month.</p>
       </div>
     </div>
   );
