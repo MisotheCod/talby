@@ -12,7 +12,7 @@ import {
 } from "@/components/deal-form";
 import { useCelebration } from "@/components/confetti";
 
-type ContractDraft = DealFormValues & { __name?: string; __auto?: (keyof DealFormValues)[]; __flags?: DealFlag[]; __file?: File };
+type ContractDraft = DealFormValues & { __name?: string; __auto?: (keyof DealFormValues)[]; __flags?: DealFlag[]; __file?: File; __text?: string };
 
 /**
  * Unified Upload modal. Opens with ONLY a dropzone (never auto-opens the native
@@ -75,7 +75,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
         const fields = data.fields ?? {};
         results.push({
           ...applyContractFields(fields),
-          __name: f.name, __file: f,
+          __name: f.name, __file: f, __text: typeof data.text === "string" ? data.text : undefined,
           __auto: contractAutoFields(fields),
           __flags: contractFlags(fields),
         });
@@ -142,6 +142,15 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
           const path = `${user.id}/${createdId}/${Date.now()}-${d.__file!.name}`;
           await supabase.storage.from("deal-files").upload(path, d.__file!);
           await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: d.__file!.name, path, size_bytes: d.__file!.size, mime: d.__file!.type });
+          // Ingest the extracted contract text for assistant Q&A.
+          if (d.__text?.trim()) {
+            try {
+              await fetch("/api/assistant/ingest", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dealId: createdId, text: d.__text }),
+              });
+            } catch { /* non-fatal; deal already saved */ }
+          }
         }
       }
       added++;

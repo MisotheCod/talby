@@ -152,6 +152,7 @@ export function DealForm({
   const [v, setV] = useState<DealFormValues>(initial);
   const [extracting, setExtracting] = useState(false);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
+  const [stagedText, setStagedText] = useState(""); // extracted contract text for assistant ingest
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
@@ -186,6 +187,7 @@ export function DealForm({
       const res = await fetch("/api/deals/extract-contract", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Could not read the contract."); setStagedFile(null); return; }
+      setStagedText(typeof data.text === "string" ? data.text : "");
       const per = applyContractFields(data.fields ?? {});
       setV(per);
       setSelfReview({ auto: contractAutoFields(data.fields ?? {}), flags: contractFlags(data.fields ?? {}) });
@@ -226,6 +228,16 @@ export function DealForm({
         const path = `${user.id}/${createdId}/${Date.now()}-${srcFile.name}`;
         await supabase.storage.from("deal-files").upload(path, srcFile);
         await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: srcFile.name, path, size_bytes: srcFile.size, mime: srcFile.type });
+      }
+      // Ingest the extracted contract text for assistant Q&A (server-side chunk+embed).
+      if (plan === "paid" && createdId && stagedText.trim()) {
+        try {
+          await fetch("/api/assistant/ingest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dealId: createdId, text: stagedText }),
+          });
+        } catch { /* ingest is safe to fail silently; the deal is already saved */ }
       }
     } else {
       if (!dealId) { setError("Missing deal."); return; }

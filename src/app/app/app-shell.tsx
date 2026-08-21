@@ -13,6 +13,7 @@ import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
   IconNotes, IconLogout, IconSettings, IconMail,
 } from "@/components/icons";
 import { NotificationBell } from "@/components/notification-bell";
+import { AssistantLauncher } from "@/components/assistant";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -166,6 +167,10 @@ export function AppShell({
   const footer = (
     <div className="side-foot">
       {plan === "free" && <UpsellCard used={capUsed} cap={FREE_ACTIVE_DEAL_CAP} />}
+      <ThemeControl current={accentState} currentFont={fontState} currentMode={modeState}
+        onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont}
+        onSaveFont={saveFont} onPreviewMode={previewMode} onSaveMode={saveMode}
+        variant="row" />
       <div className="flex items-center justify-between px-2 pt-2">
         <Link href="/app/settings" className="flex items-center gap-2 text-[13px] text-inksoft hover:text-ink no-underline">
           <IconSettings size={16} /> Settings
@@ -211,7 +216,7 @@ export function AppShell({
         <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
           {children}
         </main>
-        <ThemeControl current={accentState} currentFont={fontState} currentMode={modeState} onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont} onSaveFont={saveFont} onPreviewMode={previewMode} onSaveMode={saveMode} />
+        <AssistantLauncher />
       </div>
     </div>
   );

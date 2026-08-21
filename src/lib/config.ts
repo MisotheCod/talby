@@ -13,6 +13,20 @@ export const FREE_ACTIVE_DEAL_CAP = 5;
 /** Stripe paid plan (the only paid tier). */
 export const STRIPE_PLAN_ID = process.env.STRIPE_PRICE_ID || "";
 
+/**
+ * Talby Assistant (paid tier): chat over the user's own deals/payments/
+ * contracts/calendar. Swappable model ids live here.
+ * - ASSISTANT_MODEL_ID: grounded Q&A model. Verified reachable under the
+ *   OpenRouter ZDR params below. DeepSeek V4 Flash: 1M ctx, ~$0.08/1M in.
+ * - EMBED_MODEL_ID: contract chunk embeddings. text-embedding-3-small via
+ *   OpenRouter /embeddings, 1536 dims, verified under the ZDR params.
+ * The OpenRouter privacy params are applied per-request in the assistant route
+ * (never via provider.order — that 404s under allow_fallbacks:false).
+ */
+export const ASSISTANT_MODEL_ID = "deepseek/deepseek-v4-flash";
+export const EMBED_MODEL_ID = "openai/text-embedding-3-small";
+export const EMBED_DIMENSIONS = 1536;
+
 /** OpenRouter key for the AI import-mapping engine — SERVER-ONLY. */
 export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 

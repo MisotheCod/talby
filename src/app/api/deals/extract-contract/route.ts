@@ -68,9 +68,10 @@ export async function POST(req: Request) {
   if (!text.trim()) {
     return NextResponse.json({ error: "Couldn't read any text from that file." }, { status: 422 });
   }
-
   const fields = await extractDealFields(text);
-  return NextResponse.json({ ok: true, fields });
+  // Return the extracted text too (additive) so the client can hand it to the
+  // assistant ingest route for chunking + embedding. Extraction itself is unchanged.
+  return NextResponse.json({ ok: true, fields, text });
 }
 
 const SYSTEM = [
