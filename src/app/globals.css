@@ -45,6 +45,10 @@
   --accent-l: 50%;
   --accent: hsl(var(--accent-h), var(--accent-s), var(--accent-l));
   --on-accent: #ffffff;
+  /* Deep, saturated accent shade used by the Unlimited pricing card; its on-color
+     is guarded against THIS surface so it stays legible at any hue/saturation. */
+  --accent-deep: hsl(210, 76%, 30%);
+  --on-accent-deep: #ffffff;
   --brand: #1f7ae0; /* logo: fixed, never re-tints (marketing/auth only) */
   --accent-ink: hsl(var(--accent-h), 48%, 42%);
   --accent-tint: hsl(var(--accent-h), 70%, 96%);

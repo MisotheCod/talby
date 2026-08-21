@@ -61,9 +61,18 @@ export function accentShades({ h, s, l }: HSL, mode: ThemeMode) {
   const L = luminance(h, s, l);
   const contrastWhite = (1.0 + 0.05) / (L + 0.05);
   const onAccent = contrastWhite >= 3.2 ? "#ffffff" : "#14181f";
+  // Deep, saturated shade of the accent used for the Unlimited pricing card.
+  // It re-tints with the accent; its foreground is guarded by the SAME luminance
+  // check but evaluated against this actual surface so it's always legible.
+  const deep = { h, s, l: Math.max(26, Math.min(l * 0.6, 34)) };
+  const dL = luminance(deep.h, deep.s, deep.l);
+  const dContrastWhite = (1.0 + 0.05) / (dL + 0.05);
+  const onDeep = dContrastWhite >= 3.2 ? "#ffffff" : "#14181f";
   if (mode === "dark") {
     return {
       onAccent,
+      deepBg: `hsl(${h},${s}%,${deep.l}%)`,
+      onDeep,
       accentInk: `hsl(${h},64%,78%)`,
       accentTint: `hsl(${h},52%,15%)`,
       accentTint2: `hsl(${h},44%,22%)`,
@@ -73,16 +82,16 @@ export function accentShades({ h, s, l }: HSL, mode: ThemeMode) {
   const inkL = L > 0.5 ? 30 : 42;
   return {
     onAccent,
+    deepBg: `hsl(${h},${s}%,${deep.l}%)`,
+    onDeep,
     accentInk: `hsl(${h},48%,${inkL}%)`,
     accentTint: `hsl(${h},70%,96%)`,
     accentTint2: `hsl(${h},60%,90%)`,
   };
 }
 
-/**
- * Apply an accent to the document root by setting the hue CSS vars
- * and derived shades (mirrors the reference HTML `apply()`).
- */
+/** Apply an accent to the document root by setting the hue CSS vars
+ *  and derived shades (mirrors the reference HTML `apply()`). */
 export function applyAccent({ h, s, l }: HSL, mode: ThemeMode = "light") {
   const root = document.documentElement;
   root.style.setProperty("--accent-h", String(h));
@@ -91,6 +100,8 @@ export function applyAccent({ h, s, l }: HSL, mode: ThemeMode = "light") {
 
   const sh = accentShades({ h, s, l }, mode);
   root.style.setProperty("--on-accent", sh.onAccent);
+  root.style.setProperty("--accent-deep", sh.deepBg);
+  root.style.setProperty("--on-accent-deep", sh.onDeep);
   root.style.setProperty("--accent-ink", sh.accentInk);
   root.style.setProperty("--accent-tint", sh.accentTint);
   root.style.setProperty("--accent-tint-2", sh.accentTint2);
@@ -121,6 +132,8 @@ export function accentVars({ h, s, l }: HSL, mode: ThemeMode = "light"): string 
     `--accent-s:${s}%`,
     `--accent-l:${l}%`,
     `--on-accent:${sh.onAccent}`,
+    `--accent-deep:${sh.deepBg}`,
+    `--on-accent-deep:${sh.onDeep}`,
     `--accent-ink:${sh.accentInk}`,
     `--accent-tint:${sh.accentTint}`,
     `--accent-tint-2:${sh.accentTint2}`,
