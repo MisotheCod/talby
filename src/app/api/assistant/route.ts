@@ -156,7 +156,9 @@ export async function POST(req: Request) {
     content: [
       text,
       "",
-      "Answer using only the data above. For a conflict question, quote the exclusivity clauses verbatim and list which deal each applies to; do not give a blanket yes/no.",
+      "Answer using only the data above.",
+      "For a conflict question, do NOT give a blanket yes or no. Quote every relevant exclusivity clause verbatim, name which deal each applies to, and let the creator decide. If a clause or brand isn't present in the data, say you don't see it.",
+      "If the data does not contain the answer, say plainly that you don't see it in their Talby data.",
       "After your answer, on its own line, output: CITATIONS: <comma-separated deal brand names you actually used, or NONE>",
     ].join("\n"),
   });
