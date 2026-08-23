@@ -250,16 +250,13 @@ h1, h2, h3, h4 {
 .nav-item .ic { width: 18px; height: 18px; flex: none; }
 .nav-item .badge { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--ink-faint); }
 .nav-item.on .badge { color: var(--accent-ink); }
-/* Thin-line icons: Fluent renders the glyph as a <path fill="currentColor">, so
-   the CSS must target the inner path (not the svg) to convert it to an outline.
-   setting fill:none + a light stroke turns the solid glyph into a slim line icon. */
+/* Nav/theme icons: Lucide renders native stroke outline glyphs. Just ensure they
+   inherit currentColor and stay as outlines (no forced fill). */
 .nav-item .ic path, .nav-item.on .ic path,
 .theme-btn .ic path, .nav-item .ic svg path {
-  fill: none !important;
+  fill: none;
   stroke: currentColor;
-  stroke-width: 1.25;
 }
-.nav-item.on .ic path { stroke-width: 1.35; }
 .side-foot {
   margin-top: auto; padding: 8px 0 6px;
   display: flex; flex-direction: column; gap: 2px;

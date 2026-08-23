@@ -1,173 +1,151 @@
 "use client";
 
-// Talby icon set — now Fluent (Microsoft Fluent System Icons) via @fluentui/react-icons.
-// The app historically used @icon-park/outline. Each alias below keeps its old
-// semantic name (IconHome, IconPlus, ...) so every call site is unchanged, but the
-// underlying glyphs are Fluent. All components accept the same `size` / `className`
-// / `style` / `data-*` props the old icons did.
+// Talby icon set — Lucide (lucide-react). Thin, stroke-based outline icons that
+// match the app's calm, uncluttered design language. (Earlier: @icon-park, then
+// @fluentui/react-icons.) Each alias below keeps the same semantic name
+// (IconHome, IconPlus, ...) so every call site is unchanged, but the glyphs are
+// now Lucide.
 //
-// `size` is translated to width/height because Fluent icons accept width/height,
-// not `size`. className/style/data-* pass straight through (Fluent spreads them).
+// Lucide icons render as native SVG strokes (stroke-width ~2), so no forced
+// outline/fill hacks are needed. The `size` prop maps to width/height; all
+// className/style/data-* props pass straight through.
 
 import type { ComponentType, SVGProps } from "react";
 import {
-  HomeRegular,
-  BriefcaseRegular,
-  CalendarRegular,
-  MoneyRegular,
-  LightbulbRegular,
-  NotebookRegular,
-  PlugConnectedRegular,
-  SettingsRegular,
-  AddRegular,
-  DismissRegular,
-  ChevronRightRegular,
-  ChevronLeftRegular,
-  ChevronDownRegular,
-  ChevronUpRegular,
-  ArrowRightRegular,
-  ArrowLeftRegular,
-  ArrowUpRegular,
-  ArrowDownRegular,
-  CheckmarkRegular,
-  MoreHorizontalRegular,
-  EditRegular,
-  DeleteRegular,
-  LinkRegular,
-  EyeRegular,
-  EyeOffRegular,
-  SearchRegular,
-  StarRegular,
-  WandRegular,
-  ArrowUploadRegular,
-  ArrowDownloadRegular,
-  AttachRegular,
-  ShoppingBagRegular,
-  TimelineRegular,
-  MailRegular,
-  WalletRegular,
-  CreditCardPersonRegular,
-  GiftRegular,
-  SendRegular,
-  GridRegular,
-  ListRegular,
-  FilterRegular,
-  ArrowSyncRegular,
-  ClockRegular,
-  AlertRegular,
-  WarningRegular,
-  InfoRegular,
-  CheckmarkCircleRegular,
-  ErrorCircleRegular,
-  NavigationRegular,
-  SignOutRegular,
-  PersonRegular,
-  CrownRegular,
-  LockClosedRegular,
-  ColorRegular,
-  DarkThemeRegular,
-  DragRegular,
-  MusicNote1Regular,
-  VideoRegular,
-  DocumentRegular,
-} from "@fluentui/react-icons";
+  House,
+  BriefcaseBusiness,
+  Calendar,
+  CircleDollarSign,
+  DollarSign,
+  Lightbulb,
+  NotebookPen,
+  PlugZap,
+  Settings,
+  Plus,
+  X,
+  ChevronRight,
+  ChevronLeft,
+  ChevronDown,
+  ChevronUp,
+  ArrowRight,
+  ArrowLeft,
+  ArrowUp,
+  ArrowDown,
+  Check,
+  Ellipsis,
+  Pencil,
+  Trash2,
+  Link,
+  Eye,
+  EyeOff,
+  Search,
+  Star,
+  WandSparkles,
+  ArrowUpFromLine,
+  ArrowDownToLine,
+  Paperclip,
+  ShoppingBag,
+  TrendingUp,
+  Mail,
+  Wallet,
+  CreditCard,
+  Gift,
+  Send,
+  Grid3x3,
+  List,
+  Funnel,
+  RefreshCw,
+  Bell,
+  TriangleAlert,
+  Info,
+  CircleCheck,
+  OctagonAlert,
+  Menu,
+  LogOut,
+  User,
+  Crown,
+  Lock,
+  MoonStar,
+  GripVertical,
+  Music,
+  Clapperboard,
+  FileText,
+  ArrowUpDown,
+} from "lucide-react";
 
 type AnyIcon = ComponentType<SVGProps<SVGSVGElement> | Record<string, unknown>>;
 
-/** Adapter: maps the old icon-park `size` prop onto Fluent sizing.
- * Fluent's factory hardcodes width/height to the intrinsic '1em', overriding any
- * width/height we pass. The icon IS set to width="1em", so the clean lever is
- * font-size: 1em resolves against it. `style.fontSize` therefore sizes the icon
- * reliably. className/style/data-* still pass through.
- */
-function fit(Icon: AnyIcon) {
+/** Adapter: maps `size` onto width/height (Lucide's native sizing) and keeps a
+ * consistent, thin stroke across every Lucide icon so the whole set reads as one
+ * calm line-weight. strokeWidth can be overridden per call site via `rest`. */
+function l(LucideIcon: AnyIcon) {
   return function Fitted(props: SVGProps<SVGSVGElement> & { size?: number }) {
-    const { size, style, ...rest } = props;
-    const dim = size ?? 24;
-    return <Icon style={{ ...style, fontSize: dim }} {...rest} />;
+    const { size, strokeWidth, ...rest } = props;
+    const dim = size ?? 20;
+    return <LucideIcon width={dim} height={dim} strokeWidth={strokeWidth ?? 1.6} {...rest} />;
   };
 }
 
-/** Clean, thin stroke-based dollar-sign glyph (Payments nav). Uses currentColor,
- *  matches the thin-line look of the nav; not a filled coin/bill. */
-function DollarGlyph(props: SVGProps<SVGSVGElement> & { size?: number }) {
-  const { size, style, ...rest } = props;
-  const dim = size ?? 20;
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      width={dim} height={dim}
-      fill="none" stroke="currentColor"
-      strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true"
-      style={{ ...style, fontSize: dim }}
-      {...rest}
-    >
-      <path d="M10 3v14" />
-      <path d="M8 8.2c0 1.6 1.3 2 3 2.6s3 1.3 3 2.9c0 1.5-1.4 2.4-3 2.4s-2.9-.9-2.9-2.3" />
-    </svg>
-  );
-}
-
-export const IconHome = fit(HomeRegular);
-export const IconBriefcase = fit(BriefcaseRegular);
-export const IconCalendar = fit(CalendarRegular);
-export const IconMoney = fit(MoneyRegular);
-export const IconDollar = DollarGlyph;
-export const IconIdea = fit(LightbulbRegular);
-export const IconNotes = fit(NotebookRegular);
-export const IconPlug = fit(PlugConnectedRegular);
-export const IconSettings = fit(SettingsRegular);
-export const IconPlus = fit(AddRegular);
-export const IconAdd = fit(AddRegular);
-export const IconClose = fit(DismissRegular);
-export const IconCloseSmall = fit(DismissRegular);
-export const IconRight = fit(ChevronRightRegular);
-export const IconLeft = fit(ChevronLeftRegular);
-export const IconDown = fit(ChevronDownRegular);
-export const IconUp = fit(ChevronUpRegular);
-export const IconArrowRight = fit(ArrowRightRegular);
-export const IconArrowLeft = fit(ArrowLeftRegular);
-export const IconArrowUp = fit(ArrowUpRegular);
-export const IconArrowDown = fit(ArrowDownRegular);
-export const IconCheck = fit(CheckmarkRegular);
-export const IconCheckSmall = fit(CheckmarkRegular);
-export const IconCorrect = fit(CheckmarkRegular);
-export const IconMore = fit(MoreHorizontalRegular);
-export const IconEdit = fit(EditRegular);
-export const IconDelete = fit(DeleteRegular);
-export const IconLink = fit(LinkRegular);
-export const IconEye = fit(EyeRegular);
-export const IconEyeInvisible = fit(EyeOffRegular);
-export const IconSearch = fit(SearchRegular);
-export const IconStar = fit(StarRegular);
-export const IconAuto = fit(WandRegular);
-export const IconUpload = fit(ArrowUploadRegular);
-export const IconDownload = fit(ArrowDownloadRegular);
-export const IconPaperclip = fit(AttachRegular);
-export const IconShopping = fit(ShoppingBagRegular);
-export const IconTrend = fit(TimelineRegular);
-export const IconMail = fit(MailRegular);
-export const IconWallet = fit(WalletRegular);
-export const IconCredit = fit(CreditCardPersonRegular);
-export const IconGift = fit(GiftRegular);
-export const IconSend = fit(SendRegular);
-export const IconGrid = fit(GridRegular);
-export const IconList = fit(ListRegular);
-export const IconFilter = fit(FilterRegular);
-export const IconRefresh = fit(ArrowSyncRegular);
-export const IconRemind = fit(AlertRegular);
-export const IconWarning = fit(WarningRegular);
-export const IconInfo = fit(InfoRegular);
-export const IconSuccess = fit(CheckmarkCircleRegular);
-export const IconError = fit(ErrorCircleRegular);
-export const IconMenu = fit(NavigationRegular);
-export const IconLogout = fit(SignOutRegular);
-export const IconUser = fit(PersonRegular);
-export const IconCrown = fit(CrownRegular);
-export const IconLock = fit(LockClosedRegular);
-export const IconPalette = fit(DarkThemeRegular);
-export const IconDrag = fit(DragRegular);
-export const IconMusic = fit(MusicNote1Regular);
-export const IconVideo = fit(VideoRegular);
-export const IconFile = fit(DocumentRegular);
+export const IconHome = l(House);
+export const IconBriefcase = l(BriefcaseBusiness);
+export const IconCalendar = l(Calendar);
+export const IconMoney = l(CircleDollarSign);
+export const IconDollar = l(DollarSign);
+export const IconIdea = l(Lightbulb);
+export const IconNotes = l(NotebookPen);
+export const IconPlug = l(PlugZap);
+export const IconSettings = l(Settings);
+export const IconPlus = l(Plus);
+export const IconAdd = l(Plus);
+export const IconClose = l(X);
+export const IconCloseSmall = l(X);
+export const IconRight = l(ChevronRight);
+export const IconLeft = l(ChevronLeft);
+export const IconDown = l(ChevronDown);
+export const IconUp = l(ChevronUp);
+export const IconArrowRight = l(ArrowRight);
+export const IconArrowLeft = l(ArrowLeft);
+export const IconArrowUp = l(ArrowUp);
+export const IconArrowDown = l(ArrowDown);
+export const IconCheck = l(Check);
+export const IconCheckSmall = l(Check);
+export const IconCorrect = l(Check);
+export const IconMore = l(Ellipsis);
+export const IconEdit = l(Pencil);
+export const IconDelete = l(Trash2);
+export const IconLink = l(Link);
+export const IconEye = l(Eye);
+export const IconEyeInvisible = l(EyeOff);
+export const IconSearch = l(Search);
+export const IconStar = l(Star);
+export const IconAuto = l(WandSparkles);
+export const IconUpload = l(ArrowUpFromLine);
+export const IconDownload = l(ArrowDownToLine);
+export const IconPaperclip = l(Paperclip);
+export const IconShopping = l(ShoppingBag);
+export const IconTrend = l(TrendingUp);
+export const IconMail = l(Mail);
+export const IconWallet = l(Wallet);
+export const IconCredit = l(CreditCard);
+export const IconGift = l(Gift);
+export const IconSend = l(Send);
+export const IconGrid = l(Grid3x3);
+export const IconList = l(List);
+export const IconFilter = l(Funnel);
+export const IconRefresh = l(RefreshCw);
+export const IconRemind = l(Bell);
+export const IconWarning = l(TriangleAlert);
+export const IconInfo = l(Info);
+export const IconSuccess = l(CircleCheck);
+export const IconError = l(OctagonAlert);
+export const IconMenu = l(Menu);
+export const IconLogout = l(LogOut);
+export const IconUser = l(User);
+export const IconCrown = l(Crown);
+export const IconLock = l(Lock);
+export const IconPalette = l(MoonStar);
+export const IconDrag = l(GripVertical);
+export const IconMusic = l(Music);
+export const IconVideo = l(Clapperboard);
+export const IconFile = l(FileText);
+export const IconSort = l(ArrowUpDown);
