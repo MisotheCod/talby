@@ -29,18 +29,74 @@ type Row = Record<string, unknown>;
  */
 function detectIntent(q: string): "money" | "schedule" | "contract" | "conflict" | "off_topic" {
   const s = q.toLowerCase();
-  const has = (arr: string[]) => arr.some((k) => s.includes(k));
 
-  if (has(["write a", "write me", "caption", "help me write", "help me with", "give me a", "recommend me", "make me a", "post idea", "content ideas", "what should i post", "recipe", "code ", "predict", "general advice", "creative"])) return "off_topic";
-  if (has(["competing", "competition", "conflict", "overlap", "can i take", "can i work", "can't i work", "can i not", "take on a", "work with a", "competing brand", "another brand", "am i allowed", "am i free", "haircare", "category of", "which brands", "can't work", "can't take", "not allowed to", "what brands", "restrict", "restricted", "prohibit", "blocked from", "exclusivity", "exclusive"]) && has(["deal", "brand", "post", "content", "category", "categories", "contract", "clause", "rights", "work", "client", "competing", "blocked", "exclusive"])) return "conflict";
+  // Typo-tolerant matching: a keyword "matches" if the query contains it as a
+  // literal substring OR is within a tiny edit distance of a keyword, so
+  // misspellings ("exclucivity", "exculsive") still route correctly.
+  const hasLoose = (keywords: string[]) =>
+    keywords.some((kw) => includesNear(s, kw, Math.max(1, Math.floor(kw.length / 4))));
+
+  if (hasLoose(["write a", "write me", "caption", "help me write", "help me with", "give me a", "recommend me", "make me a", "post idea", "content ideas", "what should i post", "recipe", "code ", "predict", "general advice", "creative"])) return "off_topic";
+  if (hasLoose(["competing", "competition", "conflict", "overlap", "can i take", "can i work", "can't i work", "can i not", "take on a", "work with a", "competing brand", "another brand", "am i allowed", "am i free", "haircare", "category of", "which brands", "can't work", "can't take", "not allowed to", "what brands", "restrict", "restricted", "prohibit", "blocked from", "exclusivity", "exclusive", "exclucivity", "exulcivity", "exculp"]) &&
+    hasLoose(["deal", "brand", "post", "content", "category", "categories", "contract", "clause", "rights", "work", "client", "competing", "blocked", "exclusive", "exclusivity", "exclucivity"])) return "conflict";
   // Terms/policy questions (exclusivity, usage, clause, license) are contract and MUST
   // trigger retrieval, so they are checked before the looser schedule/money keywords.
-  if (has(["usage rights", "usage", "clause", "contract", "license", "exclusivity", "rights for", "rights", "terms of", "quote the", "exclusive"])) return "contract";
+  if (hasLoose(["usage rights", "usage", "clause", "contract", "license", "exclusivity", "exclucivity", "exclp", "rights for", "rights", "terms of", "quote the", "exclusive"])) return "contract";
   // Deal/brand lookup: "find/show/where is my <brand> deal", "which deal", etc.
-  if (has(["find my", "find me", "show my", "show me", "where is", "where's", "my deal", "which deal", "which brand", "which contract", "what deals", "get my", "show ", "find ", "search", "deal for", "get the"]) && has(["deal", "brand", "contract", "campaign", "client", "rep", "gruns", "exclusive", "exclusivity", "tums", "nioxin", "glow"])) return "contract";
-  if (has(["due", "due date", "next week", "deadline", "scheduled", "schedule", "this week", "calendar", "when is", "posted", "deliver", "expire", "expiration", "expiring"])) return "schedule";
-  if (has(["how much", "owed", "amount", "paid", "received", "income", "earned", "value", "dollar", "money", "payment", "expected", "biggest", "total", "average", "worth"])) return "money";
+  if (hasLoose(["find my", "find me", "show my", "show me", "where is", "where's", "my deal", "which deal", "which brand", "which contract", "what deals", "get my", "show", "find", "search", "deal for", "get the"]) &&
+      hasLoose(["deal", "brand", "contract", "campaign", "client", "rep", "gruns", "exclusive", "exclusivity", "tums", "nioxin", "glow"])) return "contract";
+  if (hasLoose(["due", "due date", "next week", "deadline", "scheduled", "schedule", "this week", "calendar", "when is", "posted", "deliver", "expire", "expiration", "expiring"])) return "schedule";
+  if (hasLoose(["how much", "owed", "amount", "paid", "received", "income", "earned", "value", "dollar", "money", "payment", "expected", "biggest", "total", "average", "worth"])) return "money";
   return "off_topic";
+}
+
+// Edit-distance matcher (robust). Returns true if `kw` is a literal substring
+// of `query`, OR some loose word/token in `query` is a close typo of `kw`
+// (within the given threshold edits, allowing a one-char length difference).
+// This makes misspellings ("exclucivity" ~ "exclusivity") still match.
+function includesNear(query: string, kw: string, threshold: number): boolean {
+  if (query.includes(kw)) return true;
+  const k = kw.length;
+  // candidates: every substring window within ±threshold of k, and every `o`
+  // contiguous run of letters in the query (the loose tokens).
+  const tokens = query.split(/[^a-z]+/).filter((t) => t.length >= Math.max(3, k - 1));
+  for (const tok of tokens) {
+    if (tok === kw) return true;
+    // compare whole token (allow ±threshold length difference)
+    if (Math.abs(tok.length - k) <= threshold) {
+      if (editDistance(tok, kw) <= threshold) return true;
+    }
+    // also allow one missing/extra letter against a trimmed token
+    if (tok.length === k + 1 && editDistance(tok.slice(0, k), kw) <= threshold) return true;
+    if (tok.length === k - 1 && tok.length >= 4 && editDistance(tok, kw.slice(0, k - 1)) <= threshold) return true;
+  }
+  // fall back to original length-aligned window scan across the whole query
+  for (let start = 0; start + k <= query.length; start++) {
+    const seg = query.slice(start, start + k);
+    if (editDistance(seg, kw) <= threshold) return true;
+  }
+  return false;
+}
+
+// Classic Wagner–Fischer Levenshtein distance.
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = new Array(n + 1).fill(0).map((_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    prev = cur;
+  }
+  return prev[n];
 }
 
 const GROUND_SYSTEM = [

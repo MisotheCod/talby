@@ -72,6 +72,7 @@ export function AssistantLauncher() {
     const q = question.trim();
     if (!q || busy) return;
     setError(""); setBusy(true);
+    setInput(""); // clear the composer after sending
     setHistory((h) => [...h, { role: "user", text: q }]);
     setLive("");
     try {
