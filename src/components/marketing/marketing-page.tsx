@@ -110,22 +110,21 @@ export function MarketingPage() {
         heroEl?.addEventListener("mousemove", onMove);
 
         // ---- scroll reveals ----
-        // Content is visible by default in CSS. gsap.from() animates to the
-        // natural (visible) state, so if ScrollTrigger never fires the element
-        // simply stays visible - it can never be left invisible by a JS failure.
-        gsap.utils.toArray<HTMLElement>(".reveal").forEach((el) => {
-          gsap.from(el, { opacity: 0, y: 34, duration: 0.9, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 86%" } });
-        });
+        // Intentionally disabled: revealing content via ScrollTrigger left it
+        // permanently invisible when the trigger didn't fire (reproduced on
+        // iPad iOS WebKit). Content is visible by default; we keep the property
+        // but never hide it from JS. The section panels below still animate up.
+        void gsap.utils.toArray<HTMLElement>(".reveal").length;
 
-        // ---- section panels rise ----
+        // ---- section panels rise (transform-only; never hides opacity) ----
         gsap.utils.toArray<HTMLElement>(".tintwrap, .ctapanel").forEach((p) => {
-          gsap.from(p, { opacity: 0, y: 60, scale: 0.965, duration: 1, ease: "power3.out", scrollTrigger: { trigger: p, start: "top 85%" } });
+          gsap.from(p, { y: 60, scale: 0.965, duration: 1, ease: "power3.out", scrollTrigger: { trigger: p, start: "top 85%" } });
         });
 
-        // ---- action cards batch ----
+        // ---- action cards batch (transform-only; never hides opacity) ----
         ScrollTrigger.batch(".act", {
           start: "top 88%",
-          onEnter: (b) => gsap.fromTo(b, { scale: 0.92, opacity: 0, y: 26 }, { scale: 1, opacity: 1, y: 0, duration: 0.7, ease: "back.out(1.6)", stagger: 0.09 }),
+          onEnter: (b) => gsap.fromTo(b, { scale: 0.92, y: 26 }, { scale: 1, y: 0, duration: 0.7, ease: "back.out(1.6)", stagger: 0.09 }),
         });
 
         // ---- count-up money (trio) ----
