@@ -50,6 +50,23 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-2">
+          <h2 className="font-semibold">Talby Assistant (AI)</h2>
+          <p className="text-muted text-sm leading-relaxed">
+            On the paid plan, Talby Assistant answers your questions about your own deals, payments, content,
+            and contracts. To do so, it sends the specific data relevant to your question &mdash; for example a
+            deal&apos;s terms or the text of one of your uploaded contracts &mdash; along with your question to an
+            AI provider for processing. This happens only when you ask something, and only so the assistant can
+            answer you.
+          </p>
+          <p className="text-muted text-sm leading-relaxed">
+            Your data is <strong>never used to train</strong> the AI model, and we instruct the provider to route
+            requests only to hosts that retain no data and do not use your input for training. Talby Assistant is
+            isolated per account: it can only read the signed-in user&apos;s own data, and your data is never
+            shared with other users.
+          </p>
+        </section>
+
+        <section className="space-y-2">
           <h2 className="font-semibold">Connected accounts (Google / Gmail)</h2>
           <p className="text-muted text-sm leading-relaxed">
             On the paid plan you may connect your own Google (Gmail) account so Talby can (a) prepare and

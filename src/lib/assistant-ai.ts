@@ -4,6 +4,17 @@
 // controls are set explicitly so the assistant never routes to a host
 // that stores or trains on inputs. These are NOT a substitute for the
 // account-level opt-out, but they're the request-level floor.
+//
+// INVARIANTS (do not silently change):
+// 1) NEVER pass provider.order here — under allow_fallbacks:false
+//    OpenRouter returns 404 "No endpoints found" even for valid ZDR
+//    routes. Omit order; use default routing (see PRIVACY_PARAMS).
+// 2) Per-account isolation is a hard boundary: match_contract_chunks()
+//    MUST always bind to auth.uid() and NEVER trust a caller-supplied
+//    match_user_id. The SQL in 000021_assistant_contracts.sql filters
+//    `where cc.user_id = auth.uid()` for exactly this reason — do not
+//    "simplify" it to use the passed argument, or cross-user retrieval
+//    becomes possible. Verified 2026-08.
 // ============================================================
 import { OPENROUTER_API_KEY, ASSISTANT_MODEL_ID, EMBED_MODEL_ID } from "@/lib/config";
 

@@ -53,6 +53,12 @@ create policy "contract_chunks_delete_own" on public.contract_chunks
 -- Semantic retrieval over the caller's own chunks only. The function enforces
 -- match_user_id = auth.uid() so a user can never retrieve another user's text,
 -- even if the RPC were called with a foreign id. Returns the top-K by cosine.
+--
+-- HARD INVARIANT (per-account isolation): the WHERE clause below MUST bind to
+-- auth.uid() and MUST ignore the caller-supplied match_user_id argument. If this
+-- is ever "simplified" to filter on match_user_id, cross-user contract retrieval
+-- becomes possible and the assistant's privacy boundary is broken. Do NOT change
+-- the auth.uid() binding. (See INVARIANTS note in src/lib/assistant-ai.ts.)
 create or replace function public.match_contract_chunks(
   query_embedding vector(1536),
   match_user_id uuid,
