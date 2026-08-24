@@ -64,17 +64,17 @@ export function MarketingPage() {
 
       const ctx = gsap.context(() => {
         // ---- HERO intro ----
-        gsap.to("#heroH .w", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", stagger: 0.07, delay: 0.1, startAt: { y: 30 } });
-        gsap.to("#heroP", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", delay: 0.6, startAt: { y: 20 } });
-        gsap.to("#heroC", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", delay: 0.75, startAt: { y: 20 } });
-        gsap.to("#heroN", { opacity: 1, duration: 0.7, delay: 0.9 });
+        gsap.to("#heroH .w", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", stagger: 0.07, delay: 0.1, startAt: { opacity: 0, y: 30 } });
+        gsap.to("#heroP", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", delay: 0.6, startAt: { opacity: 0, y: 20 } });
+        gsap.to("#heroC", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", delay: 0.75, startAt: { opacity: 0, y: 20 } });
+        gsap.to("#heroN", { opacity: 1, duration: 0.7, delay: 0.9, startAt: { opacity: 0 } });
 
         // ---- floating symbols: pop in ----
-        gsap.to(".orb", { opacity: 1, scale: 1, duration: 0.8, ease: "back.out(1.8)", stagger: 0.08, delay: 0.5, startAt: { scale: 0.4 } });
+        gsap.to(".orb", { opacity: 1, scale: 1, duration: 0.8, ease: "back.out(1.8)", stagger: 0.08, delay: 0.5, startAt: { opacity: 0, scale: 0.4 } });
 
         // ---- hero dashboard mock ----
-        gsap.to("#heromock", { opacity: 1, y: 0, scale: 1, duration: 1, ease: "power3.out", delay: 1.0, startAt: { y: 60, scale: 0.97 } });
-        gsap.to(".hm-row", { opacity: 1, x: 0, duration: 0.55, ease: "power2.out", stagger: 0.09, delay: 1.5, startAt: { x: -14 } });
+        gsap.to("#heromock", { opacity: 1, y: 0, scale: 1, duration: 1, ease: "power3.out", delay: 1.0, startAt: { opacity: 0, y: 60, scale: 0.97 } });
+        gsap.to(".hm-row", { opacity: 1, x: 0, duration: 0.55, ease: "power2.out", stagger: 0.09, delay: 1.5, startAt: { opacity: 0, x: -14 } });
         gsap.utils.toArray<HTMLElement>(".hnum").forEach((el, i) => {
           const n = +el.dataset.n!;
           const o = { v: 0 };
@@ -110,8 +110,11 @@ export function MarketingPage() {
         heroEl?.addEventListener("mousemove", onMove);
 
         // ---- scroll reveals ----
+        // Content is visible by default in CSS. gsap.from() animates to the
+        // natural (visible) state, so if ScrollTrigger never fires the element
+        // simply stays visible - it can never be left invisible by a JS failure.
         gsap.utils.toArray<HTMLElement>(".reveal").forEach((el) => {
-          gsap.to(el, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 86%" } });
+          gsap.from(el, { opacity: 0, y: 34, duration: 0.9, ease: "power3.out", scrollTrigger: { trigger: el, start: "top 86%" } });
         });
 
         // ---- section panels rise ----
