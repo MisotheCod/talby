@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ACCENT_PRESETS, HEADING_FONTS, applyAccent, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
+import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { IconCheck } from "@/components/icons";
 import { Button, Spinner } from "@/components/ui";

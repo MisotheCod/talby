@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { OPENROUTER_API_KEY } from "@/lib/config";
+import { OPENROUTER_API_KEY } from "@/lib/server-config";
 
 export const dynamic = "force-dynamic";
 // Contract text extraction is CPU/IO bound; Node runtime keeps unpdf's worker happy.

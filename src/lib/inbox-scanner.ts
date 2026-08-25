@@ -1,5 +1,5 @@
 import "server-only";
-import { OPENROUTER_API_KEY } from "@/lib/config";
+import { OPENROUTER_API_KEY } from "@/lib/server-config";
 
 /**
  * Inbox deal-scanner pipeline. Signals only SELECT candidates (cheap filter);

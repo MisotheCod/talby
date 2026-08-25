@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { buildNudge } from "@/lib/nudges";
 import { getAccessToken, createGmailDraft, sendGmail } from "@/lib/gmail-server";
-import { DEFAULT_NUDGE_DAYS_OVERDUE } from "@/lib/config";
+import { DEFAULT_NUDGE_DAYS_OVERDUE } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 

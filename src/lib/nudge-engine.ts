@@ -2,7 +2,7 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
 import { buildNudge } from "@/lib/nudges";
 import { getAccessToken, sendGmail } from "@/lib/gmail-server";
-import { DEFAULT_NUDGE_DAYS_OVERDUE } from "@/lib/config";
+import { DEFAULT_NUDGE_DAYS_OVERDUE } from "@/lib/constants";
 
 /**
  * Rules engine for auto-nudging (per-deal `auto` mode only, explicitly

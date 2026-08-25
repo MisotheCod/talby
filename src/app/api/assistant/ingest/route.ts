@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { chunkText, embed } from "@/lib/assistant-ai";
-import { EMBED_DIMENSIONS } from "@/lib/config";
+import { EMBED_DIMENSIONS } from "@/lib/constants";
 
 /**
  * POST /api/assistant/ingest  { dealId, text }

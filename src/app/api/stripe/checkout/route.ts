@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@/lib/supabase/server";
-import { STRIPE_PLAN_ID } from "@/lib/config";
+import { STRIPE_PLAN_ID } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);

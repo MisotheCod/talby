@@ -5,7 +5,7 @@ import Link from "next/link";
 import gsap from "gsap";
 import { createClient } from "@/lib/supabase/client";
 import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
+import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus } from "@/components/icons";
 import { Pill, Segmented } from "@/components/ui";
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
+import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconClose, IconUpload, IconDelete } from "@/components/icons";
 import { Button, Spinner, StatusPill } from "@/components/ui";
 import {

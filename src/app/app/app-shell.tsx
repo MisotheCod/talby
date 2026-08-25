@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { applyAccent, applyFont, applyMode, ACCENT_PRESETS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
+import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { ThemeControl } from "@/components/theme-control";
 

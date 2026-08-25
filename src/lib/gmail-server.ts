@@ -1,5 +1,6 @@
 import "server-only";
-import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_FULL_SCOPE } from "@/lib/config";
+import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from "@/lib/server-config";
+import { GMAIL_FULL_SCOPE } from "@/lib/constants";
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**

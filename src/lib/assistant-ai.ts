@@ -16,7 +16,8 @@
 //    "simplify" it to use the passed argument, or cross-user retrieval
 //    becomes possible. Verified 2026-08.
 // ============================================================
-import { OPENROUTER_API_KEY, ASSISTANT_MODEL_ID, EMBED_MODEL_ID } from "@/lib/config";
+import { OPENROUTER_API_KEY } from "@/lib/server-config";
+import { ASSISTANT_MODEL_ID, EMBED_MODEL_ID } from "@/lib/constants";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { OPENROUTER_API_KEY } from "@/lib/config";
+import { OPENROUTER_API_KEY } from "@/lib/server-config";
 
 export const dynamic = "force-dynamic";
 

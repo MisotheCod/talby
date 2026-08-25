@@ -1,5 +1,6 @@
 import "server-only";
-import { NOTION_CLIENT_ID, NOTION_CLIENT_SECRET, NOTION_REDIRECT_URI, NOTION_VERSION } from "@/lib/config";
+import { NOTION_CLIENT_ID, NOTION_CLIENT_SECRET, NOTION_REDIRECT_URI } from "@/lib/server-config";
+import { NOTION_VERSION } from "@/lib/constants";
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**

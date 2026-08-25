@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/config";
+import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail } from "@/components/icons";
 import { Button, Input, Textarea, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";

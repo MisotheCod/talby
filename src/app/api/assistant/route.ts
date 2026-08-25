@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { completeStream, complete, embed, type AssistantMsg } from "@/lib/assistant-ai";
-import { OPENROUTER_API_KEY } from "@/lib/config";
+import { OPENROUTER_API_KEY } from "@/lib/server-config";
 
 /**
  * POST /api/assistant  { message }
