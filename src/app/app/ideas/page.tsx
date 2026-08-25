@@ -186,6 +186,32 @@ function normalizeRefs(raw: unknown): IdeaRef[] {
   });
 }
 
+// Renders a reference to a file in the private 'idea-files' bucket by resolving
+// the stored storage path to a short-lived, owner-scoped signed URL at render
+// time. Keeps files private (never a public URL) while still letting the owner
+// open their own uploads.
+function SignedFileRef({ path, name }: { path: string; name?: string }) {
+  const supabase = createClient();
+  const [href, setHref] = useState("");
+  useEffect(() => {
+    let live = true;
+    supabase.storage
+      .from("idea-files")
+      .createSignedUrl(path, 300)
+      .then(({ data, error }) => {
+        if (live && !error && data) setHref(data.signedUrl);
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [path, supabase]);
+  if (!href) return <span className="truncate flex-1">{name ?? path}</span>;
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">
+      {name ?? path}
+    </a>
+  );
+}
+
 function normalizeIdea(raw: Record<string, unknown>): Idea {
   return {
     id: raw.id as string,
@@ -269,8 +295,8 @@ function CaptureField({ deals, onCreated, onFocus }: {
     const { error } = await supabase.storage.from("idea-files").upload(path, file);
     setUploading(false);
     if (error) return;
-    const { data: pub } = supabase.storage.from("idea-files").getPublicUrl(path);
-    setRefs((r) => [...r, { kind: "file", url: pub.publicUrl, name: file.name }]);
+    // store the storage PATH, not a public URL — resolved to a signed URL on render
+    setRefs((r) => [...r, { kind: "file", url: path, name: file.name }]);
   };
   const addTag = () => {
     const v = tagInput.trim().replace(/^#/, "");
@@ -323,7 +349,7 @@ function CaptureField({ deals, onCreated, onFocus }: {
                       {r.kind === "link" ? (
                         <a href={r.url} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">{r.url}</a>
                       ) : (
-                        <a href={r.url} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">{r.name ?? r.url}</a>
+                        <SignedFileRef path={r.url} name={r.name} />
                       )}
                       <button onClick={() => setRefs((x) => x.filter((_, j) => j !== i))} aria-label="Remove reference" className="text-inkfaint hover:text-ink cursor-pointer"><IconClose size={13} /></button>
                     </div>
@@ -494,8 +520,8 @@ function IdeaModal({ idea, deals, onClose, onSaved, onArchived }: {
     const { error } = await supabase.storage.from("idea-files").upload(path, file);
     setUploading(false);
     if (error) return;
-    const { data: pub } = supabase.storage.from("idea-files").getPublicUrl(path);
-    setRefs((r) => [...r, { kind: "file", url: pub.publicUrl, name: file.name }]);
+    // store the storage PATH, not a public URL — resolved to a signed URL on render
+    setRefs((r) => [...r, { kind: "file", url: path, name: file.name }]);
     persist();
   };
   const addTag = () => {
@@ -556,7 +582,7 @@ function IdeaModal({ idea, deals, onClose, onSaved, onArchived }: {
                     {r.kind === "link" ? (
                       <a href={r.url} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">{r.url}</a>
                     ) : (
-                      <a href={r.url} target="_blank" rel="noreferrer" className="truncate flex-1 text-accent-ink underline decoration-accent/30 hover:decoration-accent">{r.name ?? r.url}</a>
+                      <SignedFileRef path={r.url} name={r.name} />
                     )}
                     <button onClick={() => setRefs((x) => x.filter((_, j) => j !== i))} aria-label="Remove reference" className="text-inkfaint hover:text-ink cursor-pointer"><IconClose size={13} /></button>
                   </div>
