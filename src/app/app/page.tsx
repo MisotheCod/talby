@@ -23,6 +23,8 @@ type Content = {
   id: string; title: string; event_date: string; post_type: string | null;
   platform: string | null; status: string | null;
 };
+type Todo = { id: string; title: string; done: boolean; due_date: string | null };
+type CalendarNote = { id: string; body: string; event_date: string; done: boolean };
 
 const FILTERS = ["Active", "Unpaid", "Paid", "All"] as const;
 
@@ -45,6 +47,8 @@ const TYPE: Record<string, [string, string]> = {
   received: ["PAY", "var(--paid)"],
   post: ["POST", "var(--accent)"],
   deliv: ["DUE", "var(--late)"],
+  todo: ["TODO", "var(--purple)"],
+  note: ["NOTE", "var(--ink-soft)"],
 };
 
 export default function OverviewPage() {
@@ -53,6 +57,8 @@ export default function OverviewPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [content, setContent] = useState<Content[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [plan, setPlan] = useState<"free" | "paid">("free");
@@ -72,14 +78,18 @@ export default function OverviewPage() {
       setPlan((row?.plan ?? "free") as "free" | "paid");
     }
     // All data for the week + payments + deals, user-scoped via RLS.
-    const [d, pay, c] = await Promise.all([
+    const [d, pay, c, t, n] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       supabase.from("payments").select("*, deal:deals(brand)").order("expected_date", { ascending: true }),
       supabase.from("content").select("*").order("event_date", { ascending: true }),
+      supabase.from("todos").select("*").not("due_date", "is", null),
+      supabase.from("notes").select("id, body, event_date, done").not("event_date", "is", null),
     ]);
     setDeals(d.data ?? []);
     setPayments(pay.data ?? []);
     setContent(c.data ?? []);
+    setTodos((t.data ?? []) as unknown as Todo[]);
+    setNotes((n.data ?? []) as unknown as CalendarNote[]);
     setLoading(false);
   }, [supabase]);
 
@@ -177,7 +187,7 @@ export default function OverviewPage() {
 
   // Same payments data drives both the week and the Payments card (correlation).
   const dayItems = (iso: string) => {
-    const items: { t: string; n: string; a?: string }[] = [];
+    const items: { t: string; n: string; a?: string; done?: boolean }[] = [];
     // payments (expected or past-due) — same table the Payments card uses
     payments.filter((p) => p.status !== "received" && p.expected_date === iso)
       .forEach((p) => items.push({ t: "payment", n: `${p.deal?.brand ?? "Payment"} payment expected`, a: formatMoney(p.amount) }));
@@ -190,6 +200,12 @@ export default function OverviewPage() {
     // deal deliverables due that day
     activeDeals.filter((d) => d.due_date === iso)
       .forEach((d) => items.push({ t: "deliv", n: `${d.brand} deliverable due` }));
+    // dated to-dos (both pending and done — done stay visible, struck+dimmed)
+    todos.filter((t) => t.due_date === iso)
+      .forEach((t) => items.push({ t: "todo", n: t.title, done: t.done }));
+    // dated notes/reminders (done stay visible, struck+dimmed)
+    notes.filter((n) => n.event_date === iso)
+      .forEach((n) => items.push({ t: "note", n: n.body, done: n.done }));
     return items;
   };
 
@@ -319,8 +335,8 @@ export default function OverviewPage() {
               ) : (
                 dayItems(week[selDay].iso).map((it, k) => (
                   <div key={k} className="ditem">
-                    <Pill size="sm" source={TYPE[it.t]?.[1] || "var(--ink-soft)"} className="px-2 py-0.5">{TYPE[it.t]?.[0]}</Pill>
-                    <span className="n">{it.n}</span>
+                    <Pill size="sm" done={it.done} source={TYPE[it.t]?.[1] || "var(--ink-soft)"} className="px-2 py-0.5">{TYPE[it.t]?.[0]}</Pill>
+                    <span className={cn("n", it.done && "pill-done-title")}>{it.n}</span>
                     {it.a && <span className="a">{it.a}</span>}
                   </div>
                 ))

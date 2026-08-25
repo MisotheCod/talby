@@ -161,7 +161,7 @@ export default function CalendarPage() {
   }, [cursor]);
 
   const dayItems = (iso: string) => {
-    const items: { type: "content" | "deliverable" | "payment" | "todo" | "note"; id: string; title: string; label: string; time?: string; color?: string }[] = [];
+    const items: { type: "content" | "deliverable" | "payment" | "todo" | "note"; id: string; title: string; label: string; time?: string; color?: string; done?: boolean }[] = [];
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => {
       const deliv = c.status === "published";
@@ -173,10 +173,12 @@ export default function CalendarPage() {
     });
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
     dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: p.deal?.brand ? `${p.deal.brand} · ${formatMoney(p.amount)}` : formatMoney(p.amount), label: "PAYMENT" }));
-    const dayTodos = todos.filter((t) => !t.done && t.due_date === iso);
-    dayTodos.forEach((t) => items.push({ type: "todo", id: "todo" + t.id, title: t.title, label: "TODO" }));
+    // Todos (both pending and done — done ones stay visible, struck+dimmed)
+    const dayTodos = todos.filter((t) => t.due_date === iso);
+    dayTodos.forEach((t) => items.push({ type: "todo", id: "todo" + t.id, title: t.title, label: "TODO", done: t.done }));
+    // Notes (done ones stay visible, struck+dimmed)
     const dayNotes = notes.filter((n) => n.event_date === iso);
-    dayNotes.forEach((n) => items.push({ type: "note", id: "note" + n.id, title: n.body, label: "NOTE" }));
+    dayNotes.forEach((n) => items.push({ type: "note", id: "note" + n.id, title: n.body, label: "NOTE", done: n.done }));
     return items;
   };
 
@@ -327,12 +329,18 @@ export default function CalendarPage() {
                           it.type === "todo" ? "pill-purple" :
                           it.type === "note" ? "pill-note" :
                           it.type === "content" ? "pill-accent" : "pill-paid font-semibold",
+                          it.done && "tpill-done",
                           isDragging && "opacity-40 ring-2 ring-inset ring-[var(--accent)]",
                           dragId && !isDragging && "opacity-60"
                         )}
                       >
+                        {it.done && (
+                          <svg className="pill-check" viewBox="0 0 20 20" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M16.5 5 7.5 14 3.5 10" />
+                          </svg>
+                        )}
                         <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide opacity-60")}>{it.label}</span>
-                        <span className={cn("truncate", it.type === "content" && "font-semibold")}>{it.title}</span>
+                        <span className={cn("truncate", it.type === "content" && "font-semibold", it.done && "pill-done-title")}>{it.title}</span>
                         {it.time && <span className="shrink-0 ml-auto text-[10px] tabular-nums font-medium opacity-70">{it.time}</span>}
                       </div>
                     );
@@ -386,13 +394,13 @@ export default function CalendarPage() {
                   }}
                   className="w-full text-left cursor-pointer flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-card2 transition-colors"
                 >
-                  <Pill size="sm" className={cn(
+                  <Pill size="sm" done={it.done} className={cn(
                     it.type === "payment" ? "pill-due" :
                     it.type === "todo" ? "pill-purple" :
                     it.type === "note" ? "pill-note" :
                     it.type === "content" ? "pill-accent" : "pill-paid"
                   )}>{it.label}</Pill>
-                  <span className="flex-1 truncate text-sm">{it.title}</span>
+                  <span className={cn("flex-1 truncate text-sm", it.done && "pill-done-title")}>{it.title}</span>
                 </button>
               );
             })}
@@ -423,7 +431,12 @@ export default function CalendarPage() {
           todo={selectedTodo}
           position={{ x: selected.x, y: selected.y }}
           onClose={() => setSelected(null)}
-          onSaved={() => { setSelected(null); load(); }}
+          onSaved={(nextDone?: boolean) => {
+            if (nextDone !== undefined) {
+              setTodos((ts) => ts.map((t) => t.id === selectedTodo.id ? { ...t, done: nextDone } : t));
+            }
+            setSelected(null); load();
+          }}
         />
       )}
       {selected && selectedNote && (
@@ -431,7 +444,12 @@ export default function CalendarPage() {
           note={selectedNote}
           position={{ x: selected.x, y: selected.y }}
           onClose={() => setSelected(null)}
-          onSaved={() => { setSelected(null); load(); }}
+          onSaved={(nextDone?: boolean) => {
+            if (nextDone !== undefined) {
+              setNotes((ns) => ns.map((n) => n.id === selectedNote.id ? { ...n, done: nextDone } : n));
+            }
+            setSelected(null); load();
+          }}
         />
       )}
     </div>
@@ -814,19 +832,19 @@ function PaymentDetailPopover({ payment, position, onClose, onSaved }: {
   );
 }
 
-/* To-do — view + mark done + reschedule */
+/* To-do — view + toggle done + reschedule */
 function TodoDetailPopover({ todo, position, onClose, onSaved }: {
-  todo: Todo; position: { x: number; y: number }; onClose: () => void; onSaved: () => void;
+  todo: Todo; position: { x: number; y: number }; onClose: () => void; onSaved: (done?: boolean) => void;
 }) {
   const supabase = createClient();
   const [due, setDue] = useState(todo.due_date ?? "");
   const [saving, setSaving] = useState(false);
 
-  const markDone = async () => {
+  const toggleDone = async () => {
     setSaving(true);
-    await supabase.from("todos").update({ done: true }).eq("id", todo.id);
+    await supabase.from("todos").update({ done: !todo.done }).eq("id", todo.id);
     setSaving(false);
-    onSaved();
+    onSaved(!todo.done);
   };
 
   const reschedule = async () => {
@@ -839,14 +857,16 @@ function TodoDetailPopover({ todo, position, onClose, onSaved }: {
   return (
     <MiniModal position={position} onClose={onClose} title="To-do">
       <div className="space-y-3">
-        <p className="text-sm font-medium">{todo.title}</p>
+        <p className={cn("text-sm font-medium", todo.done && "pill-done-title")}>{todo.title}</p>
         <label className="block">
           <span className="text-xs text-muted mb-1 block">Due date</span>
           <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
         </label>
         <div className="flex flex-col gap-2 pt-1">
           {todo.due_date && (
-            <Button variant="secondary" onClick={markDone} disabled={saving} className="w-full"><IconCheck size={15} /> Mark done</Button>
+            <Button variant="secondary" onClick={toggleDone} disabled={saving} className="w-full">
+              {todo.done ? "Mark not done" : <><IconCheck size={15} /> Mark done</>}
+            </Button>
           )}
           <Button onClick={reschedule} disabled={saving} className="w-full">{saving ? <Spinner /> : "Save date"}</Button>
         </div>
@@ -857,7 +877,7 @@ function TodoDetailPopover({ todo, position, onClose, onSaved }: {
 
 /* Note — view + edit + delete */
 function NoteDetailPopover({ note, position, onClose, onSaved }: {
-  note: CalendarNote; position: { x: number; y: number }; onClose: () => void; onSaved: () => void;
+  note: CalendarNote; position: { x: number; y: number }; onClose: () => void; onSaved: (done?: boolean) => void;
 }) {
   const supabase = createClient();
   const [body, setBody] = useState(note.body);
@@ -869,7 +889,7 @@ function NoteDetailPopover({ note, position, onClose, onSaved }: {
     setDoneLocal(next);
     const { error } = await supabase.from("notes").update({ done: next }).eq("id", note.id);
     if (error) { setDoneLocal(!next); setError(error.message); return; }
-    onSaved();
+    onSaved(next);
   };
 
   const save = async () => {

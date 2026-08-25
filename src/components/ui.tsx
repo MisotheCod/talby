@@ -84,11 +84,15 @@ export function Select({
 
 /** Reusable tinted pill — one source color, tinted bg + same-hue text + subtle
  *  same-hue border, all derived via color-mix from a single token. Supply a
- *  CSS var or color string as `source`, and a `size` ("md" | "sm" | "dot"). */
+ *  CSS var or color string as `source`, and a `size` ("md" | "sm" | "dot").
+ *  `done` renders a completed state: a check icon, a struck-through title, and
+ *  a dimmed pill so finished items recede against active ones. Same tokens,
+ *  no new colors, works in light + dark. */
 export function Pill({
   source = "var(--ink-soft)",
   size = "md",
   dot = true,
+  done = false,
   className,
   style,
   children,
@@ -97,6 +101,7 @@ export function Pill({
   source?: string;
   size?: "md" | "sm" | "dot";
   dot?: boolean;
+  done?: boolean;
 }) {
   return (
     <span
@@ -104,11 +109,17 @@ export function Pill({
         "tpill inline-flex items-center gap-1.5",
         size === "sm" && "tpill-sm",
         size === "dot" && "tpill-dot",
+        done && "tpill-done",
         className
       )}
       style={{ "--pill-source": source, ...style } as React.CSSProperties}
       {...rest}
     >
+      {done && (
+        <svg className="pill-check" viewBox="0 0 20 20" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M16.5 5 7.5 14 3.5 10" />
+        </svg>
+      )}
       {children}
     </span>
   );

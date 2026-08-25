@@ -489,6 +489,23 @@ h1, h2, h3, h4 {
 .tpill-sm { font-size: 9.5px; padding: 3.5px 9px; gap: 4px; }
 .tpill-dot { padding: 0; width: 6px; height: 6px; border-radius: 999px; align-items: center; justify-content: center; }
 
+/* Completed-state pill: recede against active items using existing tokens.
+   `done` on the Pill component dims it and shows the check. The title is struck
+   + dimmed by .pill-done-title on the item's text (wherever it renders). */
+.tpill-done {
+  opacity: 0.55;
+  transition: opacity 0.18s ease;
+}
+.pill-check { flex: none; }
+
+/* Struck + dimmed title for a completed item's text/name. */
+.pill-done-title {
+  text-decoration: line-through;
+  text-decoration-color: currentColor;
+  opacity: 0.55;
+  transition: opacity 0.18s ease;
+}
+
 /* Status pills - each derives tint/text/border from its single source token */
 .pill { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap; }
 .pill.pill-tint { font-size: 11px; padding: 4px 11px; }
