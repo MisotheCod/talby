@@ -63,8 +63,13 @@ export function CoachTour({
         let tx = x, ty = y;
         if (side === "right") { tx = x + w + 16; ty = y + h / 2 - tipH / 2; }
         else if (side === "left") { tx = x - TIP - 16; ty = y + h / 2 - tipH / 2; }
-        else if (side === "bottom") { tx = x + w / 2 - TIP / 2; ty = y + h + 16; }
-        else { tx = x + w / 2 - TIP / 2; ty = y - tipH - 16; }
+        else {
+          // Top/bottom tooltips (e.g. over a bottom-anchored element like the
+          // assistant FAB) sit at viewport eye level so they never hug the
+          // bottom edge of the page and get clipped or look too low.
+          tx = x + w / 2 - TIP / 2;
+          ty = Math.max(MARGIN, Math.min((vh - tipH) / 2, y - tipH - 16));
+        }
 
         // Clamp into the viewport.
         tx = Math.max(MARGIN, Math.min(tx, vw - TIP - MARGIN));
