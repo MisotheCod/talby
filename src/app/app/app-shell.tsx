@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { applyAccent, applyFont, applyMode, ACCENT_PRESETS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
@@ -52,14 +52,25 @@ export function AppShell({
   const [modeState, setModeState] = useState<ThemeMode>(themeMode ?? DEFAULT_MODE);
   const [activeDeals, setActiveDeals] = useState(0);
 
+  // Refs always hold the LATEST applied accent/mode. The ThemeControl popover can
+  // trigger onSave->saveAccent then onSaveMode->saveMode in one tick; those run on
+  // stale closure state across renders, so reading refs avoids reverting a just-saved
+  // accent when the mode save re-applies the accent for the new theme mode.
+  const accentRef = useRef<HSL>(parseHSL(accent) ?? DEFAULT_HSL);
+  const modeRef = useRef<ThemeMode>(themeMode ?? DEFAULT_MODE);
+
   // Apply the user's saved accent + heading font on load.
   useEffect(() => {
-    applyAccent(parseHSL(accent) ?? DEFAULT_HSL, themeMode ?? DEFAULT_MODE);
-    setAccentState(parseHSL(accent) ?? DEFAULT_HSL);
+    const saved = parseHSL(accent) ?? DEFAULT_HSL;
+    const m = themeMode ?? DEFAULT_MODE;
+    applyAccent(saved, m);
+    setAccentState(saved);
     applyFont(headFont ?? DEFAULT_HEAD_FONT);
     setFontState(headFont ?? DEFAULT_HEAD_FONT);
-    applyMode(themeMode ?? DEFAULT_MODE);
-    setModeState(themeMode ?? DEFAULT_MODE);
+    applyMode(m);
+    setModeState(m);
+    accentRef.current = saved;
+    modeRef.current = m;
   }, [accent, headFont, themeMode]);
 
   // Load active-deal count for the upsell card + Deals nav badge.
@@ -78,10 +89,12 @@ export function AppShell({
   // Preview applies live WITHOUT mutating the persisted state (so the
   // saved baseline is preserved for revert); save applies + persists.
   const previewAccent = (hsl: HSL) => {
-    applyAccent(hsl, modeState);
+    applyAccent(hsl, modeRef.current);
+    accentRef.current = hsl;
   };
   const saveAccent = async (hsl: HSL) => {
-    applyAccent(hsl, modeState);
+    applyAccent(hsl, modeRef.current);
+    accentRef.current = hsl;
     setAccentState(hsl);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -103,14 +116,18 @@ export function AppShell({
   // Light/dark mode: preview applies live; save persists to the profile.
   // Also re-apply the accent for the new mode so accent-tinted surfaces (nav,
   // chips, buttons) flip their tint/ink along with the structural tokens.
+  // Uses accentRef/modeRef (not stale closure state) so a combined save of a
+  // new accent AND a new mode within one popover session keeps the latest value.
   const previewMode = (m: ThemeMode) => {
     applyMode(m);
-    applyAccent(accentState, m);
+    applyAccent(accentRef.current, m);
+    modeRef.current = m;
     setModeState(m);
   };
   const saveMode = async (m: ThemeMode) => {
     applyMode(m);
-    applyAccent(accentState, m);
+    applyAccent(accentRef.current, m);
+    modeRef.current = m;
     setModeState(m);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {

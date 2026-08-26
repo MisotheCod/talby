@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ACCENT_PRESETS, applyAccent, DEFAULT_HSL, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
+import { ACCENT_PRESETS, applyAccent, applyMode, DEFAULT_HSL, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
 import { cn } from "@/lib/utils";
 import { IconCheck, IconArrowRight } from "@/components/icons";
 import { Button, Input } from "@/components/ui";
@@ -17,6 +17,7 @@ export default function OnboardingPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [handler, setHandler] = useState("");
   const [current, setCurrent] = useState<HSL>(DEFAULT_HSL);
+  const [mode, setMode] = useState<ThemeMode>(DEFAULT_MODE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [hue, setHue] = useState(DEFAULT_HSL.h);
@@ -25,20 +26,24 @@ export default function OnboardingPage() {
     supabase.auth.getUser().then(({ data }) => {
       setUserId(data.user?.id ?? null);
       if (data.user) {
-        supabase.from("profiles").select("handler, accent").eq("id", data.user.id).single()
+        supabase.from("profiles").select("handler, accent, theme_mode").eq("id", data.user.id).single()
           .then((p) => {
-            const row = p.data as unknown as { handler: string | null; accent: string } | null;
+            const row = p.data as unknown as { handler: string | null; accent: string; theme_mode?: string } | null;
             if (row?.handler) setHandler(row.handler);
+            const savedMode: ThemeMode = row?.theme_mode === "dark" ? "dark" : DEFAULT_MODE;
+            setMode(savedMode);
+            applyMode(savedMode);
             if (row?.accent) {
               const hsl = parseHSL(row.accent) ?? DEFAULT_HSL;
               setCurrent(hsl);
               setHue(hsl.h);
-              applyAccent(hsl);
+              applyAccent(hsl, savedMode);
             } else {
-              applyAccent(DEFAULT_HSL);
+              applyAccent(DEFAULT_HSL, savedMode);
             }
           });
       } else {
+        applyMode(DEFAULT_MODE);
         applyAccent(DEFAULT_HSL);
       }
     });
@@ -49,13 +54,18 @@ export default function OnboardingPage() {
     const hsl = { h: p.h, s: p.s, l: p.l };
     setCurrent(hsl);
     setHue(p.h);
-    applyAccent(hsl);
+    applyAccent(hsl, mode);
   };
   const onHue = (val: number) => {
     const hsl = { h: val, s: current.s, l: current.l };
     setCurrent(hsl);
     setHue(val);
-    applyAccent(hsl);
+    applyAccent(hsl, mode);
+  };
+  const pickMode = (m: ThemeMode) => {
+    setMode(m);
+    applyMode(m);
+    applyAccent(current, m);
   };
 
   const isOn = (p: (typeof ACCENT_PRESETS)[number]) =>
@@ -70,6 +80,7 @@ export default function OnboardingPage() {
     const { error } = await supabase.from("profiles").update({
       handler: handler.trim() || null,
       accent: serializeHSL(current),
+      theme_mode: mode,
     }).eq("id", userId);
     setSaving(false);
     if (error) { setError(error.message); return; }
@@ -138,6 +149,18 @@ export default function OnboardingPage() {
 
                 {/* Preset swatches + hue slider */}
                 <div className="bg-card border border-line rounded-2xl p-5 shadow-card md:w-[240px]">
+                  <div className="text-xs font-semibold mb-3 text-ink">Appearance</div>
+                  <div className="flex gap-1 p-1 rounded-xl bg-card2 mb-4">
+                    {(["light", "dark"] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => pickMode(m)}
+                        className={cn("flex-1 h-8 rounded-lg text-[12.5px] font-semibold cursor-pointer transition-colors", mode === m ? "bg-card text-ink shadow-sm border border-line2" : "text-inkfaint hover:text-ink")}
+                      >
+                        {m === "light" ? "Light" : "Dark"}
+                      </button>
+                    ))}
+                  </div>
                   <div className="text-xs font-semibold mb-3 text-ink">Accent color</div>
                   <div className="grid grid-cols-3 gap-2.5">
                     {ACCENT_PRESETS.map((a) => (

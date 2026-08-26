@@ -298,43 +298,43 @@
 .mkt .pricing { padding: 40px 0 40px; }
 .mkt .pricegrid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; max-width: 860px; margin: 0 auto; align-items: stretch; }
 .mkt .pcard { background: #fff; border: 1px solid var(--line); border-radius: var(--r-lg); padding: 34px 32px; display: flex; flex-direction: column; box-shadow: var(--sh); position: relative; }
-/* Unlimited card: deep saturated shade derived from the LIVE accent token (never pure
-   black, never a neutral). --accent-deep re-tints with the theme (incl. live preview
-   before Save) and --on-accent-deep is guarded against THIS surface's luminance, so it
-   flips to dark ink automatically on light or desaturated accents. No hardcoded white. */
+/* Unlimited card: fixed brand blue (--brand) — never re-tints with the user's
+   accent. The brand blue is the Talby wordmark color; white on-color is always
+   legible against it. Before this, the card derived from --accent-deep and
+   turned whatever color the visitor had set, which the team didn't want. */
 .mkt .pcard.pdark {
-  background: var(--accent-deep);
-  color: var(--on-accent-deep);
+  background: var(--brand);
+  color: #fff;
   border-color: transparent;
-  box-shadow: 0 8px 30px color-mix(in srgb, var(--accent) 22%, rgba(13,15,19,.12));
+  box-shadow: 0 8px 30px color-mix(in srgb, var(--brand) 30%, rgba(13,15,19,.12));
 }
 .mkt .phead { margin-bottom: 6px; }
 .mkt .pname { font-size: 21px; font-weight: 800; letter-spacing: -.03em; }
-.mkt .pcard.pdark .pname { margin-top: 12px; color: var(--on-accent-deep); }
+.mkt .pcard.pdark .pname { margin-top: 12px; color: #fff; }
 .mkt .pbadge { display: inline-block; background: var(--blue); color: #fff; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 100px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .04em; }
-.mkt .pcard.pdark .pbadge { background: var(--on-accent-deep); color: var(--accent-deep); }
+.mkt .pcard.pdark .pbadge { background: #fff; color: var(--brand); }
 .mkt .pamt { font-size: 40px; font-weight: 800; letter-spacing: -.04em; line-height: 1; margin: 10px 0 6px; letter-spacing: -.04em; display: flex; align-items: baseline; gap: 8px; }
 .mkt .pamt .pper { font-size: 14px; font-weight: 600; color: var(--ink-2); }
-.mkt .pcard.pdark .pamt { color: var(--on-accent-deep); }
-.mkt .pcard.pdark .pamt .pper { color: color-mix(in srgb, var(--on-accent-deep) 72%, transparent); }
+.mkt .pcard.pdark .pamt { color: #fff; }
+.mkt .pcard.pdark .pamt .pper { color: color-mix(in srgb, #fff 72%, transparent); }
 .mkt .pcard p { font-size: 14.5px; color: var(--ink-2); margin: 0 0 6px; }
-.mkt .pcard.pdark p { color: color-mix(in srgb, var(--on-accent-deep) 78%, transparent); }
+.mkt .pcard.pdark p { color: color-mix(in srgb, #fff 78%, transparent); }
 .mkt .plabel { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); margin: 18px 0 8px; }
-.mkt .pcard.pdark .plabel { color: color-mix(in srgb, var(--on-accent-deep) 62%, transparent); }
+.mkt .pcard.pdark .plabel { color: color-mix(in srgb, #fff 62%, transparent); }
 .mkt .pfeat { list-style: none; margin: 0 0 26px; flex: 1; }
 .mkt .pfeat li { display: flex; align-items: center; gap: 10px; padding: 6.5px 0; font-size: 15px; font-weight: 600; }
-.mkt .pcard.pdark .pfeat li { color: var(--on-accent-deep); }
+.mkt .pcard.pdark .pfeat li { color: #fff; }
 .mkt .pmark { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none; }
 .mkt .pmark svg { width: 11px; height: 11px; stroke-width: 3; fill: none; stroke: #fff; }
 .mkt .pm-free { background: var(--soft); }
 .mkt .pm-free svg { stroke: var(--ink-3); }
 .mkt .pm-un { background: var(--blue); }
 .mkt .pm-un svg { stroke: #fff; }
-.mkt .pcard.pdark .pm-un { background: var(--on-accent-deep); }
-.mkt .pcard.pdark .pm-un svg { stroke: var(--accent-deep); }
+.mkt .pcard.pdark .pm-un { background: #fff; }
+.mkt .pcard.pdark .pm-un svg { stroke: var(--brand); }
 .mkt .pdark .pfeat .pmark svg { stroke: #fff; }
 .mkt .pcard .btn3d, .mkt .pcard .btn-3d { margin-top: auto; }
-.mkt .pcard.pdark .btn-3d, .mkt .pcard.pdark .btn3d { background: var(--on-accent-deep); color: var(--accent-deep); box-shadow: 0 5px 0 color-mix(in srgb, var(--accent-deep) 45%, #000); }
+.mkt .pcard.pdark .btn-3d, .mkt .pcard.pdark .btn3d { background: #fff; color: var(--brand); box-shadow: 0 5px 0 color-mix(in srgb, var(--brand) 45%, #000); }
 .mkt .pnote { text-align: center; font-size: 14px; color: var(--ink-2); margin-top: 26px; max-width: 520px; margin-left: auto; margin-right: auto; }
 @media (max-width: 720px) { .mkt .pricegrid { grid-template-columns: 1fr; } }
 /* Reveal-on-scroll: CONTENT IS VISIBLE BY DEFAULT. GSAP sets a hidden start

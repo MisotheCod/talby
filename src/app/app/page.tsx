@@ -264,6 +264,28 @@ export default function OverviewPage() {
         )}
       </div>
 
+      {/* Inbox scan promo bar (free users): invites turning the Gmail inbox deal
+          scanner on — the fastest path to new deals. Only shows for free tier. */}
+      {plan === "free" && (
+        <div className="anim inbox-promo">
+          <div className="ip-left">
+            <span className="ip-glogo" aria-hidden>
+              <svg viewBox="0 0 24 24" width="22" height="17" role="img">
+                <path fill="#EA4335" d="M22 18c0 .5-.5 1-1 1H3c-.5 0-1-.5-1-1V6c0-.3.16-.55.4-.7L12 12l9.6-6.7c.24.15.4.4.4.7z" />
+                <path fill="#4285F4" d="M2 5.9V18l7-5Z" />
+                <path fill="#FBBC04" d="m9 13 5.5-3.8L20 13V5H4z" />
+                <path fill="#34A853" d="M2 5.9 9 13Z" />
+              </svg>
+            </span>
+            <div className="ip-text">
+              <div className="ip-title">Start scanning your inbox for new deals</div>
+              <div className="ip-sub">Auto-detect brand collabs in your Gmail and add them as pipeline deals.</div>
+            </div>
+          </div>
+          <a href="/#pricing" className="btn3d ip-cta no-underline block text-center">Go unlimited</a>
+        </div>
+      )}
+
       {/* Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5">
         {/* Active deals */}
