@@ -229,8 +229,7 @@ export default function NotesPage() {
     await supabase.from("todos").update({ title: trimmed }).eq("id", id);
   };
 
-  const openItems = todos.filter((t) => !t.done);
-  const doneCount = todos.length - openItems.length;
+  const doneCount = todos.filter((t) => t.done).length;
 
   if (loading) return <div className="skeleton h-48 max-w-2xl" />;
 
@@ -252,13 +251,13 @@ export default function NotesPage() {
         </div>
       </div>
 
-      {openItems.length === 0 ? (
+      {todos.length === 0 ? (
         <div className="card p-10 text-center">
-          <p className="text-sm text-muted">{todos.length === 0 ? "No tasks yet. Tap Create task to add your first one." : "All done. Nice work."}</p>
+          <p className="text-sm text-muted">No tasks yet. Tap Create task to add your first one.</p>
         </div>
       ) : (
         <div>
-          {openItems.map((t) => {
+          {todos.map((t) => {
             const due = dueText(t.due_date);
             const hasTime = !!t.start_time;
             const timePill = hasTime ? `${fmtTime(t.start_time)} - ${fmtTime(t.end_time)}` : due;
@@ -271,7 +270,7 @@ export default function NotesPage() {
                 {isEditing ? (
                   <Input value={draftTitle} onChange={(e) => setDraftTitle(e.target.value)} onBlur={() => commitRename(t.id)} onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") setEditingId(null); }} className="!w-auto flex-1 min-w-0" autoFocus />
                 ) : (
-                  <span className="text-sm flex-1 min-w-0 truncate text-ink">{t.title}</span>
+                  <span className={cn("text-sm flex-1 min-w-0 truncate", t.done ? "text-muted line-through decoration-1" : "text-ink")}>{t.title}</span>
                 )}
                 {timePill && (
                   <Pill size="sm" source={hasTime ? "var(--accent)" : due.includes("overdue") ? "var(--late)" : "var(--ink-soft)"} className="px-2.5 py-1 tabular-nums">

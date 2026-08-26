@@ -210,7 +210,10 @@ export default function PaymentsPage() {
       : listFilter === "Expected" ? pending
       : listFilter === "Received" ? received
       : payments.filter((p) => (p.invoice_state ?? "not_invoiced") === "not_invoiced");
-    // Group by month (expected_date)
+    // Payments with NO expected date don't fit a month bucket — surface them in
+    // their own "Upcoming" group so they're never hidden.
+    const undated = base.filter((p) => !p.expected_date);
+    // Group the dated ones by month (expected_date)
     const groups: Record<string, Payment[]> = {};
     for (const p of base) {
       const m = (p.expected_date || "").slice(0, 7);
@@ -227,7 +230,7 @@ export default function PaymentsPage() {
       if (aRecv && !bRecv) return 1; if (!aRecv && bRecv) return -1;
       return a.localeCompare(b);
     });
-    return months.map((m) => ({
+    const output = months.map((m) => ({
       month: m,
       label: fmtMonth(m),
       payments: groups[m].sort((a, b) => {
@@ -238,6 +241,8 @@ export default function PaymentsPage() {
         return (a.expected_date || "").localeCompare(b.expected_date || "");
       }),
     }));
+    if (undated.length) output.unshift({ month: "upcoming", label: "Upcoming", payments: undated });
+    return output;
   })();
 
   /* ---------- actions ---------- */
@@ -372,7 +377,7 @@ export default function PaymentsPage() {
                         </span>
                         <span className="shrink-0">
                           {isRecv ? (
-                            <StatusPill size="sm" kind="paid">Received</StatusPill>
+                            <StatusPill size="sm" kind="paid">Paid</StatusPill>
                           ) : isPast ? (
                             <StatusPill size="sm" kind="late">Past due</StatusPill>
                           ) : (
@@ -397,7 +402,7 @@ export default function PaymentsPage() {
                                 <button onClick={() => setInvoice(p.id, "no_invoice_needed")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">No invoice needed</button>
                                 <div className="my-1 h-px bg-line" />
                                 <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
-                                  <IconCheck size={14} /> Mark received
+                                  <IconCheck size={14} /> Mark as paid
                                 </button>
                                 {isPast && (
                                   <button onClick={() => { setMenuOpen(null); nudgePayment(p); }} disabled={nudgeBusy === p.id} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">

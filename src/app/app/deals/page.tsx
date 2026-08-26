@@ -425,6 +425,19 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
 
   const TABS = ["Fields", "Checklist", "Notes", "Files", "Payments"] as const;
 
+  /* One-tap "Mark as paid": mark every outstanding payment on the deal as received
+     and stamp the deal's payment_status to paid, so a user never has to dig
+     through the Payments tab to record that money landed. */
+  const markAllPaid = async () => {
+    const unpaid = payments.filter((p) => p.status !== "received");
+    if (!unpaid.length) return;
+    await supabase.from("payments").update({ status: "received" }).eq("deal_id", deal.id);
+    await supabase.from("deals").update({ payment_status: "paid", status: "active", active: true }).eq("id", deal.id);
+    setPayments(payments.map((p) => ({ ...p, status: "received" })));
+    onUpdated();
+    onCelebrate?.();
+  };
+
   return (
     <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose}>
       <div className="absolute right-0 top-0 h-full w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -440,6 +453,14 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
             <button onClick={onClose} aria-label="Close drawer" className="p-1.5 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
           </div>
           <div className="mt-3"><DealStatusBadge status={deal.status} payment_status={deal.payment_status} active={deal.active} due={deal.due_date} /></div>
+          {payments.some((p) => p.status !== "received") && (
+            <button
+              onClick={markAllPaid}
+              className="mt-3 w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-[var(--paid)] text-white h-10 hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              <IconCheck size={16} /> Mark as paid
+            </button>
+          )}
           {(deal.links as { url: string; label?: string }[] ?? []).filter((l) => /^From inbox/.test(l.label || "")).map((l, i) => (
             <a
               key={i}
@@ -747,7 +768,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
                       <SendIcon /> {dealNudgeMode === "auto" ? "Nudge status" : "Send a nudge"}
                     </Button>
                   )}
-                  <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark received</Button>
+                  <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark as paid</Button>
                 </div>
               )}
             </div>
