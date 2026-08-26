@@ -412,7 +412,7 @@ function DealRow({ deal }: { deal: Deal }) {
   const paid = deal.payment_status === "paid" || deal.status === "paid";
   const pill = (() => {
     if (deal.status === "archived") return <span className="pill pill-pipe">Archived</span>;
-    if (deal.status === "pipeline") return <span className="pill pill-pipe">Pipeline</span>;
+    if (deal.status === "pipeline") return <span className="pill pill-pipe">Negotiating</span>;
     if (paid) return <span className="pill pill-paid">Paid</span>;
     if (isPastDue(deal.due_date)) return <span className="pill pill-late">Past due</span>;
     if (deal.status === "unpaid" || deal.payment_status === "expected") return <span className="pill pill-due">Awaiting pay</span>;

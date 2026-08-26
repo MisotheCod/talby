@@ -26,7 +26,7 @@ type Payment = { id: string; deal_id: string | null; amount: number; expected_da
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null };
 
-const FILTERS = ["Pipeline", "Active", "Paid", "All"] as const;
+const FILTERS = ["Negotiating", "Active", "Paid", "All"] as const;
 
 export default function DealsPage() {
   const supabase = createClient();
@@ -76,7 +76,7 @@ export default function DealsPage() {
   const filtered = deals.filter((d) => {
     const paid = d.payment_status === "paid" || d.status === "paid";
     switch (filter) {
-      case "Pipeline": return d.status === "pipeline";
+      case "Negotiating": return d.status === "pipeline";
       case "Active": return d.active && d.status !== "archived" && !paid && d.status !== "pipeline";
       case "Paid": return paid;
       default: return true;
@@ -267,7 +267,7 @@ export default function DealsPage() {
 function DealStatusBadge({ status, payment_status, active, due }: { status: string; payment_status?: string; active: boolean; due: string | null }) {
   // Deal lifecycle (pipeline/active/archived) + payment (expected/paid/none).
   const pay = payment_status ?? (status === "paid" ? "paid" : status === "unpaid" ? "expected" : "expected");
-  if (status === "pipeline") return <StatusPill kind="pipeline">Pipeline</StatusPill>;
+  if (status === "pipeline") return <StatusPill kind="pipeline">Negotiating</StatusPill>;
   if (status === "archived") return <StatusPill kind="neutral">Archived</StatusPill>;
   if (pay === "paid") return <StatusPill kind="paid">Paid</StatusPill>;
   if (isPastDue(due)) return <StatusPill kind="late">Past due</StatusPill>;
@@ -276,7 +276,7 @@ function DealStatusBadge({ status, payment_status, active, due }: { status: stri
 
 /* ---------------- Deal Board (kanban) ---------------- */
 const BOARD_COLS: { id: string; label: string; match: (d: Deal) => boolean }[] = [
-  { id: "pipeline", label: "Pipeline", match: (d) => d.status === "pipeline" },
+  { id: "pipeline", label: "Negotiating", match: (d) => d.status === "pipeline" },
   { id: "active", label: "Active", match: (d) => d.active && d.status !== "pipeline" && d.status !== "archived" && d.status !== "paid" },
   { id: "paid", label: "Paid", match: (d) => d.payment_status === "paid" || d.status === "paid" },
   { id: "archived", label: "Archived", match: (d) => d.status === "archived" },

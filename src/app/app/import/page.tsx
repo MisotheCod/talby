@@ -638,7 +638,7 @@ function ReviewStep({
                 <Field label="Value ($)"><Input value={r.value ?? ""} onChange={(e) => onEdit(i, "value", e.target.value)} /></Field>
                 <Field label="Status">
                   <Select value={r.status ?? "active"} onChange={(e) => onEdit(i, "status", e.target.value)}>
-                    <option value="active">Active</option><option value="pipeline">Pipeline</option>
+                    <option value="active">Active</option><option value="pipeline">Negotiating</option>
                     <option value="unpaid">Unpaid</option><option value="paid">Paid</option><option value="archived">Archived</option>
                   </Select>
                 </Field>

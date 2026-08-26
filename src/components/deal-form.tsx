@@ -81,7 +81,7 @@ export const PAY_TERM_OPTIONS: { value: string; label: string }[] = [
 
 const DEAL_STATUSES = [
   { value: "active", label: "Active" },
-  { value: "pipeline", label: "Pipeline" },
+  { value: "pipeline", label: "Negotiating" },
   { value: "archived", label: "Archived" },
 ];
 const PAYMENT_STATUSES = [
@@ -293,7 +293,12 @@ export function DealForm({
               {extracting ? <Spinner className="h-3.5 w-3.5" /> : <IconPaperclip size={13} className="text-inksoft" />}
               <span>{extracting ? "Reading contract…" : uploadOnMount ? "Start with a contract" : "Upload a contract to auto-fill"}</span>
             </button>
-            {plan === "free" && <span className="text-[11px] text-inksoft">· saving files is on unlimited</span>}
+            {plan === "free" && (
+              <div className="ml-0.5 flex items-center gap-2 pl-3 pr-2.5 py-1.5 rounded-lg border border-accent/30 bg-accent-soft">
+                <span className="text-[11px] text-accentink leading-tight">Saving contract files is on Unlimited</span>
+                <a href="/#pricing" className="text-[11px] font-semibold accent-text hover:underline no-underline whitespace-nowrap" onClick={(e) => e.stopPropagation()}>Go unlimited</a>
+              </div>
+            )}
           </div>
         )
       )}
