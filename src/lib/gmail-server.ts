@@ -155,8 +155,10 @@ export async function listInboxMessages(accessToken: string, max = 25): Promise<
 type GmailPayload = {
   headers?: { name: string; value: string }[];
   parts?: GmailPayload[];
-  body?: { data?: string; size?: number };
+  body?: { data?: string; size?: number; attachmentId?: string };
   mimeType?: string;
+  filename?: string;
+  fileSize?: string;
 };
 type GmailMessage = { id: string; threadId: string; snippet: string; payload?: GmailPayload };
 
@@ -205,4 +207,53 @@ export async function getInboxMessage(accessToken: string, id: string): Promise<
     snippet: m.snippet ?? "",
     body: body.slice(0, 6000),
   };
+}
+
+export type GmailAttachment = { filename: string; mimeType: string; size: number; data: Buffer };
+
+/** Walk a Gmail MIME payload and collect attachment parts (parts that carry a
+ *  filename and an attachment body id). Sent/received files land here. */
+function collectAttachmentParts(payload: GmailPayload | undefined, out: { part: GmailPayload; filename: string }[]) {
+  if (!payload) return;
+  const filename = payload.filename ?? "";
+  const hasBody = payload.body?.attachmentId || payload.body?.data;
+  if (filename && hasBody) out.push({ part: payload, filename });
+  for (const p of payload.parts ?? []) collectAttachmentParts(p, out);
+}
+
+/** Return a message's attachments, downloading each one's bytes. Caller is
+ *  responsible for size/type filtering. */
+export async function getMessageAttachments(accessToken: string, messageId: string): Promise<GmailAttachment[]> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) throw new Error("Gmail fetch failed: " + (await res.text()).slice(0, 200));
+  const m = (await res.json()) as GmailMessage;
+  const parts: { part: GmailPayload; filename: string }[] = [];
+  collectAttachmentParts(m.payload, parts);
+  const out: GmailAttachment[] = [];
+  for (const { part, filename } of parts) {
+    const body = part.body ?? {};
+    try {
+      let data: Uint8Array;
+      if (body.attachmentId) {
+        const a = await fetch(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${body.attachmentId}`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (!a.ok) continue;
+        const j = (await a.json()) as { data?: string };
+        data = Buffer.from((j.data ?? "").replace(/-/g, "+").replace(/_/g, "/"), "base64");
+      } else if (body.data) {
+        data = Buffer.from(body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+      } else {
+        continue;
+      }
+      out.push({ filename, mimeType: part.mimeType ?? "", size: data.length, data: Buffer.from(data) });
+    } catch {
+      // skip un-fetchable attachment
+    }
+  }
+  return out;
 }
