@@ -538,6 +538,9 @@ h1, h2, h3, h4 {
   display: grid; place-items: center; background: #fff;
   border: 1px solid var(--line);
 }
+.inbox-promo .ip-gmail-img {
+  width: 28px; height: auto; display: block; object-fit: contain;
+}
 .inbox-promo .ip-text { min-width: 0; }
 .inbox-promo .ip-title { font-weight: 650; font-size: 14.5px; color: var(--ink); }
 .inbox-promo .ip-sub { font-size: 12.5px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
