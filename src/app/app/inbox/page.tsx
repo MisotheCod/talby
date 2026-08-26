@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button, Spinner, Pill } from "@/components/ui";
-import { IconClose } from "@/components/icons";
+import { IconClose, IconCheck } from "@/components/icons";
 
 type Lead = {
   id: string; gmail_message_id: string; subject: string | null; sender_email: string | null;
@@ -71,16 +71,28 @@ export default function InboxPage() {
   };
 
   const act = async (id: string, action: "add" | "not_interested") => {
-    const res = await fetch(`/api/inbox/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    });
-    const data = await res.json();
-    if (data.duplicated) {
-      setMessage({ kind: "ok", text: "A deal for this brand already exists. The email was attached to it as a note." });
-    } else if (action === "add") {
-      setMessage({ kind: "ok", text: "Added to deals as a Pipeline deal, with its rep contact filled in." });
+    try {
+      const res = await fetch(`/api/inbox/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (res.status >= 400) {
+        setMessage({ kind: "bad", text: data.error || data.error?.message || "Something went wrong. Try again." });
+      } else if (data.duplicated) {
+        setMessage({ kind: "ok", text: "A deal for this brand already exists. The email was attached to it as a note." });
+        setFilter("Added");
+      } else if (action === "add" && data.dealId) {
+        setMessage({ kind: "ok", text: "Added to deals!" });
+        // Jump to the "Added" view so the user SEES the deal land instead of
+        // the card silently vanishing from the "New" list.
+        setFilter("Added");
+      } else if (action === "add") {
+        setMessage({ kind: "ok", text: "Added to deals as a Pipeline deal, with its rep contact filled in." });
+      }
+    } catch {
+      setMessage({ kind: "bad", text: "Could not reach the server. Try again." });
     }
     await load();
   };
@@ -128,7 +140,16 @@ export default function InboxPage() {
         </div>
       )}
 
-      {message && <p className={cn("text-sm", message.kind === "warn" ? "text-due" : message.kind === "bad" ? "text-late" : "text-paid")}>{message.text}</p>}
+      {message && (
+        <div className={cn(
+          "flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium",
+          message.kind === "ok" ? "bg-paid/10 border-paid/30 text-paid" :
+          message.kind === "warn" ? "bg-due/10 border-due/30 text-due" : "bg-late/10 border-late/30 text-late"
+        )}>
+          <span>{message.text}</span>
+          <button onClick={() => setMessage(null)} aria-label="Dismiss" className="shrink-0 text-xs font-semibold opacity-70 hover:opacity-100 cursor-pointer">Dismiss</button>
+        </div>
+      )}
 
       <div className="flex gap-2 flex-wrap">
         {(["New", "Added", "Not interested"] as Filter[]).map((f) => (
@@ -175,7 +196,14 @@ export default function InboxPage() {
                         <Button size="sm" variant="secondary" onClick={() => act(lead.id, "not_interested")}><IconClose size={14} /> Not interested</Button>
                       </>
                     ) : lead.status === "added" ? (
-                      <span className="text-xs text-paid font-semibold self-center">Added to deals{lead.linked_deal_id ? "" : ""}</span>
+                      <span className="inline-flex items-center gap-2 self-center">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-paid bg-paid/10 border border-paid/30 rounded-full px-2.5 py-1">
+                          <IconCheck size={13} /> Added
+                        </span>
+                        {lead.linked_deal_id && (
+                          <a href={`/app/deals?open=${lead.linked_deal_id}`} className="text-xs font-semibold accent-text hover:underline no-underline">View deal</a>
+                        )}
+                      </span>
                     ) : (
                       <span className="text-xs text-muted self-center">Suppressed</span>
                     )}
