@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type TourStep = {
@@ -16,6 +16,10 @@ export type TourStep = {
  * next to it. The target is found by CSS selector and measured live, so it
  * tracks the real layout (and reacts to resize/scroll). Overlay sits at a high
  * z-index so it rises above the assistant fab and side foot.
+ *
+ * Positioning: the tooltip is placed on the preferred `side`, then flipped to
+ * the opposite side if it doesn't fit, then clamped to the viewport — so it is
+ * never cut off (e.g. the assistant-FAB tooltip near the bottom of the page).
  */
 export function CoachTour({
   open,
@@ -29,13 +33,14 @@ export function CoachTour({
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [tip, setTip] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const tipRef = useRef<HTMLDivElement>(null);
 
   // Reset on open.
   useEffect(() => {
     if (open) setStep(0);
   }, [open]);
 
-  // Measure the current target and position the tooltip.
+  // Measure the current target + tooltip, then position so it always fits.
   useEffect(() => {
     if (!open) return;
     const measure = () => {
@@ -45,27 +50,51 @@ export function CoachTour({
       const r = el.getBoundingClientRect();
       const x = r.left, y = r.top, w = r.width, h = r.height;
       setRect({ x, y, w, h });
-      const side = s.side ?? "right";
+
+      const tipH = tipRef.current?.offsetHeight ?? 160;
       const vw = window.innerWidth, vh = window.innerHeight;
       const TIP = 320;
-      let tx = x, ty = y;
-      if (side === "right") { tx = x + w + 16; ty = y + h / 2 - 40; }
-      else if (side === "left") { tx = x - TIP - 16; ty = y + h / 2 - 40; }
-      else if (side === "bottom") { tx = x + w / 2 - TIP / 2; ty = y + h + 16; }
-      else { tx = x + w / 2 - TIP / 2; ty = y - 16; }
-      // Clamp to viewport.
-      tx = Math.max(12, Math.min(tx, vw - TIP - 12));
-      ty = Math.max(12, Math.min(ty, vh - 40));
-      setTip({ x: tx, y: ty });
+      const MARGIN = 12;
+
+      // Try the preferred side, then its opposite if it overflows.
+      const orbits = [s.side ?? "right", opposite(s.side ?? "right")];
+      let placed = false;
+      for (const side of orbits) {
+        let tx = x, ty = y;
+        if (side === "right") { tx = x + w + 16; ty = y + h / 2 - tipH / 2; }
+        else if (side === "left") { tx = x - TIP - 16; ty = y + h / 2 - tipH / 2; }
+        else if (side === "bottom") { tx = x + w / 2 - TIP / 2; ty = y + h + 16; }
+        else { tx = x + w / 2 - TIP / 2; ty = y - tipH - 16; }
+
+        // Clamp into the viewport.
+        tx = Math.max(MARGIN, Math.min(tx, vw - TIP - MARGIN));
+        ty = Math.max(MARGIN, Math.min(ty, vh - tipH - MARGIN));
+
+        const fitsX = tx >= MARGIN && tx + TIP <= vw - MARGIN;
+        const fitsY = ty >= MARGIN && ty + tipH <= vh - MARGIN;
+        setTip({ x: tx, y: ty });
+        if (fitsX && fitsY) { placed = true; break; }
+      }
+      // If neither side fits (very short/narrow viewport), keep the clamped
+      // last attempt so it's at least on-screen as much as possible.
+      if (!placed) {
+        // final safety: force into view
+        setTip((t) => ({
+          x: Math.max(MARGIN, Math.min(t.x, vw - TIP - MARGIN)),
+          y: Math.max(MARGIN, Math.min(t.y, vh - tipH - MARGIN)),
+        }));
+      }
     };
-    measure();
+    // Wait one frame so the tooltip has rendered before measuring its height.
+    const id = requestAnimationFrame(() => requestAnimationFrame(measure));
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
     return () => {
+      cancelAnimationFrame(id);
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [open, step, steps]);
+  }, [open, step, steps, tip?.y]);
 
   if (!open) return null;
   const cur = steps[step];
@@ -83,6 +112,7 @@ export function CoachTour({
 
       {/* Tooltip card */}
       <div
+        ref={tipRef}
         className="tour-tip"
         style={{ left: tip.x, top: tip.y, width: 320 }}
       >
@@ -105,4 +135,8 @@ export function CoachTour({
       </div>
     </div>
   );
+}
+
+function opposite(side: "right" | "bottom" | "top" | "left") {
+  return side === "right" ? "left" : side === "left" ? "right" : side === "top" ? "bottom" : "top";
 }
