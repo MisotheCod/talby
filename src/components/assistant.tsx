@@ -135,6 +135,7 @@ export function AssistantLauncher() {
       onClick={() => setOpen((o) => !o)}
       aria-label="Talby Assistant"
       aria-expanded={open}
+      data-tour="assistant"
       className="assistant-fab"
     >
       <span className="assistant-fab-svg">
