@@ -427,10 +427,13 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
 
   /* One-tap "Mark as paid": mark every outstanding payment on the deal as received
      and stamp the deal's payment_status to paid, so a user never has to dig
-     through the Payments tab to record that money landed. */
+     through the Payments tab to record that money landed. Works for deals with
+     payment rows AND deals that just carry a value (no rows yet). */
+  const notFullyPaid = deal.payment_status !== "paid" && deal.status !== "paid";
+  const hasChargeableValue = !!payments.some((p) => p.status !== "received") || (deal.value !== null && deal.value > 0);
+  const showMarkPaid = notFullyPaid && hasChargeableValue;
+
   const markAllPaid = async () => {
-    const unpaid = payments.filter((p) => p.status !== "received");
-    if (!unpaid.length) return;
     await supabase.from("payments").update({ status: "received" }).eq("deal_id", deal.id);
     await supabase.from("deals").update({ payment_status: "paid", status: "active", active: true }).eq("id", deal.id);
     setPayments(payments.map((p) => ({ ...p, status: "received" })));
@@ -453,7 +456,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
             <button onClick={onClose} aria-label="Close drawer" className="p-1.5 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
           </div>
           <div className="mt-3"><DealStatusBadge status={deal.status} payment_status={deal.payment_status} active={deal.active} due={deal.due_date} /></div>
-          {payments.some((p) => p.status !== "received") && (
+          {showMarkPaid && (
             <Button
               onClick={markAllPaid}
               size="lg"
