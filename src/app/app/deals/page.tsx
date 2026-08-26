@@ -454,12 +454,13 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
           </div>
           <div className="mt-3"><DealStatusBadge status={deal.status} payment_status={deal.payment_status} active={deal.active} due={deal.due_date} /></div>
           {payments.some((p) => p.status !== "received") && (
-            <button
+            <Button
               onClick={markAllPaid}
-              className="mt-3 w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-xl bg-[var(--paid)] text-white h-10 hover:opacity-90 transition-opacity cursor-pointer"
+              size="lg"
+              className="mt-3 w-full"
             >
               <IconCheck size={16} /> Mark as paid
-            </button>
+            </Button>
           )}
           {(deal.links as { url: string; label?: string }[] ?? []).filter((l) => /^From inbox/.test(l.label || "")).map((l, i) => (
             <a
