@@ -65,8 +65,13 @@ export default function OnboardingPage() {
       const savedMode: ThemeMode = row?.theme_mode === "dark" ? "dark" : DEFAULT_MODE;
       setMode(savedMode); applyMode(savedMode);
       if (row?.accent) {
-        const h = parseHSL(row.accent) ?? DEFAULT_HSL;
-        setCurrent(h); setHue(h.h); applyAccent(h, savedMode); resume.current.theme = true;
+        const parsed = parseHSL(row.accent);
+        // Only a parseable HSL means the user actually saved a theme. Fresh
+        // profiles default to accent: "coral" (a preset name, not HSL), which
+        // must NOT look like a saved theme or onboarding would skip past it.
+        const h = parsed ?? DEFAULT_HSL;
+        setCurrent(h); setHue(h.h); applyAccent(h, savedMode);
+        if (parsed) resume.current.theme = true;
       } else applyAccent(DEFAULT_HSL, savedMode);
 
       resume.current.no = Math.min(4, Math.max(0, row?.onboarding_step ?? 0));
