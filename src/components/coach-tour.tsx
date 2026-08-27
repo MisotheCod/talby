@@ -40,7 +40,9 @@ export function CoachTour({
     if (open) setStep(0);
   }, [open]);
 
-  // Measure the current target + tooltip, then position so it always fits.
+  // Measure the current target + tooltip, then place the card so it anchors to
+  // the target, never covers it, and stays in the viewport. Runs on open/step
+  // change and re-runs on resize/scroll so it tracks the live layout.
   useEffect(() => {
     if (!open) return;
     const measure = () => {
@@ -52,43 +54,46 @@ export function CoachTour({
       setRect({ x, y, w, h });
 
       const tipH = tipRef.current?.offsetHeight ?? 160;
+      const tipW = tipRef.current?.offsetWidth ?? 320;
       const vw = window.innerWidth, vh = window.innerHeight;
-      const TIP = 320;
-      const MARGIN = 12;
+      const GAP = 14, MARGIN = 12;
 
-      // Try the preferred side, then its opposite if it overflows.
-      const orbits = [s.side ?? "right", opposite(s.side ?? "right")];
-      let placed = false;
-      for (const side of orbits) {
-        let tx = x, ty = y;
-        if (side === "right") { tx = x + w + 16; ty = y + h / 2 - tipH / 2; }
-        else if (side === "left") { tx = x - TIP - 16; ty = y + h / 2 - tipH / 2; }
-        else {
-          // Top/bottom tooltips (e.g. over a bottom-anchored element like the
-          // assistant FAB) sit at viewport eye level so they never hug the
-          // bottom edge of the page and get clipped or look too low.
-          tx = x + w / 2 - TIP / 2;
-          ty = Math.max(MARGIN, Math.min((vh - tipH) / 2, y - tipH - 16));
+      const clearOf = (tx: number, ty: number) =>
+        // "clear of" = the card's box does not intersect the target's box.
+        !(tx < x + w && tx + tipW > x && ty < y + h && ty + tipH > y);
+
+      // Candidate positions for each side (adjacent to the target), clamped.
+      const candidates = (side: Side) => {
+        let tx = 0, ty = 0;
+        switch (side) {
+          case "right": tx = x + w + GAP; ty = y + h / 2 - tipH / 2; break;
+          case "left": tx = x - tipW - GAP; ty = y + h / 2 - tipH / 2; break;
+          case "bottom": tx = x + w / 2 - tipW / 2; ty = y + h + GAP; break;
+          case "top": tx = x + w / 2 - tipW / 2; ty = y - tipH - GAP; break;
         }
-
-        // Clamp into the viewport.
-        tx = Math.max(MARGIN, Math.min(tx, vw - TIP - MARGIN));
+        tx = Math.max(MARGIN, Math.min(tx, vw - tipW - MARGIN));
         ty = Math.max(MARGIN, Math.min(ty, vh - tipH - MARGIN));
+        return { tx, ty };
+      };
+      const fits = (tx: number, ty: number) =>
+        tx >= MARGIN && tx + tipW <= vw - MARGIN &&
+        ty >= MARGIN && ty + tipH <= vh - MARGIN;
 
-        const fitsX = tx >= MARGIN && tx + TIP <= vw - MARGIN;
-        const fitsY = ty >= MARGIN && ty + tipH <= vh - MARGIN;
-        setTip({ x: tx, y: ty });
-        if (fitsX && fitsY) { placed = true; break; }
+      // Try preferred side, then the perpendicular sides, then the opposite.
+      const preferred: Side = s.side ?? "right";
+      const orbit: Side[] = [preferred, sidePerp(preferred), sidePerp(preferred, true), opposite(preferred)];
+      let chosen: { tx: number; ty: number } | null = null;
+      for (const side of orbit) {
+        if (chosen) break;
+        const c = candidates(side);
+        if (fits(c.tx, c.ty) && clearOf(c.tx, c.ty)) chosen = c;
       }
-      // If neither side fits (very short/narrow viewport), keep the clamped
-      // last attempt so it's at least on-screen as much as possible.
-      if (!placed) {
-        // final safety: force into view
-        setTip((t) => ({
-          x: Math.max(MARGIN, Math.min(t.x, vw - TIP - MARGIN)),
-          y: Math.max(MARGIN, Math.min(t.y, vh - tipH - MARGIN)),
-        }));
+      if (!chosen) {
+        // Nothing clears the target and fits; use the preferred side clamped so
+        // the card is as close to its target as possible while on-screen.
+        chosen = candidates(preferred);
       }
+      setTip({ x: chosen.tx, y: chosen.ty });
     };
     // Wait one frame so the tooltip has rendered before measuring its height.
     const id = requestAnimationFrame(() => requestAnimationFrame(measure));
@@ -99,7 +104,7 @@ export function CoachTour({
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [open, step, steps, tip?.y]);
+  }, [open, step, steps]);
 
   if (!open) return null;
   const cur = steps[step];
@@ -142,6 +147,17 @@ export function CoachTour({
   );
 }
 
-function opposite(side: "right" | "bottom" | "top" | "left") {
+type Side = "right" | "bottom" | "top" | "left";
+
+function opposite(side: Side) {
   return side === "right" ? "left" : side === "left" ? "right" : side === "top" ? "bottom" : "top";
+}
+
+/** A perpendicular side; `tick` picks the second perpendicular if true. */
+function sidePerp(side: Side, tick = false) {
+  const perp: Record<Side, Side> = {
+    right: "top", left: "top", top: "right", bottom: "right",
+  };
+  const p = perp[side];
+  return tick ? opposite(p) : p;
 }

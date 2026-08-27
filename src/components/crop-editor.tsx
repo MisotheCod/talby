@@ -6,13 +6,16 @@ import { IconMinus, IconPlus } from "@/components/icons";
 export type CropEditorHandle = { apply: () => void };
 
 /**
- * CropEditor — square profile-photo crop with drag-to-reposition (mouse + touch
- * via unified pointer events) and a zoom slider. Renders the frame + zoom UI.
- * The parent drives commit via the imperative `apply()` handle, which renders
- * a canvas exactly matching what the square frame shows and returns it through
- * `onApply(dataUrl, blob)`.
+ * CropEditor — circular profile-photo crop with drag-to-reposition (mouse +
+ * touch via unified pointer events) and a neutral zoom slider. The area outside
+ * the circle is dimmed with a scrim and bounded by a bright ring, so what the
+ * user sees (the bright circle) is exactly the circular image that gets saved.
  *
- * Geometry (CSS px, origin at frame top-left):
+ * The parent drives commit via the imperative `apply()` handle, which renders a
+ * canvas that matches the visible circle (transparent outside it) and returns
+ * it through `onApply(dataUrl, blob)`.
+ *
+ * Geometry (CSS px, origin at the frame's top-left):
  *   base = max(size/naturalW, size/naturalH)   // cover at zoom 1
  *   scale = base * zoom
  *   translate = centering offset at zoom 1 + user drag
@@ -51,6 +54,11 @@ export const CropEditor = forwardRef<CropEditorHandle, {
       canvas.height = Math.round(size * dpr);
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
+      // Clip to the circle so the saved image matches the crop frame exactly
+      // (transparent outside the circle, like the visible mask).
+      ctx.beginPath();
+      ctx.arc(canvas.width / 2, canvas.height / 2, canvas.width / 2, 0, Math.PI * 2);
+      ctx.clip();
       ctx.scale(dpr, dpr);
       ctx.translate(tx, ty);
       ctx.scale(scale, scale);
@@ -83,19 +91,31 @@ export const CropEditor = forwardRef<CropEditorHandle, {
     <div className="w-full flex flex-col items-center">
       <div
         onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}
-        className="relative overflow-hidden rounded-xl border border-line2 bg-card2 select-none"
+        className="relative overflow-hidden rounded-full bg-card2 select-none"
         style={{ width: size, height: size, touchAction: "none", cursor: img ? "grab" : "default" }}
       >
         {img && (
-          <img src={src} alt="" draggable={false} className="absolute left-0 top-0 max-w-none pointer-events-none"
+          <img src={src} alt="" draggable={false} className="absolute left-0 top-0 max-w-none pointer-events-none rounded-full"
             style={{ width: img.naturalWidth * scale, height: img.naturalHeight * scale, transform: `translate(${tx}px, ${ty}px)` }} />
         )}
+        {/* Circular crop mask: scrim dims everything outside the circle, a bright
+            ring marks the exact boundary of what will be saved. */}
+        <div
+          className="absolute inset-0 pointer-events-none rounded-full"
+          style={{ boxShadow: "inset 0 0 0 2px var(--accent)", backgroundColor: "transparent" }}
+        />
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, transparent calc(50% - 1px), rgba(11,13,18,0.55) 50%, rgba(11,13,18,0.55) calc(50% + 1px), rgba(11,13,18,0.62) 100%)",
+          }}
+        />
       </div>
 
       <div className="flex items-center gap-2 mt-4 w-full max-w-[280px]">
         <IconMinus size={16} className="text-inkfaint shrink-0" />
         <input type="range" min={1} max={5} step={0.01} value={zoom} aria-label="Zoom"
-          onChange={(e) => setZoom(Number(e.target.value))} className="hue flex-1" />
+          onChange={(e) => setZoom(Number(e.target.value))} className="zoom flex-1" />
         <IconPlus size={16} className="text-inkfaint shrink-0" />
       </div>
       <p className="text-[11px] text-inkfaint mt-1.5">Drag to position, use the slider to zoom.</p>

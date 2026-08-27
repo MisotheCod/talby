@@ -9,8 +9,9 @@ import { cn } from "@/lib/utils";
 import { IconArrowLeft, IconCheck, IconDownload, IconLink, IconRefresh } from "@/components/icons";
 import { Button, Chip, Input, Select, Spinner, StatusPill } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
+import { NotionLogo } from "@/components/marketing/notion-logo";
 
-type Step = "notion" | "upload" | "columns" | "mapping" | "review";
+type Step = "source" | "notion" | "upload" | "columns" | "mapping" | "review";
 type ContentPart = { title?: string; event_date?: string; platform?: string | null };
 type PaymentPart = { amount?: string; expected_date?: string; status?: string };
 type MapRow = {
@@ -23,7 +24,16 @@ type ImportItem = MapRow & { __selected?: boolean; __review?: boolean };
 export default function ImportPage() {
   const supabase = createClient();
   const router = useRouter();
-  const [step, setStep] = useState<Step>(() => (new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source") === "csv" ? "upload" : "notion"));
+  const [step, setStep] = useState<Step>(() => {
+    const src = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source");
+    return src === "csv" ? "upload" : src === "notion" ? "notion" : "source";
+  });
+  // Which import source path the user is on (chosen at the Source step). Null
+  // until they pick; used to show only that path's steps, not both.
+  const [source, setSource] = useState<"csv" | "notion" | null>(() => {
+    const src = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source");
+    return src === "csv" ? "csv" : src === "notion" ? "notion" : null;
+  });
   const [plan, setPlan] = useState<"free" | "paid">("free");
 
 
@@ -56,9 +66,10 @@ export default function ImportPage() {
 
   const back = () => {
     if (done) { router.push("/app/deals"); return; }
-    if (step === "notion") { router.push("/app/deals"); return; }
-    if (step === "upload") { resetUpload(); router.push("/app/deals"); return; }
-    if (step === "columns") { setStep("upload"); return; }
+    if (step === "source") { router.push("/app/deals"); return; }
+    if (step === "notion") { resetUpload(); setSource(null); setStep("source"); return; }
+    if (step === "upload") { resetUpload(); setSource(null); setStep("source"); return; }
+    if (step === "columns") { setStep(source === "notion" ? "notion" : "upload"); return; }
     if (step === "mapping") { setStep("columns"); return; }
     if (step === "review") { setStep("mapping"); return; }
   };
@@ -313,17 +324,17 @@ export default function ImportPage() {
   const selCount = items.filter((i) => i.__selected).length;
 
   return (
-    <div className="fade-up max-w-3xl mx-auto">
+    <div className="fade-up">
       {/* Top bar with back */}
       <div className="flex items-center gap-1 mb-8">
         <button onClick={back} className="flex items-center gap-2 text-sm text-inksoft hover:text-ink px-2 py-1.5 rounded-lg hover:bg-card2 cursor-pointer">
-          <IconArrowLeft size={16} /> Back to Deals
+          <IconArrowLeft size={16} /> {done ? "Back to deals" : step === "source" ? "Back to deals" : "Back"}
         </button>
         <h1 className="text-[22px] font-semibold tracking-tight pl-2">Import deals</h1>
       </div>
 
-      {/* Stepper */}
-      <Stepper current={step} />
+      {/* Stepper (shows only the active path's steps) */}
+      <Stepper current={step} source={source} />
 
       {done && (
         <div className="panel p-12 text-center">
@@ -341,9 +352,15 @@ export default function ImportPage() {
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link href="/app/deals"><Button>View deals</Button></Link>
-            <Button variant="secondary" onClick={() => { setDone(false); resetUpload(); setStep("notion"); }}>Import more</Button>
+            <Button variant="secondary" onClick={() => { setDone(false); resetUpload(); setSource(null); setStep("source"); }}>Import more</Button>
           </div>
         </div>
+      )}
+
+      {!done && step === "source" && (
+        <SourceStep
+          onPick={(s) => { setSource(s); setStep(s === "notion" ? "notion" : "upload"); }}
+        />
       )}
 
       {!done && step === "notion" && (
@@ -386,23 +403,67 @@ export default function ImportPage() {
 }
 
 /* ---------- steps ---------- */
-function Stepper({ current }: { current: Step }) {
-  const order: Step[] = ["notion", "upload", "columns", "mapping", "review"];
-  const label: Record<Step, string> = {
-    notion: "Notion", upload: "Upload", columns: "Columns", mapping: "AI mapping", review: "Review",
-  };
-  const curIdx = order.indexOf(current);
+// Each source has its own step sequence after the shared Source picker.
+// Notion and spreadsheet are ALTERNATE sources; a user only ever sees the
+// steps for the path they chose.
+const NOTION_ORDER: Step[] = ["source", "notion", "columns", "mapping", "review"];
+const CSV_ORDER: Step[] = ["source", "upload", "columns", "mapping", "review"];
+const STEP_LABEL: Record<Step, string> = {
+  source: "Source", notion: "Database", upload: "Upload", columns: "Columns", mapping: "AI mapping", review: "Review",
+};
+
+function Stepper({ current, source }: { current: Step; source: "csv" | "notion" | null }) {
+  const order: Step[] = source === "notion" ? NOTION_ORDER : source === "csv" ? CSV_ORDER : ["source"];
+  // Before a source is chosen, only "Source" is shown (and it's the current step).
+  const list = source ? order : (["source"] as Step[]);
+  const curIdx = list.indexOf(current);
+  // If the user deep-links straight to a path step without a source, snap the
+  // stepping so 'source' reads as complete (past) and the rest stay future.
+  let shown = list.map((s, i) => i < curIdx ? "done" : i === curIdx ? "now" : "todo");
   return (
     <div className="flex items-center gap-2 mb-8 flex-wrap">
-      {order.map((s, i) => (
+      {list.map((s, i) => (
         <div key={s} className="flex items-center gap-2">
           <span className={cn(
             "text-[11px] font-semibold px-2.5 py-1 rounded-full",
-            i === curIdx ? "bg-accent text-onaccent" : i < curIdx ? "bg-paidbg text-paid" : "bg-card2 text-inksoft border border-line2"
-          )}>{label[s]}</span>
-          {i < order.length - 1 && <span className="text-inkfaint text-[11px]">→</span>}
+            s === current ? "bg-accent text-onaccent" : shown[i] === "done" ? "bg-paidbg text-paid" : "bg-card2 text-inksoft border border-line2"
+          )}>{STEP_LABEL[s]}</span>
+          {i < list.length - 1 && <span className="text-inkfaint text-[11px]">→</span>}
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Step 1: pick a source. Spreadsheet and Notion sit side by side; they are
+ *  alternative entry points, not sequential steps. */
+function SourceStep({ onPick }: { onPick: (s: "csv" | "notion") => void }) {
+  return (
+    <div className="panel p-6">
+      <h2 className="font-semibold">Where are your deals today?</h2>
+      <p className="text-sm text-inksoft mt-1 mb-5">Pick one source and we&apos;ll map it for you.</p>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <button
+          onClick={() => onPick("csv")}
+          className="card p-5 text-left flex items-start gap-3 cursor-pointer hover:border-[var(--accent)] transition-colors"
+        >
+          <span className="h-9 w-9 rounded-xl accent-tint-bg accent-ink grid place-items-center shrink-0"><IconDownload size={18} /></span>
+          <span>
+            <span className="block font-semibold">Spreadsheet</span>
+            <span className="block text-[13px] text-inksoft mt-0.5">Upload one or more .csv files</span>
+          </span>
+        </button>
+        <button
+          onClick={() => onPick("notion")}
+          className="card p-5 text-left flex items-start gap-3 cursor-pointer hover:border-[var(--accent)] transition-colors"
+        >
+          <span className="h-9 w-9 rounded-xl accent-tint-bg accent-ink grid place-items-center shrink-0 overflow-hidden"><NotionLogo size={18} /></span>
+          <span>
+            <span className="block font-semibold">Notion</span>
+            <span className="block text-[13px] text-inksoft mt-0.5">Import from a Notion database</span>
+          </span>
+        </button>
+      </div>
     </div>
   );
 }

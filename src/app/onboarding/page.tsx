@@ -5,11 +5,17 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ACCENT_PRESETS, applyAccent, applyMode, DEFAULT_HSL, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
 import { cn } from "@/lib/utils";
-import { IconCheck, IconArrowRight, IconArrowLeft, IconCamera, IconImport } from "@/components/icons";
+import { IconCheck, IconArrowRight, IconArrowLeft, IconCamera } from "@/components/icons";
 import { Button, Input } from "@/components/ui";
 import { DashboardPreview } from "@/components/dashboard-preview";
 import { CropEditor, type CropEditorHandle } from "@/components/crop-editor";
 import { TalbyLogo } from "@/components/marketing/talby-logo";
+import { NotionLogo } from "@/components/marketing/notion-logo";
+
+/** Small Notion mark for button/card affordances. */
+function NotionMark() {
+  return <NotionLogo size={18} className="shrink-0" />;
+}
 
 /* Onboarding = SETUP first (this page), then the app shell fires the coach tour
  * on /app, then notifications last. Every step except the handle is skippable.
@@ -187,10 +193,11 @@ export default function OnboardingPage() {
               <h1 className="text-2xl font-semibold text-center tracking-tight">Add a profile photo</h1>
               <p className="text-muted text-sm text-center mt-1.5 mb-8">Nice to put a face to your deals.</p>
               <button onClick={() => fileRef.current?.click()} className="mx-auto relative h-28 w-28 rounded-full overflow-hidden bg-card2 border border-line2 hover:border-[var(--accent)] transition-colors cursor-pointer grid place-items-center">
-                {photoPreview ? <img src={photoPreview} alt="Profile" className="h-full w-full object-cover" /> : (
-                  <span className="text-4xl font-bold text-inksoft">{(handler?.trim() || "C").charAt(0).toUpperCase()}</span>
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  <IconCamera size={30} className="text-inksoft" />
                 )}
-                <span className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-[var(--accent)] text-[var(--on-accent)] grid place-items-center"><IconCamera size={16} /></span>
               </button>
               <div className="mt-8 flex flex-col items-center gap-3">
                 <Button size="lg" onClick={() => fileRef.current?.click()}>Choose a photo</Button>
@@ -240,13 +247,11 @@ export default function OnboardingPage() {
             <div className="fade-up text-center">
               <h1 className="text-2xl font-semibold text-center tracking-tight">Already have deals?</h1>
               <p className="text-muted text-sm text-center mt-1.5 mb-8">Bring your pipeline in from a spreadsheet or Notion so it&apos;s waiting for you. Optional, and you can do it anytime.</p>
-              <div className="mx-auto max-w-md flex flex-col items-center gap-3">
-                <a href="/app/import" className="block w-full max-w-xs"><Button size="lg" className="w-full"><IconImport size={18} /> Import deals</Button></a>
-                <Button variant="ghost" onClick={() => go("theme")}><IconArrowLeft size={15} /> Back</Button>
+              <div className="mx-auto max-w-xs flex flex-col items-stretch gap-2.5">
+                <a href="/app/import"><Button variant="secondary" size="lg" className="w-full"><NotionMark /> Import deals</Button></a>
+                <Button size="lg" onClick={finishSetup}>Continue <IconArrowRight size={16} /></Button>
               </div>
-              <div className="mt-6 flex justify-center">
-                <Button size="lg" onClick={finishSetup}>Continue to Talby <IconArrowRight size={16} /></Button>
-              </div>
+              <button onClick={() => go("theme")} className="mt-6 text-sm text-muted hover:text-ink cursor-pointer inline-flex items-center gap-1"><IconArrowLeft size={15} /> Back</button>
             </div>
           )}
 
@@ -262,8 +267,9 @@ function RowAvatarUrl(path: string): string {
   return path.startsWith("http") ? path : `${base}/storage/v1/object/public/avatars/${path}`;
 }
 
-/** Crop step: back arrow, "Edit photo" title, top-right Apply. The CropEditor
- *  exposes apply() via ref so the Apply button triggers the exact-frame render. */
+/** Crop step: back arrow + "Edit photo" title, crop editor, Apply bottom center
+ *  (in line with every other onboarding screen). The CropEditor exposes apply()
+ *  via ref so the Apply button triggers the exact-frame render. */
 function CropStepView({ src, busy, error, onApply, onBack }: {
   src: string; busy: boolean; error: string;
   onApply: (d: string, b: Blob) => void; onBack: () => void;
@@ -274,12 +280,15 @@ function CropStepView({ src, busy, error, onApply, onBack }: {
       <div className="flex items-center justify-between mb-6">
         <button onClick={onBack} aria-label="Back" className="p-2 -ml-2 rounded-lg hover:bg-card2 cursor-pointer"><IconArrowLeft size={18} /></button>
         <h1 className="text-xl font-semibold tracking-tight">Edit photo</h1>
-        <Button size="sm" disabled={busy} onClick={() => editorRef.current?.apply()}>
-          {busy ? "Saving…" : (<><IconCheck size={15} /> Apply</>)}
-        </Button>
+        <span className="w-9" />
       </div>
       <CropEditor ref={editorRef} src={src} onApply={onApply} />
       {error && <p className="text-sm text-late text-center mt-3" role="alert">{error}</p>}
+      <div className="mt-8 flex justify-center">
+        <Button size="lg" disabled={busy} onClick={() => editorRef.current?.apply()}>
+          {busy ? "Saving…" : (<><IconCheck size={16} /> Apply</>)}
+        </Button>
+      </div>
     </div>
   );
 }

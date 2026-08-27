@@ -794,6 +794,27 @@ input[type="range"].hue::-moz-range-thumb {
   border: 2px solid var(--ink); cursor: pointer;
 }
 
+/* Neutral range slider (e.g. crop zoom). Uses the line tone, not a color
+   gradient — this is a magnitude control, never a color. */
+input[type="range"].zoom {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 8px;
+  border-radius: 100px;
+  background: var(--line-2);
+  cursor: pointer; outline: none;
+}
+input[type="range"].zoom::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--ink); cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+input[type="range"].zoom::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
+  border: 2px solid var(--ink); cursor: pointer;
+}
+input[type="range"].zoom::-moz-range-track {
+  height: 8px; border-radius: 100px; background: var(--line-2);
+}
+
 /* ------- Mobile topbar + drawer ------- */
 .topbar {
   position: sticky; top: 14px; z-index: 70;
