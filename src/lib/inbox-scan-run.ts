@@ -84,6 +84,14 @@ export async function scanForUser(userId: string): Promise<{ scanned: number; ne
     }
   }
 
+  // Record when this inbox was last scanned successfully, so the page can show
+  // "Last scanned" and the cron knows how stale the data is.
+  try {
+    await service.from("gmail_connections")
+      .update({ last_scanned_at: new Date().toISOString() })
+      .eq("user_id", userId);
+  } catch { /* non-fatal */ }
+
   return { scanned: headers.length, newLeads };
 }
 

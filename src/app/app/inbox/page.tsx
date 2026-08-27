@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button, Spinner, Pill } from "@/components/ui";
-import { IconClose, IconCheck } from "@/components/icons";
+import { IconClose, IconCheck, IconRemind } from "@/components/icons";
+import { GmailLogo } from "@/components/marketing/gmail-logo";
 
 type Lead = {
   id: string; gmail_message_id: string; subject: string | null; sender_email: string | null;
@@ -22,6 +23,19 @@ function confidenceLabel(c: number | null): { text: string; source: string } {
   return { text: `${Math.round(c * 100)}%`, source: "var(--late)" };
 }
 
+function timeAgo(iso: string | null): string {
+  if (!iso) return "never";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 60000) return "just now";
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 export default function InboxPage() {
   const supabase = createClient();
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -30,6 +44,8 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<Filter>("New");
   const [plan, setPlan] = useState<string>("free");
   const [gmailConnected, setGmailConnected] = useState(false);
+  const [connEmail, setConnEmail] = useState<string | null>(null);
+  const [lastScannedAt, setLastScannedAt] = useState<string | null>(null);
   const [message, setMessage] = useState<{ kind: "ok" | "warn" | "bad"; text: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -44,8 +60,12 @@ export default function InboxPage() {
         const { data: prof } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
         setPlan((prof as { plan?: string } | null)?.plan ?? "free");
       }
-      const { data: conn } = await supabase.from("gmail_connections").select("email").limit(1);
+      const { data: conn } = await supabase.from("gmail_connections").select("email, last_scanned_at").limit(1);
       setGmailConnected((conn ?? []).length > 0);
+      if (conn?.[0]) {
+        setConnEmail(conn[0].email ?? null);
+        setLastScannedAt(conn[0].last_scanned_at ?? null);
+      }
     })();
     load();
     setLoading(false);
@@ -60,8 +80,13 @@ export default function InboxPage() {
         setMessage({ kind: "warn", text: "The inbox scanner is on the paid plan. Go unlimited to catch brand deals from your inbox." });
       } else if (data.error === "gmail_not_connected") {
         setMessage({ kind: "warn", text: "Connect Gmail to scan your inbox for brand-deal outreach." });
+      } else if (data.error === "gmail_reconnect") {
+        // Connected in the past, but the token is dead (revoked / expired and
+        // unrefreshable). A bare "connect Gmail" reads like it was never linked.
+        setMessage({ kind: "warn", text: `Re-connect Gmail to scan. Your connection to ${data.email || "your account"} can't be reached right now.` });
       } else {
         setMessage({ kind: "ok", text: `Scan complete: found ${data.newLeads ?? 0} new lead${(data.newLeads ?? 0) === 1 ? "" : "s"}.` });
+        setLastScannedAt(new Date().toISOString());
         await load();
       }
     } catch {
@@ -132,6 +157,21 @@ export default function InboxPage() {
         </div>
         <Button onClick={scanNow} disabled={scanning}>{scanning ? <Spinner /> : "Scan now"}</Button>
       </div>
+
+      {gmailConnected && (
+        <div className="card p-4 flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="h-8 w-8 rounded-lg bg-white border border-line grid place-items-center shrink-0 overflow-hidden"><GmailLogo size={18} /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold truncate">{connEmail || "Connected Gmail"}</span>
+              <span className="block text-xs text-muted inline-flex items-center gap-1 mt-0.5">
+                <IconRemind size={12} /> Last scanned {timeAgo(lastScannedAt)}
+              </span>
+            </span>
+          </div>
+          <a href="/api/gmail/connect" className="ml-auto text-xs font-semibold accent-text hover:underline no-underline">Reconnect</a>
+        </div>
+      )}
 
       {!gmailConnected && (
         <div className="card p-4 text-sm flex items-center justify-between gap-3">

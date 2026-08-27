@@ -20,8 +20,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "paid_required" }, { status: 402 });
   }
 
+  // Distinguish "never connected" from "connected but the token is dead (for
+  // example revoked or expired and unrefreshable)". Both make getAccessToken
+  // return null, but only the first should say "connect Gmail".
+  const { data: conn } = await supabase
+    .from("gmail_connections").select("user_id, email").eq("user_id", user.id).maybeSingle();
+
   const accessToken = await getAccessToken(user.id);
   if (!accessToken) {
+    if (conn) {
+      return NextResponse.json({ error: "gmail_reconnect", email: (conn as { email?: string }).email ?? null }, { status: 400 });
+    }
     return NextResponse.json({ error: "gmail_not_connected" }, { status: 400 });
   }
 
