@@ -9,6 +9,7 @@ import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { ThemeControl } from "@/components/theme-control";
 import { CoachTour, type TourStep } from "@/components/coach-tour";
+import { NotificationPrompt } from "@/components/notification-prompt";
 
 import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
   IconNotes, IconLogout, IconSettings, IconMail,
@@ -89,8 +90,10 @@ export function AppShell({
 
   // One-time onboarding coach tour: show only if the user hasn't seen it yet,
   // on the Overview (/app). `tour_seen` lives on the profile so it never
-  // re-appears across devices.
+  // re-appears across devices. The tour fires AFTER setup, so it spotlights a
+  // personalized dashboard.
   const [tourOpen, setTourOpen] = useState(false);
+  const [notifPrompt, setNotifPrompt] = useState(false);
   useEffect(() => {
     let active = true;
     (async () => {
@@ -107,13 +110,21 @@ export function AppShell({
     setTourOpen(false);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) await supabase.from("profiles").update({ tour_seen: true }).eq("id", user.id);
+    // Permissions come last: after the tour the ask is concrete.
+    setNotifPrompt(true);
   };
 
+  // Tour spotlights on the live, personalized dashboard. Free users finish on
+  // the inbox step (something they can act on) — never on a paywall.
   const tourSteps: TourStep[] = [
     { selector: "#side nav", title: "Your command center", body: "Everything lives in the left rail: Deals, Calendar, Payments, Inbox, Ideas and To-dos. Pick a section and Talby is organized around it.", side: "right" },
-    { selector: "[data-tour=add-deal]", title: "Log a brand deal", body: "Add a deal from here — brand, deliverable, value, due date, and payment terms. It flows into your calendar and payments automatically.", side: "bottom" },
-    ...(plan === "free" ? [{ selector: ".inbox-promo", title: "Find deals from your inbox", body: "Connect Gmail and Talby can scan your inbox for brand collabs and add them as deals, so fewer opportunities slip by.", side: "bottom" } as TourStep] : []),
-    { selector: "[data-tour=assistant]", title: "Ask Talby Assistant", body: plan === "paid" ? "Ask anything about your deals, contracts, payments, and calendar — it answers only from your own data." : "The AI assistant answers questions about your deals and contracts. Unlock it on the Unlimited plan.", side: "top" },
+    { selector: "[data-tour=add-deal]", title: "Add your first deal", body: "Add a deal from here, brand, deliverable, value, due date, and payment terms. It flows into your calendar and payments automatically.", side: "bottom" },
+    { selector: "[data-tour=assistant]", title: "Ask Talby Assistant", body: plan === "paid"
+      ? "Ask anything about your deals, contracts, payments, and calendar, it answers only from your own data."
+      : "Talby Assistant reads your deals, contracts, and calendar and answers questions about them as you work.", side: "top" },
+    ...(plan === "free"
+      ? [{ selector: ".inbox-promo", title: "Find deals from your inbox", body: "Connect Gmail and Talby can scan your inbox for brand collabs and add them as deals, so fewer opportunities slip by.", side: "bottom" } as TourStep]
+      : []),
   ];
 
   // Preview applies live WITHOUT mutating the persisted state (so the
@@ -264,6 +275,7 @@ export function AppShell({
         </main>
         <AssistantLauncher />
         <CoachTour open={pathname === "/app" && tourOpen} steps={tourSteps} onDone={completeTour} />
+        {notifPrompt && <NotificationPrompt onDone={() => setNotifPrompt(false)} />}
       </div>
     </div>
   );

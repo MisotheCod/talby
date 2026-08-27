@@ -71,6 +71,9 @@ import {
   Clapperboard,
   FileText,
   ArrowUpDown,
+  Minus,
+  Camera,
+  Table2,
 } from "lucide-react";
 
 type AnyIcon = ComponentType<SVGProps<SVGSVGElement> | Record<string, unknown>>;
@@ -97,6 +100,11 @@ export const IconPlug = l(PlugZap);
 export const IconSettings = l(Settings);
 export const IconPlus = l(Plus);
 export const IconAdd = l(Plus);
+export const IconMinus = l(Minus);
+export const IconZoomIn = l(Plus);
+export const IconZoomOut = l(Minus);
+export const IconCamera = l(Camera);
+export const IconImport = l(Table2);
 export const IconClose = l(X);
 export const IconCloseSmall = l(X);
 export const IconRight = l(ChevronRight);
