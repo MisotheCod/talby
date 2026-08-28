@@ -27,7 +27,11 @@ const RANGES: Range[] = ["month", "quarter", "year", "all"];
 
 /* ---------- helpers ---------- */
 function fmtMonth(iso: string): string {
-  const d = new Date(iso + "-01");
+  const [y, m] = iso.split("-").map(Number);
+  if (!y || !m) return iso;
+  // Build from local components (NOT `new Date(iso+"-01")`, which parses as UTC
+  // midnight and shifts the month back a day in negative-offset timezones).
+  const d = new Date(y, m - 1, 1);
   return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
 }
 function fmtQuarter(key: string): string {
@@ -37,9 +41,13 @@ function fmtQuarter(key: string): string {
 }
 function fmtYear(iso: string): string { return iso.slice(0, 4); }
 
-function rowsStatus(p: Payment): "past_due" | "expected" | "received" {
+function rowsStatus(p: Payment): "past_due" | "invoice_overdue" | "expected" | "received" {
   if (p.status === "received") return "received";
-  return isPastDue(p.expected_date) ? "past_due" : "expected";
+  if (!isPastDue(p.expected_date)) return "expected";
+  // "Past due" means the brand is late paying an invoice they were sent. If no
+  // invoice was sent yet, the creator is the one who is overdue, so it reads
+  // "Invoice overdue", never "Past due" beside "Not invoiced".
+  return (p.invoice_state ?? "not_invoiced") === "invoiced" ? "past_due" : "invoice_overdue";
 }
 
 /* Invoice state label + pill kind. null/undefined -> "Not invoiced" so the
@@ -244,8 +252,10 @@ export default function PaymentsPage() {
       payments: groups[m].sort((a, b) => {
         // Past due first, then by date
         const sa = rowsStatus(a), sb = rowsStatus(b);
-        if (sa === "past_due" && sb !== "past_due") return -1;
-        if (sa !== "past_due" && sb === "past_due") return 1;
+        const aOverdue = sa === "past_due" || sa === "invoice_overdue";
+        const bOverdue = sb === "past_due" || sb === "invoice_overdue";
+        if (aOverdue && !bOverdue) return -1;
+        if (!aOverdue && bOverdue) return 1;
         return (a.expected_date || "").localeCompare(b.expected_date || "");
       }),
     }));
@@ -431,10 +441,11 @@ export default function PaymentsPage() {
                     const st = rowsStatus(p);
                     const isRecv = st === "received";
                     const isPast = st === "past_due";
+                    const isInvOverdue = st === "invoice_overdue";
                     const day = p.expected_date ? Number(p.expected_date.slice(8)) : null;
                     return (
                       <div key={p.id} className="flex items-center gap-3 px-5 py-3">
-                        <span className={cn("w-8 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>
+                        <span className={cn("w-8 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast || isInvOverdue ? "text-late" : "text-ink")}>
                           {day ?? "–"}
                         </span>
                         <span className={cn("flex-1 min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>
@@ -445,6 +456,8 @@ export default function PaymentsPage() {
                             <StatusPill size="sm" kind="paid">Paid</StatusPill>
                           ) : isPast ? (
                             <StatusPill size="sm" kind="late">Past due</StatusPill>
+                          ) : isInvOverdue ? (
+                            <StatusPill size="sm" kind="late">Invoice overdue</StatusPill>
                           ) : (
                             <StatusPill size="sm" kind="due">Expected</StatusPill>
                           )}
@@ -469,7 +482,7 @@ export default function PaymentsPage() {
                                 <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
                                   <IconCheck size={14} /> Mark as paid
                                 </button>
-                                {isPast && (
+                                {isPast || isInvOverdue && (
                                   <button onClick={() => { setMenuOpen(null); nudgePayment(p); }} disabled={nudgeBusy === p.id} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
                                     <IconSend size={14} /> Copy a reminder
                                   </button>

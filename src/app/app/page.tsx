@@ -16,7 +16,7 @@ type Deal = {
 };
 type Payment = {
   id: string; deal_id: string | null; amount: number;
-  expected_date: string | null; status: string;
+  expected_date: string | null; status: string; invoice_state: string | null;
   deal?: { brand: string } | null;
 };
 type Content = {
@@ -461,11 +461,16 @@ function DealRow({ deal }: { deal: Deal }) {
 }
 
 function PayRow({ p }: { p: Payment }) {
-  const kind = p.status === "received" ? "g" : isPastDue(p.expected_date) ? "r" : "c";
-  const label = p.status === "received" ? "Received" : isPastDue(p.expected_date) ? "Past due" : "Expected";
-  const pillKind = p.status === "received" ? "pill-paid" : isPastDue(p.expected_date) ? "pill-late" : "pill-due";
-  const barCls = p.status === "received" ? "g" : isPastDue(p.expected_date) ? "r" : "c";
+  const inv = (p.invoice_state ?? "not_invoiced");
+  const overdue = isPastDue(p.expected_date);
+  const pastDue = p.status !== "received" && overdue && inv === "invoiced";
+  const invOverdue = p.status !== "received" && overdue && inv !== "invoiced";
+  const kind = p.status === "received" ? "g" : overdue ? "r" : "c";
+  const label = p.status === "received" ? "Received" : pastDue ? "Past due" : invOverdue ? "Invoice overdue" : "Expected";
+  const pillKind = p.status === "received" ? "pill-paid" : overdue ? "pill-late" : "pill-due";
+  const barCls = p.status === "received" ? "g" : overdue ? "r" : "c";
   const when = p.expected_date ? new Date(p.expected_date + "T00:00:00") : null;
+  const invLabel = inv === "invoiced" ? "Invoiced" : inv === "no_invoice_needed" ? "No invoice needed" : "Not invoiced";
   return (
     <div className="pay rowanim">
       <div className="when">
@@ -475,7 +480,7 @@ function PayRow({ p }: { p: Payment }) {
       <span className={cn("pbar", barCls)} aria-hidden />
       <div className="mid min-w-0">
         <div className="b truncate">{p.deal?.brand ?? "Payment"}</div>
-        <div className="s truncate">{p.status === "received" ? "Paid to checking" : "Invoice"}</div>
+        <div className="s truncate">{p.status === "received" ? "Paid to checking" : invLabel}</div>
       </div>
       <div className="text-right flex-none ml-2">
         <div className="amt">{formatMoney(p.amount)}</div>

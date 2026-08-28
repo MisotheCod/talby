@@ -21,6 +21,10 @@ type Deal = {
   rep_name: string | null; rep_email: string | null; nudge_mode: string;
   payment_status: string; pay_terms: string | null; exclusivity_days: number | null;
   created_at?: string;
+  // Joined lookups for the six-column list:
+  post_date?: string | null;   // earliest content.event_date
+  pay_by?: string | null;      // earliest payment expected_date (received or not)
+  pay_received?: boolean;      // any payment on the deal marked received
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
@@ -42,13 +46,42 @@ export default function DealsPage() {
   const celeb = useCelebration();
   const [view, setView] = useState<"list" | "board">("list");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<"newest" | "brand" | "value_high" | "value_low" | "due">("newest");
+  const [sort, setSort] = useState<"newest" | "brand" | "value_high" | "value_low" | "pay_by">("newest");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
   const loadDeals = useCallback(async () => {
-    const { data } = await supabase.from("deals").select("*").order("created_at", { ascending: false });
-    setDeals((data ?? []) as unknown as Deal[]);
+    const { data: { user } } = await supabase.auth.getUser();
+    const [d, posts, pays] = await Promise.all([
+      supabase.from("deals").select("*").order("created_at", { ascending: false }),
+      user ? supabase.from("content").select("event_date, linked_deal_id").eq("user_id", user.id).gte("event_date", "1990-01-01").order("event_date", { ascending: true }) : { data: [] },
+      user ? supabase.from("payments").select("expected_date, status, deal_id").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
+    ]);
+    const deals = (d.data ?? []) as unknown as Deal[];
+    // post date = earliest content.event_date per deal
+    const postByDeal = new Map<string, string>();
+    for (const c of (posts.data ?? []) as { event_date: string; linked_deal_id: string | null }[]) {
+      if (!c.linked_deal_id || !c.event_date) continue;
+      const cur = postByDeal.get(c.linked_deal_id);
+      if (!cur || c.event_date < cur) postByDeal.set(c.linked_deal_id, c.event_date.slice(0, 10));
+    }
+    // pay by = earliest payment expected_date; pay_received = any received
+    const payByDeal = new Map<string, string>();
+    const receivedDeal = new Set<string>();
+    for (const p of (pays.data ?? []) as { expected_date: string | null; status: string; deal_id: string | null }[]) {
+      if (!p.deal_id) continue;
+      if (p.status === "received") receivedDeal.add(p.deal_id);
+      if (p.expected_date) {
+        const cur = payByDeal.get(p.deal_id);
+        if (!cur || p.expected_date < cur) payByDeal.set(p.deal_id, p.expected_date.slice(0, 10));
+      }
+    }
+    setDeals(deals.map((deal) => ({
+      ...deal,
+      post_date: postByDeal.get(deal.id) ?? deal.post_date ?? null,
+      pay_by: payByDeal.get(deal.id) ?? deal.pay_by ?? null,
+      pay_received: receivedDeal.has(deal.id),
+    })));
     setLoading(false);
   }, [supabase]);
 
@@ -92,7 +125,7 @@ export default function DealsPage() {
       case "brand": return (a.brand || "").localeCompare(b.brand || "");
       case "value_high": return (b.value ?? 0) - (a.value ?? 0);
       case "value_low": return (a.value ?? 0) - (b.value ?? 0);
-      case "due": return (a.due_date || "9999").localeCompare(b.due_date || "9999");
+      case "pay_by": return (a.pay_by || "9999").localeCompare(b.pay_by || "9999");
       default: return (b.created_at || "").localeCompare(a.created_at || "");
     }
   });
@@ -175,7 +208,7 @@ export default function DealsPage() {
             <option value="brand">Brand A-Z</option>
             <option value="value_high">Value: high</option>
             <option value="value_low">Value: low</option>
-            <option value="due">Due date</option>
+            <option value="pay_by">Pay by date</option>
           </Select>
           <div className="flex items-center gap-1 p-1 rounded-xl border border-line2 bg-card">
             <button onClick={() => setView("list")} aria-label="List view" className={cn("h-9 px-2.5 rounded-lg grid place-items-center cursor-pointer text-inksoft", view === "list" && "bg-card2 text-ink border border-line")}><IconList size={17} /></button>
@@ -198,17 +231,20 @@ export default function DealsPage() {
         <>
           <div className="panel overflow-hidden">
             {/* Column headers */}
-            <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
+            <div className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
               <span>Brand</span>
-              <span>Deliverable</span>
-              <span>Due date</span>
+              <span>Status</span>
+              <span>Payment</span>
+              <span>Post date</span>
+              <span>Pay by</span>
               <span className="text-right">Amount</span>
             </div>
             {pageItems.map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelectedId(d.id)}
-                className={cn("w-full grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer", selectedId === d.id && "bg-card2")}
+                onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(d.id); }}
+                className={cn("w-full grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]", selectedId === d.id && "bg-card2")}
               >
                 <span className="flex items-center gap-3 min-w-0">
                   <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
@@ -216,13 +252,24 @@ export default function DealsPage() {
                   </span>
                   <span className="text-[15px] font-semibold truncate">{d.brand}</span>
                 </span>
-                <span className="text-[12.5px] text-inkfaint truncate min-w-0">{d.deliverable || "No deliverable"}</span>
-                <span className={cn("text-sm tabular-nums", d.due_date && isPastDue(d.due_date) ? "text-late font-medium" : "text-inksoft")}>
-                  {d.due_date ? formatDate(d.due_date) : "–"}
+                <span><DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} /></span>
+                <span>{paymentPill(d)}</span>
+                <span className={cn("text-[12.5px] tabular-nums", d.post_date && isPastDue(d.post_date) && d.status !== "archived" ? "text-late font-medium" : "text-inksoft")}>
+                  {d.post_date ? formatDate(d.post_date) : <NotSet />}
+                </span>
+                <span className={cn("text-[12.5px] tabular-nums", d.pay_by && isPastDue(d.pay_by) && d.payment_status !== "paid" && d.status !== "paid" ? "text-late font-medium" : "text-inksoft")}>
+                  {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
                 </span>
                 <span className="money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
               </button>
             ))}
+            {/* Sum footer — totals the visible/filtered rows */}
+            <div className="flex items-center justify-between px-[22px] py-3 border-t border-line bg-card2/40">
+              <span className="text-[12px] font-semibold uppercase tracking-wide text-inkfaint">
+                Total {filterLabel(filter)}
+              </span>
+              <span className="money text-[15px] font-bold tabular-nums">{formatMoney(visible.reduce((s, deal) => s + (deal.value ?? 0), 0))}</span>
+            </div>
           </div>
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-1">
@@ -272,6 +319,32 @@ function DealStatusBadge({ status, payment_status, active, due }: { status: stri
   if (pay === "paid") return <StatusPill kind="paid">Paid</StatusPill>;
   if (isPastDue(due)) return <StatusPill kind="late">Past due</StatusPill>;
   return <StatusPill kind="accent">{active ? "Active" : "Archived"}</StatusPill>;
+}
+
+/** Payment-status pill shown in the "Payment" column. Cancels out against a
+ *  paid deal regardless of individual rows. */
+function paymentPill(d: Deal) {
+  if (d.payment_status === "paid" || d.status === "paid" || d.pay_received) {
+    return <StatusPill kind="paid">Paid</StatusPill>;
+  }
+  if (d.pay_by && isPastDue(d.pay_by)) {
+    return <StatusPill kind="late">Past due</StatusPill>;
+  }
+  if (d.pay_by) {
+    return <StatusPill kind="due">Pay by {formatDate(d.pay_by)}</StatusPill>;
+  }
+  return <StatusPill kind="due">Expected</StatusPill>;
+}
+
+/** "Not set" placeholder — a muted, legible empty rather than a dash or gap. */
+function NotSet() {
+  return <span className="text-inkfaint">Not set</span>;
+}
+
+/** Label for the sum footer, scoped to the active filter. */
+function filterLabel(filter: (typeof FILTERS)[number]): string {
+  if (filter === "Active" || filter === "All") return "booked";
+  return filter.toLowerCase();
 }
 
 /* ---------------- Deal Board (kanban) ---------------- */
