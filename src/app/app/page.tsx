@@ -143,7 +143,7 @@ export default function OverviewPage() {
   }, [loading]);
 
   const activeDeals = deals.filter((d) => d.brand?.trim() && d.active && d.status !== "archived");
-  const booked = deals.reduce((s, d) => s + (d.value ?? 0), 0);
+  const booked = activeDeals.reduce((s, d) => s + (d.value ?? 0), 0);
   const received = payments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
   const outstanding = payments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
   const pendingPayments = payments.filter((p) => p.status !== "received");
@@ -260,7 +260,7 @@ export default function OverviewPage() {
         <div className="statcard anim">
           <div className="lbl">Paid</div>
           <div className="val cnt-up" style={{ color: "var(--paid)" }} data-n={received}>$0</div>
-          <div className="sub">landed this month</div>
+          <div className="sub">received, all time</div>
         </div>
         <div className="statcard anim">
           <div className="lbl">Outstanding</div>

@@ -172,8 +172,12 @@ export default function ImportPage() {
       const brand = (r.brand || "").trim();
       if (!brand) continue;
       const status = dealStatus(r.status);
-      // Derive a deal-level payment_status from the payment sub-object.
-      const payStatus = /paid|received/i.test(r.payment?.status ?? "") ? "paid" : "expected";
+      // Derive a deal-level payment_status from BOTH the payment sub-object and
+      // the deal status. A source row marked paid ("closed won", "signed", etc.)
+      // should count as paid even when the AI map didn't emit a payment object
+      // (which it only does when a payment date exists).
+      const isPaidDeal = /paid/i.test(r.status ?? "") || /paid|received/i.test(r.payment?.status ?? "");
+      const payStatus = isPaidDeal ? "paid" : "expected";
       plans.push({
         idx: chosen.indexOf(r), brand, value: toNum(r.value), status,
         deliverable: r.deliverable?.trim() || null,
@@ -312,6 +316,19 @@ export default function ImportPage() {
         if (existingId) { await supabase.from("payments").update({ status }).eq("id", existingId); }
         else { await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount, expected_date: date, status }); }
         payments++;
+      } else if (p.payment_status === "paid" || /paid/i.test(p.status || "")) {
+        // A deal that arrived paid but with no payment date still needs a payment
+        // record, or it counts toward Booked but never toward Earned. Use the deal
+        // value and the best available date (post date, else created/today); if no
+        // amount exists, skip (nothing meaningful to record).
+        const amount = p.value ? (Number(p.value) || 0) : 0;
+        if (amount > 0) {
+          const date = p.due_date?.slice(0, 10) || (p.content?.event_date || "").slice(0, 10) || new Date().toISOString().slice(0, 10);
+          const existingId = payByKey.get(`${dealId}|${date}|${amount}`);
+          if (existingId) { await supabase.from("payments").update({ status: "received" }).eq("id", existingId); }
+          else { await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount, expected_date: date, status: "received" }); }
+          payments++;
+        }
       }
     }
 
