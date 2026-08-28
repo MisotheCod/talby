@@ -46,7 +46,13 @@ export default function InboxPage() {
       });
       const data = await res.json();
       if (res.status >= 400) {
-        setMessage({ kind: "bad", text: data.error || "Something went wrong. Try again." });
+        if (data.error === "active_cap") {
+          // Free user at the active-deal cap: the deal stays in the inbox; show
+          // an upgrade prompt tied to THIS deal, not a generic feature lock.
+          setMessage({ kind: "warn", text: data.message || "You're at the free active-deal limit. Archive a deal or go unlimited to add this one." });
+        } else {
+          setMessage({ kind: "bad", text: data.error || "Something went wrong. Try again." });
+        }
       } else if (data.duplicated) {
         setMessage({ kind: "ok", text: "A deal for this brand already exists. The email was attached to it as a note." });
         setFilter("Added");
@@ -77,15 +83,15 @@ export default function InboxPage() {
         <p className="text-muted text-sm mt-1">Brand-deal outreach detected for you.</p>
       </div>
 
-      {/* Gate: the Gmail scanner switched to a forward-any-email path that lands
-          on a future build. Existing detected leads still show below. */}
+      {/* Gate: forwarding-based scanning lands via the address below. Detected leads
+          already here stay visible and usable. */}
       <div className="card p-5 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span className="h-10 w-10 rounded-xl accent-soft accent-ink grid place-items-center shrink-0"><IconMail size={18} /></span>
           <div className="min-w-0">
-            <div className="font-semibold">Brand-deal scanning is changing</div>
+            <div className="font-semibold">Email-based deal detection</div>
             <p className="text-sm text-muted mt-0.5">
-              Talby is moving to a forward-any-email address that works with any inbox. Detected leads already here stay visible.
+              Forward brand outreach to your Talby address and it lands here as a detected deal. Free on every plan; the active-deal limit applies when you add.
             </p>
           </div>
         </div>

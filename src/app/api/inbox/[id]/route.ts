@@ -116,7 +116,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       : (lead.deal_type as string) || null,
     rep_name: contactName || null,
     rep_email: contactEmail || null,
-    active: false, // pipeline leads never count against active capacity
+    active: true, // detected deals are real, actionable opportunities; they count
+                  // against the free active-deal cap (enforced by the DB trigger)
   };
   if (threaded) insertPayload.links = [emailLink];
 
@@ -126,7 +127,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!Number.isNaN(comp) && comp > 0) insertPayload.value = comp;
 
   const { data: createdDeal, error } = await supabase.from("deals").insert(insertPayload).select("id").single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // The DB-level active-deal-cap trigger raises when a free user is at the
+    // limit. Surface a clear, deal-tied upgrade prompt rather than a cryptic
+    // error. The detected deal itself is NOT deleted or hidden — it stays in
+    // the inbox so the user can come back once they free a slot or upgrade.
+    if (/limited to \d+ active deals/i.test(error.message)) {
+      return NextResponse.json(
+        { error: "active_cap", message: `${brand || "This deal"} is ready in your inbox. You've hit the free plan's active-deal limit, so it can't be added until you archive a deal or go unlimited.` },
+        { status: 402 }
+      );
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   await supabase.from("inbox_leads").update({ status: "added", linked_deal_id: createdDeal.id }).eq("id", id);
   return NextResponse.json({ ok: true, duplicated: false, dealId: createdDeal.id, status: "added" });

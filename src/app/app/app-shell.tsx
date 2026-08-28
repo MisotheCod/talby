@@ -123,7 +123,7 @@ export function AppShell({
       ? "Ask anything about your deals, contracts, payments, and calendar, it answers only from your own data."
       : "Talby Assistant reads your deals, contracts, and calendar and answers questions about them as you work.", side: "top" },
     ...(plan === "free"
-      ? [{ selector: ".inbox-promo", title: "Find deals from your inbox", body: "Forward brand collab emails to your Talby inbox and add them as deals, with any email provider.", side: "bottom" } as TourStep]
+      ? [{ selector: ".inbox-promo", title: "Find deals from your inbox", body: "Forward brand collab emails to your Talby inbox and add them as deals. Free on every plan, with any email provider.", side: "bottom" } as TourStep]
       : []),
   ];
 
