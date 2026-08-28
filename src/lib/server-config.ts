@@ -11,6 +11,9 @@ import "server-only";
 /** OpenRouter key for the AI import-mapping engine + Assistant. SERVER-ONLY. */
 export const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 
+/** Resend inbound webhook signing secret (Svix). SERVER-ONLY. */
+export const RESEND_INBOUND_WEBHOOK_SECRET = process.env.RESEND_INBOUND_WEBHOOK_SECRET || "";
+
 /** Notion OAuth (public integration). SERVER-ONLY. */
 export const NOTION_CLIENT_ID = process.env.NOTION_CLIENT_ID || "";
 export const NOTION_CLIENT_SECRET = process.env.NOTION_CLIENT_SECRET || "";
