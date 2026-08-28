@@ -25,6 +25,7 @@ type Deal = {
   post_date?: string | null;   // earliest content.event_date
   pay_by?: string | null;      // earliest payment expected_date (received or not)
   pay_received?: boolean;      // any payment on the deal marked received
+  all_invoiced?: boolean;      // every dated payment on the deal is invoiced
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
@@ -55,7 +56,7 @@ export default function DealsPage() {
     const [d, posts, pays] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       user ? supabase.from("content").select("event_date, linked_deal_id").eq("user_id", user.id).gte("event_date", "1990-01-01").order("event_date", { ascending: true }) : { data: [] },
-      user ? supabase.from("payments").select("expected_date, status, deal_id").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
+      user ? supabase.from("payments").select("expected_date, status, deal_id, invoice_state").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
     ]);
     const deals = (d.data ?? []) as unknown as Deal[];
     // post date = earliest content.event_date per deal
@@ -65,15 +66,21 @@ export default function DealsPage() {
       const cur = postByDeal.get(c.linked_deal_id);
       if (!cur || c.event_date < cur) postByDeal.set(c.linked_deal_id, c.event_date.slice(0, 10));
     }
-    // pay by = earliest payment expected_date; pay_received = any received
+    // pay by = earliest payment expected_date; pay_received = any received;
+    // all_invoiced = every dated payment is invoiced (or needs no invoice)
     const payByDeal = new Map<string, string>();
     const receivedDeal = new Set<string>();
-    for (const p of (pays.data ?? []) as { expected_date: string | null; status: string; deal_id: string | null }[]) {
+    const invoicedOkDeal = new Set<string>();
+    const anyDatedDeal = new Set<string>();
+    for (const p of (pays.data ?? []) as { expected_date: string | null; status: string; deal_id: string | null; invoice_state: string | null }[]) {
       if (!p.deal_id) continue;
       if (p.status === "received") receivedDeal.add(p.deal_id);
       if (p.expected_date) {
         const cur = payByDeal.get(p.deal_id);
         if (!cur || p.expected_date < cur) payByDeal.set(p.deal_id, p.expected_date.slice(0, 10));
+        anyDatedDeal.add(p.deal_id);
+        const inv = (p.invoice_state ?? "not_invoiced");
+        if (inv === "invoiced" || inv === "no_invoice_needed") invoicedOkDeal.add(p.deal_id);
       }
     }
     setDeals(deals.map((deal) => ({
@@ -81,6 +88,7 @@ export default function DealsPage() {
       post_date: postByDeal.get(deal.id) ?? deal.post_date ?? null,
       pay_by: payByDeal.get(deal.id) ?? deal.pay_by ?? null,
       pay_received: receivedDeal.has(deal.id),
+      all_invoiced: anyDatedDeal.has(deal.id) && invoicedOkDeal.has(deal.id),
     })));
     setLoading(false);
   }, [supabase]);
@@ -321,14 +329,16 @@ function DealStatusBadge({ status, payment_status, active, due }: { status: stri
   return <StatusPill kind="accent">{active ? "Active" : "Archived"}</StatusPill>;
 }
 
-/** Payment-status pill shown in the "Payment" column. Cancels out against a
- *  paid deal regardless of individual rows. */
+/** Payment-status pill shown in the "Payment" column. "Past due" applies only
+ *  to invoiced payments; an uninvoiced overdue payment reads "Invoice overdue"
+ *  (the creator is late sending it), consistent with the Payments page. */
 function paymentPill(d: Deal) {
   if (d.payment_status === "paid" || d.status === "paid" || d.pay_received) {
     return <StatusPill kind="paid">Paid</StatusPill>;
   }
   if (d.pay_by && isPastDue(d.pay_by)) {
-    return <StatusPill kind="late">Past due</StatusPill>;
+    if (d.all_invoiced) return <StatusPill kind="late">Past due</StatusPill>;
+    return <StatusPill kind="late">Invoice overdue</StatusPill>;
   }
   if (d.pay_by) {
     return <StatusPill kind="due">Pay by {formatDate(d.pay_by)}</StatusPill>;
