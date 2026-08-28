@@ -188,7 +188,7 @@ export function MarketingPage() {
       {/* Nav */}
       <nav>
         <div className="nav-in">
-          <div className="brand"><TalbyLogo width={24} height={23} className="lmark" />Talby</div>
+          <div className="brand"><TalbyLogo width={24} className="lmark" />Talby</div>
           <div className="nlinks">
             <a href="#features">Features</a><a href="#paid">Payments</a><a href="#details">Details</a><a href="#faq">FAQ</a>
           </div>
@@ -238,7 +238,7 @@ export function MarketingPage() {
             </div>
             <div className="hm-body">
               <div className="hm-side">
-                <div className="hm-brand"><TalbyLogo width={17} height={16} className="lmark" />Talby</div>
+                <div className="hm-brand"><TalbyLogo width={17} className="lmark" />Talby</div>
                 <div className="hm-nav on"><IconOverview />Overview</div>
                 <div className="hm-nav"><IconOverviewNav />Deals</div>
                 <div className="hm-nav"><IconCalendar />Calendar</div>
@@ -489,7 +489,7 @@ export function MarketingPage() {
         <div className="wrap">
           <div className="fgrid3">
             <div style={{ maxWidth: 260 }}>
-              <div className="brand"><TalbyLogo width={24} height={23} className="lmark" />Talby</div>
+              <div className="brand"><TalbyLogo width={24} className="lmark" />Talby</div>
               <p style={{ fontSize: 13.5, color: "var(--ink-2)", marginTop: 10 }}>The command center for creators who are actually earning.</p>
             </div>
             <div style={{ display: "flex", gap: 60, flexWrap: "wrap" }}>

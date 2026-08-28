@@ -9,7 +9,7 @@ import { TalbyLogo } from "@/components/marketing/talby-logo";
 export function TalbyBrand({ href = "/", size = 24 }: { href?: string; size?: number }) {
   return (
     <Link href={href} className="flex items-center gap-2 no-underline">
-      <TalbyLogo width={size} height={Math.round((size * 23) / 24)} />
+      <TalbyLogo width={size} />
       <span className="font-semibold text-lg tracking-tight" style={{ letterSpacing: "-0.03em" }}>Talby</span>
     </Link>
   );

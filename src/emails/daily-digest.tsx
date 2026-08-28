@@ -154,27 +154,15 @@ export function DailyDigestEmail({ handler, dateLabel, summary, payments = [], d
             <table role="presentation" align="center" cellPadding="0" cellSpacing="0">
               <tr>
                 <td style={{ verticalAlign: "middle" }}>
-                  {/* Logo mark: blue rounded square with a white T */}
-                  <table role="presentation" cellPadding="0" cellSpacing="0" style={{ display: "inline-block" }}>
-                    <tr>
-                      <td style={{ width: 34, height: 34, backgroundColor: ACCENT, borderRadius: 9, textAlign: "center", verticalAlign: "middle", fontFamily: HEAD, fontSize: 20, fontWeight: 800, color: ON_ACCENT }}>
-                        T
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-                <td style={{ verticalAlign: "middle", paddingLeft: 10 }}>
-                  <Text style={{ margin: 0, fontSize: 22, fontWeight: 700, fontFamily: HEAD, color: INK, letterSpacing: "-0.02em" }}>
-                    Talby
-                  </Text>
-                </td>
-                <td style={{ verticalAlign: "middle", paddingLeft: 10 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: ACCENT, display: "inline-block" }} />
-                </td>
-                <td style={{ verticalAlign: "middle", paddingLeft: 10 }}>
-                  <Text style={{ margin: 0, fontSize: 12, color: SECONDARY, letterSpacing: "0.01em" }}>
-                    Daily digest
-                  </Text>
+                  {/* Logo mark: the brand favicon (white mark on blue, the same
+                      asset served at /icon.png) */}
+                  <img
+                    src="https://www.talby.io/icon.png"
+                    alt=""
+                    width="34"
+                    height="34"
+                    style={{ display: "block", width: 34, height: 34, borderRadius: 9 }}
+                  />
                 </td>
               </tr>
             </table>

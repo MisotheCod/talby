@@ -44,7 +44,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <div className="min-h-full flex flex-col">
       <header className="px-6 py-5 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 no-underline">
-            <TalbyLogo width={24} height={23} />
+            <TalbyLogo width={24} />
             <span className="font-semibold text-lg tracking-tight">Talby</span>
           </Link>
         <Link href={isLogin ? "/signup" : "/login"} className="text-sm accent-text font-medium">

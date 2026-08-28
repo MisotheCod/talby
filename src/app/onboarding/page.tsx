@@ -159,7 +159,7 @@ export default function OnboardingPage() {
     <div className="min-h-full flex flex-col">
       <header className="px-6 py-5">
         <span className="inline-flex items-center gap-2.5">
-          <TalbyLogo width={24} height={23} />
+          <TalbyLogo width={24} />
           <span className="font-bold text-lg tracking-tight">Talby</span>
         </span>
       </header>

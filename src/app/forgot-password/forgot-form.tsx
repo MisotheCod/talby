@@ -29,7 +29,7 @@ export function ForgotForm() {
     <div className="min-h-full flex flex-col">
       <header className="px-6 py-5">
         <Link href="/" className="inline-flex items-center gap-2 no-underline">
-          <TalbyLogo width={24} height={23} />
+          <TalbyLogo width={24} />
           <span className="font-semibold text-lg tracking-tight">Talby</span>
         </Link>
       </header>
