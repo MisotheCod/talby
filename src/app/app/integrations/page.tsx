@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { StatusPill, Button, Spinner } from "@/components/ui";
 import { IconPlug } from "@/components/icons";
 import { NotionLogo } from "@/components/marketing/notion-logo";
-import { GmailLogo } from "@/components/marketing/gmail-logo";
 
-// Real connections ship individually. Notion import + Gmail are live v1;
+// Real connections ship individually. Notion import is live v1;
 // the rest are roadmap cards.
 const ROADMAP = [
   { name: "Instagram", desc: "Link posts to your calendar and deals." },
@@ -62,19 +61,6 @@ export default function IntegrationsPage() {
         {notion && !notion.configured && (
           <p className="text-xs text-muted mt-2">Notion isn&apos;t configured on this deployment yet.</p>
         )}
-      </div>
-
-      {/* Gmail — live (nudges + inbox scanner) */}
-      <div className="card p-5 flex flex-col">
-        <div className="flex items-center justify-between">
-          <span className="h-10 w-10 rounded-xl grid place-items-center"><GmailLogo size={38} /></span>
-          <StatusPill kind="neutral">Live</StatusPill>
-        </div>
-        <h3 className="font-semibold mt-3">Gmail</h3>
-        <p className="text-sm text-muted mt-1 flex-1">
-          Connect to send payment-follow-up nudges and scan your inbox for brand-deal outreach, all from your own Gmail.
-        </p>
-        <a href="/app/settings" className="no-underline"><Button variant="secondary" size="sm" className="mt-4 justify-center">Manage in Settings</Button></a>
       </div>
 
       {/* Roadmap cards */}

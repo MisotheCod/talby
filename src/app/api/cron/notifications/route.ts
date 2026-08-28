@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { getAccessToken, sendGmail } from "@/lib/gmail-server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -17,9 +16,9 @@ type NotificationRow = { user_id: string; kind: string; title: string; body: str
 /**
  * Daily notification dispatch: for every user, find calendar events happening
  * today (content posts, expected payments, deal deliverables) and emit an
- * in-app notification. If the user has email notifications on AND a connected
- * Gmail, also send an email. Idempotent — skips events already notified today.
- * Guarded by CRON_SECRET.
+ * in-app notification. Ready drafted reminders ("needs a nudge") are surfaced
+ * here too so a past-due payment with a prepared reminder is not missed.
+ * Idempotent — skips events already notified today. Guarded by CRON_SECRET.
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -30,43 +29,46 @@ export async function GET(req: Request) {
   const service = createServiceClient();
   const iso = todayISO();
 
-  // All users with notification prefs.
   const { data: profiles } = await service
     .from("profiles")
-    .select("id, notify_calendar_inapp, notify_calendar_email");
+    .select("id, notify_calendar_inapp");
 
   let created = 0;
-  let emailed = 0;
 
-  for (const prof of (profiles ?? []) as { id: string; notify_calendar_inapp: boolean; notify_calendar_email: boolean }[]) {
+  for (const prof of (profiles ?? []) as { id: string; notify_calendar_inapp: boolean }[]) {
     const userId = prof.id;
     const inapp = prof.notify_calendar_inapp !== false;
-    const emailOn = prof.notify_calendar_email === true;
 
-    // Gather today's events from the three calendar sources.
     const events: NotificationRow[] = [];
 
-    const [content, payments, deals] = await Promise.all([
+    const [content, payments, deals, reminders] = await Promise.all([
       service.from("content").select("title, platform").eq("user_id", userId).eq("event_date", iso),
-      service.from("payments").select("amount, expected_date, status").eq("user_id", userId).eq("expected_date", iso),
+      service.from("payments").select("amount, expected_date, status, deal:deals(brand)").eq("user_id", userId).eq("expected_date", iso),
       service.from("deals").select("brand, due_date, deliverable").eq("user_id", userId).eq("due_date", iso),
+      service.from("nudges").select("id, subject, deal_id, payment_id").eq("user_id", userId).eq("status", "ready"),
     ]);
 
     for (const c of (content.data ?? []) as { title: string; platform: string | null }[]) {
       events.push({ user_id: userId, kind: "calendar", title: `${c.title} is today`, body: c.platform ? `Post on ${c.platform}.` : "Scheduled post.", link: "/app/calendar" });
     }
-    for (const p of (payments.data ?? []) as { amount: number; expected_date: string; status: string }[]) {
+    for (const p of (payments.data ?? []) as { amount: number; expected_date: string; status: string; deal: { brand: string }[] | null }[]) {
       if (p.status === "received") continue;
       const amt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(p.amount);
-      events.push({ user_id: userId, kind: "payment", title: `${amt} payment expected today`, body: "Don't forget to chase it.", link: "/app/payments" });
+      const brand = (p.deal?.[0]?.brand) || "Payment";
+      events.push({ user_id: userId, kind: "payment", title: `${amt} payment expected today`, body: `From ${brand}. Don't forget to chase it.`, link: "/app/payments" });
     }
     for (const d of (deals.data ?? []) as { brand: string; due_date: string; deliverable: string | null }[]) {
       events.push({ user_id: userId, kind: "deliverable", title: `${d.brand} deliverable due today`, body: d.deliverable ? d.deliverable : "Check the deal for details.", link: "/app/deals" });
     }
+    for (const r of (reminders.data ?? []) as { id: string; subject: string; deal_id: string; payment_id: string }[]) {
+      events.push({
+        user_id: userId, kind: "nudge", title: "A payment reminder is ready", body: r.subject || "Copy or send it from Payments.",
+        link: r.payment_id ? `/app/payments?reminder=${r.id}` : "/app/payments",
+      });
+    }
 
     if (events.length === 0) continue;
 
-    // Dedupe: skip events with the same kind+title already notified today.
     const { data: existing } = await service
       .from("notifications")
       .select("kind, title")
@@ -80,30 +82,8 @@ export async function GET(req: Request) {
       await service.from("notifications").insert(fresh);
     }
 
-    if (emailOn && fresh.length) {
-      const token = await getAccessToken(userId);
-      if (token) {
-        const { data: conn } = await service.from("gmail_connections").select("email").eq("user_id", userId).single();
-        const to = (conn as { email: string | null } | null)?.email;
-        for (const e of fresh) {
-          if (!to) break;
-          try {
-            await sendGmail(
-              token,
-              to,
-              `Today in Talby: ${e.title}`,
-              `${e.body}\n\nView it: https://www.talby.io${e.link}`
-            );
-            emailed++;
-          } catch {
-            // skip failed sends
-          }
-        }
-      }
-    }
-
     created += fresh.length;
   }
 
-  return NextResponse.json({ iso, notificationsCreated: created, emailsSent: emailed });
+  return NextResponse.json({ iso, notificationsCreated: created });
 }

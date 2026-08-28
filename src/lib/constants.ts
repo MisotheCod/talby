@@ -21,11 +21,6 @@ export const ASSISTANT_MODEL_ID = "deepseek/deepseek-v4-flash";
 export const EMBED_MODEL_ID = "openai/text-embedding-3-small";
 export const EMBED_DIMENSIONS = 1536;
 
-/** Gmail OAuth scopes (public). */
-export const GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.send";
-export const GMAIL_READ_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
-export const GMAIL_FULL_SCOPE = `${GMAIL_SCOPE} ${GMAIL_READ_SCOPE}`;
-
 /** Notion API version header (public). */
 export const NOTION_VERSION = "2022-06-28";
 

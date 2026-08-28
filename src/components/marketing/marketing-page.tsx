@@ -224,7 +224,7 @@ export function MarketingPage() {
           <p id="heroP">Deals, money, and content in one calm place. Running your creator business has never been this simple.</p>
           <p className="hero-whatis" style={{ fontSize: 13, color: "var(--ink-2)", maxWidth: 520, margin: "8px auto 0" }}>
             Talby is a brand deal manager for creators: track what&rsquo;s owed, what&rsquo;s paid, and what&rsquo;s
-            due, plan your content, and follow up on invoices from your own Gmail.
+            due, plan your content, and draft the awkward follow-up emails for you to send. Most creators avoid chasing late payments; Talby removes that.
           </p>
           <div className="hero-cta" id="heroC">
             <a href="/signup" className="btn btn-3d btn-lg">Sign up free</a>
@@ -462,8 +462,8 @@ export function MarketingPage() {
               <ul className="pfeat">
                 <UnLi>Unlimited active deals</UnLi>
                 <UnLi>File and contract uploads</UnLi>
-                <UnLi>Gmail inbox deal scanner</UnLi>
-                <UnLi>Payment nudge automation</UnLi>
+                <UnLi>Brand-deal email scanner</UnLi>
+                <UnLi>Auto-written payment reminders</UnLi>
                 <UnLi>Talby AI assistant that answers about your deals, payments and contracts</UnLi>
               </ul>
               <GoUnlimitedButton />

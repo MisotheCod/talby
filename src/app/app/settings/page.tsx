@@ -10,7 +10,6 @@ import { IconCheck } from "@/components/icons";
 import { Button, Spinner } from "@/components/ui";
 import { NudgeSettings } from "@/components/nudge-settings";
 import { NotionLogo } from "@/components/marketing/notion-logo";
-import { GmailLogo } from "@/components/marketing/gmail-logo";
 
 type Profile = { handler: string | null; accent: string | null; plan: string; head_font: string | null; avatar_url: string | null };
 
@@ -434,18 +433,15 @@ function FreePlanPanel({ used, cap, onUpgrade, saving }: { used: number; cap: nu
   );
 }
 
-/** Connection cards (Notion + Gmail) with their official logos. */
+/** Connection cards (Notion) with their official logo. */
 function ConnectionsList() {
   const supabase = createClient();
   const [notion, setNotion] = useState<{ connected: boolean; workspace: string | null; configured: boolean } | null>(null);
-  const [gmail, setGmail] = useState<{ connected: boolean; email: string | null } | null>(null);
 
   useEffect(() => {
     (async () => {
       const n = await fetch("/api/notion/status").then((r) => r.json()).catch(() => ({}));
       setNotion(n);
-      const g = await fetch("/api/gmail/status").then((r) => r.json()).catch(() => ({}));
-      setGmail(g);
     })();
   }, []);
 
@@ -453,32 +449,9 @@ function ConnectionsList() {
     await fetch("/api/notion/disconnect", { method: "POST" });
     setNotion({ connected: false, workspace: null, configured: notion?.configured ?? false });
   };
-  const disconnectGmail = async () => {
-    await fetch("/api/gmail/disconnect", { method: "POST" });
-    setGmail({ connected: false, email: null });
-  };
 
   return (
     <div className="space-y-3">
-      {/* Gmail */}
-      <div className="border border-line rounded-xl p-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <GmailLogo size={34} />
-          <div className="min-w-0">
-            <div className="font-semibold">Gmail</div>
-            <div className="text-xs text-inksoft truncate">
-              {gmail?.connected ? `Connected${gmail.email ? ` as ${gmail.email}` : ""}` : "Not connected"}
-            </div>
-            <div className="text-[11px] text-inkfaint mt-0.5">Nudges + inbox deal scanner</div>
-          </div>
-        </div>
-        {gmail?.connected ? (
-          <Button variant="secondary" size="sm" onClick={disconnectGmail}>Disconnect</Button>
-        ) : (
-          <Button size="sm" onClick={() => { window.location.href = "/api/gmail/connect"; }}>Connect</Button>
-        )}
-      </div>
-
       {/* Notion */}
       <div className="border border-line rounded-xl p-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -501,33 +474,28 @@ function ConnectionsList() {
   );
 }
 
-/** Notification preference toggles (in-app + email). */
+/** Notification preference toggles (in-app + digest). */
 function NotificationSettings() {
   const supabase = createClient();
   const [inapp, setInapp] = useState(true);
-  const [email, setEmail] = useState(false);
   const [digest, setDigest] = useState(false);
-  const [gmailConnected, setGmailConnected] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from("profiles").select("notify_calendar_inapp, notify_calendar_email, digest_enabled").eq("id", user.id).single();
-      const p = (data as unknown as { notify_calendar_inapp?: boolean; notify_calendar_email?: boolean; digest_enabled?: boolean } | null) ?? null;
+      const { data } = await supabase.from("profiles").select("notify_calendar_inapp, digest_enabled").eq("id", user.id).single();
+      const p = (data as unknown as { notify_calendar_inapp?: boolean; digest_enabled?: boolean } | null) ?? null;
       setInapp(p?.notify_calendar_inapp !== false);
-      setEmail(p?.notify_calendar_email === true);
       setDigest(p?.digest_enabled === true);
-      const g = await fetch("/api/gmail/status").then((r) => r.json()).catch(() => ({}));
-      setGmailConnected(!!(g as { connected?: boolean }).connected);
     })();
   }, [supabase]);
 
   const save = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from("profiles").update({ notify_calendar_inapp: inapp, notify_calendar_email: email, digest_enabled: digest }).eq("id", user.id);
+    await supabase.from("profiles").update({ notify_calendar_inapp: inapp, digest_enabled: digest }).eq("id", user.id);
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -555,12 +523,6 @@ function NotificationSettings() {
           onChange={setInapp}
           label="In-app notifications"
           sub="A bell in your navigation flags what's happening today."
-        />
-        <Toggle
-          on={email}
-          onChange={setEmail}
-          label="Email reminders"
-          sub={gmailConnected ? "Send a daily email for today's events via your connected Gmail." : "Connect Gmail to enable email reminders."}
         />
         <Toggle
           on={digest}

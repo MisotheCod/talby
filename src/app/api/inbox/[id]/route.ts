@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getAccessToken, getMessageAttachments } from "@/lib/gmail-server";
 
 export const dynamic = "force-dynamic";
 
@@ -129,90 +128,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { data: createdDeal, error } = await supabase.from("deals").insert(insertPayload).select("id").single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Auto-attach the contract from the originating email. Best-effort: never
-  // fails the deal creation if Gmail/file/ingest hiccups.
-  await attachContractAttachment({ userId: user.id, dealId: createdDeal.id, gmailMessageId: lead.gmail_message_id });
-
   await supabase.from("inbox_leads").update({ status: "added", linked_deal_id: createdDeal.id }).eq("id", id);
   return NextResponse.json({ ok: true, duplicated: false, dealId: createdDeal.id, status: "added" });
-}
-
-/** Contract-like attachment extensions we'll pull off the email and store on the deal. */
-const CONTRACT_EXT = /\.(pdf|txt|md|docx?|pages)$/i;
-
-/**
- * If the originating inbox email carried a contract file, download it, store it
- * in the deal's private deal-files folder, record a deal_files row, and ingest
- * its text so the assistant can answer about it. Best-effort; swallows errors so
- * adding a deal from the inbox never fails because an attachment couldn't be read.
- */
-async function attachContractAttachment({ userId, dealId, gmailMessageId }: {
-  userId: string; dealId: string; gmailMessageId: string;
-}) {
-  try {
-    const accessToken = await getAccessToken(userId);
-    if (!accessToken || !gmailMessageId) return;
-
-    const attachments = await getMessageAttachments(accessToken, gmailMessageId);
-    const contract = attachments.find((a) => CONTRACT_EXT.test(a.filename));
-    if (!contract || contract.data.length === 0) return;
-
-    const supabase = await createClient();
-    const mime = contract.mimeType?.startsWith("text/") || /\.(txt|md)$/i.test(contract.filename)
-      ? "text/plain" : "application/pdf";
-
-    // Store the file under the user's private deal-files bucket.
-    const safeName = contract.filename.replace(/[^\w.\- ]+/g, "_").slice(0, 120) || "contract.pdf";
-    const path = `${userId}/${dealId}/${Date.now()}-${safeName}`;
-    const up = await supabase.storage.from("deal-files").upload(path, new Uint8Array(contract.data), {
-      contentType: mime, upsert: true,
-    });
-    if (up.error) return;
-
-    await supabase.from("deal_files").insert({
-      user_id: userId, deal_id: dealId, name: safeName, path, size_bytes: contract.data.length, mime,
-    });
-
-    // Extract the text and ingest for the assistant. We do this inline (service
-    // side) rather than calling the authed ingest route, which needs the user's
-    // session cookies — the inbox route has none.
-    let text = "";
-    if (/\.pdf$/i.test(contract.filename)) {
-      const { extractText } = await import("unpdf");
-      const out = await extractText(new Uint8Array(contract.data));
-      text = (out.text ?? []).join(" ");
-    } else {
-      text = contract.data.toString("utf8");
-    }
-    text = text.replace(/\s+/g, " ").trim().slice(0, 30000);
-    if (text) {
-      await ingestContractText(supabase, userId, dealId, text);
-    }
-  } catch {
-    // never block adding the deal
-  }
-}
-
-/** Store a contract's text + embedding chunks under the deal (mirrors the
- *  assistant/ingest route's write path). Uses the user-scoped server client so
- *  RLS passes; ownership is the authenticated user. */
-async function ingestContractText(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string, dealId: string, text: string
-) {
-  const { chunkText, embed } = await import("@/lib/assistant-ai");
-  const { EMBED_DIMENSIONS } = await import("@/lib/constants");
-
-  await supabase.from("deal_contracts").delete().eq("deal_id", dealId);
-  await supabase.from("deal_contracts").insert({ user_id: userId, deal_id: dealId, text });
-
-  await supabase.from("contract_chunks").delete().eq("deal_id", dealId);
-  const chunks = chunkText(text);
-  for (let i = 0; i < chunks.length; i++) {
-    const vec = await embed(chunks[i]);
-    if (!vec.length || vec.length !== EMBED_DIMENSIONS) continue;
-    await supabase.from("contract_chunks").insert({
-      user_id: userId, deal_id: dealId, chunk_idx: i, content: chunks[i], embedding: vec,
-    });
-  }
 }

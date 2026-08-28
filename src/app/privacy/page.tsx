@@ -67,34 +67,24 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold">Connected accounts (Google / Gmail)</h2>
+          <h2 className="font-semibold">Email forwarding for brand-deal detection</h2>
           <p className="text-muted text-sm leading-relaxed">
-            On the paid plan you may connect your own Google (Gmail) account so Talby can (a) prepare and
-            send payment-follow-up emails from your address to your brand contacts, and (b) detect
-            brand-deal outreach in your inbox to suggest new deals. If you connect Gmail, we store an
-            OAuth access token and refresh token on our servers.
+            On the paid plan you can forward brand-deal outreach emails to a unique Talby address. Talby
+            analyzes the forwarded message to identify genuine brand-deal opportunities (such as paid
+            partnerships, UGC, product seeding, or affiliate offers) and to extract the contact and deal
+            details so you can add them as deals. We keep the original email and any attachments only long
+            enough to extract what you need (a rolling window we hold for support and review), and the
+            extracted deal is stored to your account.
           </p>
           <p className="text-muted text-sm leading-relaxed">
-            <strong>Inbox deal detection:</strong> when enabled, Talby scans the subject lines, senders, and
-            message bodies of recent messages in your inbox to identify genuine brand-deal outreach (such
-            as paid partnerships, UGC, product seeding, or affiliate offers) and to extract the contact and
-            deal details so you can add them as deals. We analyse outreach only to recommend deals and to
-            fill in their details; we do not use your inbox data for advertising, and we do not share it
-            with third parties.
+            <strong>Payment reminders:</strong> Talby drafts payment-follow-up emails on your behalf using
+            your templates, so you can copy them or open them in your own email app. Talby does not send
+            email directly; only you can send a reminder, from your own mailbox. We store the drafted text
+            until you act on it or dismiss it.
           </p>
           <p className="text-muted text-sm leading-relaxed">
-            We never sell your Gmail data. Access is used only for the purposes described here and is fully
-            revocable: you can disconnect Gmail from Settings at any time, which deletes the stored tokens
-            and stops further inbox scanning.
-          </p>
-          <p className="text-muted text-sm leading-relaxed">
-            Talby&apos;s use and transfer of information received from Google APIs complies with the{" "}
-            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer" className="text-accentink underline">
-              Google API Services User Data Policy
-            </a>
-            , including the Limited Use requirements. Restricted scopes (including Gmail read access) are
-            used only for the specific, disclosed purpose of deal detection, are never used for
-            advertising, and you can revoke this access at any time.
+            We never sell your email data. Access is used only for the purposes described here and you can
+            remove forwarded deals, their source messages, and any drafted reminders at any time.
           </p>
         </section>
 

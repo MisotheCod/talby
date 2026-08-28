@@ -472,7 +472,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
               onClick={(e) => { e.preventDefault(); history.pushState(null, "", "/app/inbox"); window.dispatchEvent(new PopStateEvent("popstate")); }}
               className="mt-3 flex items-center gap-2 text-xs text-accent-ink rounded-lg bg-card2 border border-line px-2.5 py-1.5 hover:border-[var(--accent)] transition w-fit cursor-pointer"
             >
-              <IconMail size={13} /> {l.label}{l.url.startsWith("mailto:") ? " · Reply in Gmail" : ""}
+              <IconMail size={13} /> {l.label}{l.url.startsWith("mailto:") ? " · Reply" : ""}
             </a>
           ))}
         </header>
@@ -691,27 +691,25 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
   }, [supabase, dealId]);
 
   const nudgePayment = async (p: Payment) => {
-    if (plan !== "paid") { setNudgeMsg({ id: p.id, kind: "warn", text: "Nudges are on the paid plan. Chasing this? Go unlimited and Talby drafts the follow-up for you." }); return; }
-    if (!repEmail) { setNudgeMsg({ id: p.id, kind: "warn", text: "Add a rep email to nudge this one." }); return; }
+    if (plan !== "paid") { setNudgeMsg({ id: p.id, kind: "warn", text: "Reminders are on the paid plan. Chasing this? Go unlimited and Talby writes the follow-up for you." }); return; }
+    if (!repEmail) { setNudgeMsg({ id: p.id, kind: "warn", text: "Add a rep email to prepare this reminder." }); return; }
     setNudgeBusy(p.id); setNudgeMsg(null);
     try {
       const res = await fetch("/api/nudges", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deal_id: dealId, payment_id: p.id, action: "draft" }),
+        body: JSON.stringify({ deal_id: dealId, payment_id: p.id, action: "copy" }),
       });
       const data = await res.json();
       if (data.error === "already_paid") {
-        setNudgeMsg({ id: p.id, kind: "ok", text: "This payment is already received, so no nudge will be sent." });
-      } else if (data.mode === "draft") {
-        setNudgeMsg({ id: p.id, kind: "ok", text: `Draft ready in Gmail: ${data.subject}. Review and send from your account.` });
-      } else if (data.mode === "copy") {
-        setNudgeMsg({ id: p.id, kind: "ok", text: `Nudge prepared: ${data.subject}. Connect Gmail to send, or copy it into your email client.` });
+        setNudgeMsg({ id: p.id, kind: "ok", text: "This payment is already received, so no reminder is needed." });
+      } else if (data.mode === "copy" && data.body) {
+        setNudgeMsg({ id: p.id, kind: "ok", text: `Reminder copied: ${data.subject}. Paste it into your email client and send it.` });
       } else {
-        setNudgeMsg({ id: p.id, kind: "warn", text: data.message || data.error || "Could not prepare the nudge." });
+        setNudgeMsg({ id: p.id, kind: "warn", text: data.message || data.error || "Could not prepare the reminder." });
       }
     } catch {
-      setNudgeMsg({ id: p.id, kind: "warn", text: "Could not reach the nudge service." });
+      setNudgeMsg({ id: p.id, kind: "warn", text: "Could not reach the reminder service." });
     }
     setNudgeBusy(null);
   };
@@ -769,7 +767,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
                 <div className="flex items-center gap-2">
                   {isPastDue(p.expected_date) && (
                     <Button size="sm" variant="ghost" onClick={() => nudgePayment(p)} disabled={nudgeBusy === p.id}>
-                      <SendIcon /> {dealNudgeMode === "auto" ? "Nudge status" : "Send a nudge"}
+                      <SendIcon /> {dealNudgeMode === "auto" ? "Reminder status" : "Copy a reminder"}
                     </Button>
                   )}
                   <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark as paid</Button>

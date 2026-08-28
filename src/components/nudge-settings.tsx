@@ -3,13 +3,11 @@ import { createClient } from "@/lib/supabase/client";
 import { NUDGE_TOPICS, NUDGE_TOKENS, DEFAULT_TEMPLATE_SOURCES, nudgeStepLabel } from "@/lib/nudges";
 import { Button, Input, Spinner, StatusPill } from "@/components/ui";
 
-/** Paid-tier nudge settings: Gmail connection + rules + template editor. */
+/** Paid-tier nudge settings: rules + template editor. Talby writes the awkward
+ *  follow-up; the creator sends it themselves. */
 export function NudgeSettings() {
   const supabase = createClient();
   const [plan, setPlan] = useState<"free" | "paid">("free");
-  const [gmail, setGmail] = useState<{ connected: boolean; email: string | null; configured: boolean }>({
-    connected: false, email: null, configured: false,
-  });
   const [rules, setRules] = useState({ daysOverdue: 3, cadence: 6, max: 3 });
   const [rulesSaved, setRulesSaved] = useState(false);
   const [savingRules, setSavingRules] = useState(false);
@@ -34,23 +32,12 @@ export function NudgeSettings() {
         cadence: row.nudge_cadence_days ?? 6,
         max: row.nudge_max_count ?? 3,
       });
-      // Gmail status (token never exposed to client).
-      const g = await fetch("/api/gmail/status").then((r) => r.json()).catch(() => ({}));
-      setGmail(g);
       // Load any previously saved custom templates.
       const t = await fetch("/api/nudges/templates").then((r) => r.json()).catch(() => ({ templates: [] }));
       const saved = (t.templates ?? []) as { step: number; body: string }[];
       if (Array.isArray(saved) && saved.length > 0) setTemplates(saved);
     })();
   }, [supabase]);
-
-  const connectGmail = () => {
-    window.location.href = "/api/gmail/connect";
-  };
-  const disconnectGmail = async () => {
-    await fetch("/api/gmail/disconnect", { method: "POST" });
-    setGmail({ connected: false, email: null, configured: gmail.configured });
-  };
 
   const saveRules = async () => {
     setSavingRules(true);
@@ -108,9 +95,9 @@ export function NudgeSettings() {
   if (plan !== "paid") {
     return (
       <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
-        <h2 className="font-semibold">Payment nudges</h2>
+        <h2 className="font-semibold">Payment reminders</h2>
         <p className="text-sm text-inksoft mt-1">
-          Chasing overdue invoices? Talby can draft warm follow-ups from your own Gmail on the paid plan.
+          Chasing overdue invoices is uncomfortable. Talby writes the awkward follow-up for you and tells you when to send it, on the paid plan.
         </p>
         <a href="/#pricing" className="inline-block mt-3">
           <Button><IconCrownMini /> Go unlimited</Button>
@@ -121,42 +108,14 @@ export function NudgeSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Gmail connection */}
-      <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h2 className="font-semibold">Gmail connection</h2>
-            <p className="text-sm text-inksoft mt-1">
-              Nudges are drafted and sent from your own Gmail so they thread with real conversations with your reps.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {gmail.connected ? (
-              <>
-                <StatusPill kind="paid">Connected</StatusPill>
-                <span className="text-sm text-inksoft">{gmail.email}</span>
-                <Button variant="secondary" onClick={disconnectGmail}>Disconnect</Button>
-              </>
-            ) : (
-              <Button onClick={connectGmail}>Connect Gmail</Button>
-            )}
-          </div>
-        </div>
-        {!gmail.configured && (
-          <p className="text-xs text-due mt-3">
-            Gmail is not configured on this deployment yet. You can still review generated nudges in-app.
-          </p>
-        )}
-      </div>
-
       {/* Default rules */}
       <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
-        <h2 className="font-semibold">Default nudge rules</h2>
+        <h2 className="font-semibold">Default reminder rules</h2>
         <p className="text-sm text-inksoft mt-1 mb-4">Applied when a payment goes past due. Per-deal overrides live on each deal.</p>
         <div className="grid grid-cols-3 gap-4 max-w-lg">
-          <RuleInput label="Days overdue before first nudge" value={rules.daysOverdue} min={1} onChange={(v) => setRules({ ...rules, daysOverdue: v })} />
+          <RuleInput label="Days overdue before first reminder" value={rules.daysOverdue} min={1} onChange={(v) => setRules({ ...rules, daysOverdue: v })} />
           <RuleInput label="Days between follow-ups" value={rules.cadence} min={1} onChange={(v) => setRules({ ...rules, cadence: v })} />
-          <RuleInput label="Max nudges per payment" value={rules.max} min={1} max={5} onChange={(v) => setRules({ ...rules, max: v })} />
+          <RuleInput label="Max reminders per payment" value={rules.max} min={1} max={5} onChange={(v) => setRules({ ...rules, max: v })} />
         </div>
         <div className="mt-4"><Button onClick={saveRules} disabled={savingRules}>{savingRules ? <Spinner /> : rulesSaved ? "Saved" : "Save rules"}</Button></div>
       </div>
@@ -165,9 +124,9 @@ export function NudgeSettings() {
       <div className="bg-card border border-line rounded-[16px] p-6 shadow-card">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
-            <h2 className="font-semibold">Nudge templates</h2>
+            <h2 className="font-semibold">Template library</h2>
             <p className="text-sm text-inksoft mt-1">
-              Start from a warm, firm default and make it your own. Auto mode sends these as written.
+              Start from a warm, firm default and make it your own. These become the reminder text you copy or send.
             </p>
           </div>
           <div className="flex gap-1.5 flex-wrap items-center">
@@ -197,7 +156,7 @@ export function NudgeSettings() {
               <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <StatusPill kind={t.step === 3 ? "late" : t.step === 2 ? "due" : "neutral"}>{nudgeStepLabel(t.step)}</StatusPill>
-                  <span className="text-[13px] text-inksoft">Sent after {t.step === 1 ? "payment goes past due" : t.step === 2 ? "a second check-in is due" : "max cadence is reached"}</span>
+                  <span className="text-[13px] text-inksoft">Prepared after {t.step === 1 ? "payment goes past due" : t.step === 2 ? "a second check-in is due" : "max cadence is reached"}</span>
                 </div>
                 <button type="button" onClick={() => resetTemplate(t.step)} className="text-[11px] font-medium text-inksoft hover:text-ink cursor-pointer">
                   Reset to default
@@ -223,7 +182,7 @@ export function NudgeSettings() {
 
         <div className="mt-4 flex items-center gap-3">
           <Button onClick={saveTemplates}>{templateSaved ? "Saved" : "Save templates"}</Button>
-          <span className="text-xs text-inkfaint">Your saved templates are used for drafts and auto-sends.</span>
+          <span className="text-xs text-inkfaint">Your saved templates fill the reminders you copy and send yourself.</span>
         </div>
       </div>
     </div>

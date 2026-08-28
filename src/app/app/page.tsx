@@ -25,6 +25,11 @@ type Content = {
 };
 type Todo = { id: string; title: string; done: boolean; due_date: string | null };
 type CalendarNote = { id: string; body: string; event_date: string; done: boolean };
+type Reminder = {
+  id: string; subject: string; body: string; rep_email: string | null;
+  payment_id: string; deal_id: string; status: string;
+  deal?: { brand: string } | null;
+};
 
 const FILTERS = ["Active", "Unpaid", "Paid", "All"] as const;
 
@@ -59,6 +64,7 @@ export default function OverviewPage() {
   const [content, setContent] = useState<Content[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [notes, setNotes] = useState<CalendarNote[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [plan, setPlan] = useState<"free" | "paid">("free");
@@ -78,18 +84,20 @@ export default function OverviewPage() {
       setPlan((row?.plan ?? "free") as "free" | "paid");
     }
     // All data for the week + payments + deals, user-scoped via RLS.
-    const [d, pay, c, t, n] = await Promise.all([
+    const [d, pay, c, t, n, rem] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       supabase.from("payments").select("*, deal:deals(brand)").order("expected_date", { ascending: true }),
       supabase.from("content").select("*").order("event_date", { ascending: true }),
       supabase.from("todos").select("*").not("due_date", "is", null),
       supabase.from("notes").select("id, body, event_date, done").not("event_date", "is", null),
+      supabase.from("nudges").select("id, subject, body, rep_email, payment_id:payments(id, deal:deals(brand)), deal_id").eq("status", "ready").order("created_at", { ascending: false }),
     ]);
     setDeals(d.data ?? []);
     setPayments(pay.data ?? []);
     setContent(c.data ?? []);
     setTodos((t.data ?? []) as unknown as Todo[]);
     setNotes((n.data ?? []) as unknown as CalendarNote[]);
+    setReminders((rem.data ?? []) as unknown as Reminder[]);
     setLoading(false);
   }, [supabase]);
 
@@ -264,17 +272,20 @@ export default function OverviewPage() {
         )}
       </div>
 
-      {/* Inbox scan promo bar (free users): invites turning the Gmail inbox deal
-          scanner on — the fastest path to new deals. Only shows for free tier. */}
+      {/* Inbox scan promo bar (free users): invites turning on the forward-any-email
+          inbox scanner — works with any inbox, no Google connection needed. */}
       {plan === "free" && (
         <div className="anim inbox-promo">
           <div className="ip-left">
             <span className="ip-glogo" aria-hidden>
-              <img src="/brands/gmail.png" alt="" className="ip-gmail-img" />
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-inksoft">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="M3 7l9 6 9-6" />
+              </svg>
             </span>
             <div className="ip-text">
-              <div className="ip-title">Start scanning your inbox for new deals</div>
-              <div className="ip-sub">Auto-detect brand collabs in your Gmail and add them as pipeline deals.</div>
+              <div className="ip-title">Never miss a brand-deal email</div>
+              <div className="ip-sub">Forward brand collabs to your Talby inbox and add them as pipeline deals, with any email provider.</div>
             </div>
           </div>
           <a href="/#pricing" className="btn3d ip-cta no-underline block text-center">Go unlimited</a>
@@ -373,6 +384,25 @@ export default function OverviewPage() {
               timeline.map((p) => <PayRow key={p.id} p={p} />)
             )}
           </div>
+
+          {/* Needs a nudge — drafted reminders ready to copy or send */}
+          {reminders.length > 0 && (
+            <div className="rcard anim">
+              <div className="flex items-center justify-between mb-[15px]">
+                <h3 className="font-head text-[15px] font-bold">Needs a nudge</h3>
+                <Link href="/app/payments" className="text-xs text-accentink font-medium no-underline">Review</Link>
+              </div>
+              <div className="space-y-2">
+                {reminders.slice(0, 4).map((r) => (
+                  <div key={r.id} className="flex items-center gap-2.5">
+                    <Pill size="sm" source="var(--due)" className="px-2 py-0.5">NUDGE</Pill>
+                    <span className="flex-1 min-w-0 truncate text-[13px]">{r.subject}</span>
+                    <Link href={`/app/payments?reminder=${r.id}`} className="text-xs text-accentink font-medium no-underline shrink-0">Send</Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

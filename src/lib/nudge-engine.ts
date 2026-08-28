@@ -1,24 +1,25 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/server";
 import { buildNudge } from "@/lib/nudges";
-import { getAccessToken, sendGmail } from "@/lib/gmail-server";
 import { DEFAULT_NUDGE_DAYS_OVERDUE } from "@/lib/constants";
 
 /**
- * Rules engine for auto-nudging (per-deal `auto` mode only, explicitly
- * opted in). Runs on a daily schedule. NOTHING is ever sent unless:
- *  - the payment is still `expected` (re-checked AT SEND TIME), and
+ * Rules engine for drafted reminders (per-deal `auto` mode only, explicitly
+ * opted in). Runs on a daily schedule. Talby NEVER sends on the user's behalf;
+ * a rule firing GENERATES a reminder row the user copies or starts from their
+ * own mail client. The engine is only gated by:
+ *  - the payment is still `expected` (re-checked fresh), and
  *  - the deal has a rep email, and
- *  - the user has connected Gmail and is on the paid plan, and
- *  - the nudge count for that payment is below the user's max.
+ *  - the user is on the paid plan, and
+ *  - the reminder count for that payment is below the user's max.
+ * One reminder per rule-fire; a fresh reminder is not re-emitted until the
+ * user handles it or the cadence elapses from the last generated one.
  */
-
 export async function runAutoNudgeEngine(now: Date = new Date()) {
   const supabase = createServiceClient();
   const emitted: { userId: string; paymentId: string; step: number }[] = [];
 
-  // 1. Fetch auto-mode deals with their rep contact + payment+settings context.
-  //    We pull deals that are nudge_mode='auto' and their expected payments.
+  // 1. Fetch auto-mode deals with their rep contact + settings context.
   const { data: deals } = await supabase
     .from("deals")
     .select("id, user_id, brand, deliverable, value, due_date, rep_name, rep_email, nudge_mode")
@@ -70,18 +71,17 @@ export async function runAutoNudgeEngine(now: Date = new Date()) {
   for (const d of autoDeals) {
     const settings = settingsMap.get(d.user_id);
     if (!settings || !settings.paid) continue; // paid-tier gate
-    if (!d.rep_email?.trim()) continue; // guardrail 4: never without rep email
+    if (!d.rep_email?.trim()) continue; // never without rep email
 
     const pays = dealPayments.get(d.id) ?? [];
     for (const pay of pays) {
       const pd = paymentLookup.get(pay.id);
       if (!pd) continue;
 
-      // Establish the payment's status FRESH from the DB (the hard-stop source of truth).
+      // HARD STOP: never draft a reminder for a received payment.
       const { data: livePay } = await supabase
         .from("payments").select("id, status").eq("id", pay.id).single();
       const liveStatus = (livePay as unknown as { status: string } | null)?.status ?? "";
-      // --- HARD STOP: never nudge a received payment ---
       if (liveStatus === "received") continue;
 
       if (!pay.expected_date) continue;
@@ -89,24 +89,28 @@ export async function runAutoNudgeEngine(now: Date = new Date()) {
       const daysOverdue = Math.floor((now.getTime() - due.getTime()) / 86400000);
       if (daysOverdue < settings.daysOverdue) continue; // not yet due per user rule
 
-      // Existing sent nudges for this payment (sequence + count + cadence).
+      // Existing reminders for this payment (sequence + count + cadence).
       const { data: existing } = await supabase
         .from("nudges").select("sequence_step, status, sent_at").eq("payment_id", pay.id);
-      const sent = (existing ?? []).filter((n) => n.status === "sent") as unknown as {
+      const handled = (existing ?? []).filter((n) => n.status === "handled") as unknown as {
         sequence_step: number; sent_at: string | null;
       }[];
-      if (sent.length >= settings.max) continue; // cap: never harass
+      const ready = (existing ?? []).filter((n) => n.status === "ready") as unknown as {
+        sequence_step: number; sent_at: string | null;
+      }[];
+      if (handled.length + ready.length >= settings.max) continue; // cap
 
-      // Cadence: skip if last sent too recently.
-      if (sent.length > 0) {
-        const last = sent[sent.length - 1];
+      // Cadence: measure from the most recent reminder (handled or ready).
+      const recents = [...handled, ...ready];
+      if (recents.length > 0) {
+        const last = recents[recents.length - 1];
         if (last.sent_at) {
           const diffDays = Math.floor((now.getTime() - new Date(last.sent_at).getTime()) / 86400000);
           if (diffDays < settings.cadence) continue;
         }
       }
 
-      const step = Math.min(3, sent.length + 1);
+      const step = Math.min(3, handled.length + 1);
       const nudge = buildNudge(step, {
         rep_name: d.rep_name,
         brand: d.brand,
@@ -116,34 +120,20 @@ export async function runAutoNudgeEngine(now: Date = new Date()) {
         days_overdue: daysOverdue,
       }, settings.templates);
 
-      // Final hard-stop re-check immediately before send: a payment could
-      // have been marked received since the loop started.
-      const { data: recheck } = await supabase
-        .from("payments").select("status").eq("id", pay.id).single();
-      const finalStatus = (recheck as unknown as { status: string } | null)?.status ?? "";
-      if (finalStatus === "received") continue;
-
-      const token = await getAccessToken(d.user_id);
-      if (!token) continue; // no Gmail connected: nothing auto-sends
-
-      try {
-        const sentResult = await sendGmail(token, d.rep_email!.trim(), nudge.subject, nudge.body);
-        await supabase.from("nudges").insert({
-          user_id: d.user_id,
-          deal_id: d.id,
-          payment_id: pay.id,
-          sequence_step: step,
-          subject: nudge.subject,
-          body: nudge.body,
-          status: "sent",
-          sent_at: now.toISOString(),
-        });
-        emitted.push({ userId: d.user_id, paymentId: pay.id, step });
-      } catch (e) {
-        console.error("auto nudge send failed", e);
-      }
+      await supabase.from("nudges").insert({
+        user_id: d.user_id,
+        deal_id: d.id,
+        payment_id: pay.id,
+        sequence_step: step,
+        subject: nudge.subject,
+        body: nudge.body,
+        rep_email: d.rep_email.trim(),
+        status: "ready",
+        sent_at: now.toISOString(),
+      });
+      emitted.push({ userId: d.user_id, paymentId: pay.id, step });
     }
   }
 
-  return { ranAt: now.toISOString(), sent: emitted.length, emitted };
+  return { ranAt: now.toISOString(), reminders: emitted.length, emitted };
 }

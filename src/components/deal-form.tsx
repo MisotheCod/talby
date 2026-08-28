@@ -90,10 +90,10 @@ const PAYMENT_STATUSES = [
   { value: "none", label: "No payment tracked" },
 ];
 const NUDGE_LABEL: Record<string, string> = {
-  off: "No nudging",
-  notify: "Notify past due",
+  off: "No reminders",
+  notify: "Flag past due",
   draft: "Draft follow-ups",
-  auto: "Auto follow-ups",
+  auto: "Auto-prepare reminders",
 };
 
 export function emptyDealForm(): DealFormValues {
@@ -352,16 +352,16 @@ export function DealForm({
           <Field label="Rep name" spark={spark("rep_name")}><Input value={v.rep_name} onChange={(e) => set("rep_name", e.target.value)} placeholder="e.g. Sam Rivera" /></Field>
           <Field label="Rep email" spark={spark("rep_email")}><Input type="email" value={v.rep_email} onChange={(e) => set("rep_email", e.target.value)} placeholder="sam@brand.com" /></Field>
         </div>
-        <Field label="Nudge mode" hint="Off: no follow-up emails. Notify: flags a past-due payment in-app only. Draft: prepares a follow-up email for you to review and send. Auto: sends follow-ups from your Gmail on schedule until you mark the payment received.">
+        <Field label="Reminder mode" hint="Off: no follow-ups. Notify: flags a past-due payment in-app only. Draft: prepares a follow-up for you to copy or send. Auto: prepares reminders on schedule until you mark the payment received.">
           <Select value={v.nudge_mode} onChange={(e) => set("nudge_mode", e.target.value)}>
-            <option value="off">Off (no nudging)</option>
-            <option value="notify">Notify (flag past due in-app)</option>
-            <option value="draft">Draft (prepare for review, you send)</option>
-            <option value="auto">Auto (send on schedule)</option>
+            <option value="off">Off (no reminders)</option>
+            <option value="notify">Notify (flag past due)</option>
+            <option value="draft">Draft (prepare for you to send)</option>
+            <option value="auto">Auto (prepare on schedule)</option>
           </Select>
         </Field>
         {v.nudge_mode === "auto" && (
-          <p className="text-xs text-due -mt-1">Auto mode sends follow-ups from your Gmail on schedule. Talby will send up to your max nudges, then stop. Mark the payment received anytime to stop it instantly.</p>
+          <p className="text-xs text-due -mt-1">Auto mode prepares reminders on your schedule. Talby writes up to your max reminders, then stops. Mark the payment received anytime to stop it instantly. You send them yourself.</p>
         )}
       </AccordionSection>
 

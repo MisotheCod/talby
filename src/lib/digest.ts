@@ -15,6 +15,7 @@ export type DayDigest = {
   deliverables: DigestItem[];
   posts: DigestItem[];
   todos: DigestItem[];
+  reminders: DigestItem[];
   total: number;
 };
 
@@ -25,8 +26,9 @@ export async function getDayItems(userId: string, iso: string): Promise<DayDiges
   const deliverables: DigestItem[] = [];
   const posts: DigestItem[] = [];
   const todos: DigestItem[] = [];
+  const reminders: DigestItem[] = [];
 
-  const [payRes, dealRes, postRes, todoRes] = await Promise.all([
+  const [payRes, dealRes, postRes, todoRes, reminderRes] = await Promise.all([
     supabase
       .from("payments")
       .select("amount, expected_date, status, deal:deals(brand, due_date)")
@@ -47,6 +49,11 @@ export async function getDayItems(userId: string, iso: string): Promise<DayDiges
       .select("title, due_date, done")
       .eq("user_id", userId)
       .eq("due_date", iso),
+    supabase
+      .from("nudges")
+      .select("id, subject, deal_id, payment_id")
+      .eq("user_id", userId)
+      .eq("status", "ready"),
   ]);
 
   for (const p of (payRes.data ?? []) as { amount: number; expected_date: string | null; status: string; deal: { brand: string }[] | null }[]) {
@@ -70,8 +77,12 @@ export async function getDayItems(userId: string, iso: string): Promise<DayDiges
     todos.push({ kind: "todo", label: t.title });
   }
 
-  const total = payments.length + deliverables.length + posts.length + todos.length;
-  return { payments, deliverables, posts, todos, total };
+  for (const r of (reminderRes.data ?? []) as { subject: string }[]) {
+    reminders.push({ kind: "todo", label: r.subject || "A payment reminder is ready" });
+  }
+
+  const total = payments.length + deliverables.length + posts.length + todos.length + reminders.length;
+  return { payments, deliverables, posts, todos, reminders, total };
 }
 
 export function summaryLine(total: number, handler: string): string {

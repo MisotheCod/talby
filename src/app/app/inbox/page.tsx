@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Button, Spinner, Pill } from "@/components/ui";
-import { IconClose, IconCheck, IconRemind } from "@/components/icons";
-import { GmailLogo } from "@/components/marketing/gmail-logo";
+import { Button, Pill } from "@/components/ui";
+import { IconClose, IconCheck, IconMail } from "@/components/icons";
 
 type Lead = {
-  id: string; gmail_message_id: string; subject: string | null; sender_email: string | null;
+  id: string; subject: string | null; sender_email: string | null;
   brand_name: string | null; deal_type: string | null; summary: string | null;
   confidence: number | null; status: string; contact_name: string | null; contact_email: string | null;
   linked_deal_id: string | null;
@@ -23,77 +22,20 @@ function confidenceLabel(c: number | null): { text: string; source: string } {
   return { text: `${Math.round(c * 100)}%`, source: "var(--late)" };
 }
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return "never";
-  const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 60000) return "just now";
-  const m = Math.floor(ms / 60000);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
-}
-
 export default function InboxPage() {
   const supabase = createClient();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
-  const [scanning, setScanning] = useState(false);
   const [filter, setFilter] = useState<Filter>("New");
-  const [plan, setPlan] = useState<string>("free");
-  const [gmailConnected, setGmailConnected] = useState(false);
-  const [connEmail, setConnEmail] = useState<string | null>(null);
-  const [lastScannedAt, setLastScannedAt] = useState<string | null>(null);
   const [message, setMessage] = useState<{ kind: "ok" | "warn" | "bad"; text: string } | null>(null);
-
-  const load = useCallback(async () => {
-    const { data } = await supabase.from("inbox_leads").select("*").order("created_at", { ascending: false });
-    setLeads((data ?? []) as unknown as Lead[]);
-  }, [supabase]);
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: prof } = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-        setPlan((prof as { plan?: string } | null)?.plan ?? "free");
-      }
-      const { data: conn } = await supabase.from("gmail_connections").select("email, last_scanned_at").limit(1);
-      setGmailConnected((conn ?? []).length > 0);
-      if (conn?.[0]) {
-        setConnEmail(conn[0].email ?? null);
-        setLastScannedAt(conn[0].last_scanned_at ?? null);
-      }
+      const { data } = await supabase.from("inbox_leads").select("*").order("created_at", { ascending: false });
+      setLeads((data ?? []) as unknown as Lead[]);
+      setLoading(false);
     })();
-    load();
-    setLoading(false);
-  }, [supabase, load]);
-
-  const scanNow = async () => {
-    setScanning(true); setMessage(null);
-    try {
-      const res = await fetch("/api/inbox/scan", { method: "POST" });
-      const data = await res.json();
-      if (data.error === "paid_required") {
-        setMessage({ kind: "warn", text: "The inbox scanner is on the paid plan. Go unlimited to catch brand deals from your inbox." });
-      } else if (data.error === "gmail_not_connected") {
-        setMessage({ kind: "warn", text: "Connect Gmail to scan your inbox for brand-deal outreach." });
-      } else if (data.error === "gmail_reconnect") {
-        // Connected in the past, but the token is dead (revoked / expired and
-        // unrefreshable). A bare "connect Gmail" reads like it was never linked.
-        setMessage({ kind: "warn", text: `Re-connect Gmail to scan. Your connection to ${data.email || "your account"} can't be reached right now.` });
-      } else {
-        setMessage({ kind: "ok", text: `Scan complete: found ${data.newLeads ?? 0} new lead${(data.newLeads ?? 0) === 1 ? "" : "s"}.` });
-        setLastScannedAt(new Date().toISOString());
-        await load();
-      }
-    } catch {
-      setMessage({ kind: "bad", text: "Scan failed. Please try again." });
-    }
-    setScanning(false);
-  };
+  }, [supabase]);
 
   const act = async (id: string, action: "add" | "not_interested") => {
     try {
@@ -104,42 +46,22 @@ export default function InboxPage() {
       });
       const data = await res.json();
       if (res.status >= 400) {
-        setMessage({ kind: "bad", text: data.error || data.error?.message || "Something went wrong. Try again." });
+        setMessage({ kind: "bad", text: data.error || "Something went wrong. Try again." });
       } else if (data.duplicated) {
         setMessage({ kind: "ok", text: "A deal for this brand already exists. The email was attached to it as a note." });
         setFilter("Added");
       } else if (action === "add" && data.dealId) {
         setMessage({ kind: "ok", text: "Added to deals!" });
-        // Jump to the "Added" view so the user SEES the deal land instead of
-        // the card silently vanishing from the "New" list.
         setFilter("Added");
-      } else if (action === "add") {
-        setMessage({ kind: "ok", text: "Added to deals as a Pipeline deal, with its rep contact filled in." });
       }
     } catch {
       setMessage({ kind: "bad", text: "Could not reach the server. Try again." });
     }
-    await load();
+    const { data } = await supabase.from("inbox_leads").select("*").order("created_at", { ascending: false });
+    setLeads((data ?? []) as unknown as Lead[]);
   };
 
-  if (plan !== "paid") {
-    return (
-      <div className="space-y-5 fade-up max-w-2xl">
-        <div>
-          <h1 className="text-2xl font-semibold">Inbox</h1>
-          <p className="text-muted text-sm mt-1">Catch brand-deal outreach from your Gmail.</p>
-        </div>
-        <div className="card p-6">
-          <h2 className="font-semibold">Brand-deal detection is on the paid plan</h2>
-          <p className="text-sm text-muted mt-2">
-            Talby can read your inbox and surface genuine brand-deal outreach so you never miss a paid
-            opportunity landing in Gmail. Upgrade to turn it on.
-          </p>
-          <a href="/#pricing" className="inline-block mt-4"><Button>Go unlimited</Button></a>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="skeleton h-64" /></div>;
 
   const newLeads = leads.filter((l) => l.status === "new");
   const shown = leads.filter((l) =>
@@ -150,41 +72,29 @@ export default function InboxPage() {
 
   return (
     <div className="space-y-5 fade-up">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Inbox</h1>
-          <p className="text-muted text-sm mt-1">Brand-deal outreach detected in your Gmail.</p>
-        </div>
-        <Button onClick={scanNow} disabled={scanning}>{scanning ? <Spinner /> : "Scan now"}</Button>
+      <div>
+        <h1 className="text-2xl font-semibold">Inbox</h1>
+        <p className="text-muted text-sm mt-1">Brand-deal outreach detected for you.</p>
       </div>
 
-      {gmailConnected && (
-        <div className="card p-4 flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="h-8 w-8 rounded-lg bg-white border border-line grid place-items-center shrink-0 overflow-hidden"><GmailLogo size={18} /></span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold truncate">{connEmail || "Connected Gmail"}</span>
-              <span className="block text-xs text-muted inline-flex items-center gap-1 mt-0.5">
-                <IconRemind size={12} /> Last scanned {timeAgo(lastScannedAt)}
-              </span>
-            </span>
+      {/* Gate: the Gmail scanner switched to a forward-any-email path that lands
+          on a future build. Existing detected leads still show below. */}
+      <div className="card p-5 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="h-10 w-10 rounded-xl accent-soft accent-ink grid place-items-center shrink-0"><IconMail size={18} /></span>
+          <div className="min-w-0">
+            <div className="font-semibold">Brand-deal scanning is changing</div>
+            <p className="text-sm text-muted mt-0.5">
+              Talby is moving to a forward-any-email address that works with any inbox. Detected leads already here stay visible.
+            </p>
           </div>
-          <a href="/api/gmail/connect" className="ml-auto text-xs font-semibold accent-text hover:underline no-underline">Reconnect</a>
         </div>
-      )}
-
-      {!gmailConnected && (
-        <div className="card p-4 text-sm flex items-center justify-between gap-3">
-          <span className="text-muted">Connect Gmail to scan for brand-deal outreach.</span>
-          <a href="/api/gmail/connect"><Button variant="secondary" size="sm">Connect Gmail</Button></a>
-        </div>
-      )}
+      </div>
 
       {message && (
         <div className={cn(
           "flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-medium",
-          message.kind === "ok" ? "bg-paid/10 border-paid/30 text-paid" :
-          message.kind === "warn" ? "bg-due/10 border-due/30 text-due" : "bg-late/10 border-late/30 text-late"
+          message.kind === "ok" ? "bg-paid/10 border-paid/30 text-paid" : "bg-late/10 border-late/30 text-late"
         )}>
           <span>{message.text}</span>
           <button onClick={() => setMessage(null)} aria-label="Dismiss" className="shrink-0 text-xs font-semibold opacity-70 hover:opacity-100 cursor-pointer">Dismiss</button>
@@ -206,7 +116,7 @@ export default function InboxPage() {
       {shown.length === 0 ? (
         <div className="card p-10 text-center">
           <p className="text-muted text-sm">
-            {filter === "New" ? "No new leads yet. Run a scan to check your inbox." :
+            {filter === "New" ? "No new leads right now." :
              filter === "Added" ? "Nothing added yet." : "Nothing marked not interested."}
           </p>
         </div>
