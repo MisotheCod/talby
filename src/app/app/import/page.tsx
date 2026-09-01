@@ -54,6 +54,39 @@ export default function ImportPage() {
 
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // On mount, consume any CSV we stashed in sessionStorage (from the Deals-page
+  // upload modal) so the import auto-parses instead of forcing a re-upload.
+  const consumedRef = useRef(false);
+  useEffect(() => {
+    if (consumedRef.current) return;
+    const raw = sessionStorage.getItem("talby_pending_import");
+    if (!raw) return;
+    consumedRef.current = true;
+    sessionStorage.removeItem("talby_pending_import");
+    parsePending(raw).catch(() => {});
+  }, []);
+
+  const parsePending = async (raw: string) => {
+    let stored: { name: string; text: string }[];
+    try { stored = JSON.parse(raw); } catch { return; }
+    if (!Array.isArray(stored) || !stored.length) return;
+    const allColumns: string[] = [];
+    const allRows: Record<string, string>[] = [];
+    for (const f of stored) {
+      const parsed = parseCSV(f.text);
+      for (const c of parsed.columns) if (!allColumns.includes(c)) allColumns.push(c);
+      allRows.push(...parsed.rows);
+    }
+    if (!allRows.length) return;
+    setColumns(allColumns);
+    setRows(allRows);
+    setSourceName(stored.length === 1 ? stored[0].name.replace(/\.csv$/i, "") : `${stored.length} CSV files`);
+    setUploadedFiles(stored.length);
+    setStep("columns");
+    setMapping({});
+    setItems([]);
+  };
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();

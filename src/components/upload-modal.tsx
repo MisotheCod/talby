@@ -57,7 +57,17 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
     // A CSV anywhere means spreadsheet import regardless of other selections.
     const anyCsv = files.some((f) => f.name.toLowerCase().endsWith(".csv") || f.type === "text/csv");
     if (anyCsv) {
+      // Pass the selected files to the import page so they're parsed immediately
+      // (instead of dropping them and making the user re-upload).
+      const csvFiles = files.filter((f) => f.name.toLowerCase().endsWith(".csv") || f.type === "text/csv");
       onClose();
+      try {
+        sessionStorage.setItem("talby_pending_import", JSON.stringify(
+          await Promise.all(csvFiles.map(async (f) => ({
+            name: f.name, text: await f.text(),
+          })))
+        ));
+      } catch { /* non-fatal: if storage fails, just navigate; page falls back to manual upload */ }
       router.push("/app/import?source=csv");
       return;
     }
