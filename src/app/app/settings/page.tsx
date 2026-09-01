@@ -12,6 +12,7 @@ import { NudgeSettings } from "@/components/nudge-settings";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 
 type Profile = { handler: string | null; accent: string | null; plan: string; head_font: string | null; avatar_url: string | null };
+type AccountUser = { email?: string | null };
 
 function userName(handler: string | null): string {
   return (handler || "").replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -31,6 +32,7 @@ export default function SettingsPage() {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [activeCount, setActiveCount] = useState(0);
@@ -56,6 +58,7 @@ export default function SettingsPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setEmail((user as AccountUser).email ?? null);
       const { data } = await supabase.from("profiles").select("handler, accent, plan, head_font, avatar_url").eq("id", user.id).single();
       const p = (data as unknown as Profile) ?? null;
       setProfile(p);
@@ -163,6 +166,12 @@ export default function SettingsPage() {
 
                     {/* Settings card: three labeled rows */}
                     <div className="bg-card border border-line rounded-[16px] shadow-card overflow-hidden">
+                      {/* Email (read-only, from auth) */}
+                      <div className="flex items-center gap-4 px-6 py-5 border-b border-line flex-wrap">
+                        <div className="w-[140px] shrink-0 text-sm text-inksoft">Email</div>
+                        <div className="flex-1 min-w-0 text-sm">{email || "—"}</div>
+                      </div>
+
                       {/* Creator handle */}
                       <div className="flex items-center gap-4 px-6 py-5 border-b border-line flex-wrap">
                         <div className="w-[140px] shrink-0 text-sm text-inksoft">Creator handle</div>
