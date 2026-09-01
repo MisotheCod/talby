@@ -552,7 +552,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
             <a
               key={i}
               href={l.url}
-              onClick={(e) => { e.preventDefault(); history.pushState(null, "", "/app/inbox"); window.dispatchEvent(new PopStateEvent("popstate")); }}
+              target="_blank"
+              rel="noreferrer"
               className="mt-3 flex items-center gap-2 text-xs text-accent-ink rounded-lg bg-card2 border border-line px-2.5 py-1.5 hover:border-[var(--accent)] transition w-fit cursor-pointer"
             >
               <IconMail size={13} /> {l.label}{l.url.startsWith("mailto:") ? " · Reply" : ""}

@@ -54,7 +54,7 @@ export function NotificationPrompt({ onDone }: { onDone: () => void }) {
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         new Notification("Talby", {
-          body: "Payment reminders, due dates, and new deals in your inbox will land here.",
+          body: "Payment reminders and deliverable due dates will land here.",
         });
         fired = true;
       }
@@ -133,7 +133,7 @@ export function NotificationPrompt({ onDone }: { onDone: () => void }) {
           <>
             <h2 className="text-center font-head font-semibold text-lg tracking-tight">Turn on notifications</h2>
             <p className="text-center text-muted text-sm mt-2 leading-relaxed">
-              Get notified of payment reminders, deliverable due dates, and new deals detected in your inbox.
+              Get notified of payment reminders and deliverable due dates.
             </p>
             <div className="mt-6 space-y-2.5">
               <Button className="w-full" onClick={ask} disabled={phase === "pending"}>

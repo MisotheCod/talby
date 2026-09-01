@@ -12,7 +12,7 @@ import { CoachTour, type TourStep } from "@/components/coach-tour";
 import { NotificationPrompt } from "@/components/notification-prompt";
 
 import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
-  IconNotes, IconLogout, IconSettings, IconMail,
+  IconNotes, IconLogout, IconSettings,
 } from "@/components/icons";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantLauncher } from "@/components/assistant";
@@ -22,7 +22,6 @@ const MANAGE_NAV = [
   { href: "/app/deals", label: "Deals", icon: IconBriefcase },
   { href: "/app/calendar", label: "Calendar", icon: IconCalendar },
   { href: "/app/payments", label: "Payments", icon: IconDollar },
-  { href: "/app/inbox", label: "Inbox", icon: IconMail },
 ];
 const CREATE_NAV = [
   { href: "/app/ideas", label: "Ideas", icon: IconIdea },
@@ -115,16 +114,13 @@ export function AppShell({
   };
 
   // Tour spotlights on the live, personalized dashboard. Free users finish on
-  // the inbox step (something they can act on) — never on a paywall.
+  // a step they can act on — never on a paywall.
   const tourSteps: TourStep[] = [
-    { selector: "#side nav", title: "Your command center", body: "Everything lives in the left rail: Deals, Calendar, Payments, Inbox, Ideas and To-dos. Pick a section and Talby is organized around it.", side: "right" },
+    { selector: "#side nav", title: "Your command center", body: "Everything lives in the left rail: Deals, Calendar, Payments, Ideas and To-dos. Pick a section and Talby is organized around it.", side: "right" },
     { selector: "[data-tour=add-deal]", title: "Add your first deal", body: "Add a deal from here, brand, deliverable, value, due date, and payment terms. It flows into your calendar and payments automatically.", side: "bottom" },
     { selector: "[data-tour=assistant]", title: "Ask Talby Assistant", body: plan === "paid"
       ? "Ask anything about your deals, contracts, payments, and calendar, it answers only from your own data."
       : "Talby Assistant reads your deals, contracts, and calendar and answers questions about them as you work.", side: "top" },
-    ...(plan === "free"
-      ? [{ selector: ".inbox-promo", title: "Find deals from your inbox", body: "Forward brand collab emails to your Talby inbox and add them as deals. Free on every plan, with any email provider.", side: "bottom" } as TourStep]
-      : []),
   ];
 
   // Preview applies live WITHOUT mutating the persisted state (so the

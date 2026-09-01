@@ -518,34 +518,6 @@ h1, h2, h3, h4 {
 .upsell .t { font-family: var(--font-head), sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 4px; color: var(--accent-ink); }
 .upsell .d { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin-bottom: 12px; }
 
-/* Inbox-scan promo bar on the Overview: a long horizontal call-to-action for
-   free users. Uses structural + accent tokens so it reads in light and dark. */
-.inbox-promo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  background: var(--accent-tint);
-  border: 1px solid var(--accent-tint-2);
-  border-radius: var(--r);
-  padding: 16px 18px;
-  margin-bottom: 24px;
-}
-.inbox-promo .ip-left { display: flex; align-items: center; gap: 13px; min-width: 0; flex: 1; }
-.inbox-promo .ip-glogo {
-  flex: none; width: 40px; height: 40px; border-radius: 11px;
-  display: grid; place-items: center; background: #fff;
-  border: 1px solid var(--line);
-}
-.inbox-promo .ip-gmail-img {
-  width: 28px; height: auto; display: block; object-fit: contain;
-}
-.inbox-promo .ip-text { min-width: 0; }
-.inbox-promo .ip-title { font-weight: 650; font-size: 14.5px; color: var(--ink); }
-.inbox-promo .ip-sub { font-size: 12.5px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
-.inbox-promo .ip-cta { flex: none; font-size: 13.5px; }
-
 @media (max-width: 1000px) {
   .shell { grid-template-columns: 1fr; padding: 14px; }
   .topbar { display: flex; }

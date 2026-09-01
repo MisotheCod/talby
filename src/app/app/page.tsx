@@ -272,25 +272,6 @@ export default function OverviewPage() {
         )}
       </div>
 
-      {/* Inbox scan promo (all users): forwarding is a free feature. Free users hit
-          the active-deal cap, not a paywall, when they try to add. Links to the
-          inbox setup screen. */}
-      <div className="anim inbox-promo">
-          <div className="ip-left">
-            <span className="ip-glogo" aria-hidden>
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-inksoft">
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <path d="M3 7l9 6 9-6" />
-              </svg>
-            </span>
-            <div className="ip-text">
-              <div className="ip-title">Never miss a brand-deal email</div>
-              <div className="ip-sub">Forward brand collabs to your Talby inbox and add them as deals. Works with any email provider, free on every plan.</div>
-            </div>
-          </div>
-          <a href="/app/inbox" className="btn3d ip-cta no-underline block text-center">Set up forwarding</a>
-        </div>
-
       {/* Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5">
         {/* Active deals */}

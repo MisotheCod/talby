@@ -462,7 +462,6 @@ export function MarketingPage() {
               <ul className="pfeat">
                 <UnLi>Unlimited active deals</UnLi>
                 <UnLi>File and contract uploads</UnLi>
-                <UnLi>Brand-deal email scanner</UnLi>
                 <UnLi>Auto-written payment reminders</UnLi>
                 <UnLi>Talby AI assistant that answers about your deals, payments and contracts</UnLi>
               </ul>

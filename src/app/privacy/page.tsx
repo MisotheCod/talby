@@ -67,15 +67,6 @@ export default function PrivacyPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-semibold">Email forwarding for brand-deal detection</h2>
-          <p className="text-muted text-sm leading-relaxed">
-            On the paid plan you can forward brand-deal outreach emails to a unique Talby address. Talby
-            analyzes the forwarded message to identify genuine brand-deal opportunities (such as paid
-            partnerships, UGC, product seeding, or affiliate offers) and to extract the contact and deal
-            details so you can add them as deals. We keep the original email and any attachments only long
-            enough to extract what you need (a rolling window we hold for support and review), and the
-            extracted deal is stored to your account.
-          </p>
           <p className="text-muted text-sm leading-relaxed">
             <strong>Payment reminders:</strong> Talby drafts payment-follow-up emails on your behalf using
             your templates, so you can copy them or open them in your own email app. Talby does not send
@@ -84,7 +75,7 @@ export default function PrivacyPage() {
           </p>
           <p className="text-muted text-sm leading-relaxed">
             We never sell your email data. Access is used only for the purposes described here and you can
-            remove forwarded deals, their source messages, and any drafted reminders at any time.
+            remove any drafted reminders at any time.
           </p>
         </section>
 
