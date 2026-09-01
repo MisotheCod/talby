@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip } from "@/components/icons";
+import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck } from "@/components/icons";
 import { Button, Input, Select, Textarea, Spinner } from "@/components/ui";
 
 /** Map the contract-extraction JSON onto DealFormValues. Used by DealForm, UploadModal. */
@@ -150,6 +150,7 @@ export function DealForm({
 }) {
   const supabase = createClient();
   const [v, setV] = useState<DealFormValues>(initial);
+  const [savedFlash, setSavedFlash] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [stagedText, setStagedText] = useState(""); // extracted contract text for assistant ingest
@@ -245,6 +246,10 @@ export function DealForm({
       if (error) { setError(error.message); return; }
     }
     onSaved();
+    if (mode === "edit") {
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1500);
+    }
   };
 
   const toggle = (k: string) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
@@ -416,7 +421,13 @@ export function DealForm({
         <p className="text-[11px] text-inksoft flex items-center gap-1.5"><IconAuto size={13} className="text-due" /> <span>Sparkle = filled by your contract. Edit anything before adding.</span></p>
       )}
 
-      <div className="flex justify-end"><Button onClick={doSubmit} disabled={pending}>{pending ? <Spinner /> : submitLabel}</Button></div>
+      <div className="flex justify-end">
+        <Button onClick={doSubmit} disabled={pending}>
+          {pending ? <Spinner /> : savedFlash ? (
+            <span className="flex items-center gap-1.5"><IconCheck size={15} /> Saved</span>
+          ) : submitLabel}
+        </Button>
+      </div>
     </div>
   );
 }
