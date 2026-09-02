@@ -849,15 +849,21 @@ input[type="range"].zoom::-moz-range-track {
   /* keep content clear of the floating assistant + theme buttons */
   .app-shell .main { padding-bottom: 96px; }
 
-  /* Calendar month grid on phones: fewer cells per row is impossible (7
-     columns), so shrink rows, hide the event text, and render each item as a
-     compact colored dot. Tapping the day still opens its detail sheet. */
-  .calendar-grid { grid-auto-rows: 56px; }
-  .calendar-grid .calpill {
-    padding: 0; width: 8px; height: 8px; border-radius: 999px;
-    background: var(--pill-fg); overflow: hidden;
+  /* Calendar month grid on phones uses a dedicated compact dot layout
+     (rendered as .cal-grid-mobile in the component). Compact cells keep the
+     seven columns from overflowing, one dot per event TYPE that day. */
+  .cal-grid-mobile { grid-auto-rows: minmax(38px, auto); }
+  .cal-cell-mobile { min-height: 38px; }
+  .cal-dot { width: 6px; height: 6px; border-radius: 999px; display: block; }
+
+  /* Mobile day bottom sheet: slides up from the bottom. */
+  .cal-sheet { animation: cal-sheet-up 240ms cubic-bezier(0.2, 0.7, 0.3, 1); }
+  .cal-sheet-scrim { animation: cal-fade 240ms ease; }
+  @keyframes cal-sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(var(--cal-drift, 0)); }
   }
-  .calendar-grid .calpill > * { display: none; }
+  @keyframes cal-fade { from { opacity: 0; } to { opacity: 1; } }
 }
 
 /* ------- Week strip (interactive) ------- */
