@@ -850,10 +850,15 @@ input[type="range"].zoom::-moz-range-track {
   .app-shell .main { padding-bottom: 96px; }
 
   /* Calendar month grid on phones uses a dedicated compact dot layout
-     (rendered as .cal-grid-mobile in the component). Compact cells keep the
-     seven columns from overflowing, one dot per event TYPE that day. */
-  .cal-grid-mobile { grid-auto-rows: minmax(38px, auto); }
-  .cal-cell-mobile { min-height: 38px; }
+     (rendered as .cal-grid-mobile in the component). Cells are tall enough
+     for the date number + a row of dots with breathing room, and the grid
+     stretches toward the viewport so it fills the screen — while the 1fr
+     rows keep all six week rows visible without scrolling. */
+  .cal-grid-mobile {
+    grid-auto-rows: 1fr;
+    min-height: max(384px, calc(100dvh * 0.62));
+  }
+  .cal-cell-mobile { min-height: 64px; }
   .cal-dot { width: 6px; height: 6px; border-radius: 999px; display: block; }
 
   /* Mobile day bottom sheet: slides up from the bottom. */
