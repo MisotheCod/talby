@@ -261,9 +261,9 @@ export function AppShell({
             <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
           <span className="tt">{pageTitle}</span>
-          <div className="flex items-center gap-1">
-            <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
+          <div className="ml-auto flex items-center gap-1.5">
             <NotificationBell />
+            <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
           </div>
         </div>
         <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
