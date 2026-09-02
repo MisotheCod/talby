@@ -145,10 +145,9 @@ export default function CalendarPage() {
   const openDay = (date = toISO(new Date())) => setPopover({ date, x: 0, y: 0 });
 
   const monthRange = useMemo(() => {
-    const first = `${MONTHS[cursor.m].slice(0, 3)} ${String(cursor.m + 1).padStart(2, "0")}-01, ${cursor.y}`;
     const lastDay = new Date(cursor.y, cursor.m + 1, 0).getDate();
-    const last = `${MONTHS[cursor.m].slice(0, 3)} ${String(cursor.m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}, ${cursor.y}`;
-    return { first, last };
+    const month = MONTHS[cursor.m];
+    return { first: `1 to ${lastDay} ${month} ${cursor.y}` };
   }, [cursor]);
 
   const cells = useMemo(() => {
@@ -208,7 +207,7 @@ export default function CalendarPage() {
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-border">
           <div>
             <h2 className="text-lg font-semibold leading-tight">{MONTHS[cursor.m]} {cursor.y}</h2>
-            <p className="text-xs text-muted mt-0.5">{monthRange.first} to {monthRange.last}</p>
+            <p className="text-xs text-muted mt-0.5 whitespace-nowrap">{monthRange.first}</p>
           </div>
           <div className="flex items-center gap-2">
             <Button variant="secondary" onClick={goToday} className="h-9">Today</Button>
@@ -224,7 +223,7 @@ export default function CalendarPage() {
             <div key={d} className="px-2 py-2 text-xs font-medium text-muted text-center">{d}</div>
           ))}
         </div>
-        <div className="grid grid-cols-7 auto-rows-[104px] md:auto-rows-[124px]">
+        <div className="calendar-grid grid grid-cols-7 auto-rows-[104px] md:auto-rows-[124px]">
           {cells.map((iso, idx) =>
             iso === null ? (
               <div key={`e${idx}`} className="border-r border-b border-border bg-subtle/40" />
@@ -324,7 +323,7 @@ export default function CalendarPage() {
                         }}
                         style={{ touchAction: canDrag ? "none" : "auto" }}
                         className={cn(
-                          "text-[11px] flex items-center gap-1 rounded-full px-2 py-0.5 cursor-grab select-none",
+                          "calpill text-[11px] flex items-center gap-1 rounded-full px-2 py-0.5 cursor-grab select-none",
                           it.type === "payment" ? "pill-due font-semibold cursor-pointer" :
                           it.type === "todo" ? "pill-purple" :
                           it.type === "note" ? "pill-note" :
@@ -547,7 +546,7 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
           {kind === "note" ? (
             <>
               <label className="block">
-                <span className="text-xs text-muted mb-1 block">Note / reminder</span>
+                <span className="text-xs text-muted mb-1 block">Note</span>
                 <Input value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } }} placeholder="Follow up with Panera about contract" autoFocus />
               </label>
               <label className="block">

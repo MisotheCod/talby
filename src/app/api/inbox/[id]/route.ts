@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  *
  * "add": create a Pipeline-stage deal from the extracted fields, auto-fill
  *   the brand, deliverables, dates, value, notes, deal_type, and rep_name/
- *   rep_email (the nudge contact). Dedupe: if a deal for that brand already
+ *   rep_email (the rep contact). Dedupe: if a deal for that brand already
  *   exists, attach the email to it as a note and ensure the email thread is
  *   linked, instead of creating a duplicate.
  * "not_interested": mark suppressed so it never re-surfaces.

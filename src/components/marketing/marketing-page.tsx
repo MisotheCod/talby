@@ -224,7 +224,7 @@ export function MarketingPage() {
           <p id="heroP">Deals, money, and content in one calm place. Running your creator business has never been this simple.</p>
           <p className="hero-whatis" style={{ fontSize: 13, color: "var(--ink-2)", maxWidth: 520, margin: "8px auto 0" }}>
             Talby is a brand deal manager for creators: track what&rsquo;s owed, what&rsquo;s paid, and what&rsquo;s
-            due, plan your content, and draft the awkward follow-up emails for you to send. Most creators avoid chasing late payments; Talby removes that.
+            due, and plan your content. Every deal, payment, and deliverable in one calm place.
           </p>
           <div className="hero-cta" id="heroC">
             <a href="/signup" className="btn btn-3d btn-lg">Sign up free</a>
@@ -279,7 +279,7 @@ export function MarketingPage() {
           <div className="shead reveal"><h2>Run your deals in a whole new way.</h2></div>
           <div className="acts">
             <div className="act a-blue reveal"><div className="ic"><IconOverviewNav /></div><h3>Track</h3><p>Every deal in one clean list. Brand, value, status, due date.</p></div>
-            <div className="act a-green reveal"><div className="ic"><IconMoney /></div><h3>Get paid</h3><p>See what's expected, overdue, and landed. Chase nothing blind.</p></div>
+            <div className="act a-green reveal"><div className="ic"><IconMoney /></div><h3>Get paid</h3><p>See what's expected, overdue, and landed, all in one place.</p></div>
             <div className="act a-gold reveal"><div className="ic"><IconCalendar /></div><h3>Plan</h3><p>Content on a calendar, with repeats that fill themselves in.</p></div>
             <div className="act a-purple reveal"><div className="ic"><IconStar /></div><h3>Capture</h3><p>Ideas from bucket to posted, before they slip away.</p></div>
           </div>
@@ -462,7 +462,6 @@ export function MarketingPage() {
               <ul className="pfeat">
                 <UnLi>Unlimited active deals</UnLi>
                 <UnLi>File and contract uploads</UnLi>
-                <UnLi>Auto-written payment reminders</UnLi>
                 <UnLi>Talby AI assistant that answers about your deals, payments and contracts</UnLi>
               </ul>
               <GoUnlimitedButton />

@@ -139,7 +139,6 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
         exclusivity_days: d.exclusivity_days ? Number(d.exclusivity_days) : null,
         rep_name: d.rep_name.trim() || null,
         rep_email: d.rep_email.trim() || null,
-        nudge_mode: d.nudge_mode,
         notes: d.notes.trim() || null,
         active: d.status !== "archived",
       };

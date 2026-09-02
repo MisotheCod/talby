@@ -758,7 +758,7 @@ function ReviewStep({
                   <Field label="Deliverable"><Input value={r.deliverable ?? ""} onChange={(e) => onEdit(i, "deliverable", e.target.value)} /></Field>
                 </div>
                 <div className="md:col-span-2">
-                  <Field label="Rep email"><Input value={r.rep_email ?? ""} onChange={(e) => onEdit(i, "rep_email", e.target.value)} placeholder="rep@brand.com (for nudges)" /></Field>
+                  <Field label="Rep email"><Input value={r.rep_email ?? ""} onChange={(e) => onEdit(i, "rep_email", e.target.value)} placeholder="rep@brand.com" /></Field>
                 </div>
               </div>
               {r.__review && <StatusPill kind="late" className="flex-none mt-1">Review</StatusPill>}

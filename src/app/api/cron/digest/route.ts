@@ -63,7 +63,7 @@ export async function GET(req: Request) {
         payments: items.payments,
         deliverables: items.deliverables,
         posts: items.posts,
-        todos: [...items.todos, ...items.reminders],
+        todos: items.todos,
         manageUrl: unsubscribeUrl,
       })
     );

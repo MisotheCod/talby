@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, isPastDue, cn } from "@/lib/utils";
-import { IconPlus, IconMore, IconCheck, IconSend } from "@/components/icons";
+import { IconPlus, IconMore, IconCheck } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 
 /* ---------- types ---------- */
@@ -11,11 +11,6 @@ type Payment = {
   id: string; deal_id: string | null; amount: number;
   expected_date: string | null; status: string;
   invoice_state: string | null;
-  deal?: { brand: string } | null;
-};
-type Reminder = {
-  id: string; subject: string; body: string; rep_email: string | null;
-  payment_id: string; deal_id: string; status: string; created_at: string;
   deal?: { brand: string } | null;
 };
 type Deal = {
@@ -78,11 +73,8 @@ export default function PaymentsPage() {
   const supabase = createClient();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
-  const [nudgeMsg, setNudgeMsg] = useState<{ paymentId: string; kind: "ok" | "warn"; text: string } | null>(null);
   const [listFilter, setListFilter] = useState<"All" | "Expected" | "Received" | "Not invoiced">("All");
   const [range, setRange] = useState<Range>("month");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
@@ -99,14 +91,12 @@ export default function PaymentsPage() {
   }, [menuOpen]);
 
   const load = useCallback(async () => {
-    const [p, d, r] = await Promise.all([
+    const [p, d] = await Promise.all([
       supabase.from("payments").select("*, deal:deals(brand)").order("expected_date", { ascending: true }),
       supabase.from("deals").select("id, brand, value, deal_type, created_at, active, status").order("created_at", { ascending: true }),
-      supabase.from("nudges").select("id, subject, body, rep_email, payment_id, deal_id, status, created_at, deal:deals(brand)").eq("status", "ready").order("created_at", { ascending: true }),
     ]);
     setPayments((p.data ?? []) as unknown as Payment[]);
     setDeals((d.data ?? []) as unknown as Deal[]);
-    setReminders((r.data ?? []) as unknown as Reminder[]);
     setLoading(false);
   }, [supabase]);
 
@@ -274,66 +264,6 @@ export default function PaymentsPage() {
     setMenuOpen(null);
     load();
   };
-  const nudgePayment = async (p: Payment) => {
-    const dealId = p.deal_id;
-    let repEmail: string | null = null;
-    if (dealId) {
-      const d = await supabase.from("deals").select("rep_email").eq("id", dealId).single();
-      repEmail = (d.data as unknown as { rep_email?: string | null } | null)?.rep_email ?? null;
-    }
-    if (!repEmail) { setNudgeMsg({ paymentId: p.id, kind: "warn", text: "Add a rep email to prepare this reminder (edit the deal)." }); return; }
-    setNudgeBusy(p.id); setNudgeMsg(null);
-    try {
-      const res = await fetch("/api/nudges", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deal_id: dealId, payment_id: p.id, action: "copy" }),
-      });
-      const data = await res.json();
-      if (data.error === "already_paid") setNudgeMsg({ paymentId: p.id, kind: "ok", text: "Already received, so no reminder is needed." });
-      else if (data.error === "paid_required") setNudgeMsg({ paymentId: p.id, kind: "warn", text: "Reminders are on the paid plan. Chasing this? Go unlimited and Talby writes the follow-up for you." });
-      else if (data.mode === "copy" && data.body) {
-        // Copy directly, then confirm.
-        await navigator.clipboard.writeText(`${data.subject}\n\n${data.body}`);
-        setNudgeMsg({ paymentId: p.id, kind: "ok", text: "Copied. Paste it into your email client and send it." });
-      }
-      else setNudgeMsg({ paymentId: p.id, kind: "warn", text: data.message || data.error || "Could not prepare the reminder." });
-    } catch { setNudgeMsg({ paymentId: p.id, kind: "warn", text: "Could not reach the reminder service." }); }
-    setNudgeBusy(null);
-    setMenuOpen(null);
-    load();
-  };
-
-  // --- Reminder actions (copy / open-in-email / mark handled) ------------------
-  const copyReminder = async (r: Reminder) => {
-    try {
-      await navigator.clipboard.writeText(`${r.subject}\n\n${r.body}`);
-      await markHandled(r);
-      setMenuOpen(null);
-      setNudgeMsg({ paymentId: r.payment_id, kind: "ok", text: "Copied. Paste it into any email client to send." });
-    } catch { setNudgeMsg({ paymentId: r.payment_id, kind: "warn", text: "Could not copy. Try checking clipboard access." }); }
-  };
-
-  const openReminder = async (r: Reminder) => {
-    if (!r.rep_email) { setNudgeMsg({ paymentId: r.payment_id, kind: "warn", text: "This reminder has no rep address to send to." }); return; }
-    const subj = encodeURIComponent(r.subject || "");
-    const body = encodeURIComponent(r.body || "");
-    window.location.href = `mailto:${r.rep_email}?subject=${subj}&body=${body}`;
-    await markHandled(r);
-    setMenuOpen(null);
-    setNudgeMsg({ paymentId: r.payment_id, kind: "ok", text: "Opened in your mail app. Send it from there." });
-  };
-
-  const markHandled = async (r: Reminder) => {
-    try {
-      await fetch("/api/nudges", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "handle", reminder_id: r.id }),
-      });
-    } catch { /* non-fatal */ }
-    setReminders((prev) => prev.filter((x) => x.id !== r.id));
-  };
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="grid grid-cols-4 gap-4"><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /></div></div>;
 
@@ -346,31 +276,6 @@ export default function PaymentsPage() {
         </div>
         <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add expected payment</Button>
       </div>
-
-      {/* === Needs a nudge: drafted reminders ready to copy or send === */}
-      {reminders.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
-            <h2 className="font-semibold text-[15px]">Needs a nudge</h2>
-          </div>
-          <div className="card divide-y divide-line">
-            {reminders.map((r) => (
-              <div key={r.id} className="flex items-center gap-3 px-5 py-3 flex-wrap">
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium truncate">{r.subject}</span>
-                  <span className="block text-xs text-muted truncate">{r.deal?.brand ?? "Payment"} · {r.rep_email || "no rep address"}</span>
-                </span>
-                <span className="shrink-0"><StatusPill size="sm" kind="due">Ready</StatusPill></span>
-                <div className="shrink-0 flex items-center gap-2">
-                  <Button size="sm" onClick={() => copyReminder(r)}><IconSend size={13} /> Copy</Button>
-                  <Button size="sm" variant="secondary" onClick={() => openReminder(r)}>Open in email</Button>
-                  <button onClick={() => markHandled(r)} className="text-xs text-muted hover:text-ink px-2 py-1 rounded-md hover:bg-card2 cursor-pointer">Mark handled</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* === 1. Four stat cards === */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -482,11 +387,6 @@ export default function PaymentsPage() {
                                 <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
                                   <IconCheck size={14} /> Mark as paid
                                 </button>
-                                {isPast || isInvOverdue && (
-                                  <button onClick={() => { setMenuOpen(null); nudgePayment(p); }} disabled={nudgeBusy === p.id} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
-                                    <IconSend size={14} /> Copy a reminder
-                                  </button>
-                                )}
                               </div>
                             )}
                           </div>
@@ -500,10 +400,6 @@ export default function PaymentsPage() {
           </div>
         )}
       </div>
-
-      {nudgeMsg && (
-        <p className={cn("text-xs", nudgeMsg.kind === "ok" ? "text-ok" : "text-warn")}>{nudgeMsg.text}</p>
-      )}
 
       {showAdd && (
         <AddPaymentModal deals={deals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />

@@ -60,7 +60,6 @@ export type DealFormValues = {
   exclusivity_days: string;
   rep_name: string;
   rep_email: string;
-  nudge_mode: string;
   links: { url: string; label?: string }[];
   notes: string;
 };
@@ -89,18 +88,12 @@ const PAYMENT_STATUSES = [
   { value: "paid", label: "Paid" },
   { value: "none", label: "No payment tracked" },
 ];
-const NUDGE_LABEL: Record<string, string> = {
-  off: "No reminders",
-  notify: "Flag past due",
-  draft: "Draft follow-ups",
-  auto: "Auto-prepare reminders",
-};
 
 export function emptyDealForm(): DealFormValues {
   return {
     brand: "", deliverable: "", value: "", status: "active", payment_status: "expected",
     due_date: "", pay_terms: "", exclusivity_days: "", rep_name: "", rep_email: "",
-    nudge_mode: "draft", links: [], notes: "",
+    links: [], notes: "",
   };
 }
 
@@ -213,7 +206,6 @@ export function DealForm({
       exclusivity_days: v.exclusivity_days ? Number(v.exclusivity_days) : null,
       rep_name: v.rep_name.trim() || null,
       rep_email: v.rep_email.trim() || null,
-      nudge_mode: v.nudge_mode,
       links: v.links.filter((l) => l.url).map((l) => ({ url: l.url, label: l.label || l.url })),
       notes: v.notes.trim() || null,
       active: v.status !== "archived",
@@ -255,7 +247,7 @@ export function DealForm({
   const toggle = (k: string) => setOpenSections((p) => ({ ...p, [k]: !p[k] }));
 
   // ---- one-line summaries for collapsed sections ----
-  const repSummary = [v.rep_name.trim(), v.rep_email.trim(), v.nudge_mode !== "draft" ? NUDGE_LABEL[v.nudge_mode] : ""].filter(Boolean).join(" · ");
+  const repSummary = [v.rep_name.trim(), v.rep_email.trim()].filter(Boolean).join(" · ");
   const termsSummary = [
     v.payment_status === "expected" ? "Expected" : v.payment_status === "paid" ? "Paid" : v.payment_status === "none" ? "No payment tracked" : null,
     v.due_date ? `Due ${v.due_date}` : null,
@@ -269,6 +261,17 @@ export function DealForm({
 
   const spark = (key: keyof DealFormValues) =>
     isReview && effectiveAuto.includes(key) ? <IconAuto size={13} className="text-due shrink-0" data-spark="1" /> : null;
+
+  // Dirty check: only allow a save when the user changed something. Normalize
+  // the arrays (links) and blank strings so untouched fields read as equal.
+  const norm = (x: DealFormValues): string => JSON.stringify({
+    ...x,
+    links: x.links.filter((l) => l.url).map((l) => `${l.url}|${l.label || ""}`),
+    value: x.value.trim(), deliverable: x.deliverable.trim(), due_date: x.due_date.trim(),
+    pay_terms: x.pay_terms.trim(), exclusivity_days: x.exclusivity_days.trim(),
+    rep_name: x.rep_name.trim(), rep_email: x.rep_email.trim(), notes: x.notes.trim(),
+  });
+  const dirty = mode === "edit" && norm(v) !== norm(initial);
 
   return (
     <div className="space-y-4">
@@ -349,7 +352,7 @@ export function DealForm({
       {/* Accordion sections */}
       <AccordionSection
         label="Rep contact"
-        summary={repSummary || "Add a rep and nudge mode"}
+        summary={repSummary || "Add a rep"}
         open={!!openSections.rep}
         onToggle={() => toggle("rep")}
       >
@@ -357,17 +360,6 @@ export function DealForm({
           <Field label="Rep name" spark={spark("rep_name")}><Input value={v.rep_name} onChange={(e) => set("rep_name", e.target.value)} placeholder="e.g. Sam Rivera" /></Field>
           <Field label="Rep email" spark={spark("rep_email")}><Input type="email" value={v.rep_email} onChange={(e) => set("rep_email", e.target.value)} placeholder="sam@brand.com" /></Field>
         </div>
-        <Field label="Reminder mode" hint="Off: no follow-ups. Notify: flags a past-due payment in-app only. Draft: prepares a follow-up for you to copy or send. Auto: prepares reminders on schedule until you mark the payment received.">
-          <Select value={v.nudge_mode} onChange={(e) => set("nudge_mode", e.target.value)}>
-            <option value="off">Off (no reminders)</option>
-            <option value="notify">Notify (flag past due)</option>
-            <option value="draft">Draft (prepare for you to send)</option>
-            <option value="auto">Auto (prepare on schedule)</option>
-          </Select>
-        </Field>
-        {v.nudge_mode === "auto" && (
-          <p className="text-xs text-due -mt-1">Auto mode prepares reminders on your schedule. Talby writes up to your max reminders, then stops. Mark the payment received anytime to stop it instantly. You send them yourself.</p>
-        )}
       </AccordionSection>
 
       <AccordionSection
@@ -422,7 +414,7 @@ export function DealForm({
       )}
 
       <div className="flex justify-end">
-        <Button onClick={doSubmit} disabled={pending}>
+        <Button onClick={doSubmit} disabled={pending || (mode === "edit" && !dirty)}>
           {pending ? <Spinner /> : savedFlash ? (
             <span className="flex items-center gap-1.5"><IconCheck size={15} /> Saved</span>
           ) : submitLabel}

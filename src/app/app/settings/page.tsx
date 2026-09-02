@@ -7,8 +7,7 @@ import { ACCENT_PRESETS, HEADING_FONTS, applyAccent, applyFont, DEFAULT_HSL, DEF
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { IconCheck } from "@/components/icons";
-import { Button, Spinner } from "@/components/ui";
-import { NudgeSettings } from "@/components/nudge-settings";
+import { Button, Segmented, Spinner } from "@/components/ui";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 
 type Profile = { handler: string | null; accent: string | null; plan: string; head_font: string | null; avatar_url: string | null };
@@ -24,7 +23,6 @@ const SECTIONS = [
   { id: "appearance", label: "Appearance" },
   { id: "connections", label: "Connections" },
   { id: "notifications", label: "Notifications" },
-  { id: "nudges", label: "Nudges" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
@@ -36,7 +34,7 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [activeCount, setActiveCount] = useState(0);
-  const handlerRef = useRef<{ save: () => Promise<void>; saved: boolean } | null>(null);
+  const handlerRef = useRef<{ save: () => Promise<void>; saved: boolean; dirty: boolean } | null>(null);
   const pwRef = useRef<{ update: () => Promise<void>; busy: boolean; hasValue: boolean } | null>(null);
   const [section, setSection] = useState<SectionId>(
     (searchParams.get("section") as SectionId) && SECTIONS.some((s) => s.id === searchParams.get("section"))
@@ -142,19 +140,13 @@ export default function SettingsPage() {
       </div>
 
       {/* Section nav */}
-      <div className="flex gap-1.5 mb-6 flex-wrap">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setSection(s.id)}
-            className={cn(
-              "px-3.5 h-9 rounded-lg text-sm font-medium transition-colors cursor-pointer border",
-              section === s.id ? "accent-soft border-accent/30 font-semibold" : "border-line bg-card text-inksoft hover:text-ink"
-            )}
-          >
-            {s.label}
-          </button>
-        ))}
+      <div className="mb-6">
+        <Segmented
+          options={SECTIONS.map((s) => s.id)}
+          value={section}
+          onChange={(v) => setSection(v)}
+          getLabel={(v) => SECTIONS.find((s) => s.id === v)?.label ?? v}
+        />
       </div>
 
       <div className="space-y-6">
@@ -178,7 +170,7 @@ export default function SettingsPage() {
                         <div className="flex-1 min-w-0">
                           <HandlerField initial={profile?.handler ?? ""} />
                         </div>
-                        <Button onClick={() => handlerRef.current?.save()} disabled={handlerRef.current?.saved}>{handlerRef.current?.saved ? "Saved" : "Save"}</Button>
+                        <Button onClick={() => handlerRef.current?.save()} disabled={handlerRef.current?.saved || !handlerRef.current?.dirty}>{handlerRef.current?.saved ? "Saved" : "Save"}</Button>
                       </div>
 
                       {/* Password */}
@@ -272,7 +264,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex items-center gap-2 pt-1">
-              <Button onClick={saveTheme} disabled={themeSaving}>
+              <Button onClick={saveTheme} disabled={themeSaving || !dirty}>
                 {themeSaving ? <Spinner /> : null}
                 {themeSaved ? "Theme saved" : "Save theme"}
               </Button>
@@ -300,9 +292,6 @@ export default function SettingsPage() {
         {/* ============ NOTIFICATIONS ============ */}
         {section === "notifications" && <NotificationSettings />}
 
-        {/* ============ NUDGES ============ */}
-        {section === "nudges" && <NudgeSettings />}
-
         {error && <p className="text-sm text-late" role="alert">{error}</p>}
       </div>
     </div>
@@ -311,6 +300,7 @@ export default function SettingsPage() {
   function HandlerField({ initial }: { initial: string }) {
     const [val, setVal] = useState(initial);
     const [saved, setSaved] = useState(false);
+    const dirty = val.trim() !== initial.trim();
     const save = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -318,7 +308,7 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     };
-    handlerRef.current = { save, saved };
+    handlerRef.current = { save, saved, dirty };
     return (
       <div className="relative">
         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-inksoft">@</span>
@@ -422,7 +412,7 @@ export default function SettingsPage() {
 
 /** Free-plan upgrade panel: accent-tinted, growth-framed, sits at the card bottom. */
 function FreePlanPanel({ used, cap, onUpgrade, saving }: { used: number; cap: number; onUpgrade: () => void; saving: boolean }) {
-  const chips = ["Unlimited deals", "File uploads", "Payment nudges"];
+  const chips = ["Unlimited deals", "File uploads", "AI assistant"];
   const left = cap - used;
   return (
     <div className="accent-soft px-6 py-5 flex items-center justify-between gap-4 flex-wrap">

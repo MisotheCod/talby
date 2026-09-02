@@ -18,7 +18,7 @@ type Deal = {
   id: string; brand: string; status: string; deliverable: string | null;
   value: number | null; due_date: string | null; notes: string | null;
   links: { url: string; label?: string }[]; active: boolean;
-  rep_name: string | null; rep_email: string | null; nudge_mode: string;
+  rep_name: string | null; rep_email: string | null;
   payment_status: string; pay_terms: string | null; exclusivity_days: number | null;
   created_at?: string;
   // Joined lookups for the six-column list:
@@ -239,7 +239,7 @@ export default function DealsPage() {
         <>
           <div className="panel overflow-hidden">
             {/* Column headers */}
-            <div className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
+            <div className="hidden sm:grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
               <span>Brand</span>
               <span>Status</span>
               <span>Payment</span>
@@ -252,23 +252,23 @@ export default function DealsPage() {
                 key={d.id}
                 onClick={() => setSelectedId(d.id)}
                 onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(d.id); }}
-                className={cn("w-full grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]", selectedId === d.id && "bg-card2")}
+                className={cn("w-full grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
               >
-                <span className="flex items-center gap-3 min-w-0">
+                <span className="d-brand flex items-center gap-3 min-w-0">
                   <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
                     {d.brand.charAt(0).toUpperCase()}
                   </span>
-                  <span className="text-[15px] font-semibold truncate">{d.brand}</span>
+                  <span className="d-brand-name text-[15px] font-semibold truncate">{d.brand}</span>
                 </span>
-                <span><DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} /></span>
-                <span>{paymentPill(d)}</span>
-                <span className={cn("text-[12.5px] tabular-nums", d.post_date && isPastDue(d.post_date) && d.status !== "archived" ? "text-late font-medium" : "text-inksoft")}>
+                <span className="d-status"><DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} /></span>
+                <span className="d-payment">{paymentPill(d)}</span>
+                <span className={cn("d-post text-[12.5px] tabular-nums", d.post_date && isPastDue(d.post_date) && d.status !== "archived" ? "text-late font-medium" : "text-inksoft")}>
                   {d.post_date ? formatDate(d.post_date) : <NotSet />}
                 </span>
-                <span className={cn("text-[12.5px] tabular-nums", d.pay_by && isPastDue(d.pay_by) && d.payment_status !== "paid" && d.status !== "paid" ? "text-late font-medium" : "text-inksoft")}>
+                <span className={cn("d-payby text-[12.5px] tabular-nums", d.pay_by && isPastDue(d.pay_by) && d.payment_status !== "paid" && d.status !== "paid" ? "text-late font-medium" : "text-inksoft")}>
                   {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
                 </span>
-                <span className="money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
+                <span className="d-amount money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
               </button>
             ))}
             {/* Sum footer — totals the visible/filtered rows */}
@@ -508,6 +508,22 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
 
   const TABS = ["Fields", "Checklist", "Notes", "Files", "Payments"] as const;
 
+  // Keyboard + swipe dismiss: Escape closes, and on touch a downward drag
+  // past a threshold closes the drawer. Guarantees there is always a way out.
+  const touchStart = useRef<number | null>(null);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientY; };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart.current === null) return;
+    const dy = e.changedTouches[0].clientY - touchStart.current;
+    touchStart.current = null;
+    if (dy > 80) onClose();
+  };
+
   /* One-tap "Mark as paid": mark every outstanding payment on the deal as received
      and stamp the deal's payment_status to paid, so a user never has to dig
      through the Payments tab to record that money landed. Works for deals with
@@ -525,8 +541,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
   };
 
   return (
-    <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose}>
-      <div className="absolute right-0 top-0 h-full w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[85] bg-black/20" onClick={onClose} role="presentation">
+      <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
         <header className="px-6 py-5 border-b border-line">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -586,14 +602,6 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
   const supabase = createClient();
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [nudges, setNudges] = useState<{ sequence_step: number; subject: string; status: string; sent_at: string | null }[]>([]);
-
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.from("nudges").select("sequence_step, subject, status, sent_at").eq("deal_id", deal.id).order("created_at", { ascending: false });
-      setNudges((data ?? []) as unknown as { sequence_step: number; subject: string; status: string; sent_at: string | null }[]);
-    })();
-  }, [supabase, deal.id]);
 
   const initial: DealFormValues = {
     brand: deal.brand,
@@ -606,7 +614,6 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
     exclusivity_days: deal.exclusivity_days?.toString() ?? "",
     rep_name: deal.rep_name ?? "",
     rep_email: deal.rep_email ?? "",
-    nudge_mode: deal.nudge_mode ?? "draft",
     links: (deal.links as { url: string; label?: string }[] ?? []),
     notes: deal.notes ?? "",
   };
@@ -623,23 +630,6 @@ function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
         submitLabel="Save changes"
       />
       {error && <p className="text-sm text-late" role="alert">{error}</p>}
-
-      {nudges.length > 0 && (
-        <div className="border-t border-line pt-3">
-          <div className="text-[12px] font-semibold uppercase tracking-wide text-inkfaint mb-2">Nudge history</div>
-          <div className="space-y-2">
-            {nudges.map((n, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm">
-                <StatusPill kind={n.status === "sent" ? "paid" : n.status === "skipped" ? "neutral" : "due"}>
-                  {n.status === "sent" ? "Sent" : n.status === "skipped" ? "Skipped" : "Draft"}
-                </StatusPill>
-                <span className="flex-1 truncate text-inksoft">{n.subject}</span>
-                {n.sent_at && <span className="text-xs text-inkfaint">{new Date(n.sent_at).toLocaleDateString()}</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -689,6 +679,7 @@ function NotesTab({ dealId, deal, onSaved }: { dealId: string; deal: Deal; onSav
   const [notes, setNotes] = useState(deal.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const dirty = notes !== (deal.notes ?? "");
   const save = async () => {
     setSaving(true);
     await supabase.from("deals").update({ notes }).eq("id", dealId);
@@ -700,7 +691,7 @@ function NotesTab({ dealId, deal, onSaved }: { dealId: string; deal: Deal; onSav
   return (
     <div className="space-y-3">
       <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add notes about this deal…" className="min-h-[160px]" />
-      <div className="flex justify-end"><Button onClick={save} disabled={saving}>{saving ? <Spinner /> : saved ? <span className="flex items-center gap-1.5"><IconCheck size={15} /> Saved</span> : "Save notes"}</Button></div>
+      <div className="flex justify-end"><Button onClick={save} disabled={saving || !dirty}>{saving ? <Spinner /> : saved ? <span className="flex items-center gap-1.5"><IconCheck size={15} /> Saved</span> : "Save notes"}</Button></div>
     </div>
   );
 }
@@ -757,49 +748,6 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
   const supabase = createClient();
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
-  const [nudgeBusy, setNudgeBusy] = useState<string | null>(null);
-  const [nudgeMsg, setNudgeMsg] = useState<{ id: string; kind: "ok" | "warn"; text: string } | null>(null);
-  const [plan, setPlan] = useState<"free" | "paid">("free");
-  const [repEmail, setRepEmail] = useState<string | null>(null);
-  const [dealNudgeMode, setDealNudgeMode] = useState<string>("draft");
-
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-        setPlan((p.data as unknown as { plan?: string })?.plan === "paid" ? "paid" : "free");
-      }
-      const d = await supabase.from("deals").select("rep_email, nudge_mode").eq("id", dealId).single();
-      const row = (d.data ?? {}) as unknown as { rep_email?: string | null; nudge_mode?: string };
-      setRepEmail(row.rep_email ?? null);
-      setDealNudgeMode(row.nudge_mode ?? "draft");
-    })();
-  }, [supabase, dealId]);
-
-  const nudgePayment = async (p: Payment) => {
-    if (plan !== "paid") { setNudgeMsg({ id: p.id, kind: "warn", text: "Reminders are on the paid plan. Chasing this? Go unlimited and Talby writes the follow-up for you." }); return; }
-    if (!repEmail) { setNudgeMsg({ id: p.id, kind: "warn", text: "Add a rep email to prepare this reminder." }); return; }
-    setNudgeBusy(p.id); setNudgeMsg(null);
-    try {
-      const res = await fetch("/api/nudges", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deal_id: dealId, payment_id: p.id, action: "copy" }),
-      });
-      const data = await res.json();
-      if (data.error === "already_paid") {
-        setNudgeMsg({ id: p.id, kind: "ok", text: "This payment is already received, so no reminder is needed." });
-      } else if (data.mode === "copy" && data.body) {
-        setNudgeMsg({ id: p.id, kind: "ok", text: `Reminder copied: ${data.subject}. Paste it into your email client and send it.` });
-      } else {
-        setNudgeMsg({ id: p.id, kind: "warn", text: data.message || data.error || "Could not prepare the reminder." });
-      }
-    } catch {
-      setNudgeMsg({ id: p.id, kind: "warn", text: "Could not reach the reminder service." });
-    }
-    setNudgeBusy(null);
-  };
 
   const add = async () => {
     if (!amount) return;
@@ -851,27 +799,13 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
                 </div>
               </div>
               {p.status !== "received" && (
-                <div className="flex items-center gap-2">
-                  {isPastDue(p.expected_date) && (
-                    <Button size="sm" variant="ghost" onClick={() => nudgePayment(p)} disabled={nudgeBusy === p.id}>
-                      <SendIcon /> {dealNudgeMode === "auto" ? "Reminder status" : "Copy a reminder"}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark as paid</Button>
-                </div>
+                <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark as paid</Button>
               )}
             </div>
-            {nudgeMsg?.id === p.id && (
-              <p className={cn("text-xs mt-1.5", nudgeMsg.kind === "ok" ? "text-paid" : "text-due")}>{nudgeMsg.text}</p>
-            )}
           </li>
         ))}
       </ul>
       {payments.length === 0 && <p className="text-sm text-inksoft py-2">No payments on this deal yet.</p>}
     </div>
   );
-}
-
-function SendIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" /></svg>;
 }

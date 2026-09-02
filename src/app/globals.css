@@ -805,6 +805,62 @@ input[type="range"].zoom::-moz-range-track {
 }
 .backdrop.show { opacity: 1; visibility: visible; }
 
+/* ------- Deals list: stacked mobile layout -------
+   Below 640px a deal is not a table row; it's a stacked block:
+   line 1: brand (full, no truncation) + amount right-aligned
+   line 2: status pill + payment pill
+   line 3: post date + pay by, each with a visible label
+   The desktop 6-column grid only applies at sm and up. */
+.deal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "brand amount"
+    "status payment"
+    "post payby";
+  gap: 6px 16px;
+  align-items: center;
+}
+.deal-row .d-brand { grid-area: brand; min-width: 0; }
+.deal-row .d-brand-name { white-space: normal; overflow: visible; }
+.deal-row .d-amount { grid-area: amount; justify-self: end; }
+.deal-row .d-status { grid-area: status; }
+.deal-row .d-payment { grid-area: payment; justify-self: end; }
+.deal-row .d-post { grid-area: post; }
+.deal-row .d-post::before { content: "Post date · "; color: var(--ink-faint); font-weight: 500; }
+.deal-row .d-payby { grid-area: payby; justify-self: end; }
+.deal-row .d-payby::before { content: "Pay by · "; color: var(--ink-faint); font-weight: 500; }
+
+@media (min-width: 640px) {
+  .deal-row {
+    grid-template-columns: minmax(0,2.2fr) minmax(0,0.8fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.8fr);
+    grid-template-areas: "brand status payment post payby amount";
+    gap: 3px;
+    align-items: center;
+  }
+  .deal-row .d-amount { justify-self: auto; }
+  .deal-row .d-status, .deal-row .d-payment { justify-self: auto; }
+  .deal-row .d-post::before, .deal-row .d-payby::before { content: none; }
+}
+
+/* Hide the decorative brand initial tile on phones — it eats width and
+   truncates the name it's supposed to pair with. */
+@media (max-width: 639px) {
+  .deal-row .d-brand > span:first-child { display: none; }
+  /* keep content clear of the floating assistant + theme buttons */
+  .app-shell .main { padding-bottom: 96px; }
+
+  /* Calendar month grid on phones: fewer cells per row is impossible (7
+     columns), so shrink rows, hide the event text, and render each item as a
+     compact colored dot. Tapping the day still opens its detail sheet. */
+  .calendar-grid { grid-auto-rows: 56px; }
+  .calendar-grid .calpill {
+    padding: 0; width: 8px; height: 8px; border-radius: 999px;
+    background: var(--pill-fg); overflow: hidden;
+  }
+  .calendar-grid .calpill > * { display: none; }
+}
+
 /* ------- Week strip (interactive) ------- */
 .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
 .day {

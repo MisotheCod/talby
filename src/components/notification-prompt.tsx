@@ -21,7 +21,7 @@ import { Button, Spinner } from "@/components/ui";
  *            settings, and offer only Continue. No dead button.
  *
  * Delivery is the standard Notification API: OS-level notifications while the
- * Talby web app is open (the in-app bell covers reminders regardless). It is
+ * Talby web app is open (the in-app bell covers due dates regardless). It is
  * NOT web push (service worker + VAPID), which would be needed to deliver when
  * the browser tab is fully closed.
  */
@@ -54,7 +54,7 @@ export function NotificationPrompt({ onDone }: { onDone: () => void }) {
     try {
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         new Notification("Talby", {
-          body: "Payment reminders and deliverable due dates will land here.",
+          body: "Payment and deliverable due dates will land here.",
         });
         fired = true;
       }
@@ -100,7 +100,7 @@ export function NotificationPrompt({ onDone }: { onDone: () => void }) {
           <>
             <h2 className="text-center font-head font-semibold text-lg tracking-tight">You&apos;re all set</h2>
             <p className="text-center text-muted text-sm mt-2 leading-relaxed">
-              Notifications are on. Payment reminders, due dates, and new deals will reach you without digging for them.
+              Notifications are on. Payment and deliverable due dates will reach you without digging for them.
             </p>
             {macHint && (
               <p className="text-center text-xs text-inksoft mt-3 leading-relaxed">
@@ -115,7 +115,7 @@ export function NotificationPrompt({ onDone }: { onDone: () => void }) {
           <>
             <h2 className="text-center font-head font-semibold text-lg tracking-tight">Notifications are off</h2>
             <p className="text-center text-muted text-sm mt-2 leading-relaxed">
-              Your browser has notifications blocked for talby.io. Re-enable them in your browser&apos;s site settings to get payment reminders and due-date alerts.
+              Your browser has notifications blocked for talby.io. Re-enable them in your browser&apos;s site settings to get payment and due-date alerts.
             </p>
             <div className="mt-6"><Button variant="secondary" className="w-full" onClick={onDone}>Continue</Button></div>
           </>
@@ -124,7 +124,7 @@ export function NotificationPrompt({ onDone }: { onDone: () => void }) {
         {phase === "unsupported" && (
           <>
             <h2 className="text-center font-head font-semibold text-lg tracking-tight">Notifications aren&apos;t supported here</h2>
-            <p className="text-center text-muted text-sm mt-2 leading-relaxed">Your browser doesn&apos;t offer them, so in-app reminders cover due dates and payments.</p>
+            <p className="text-center text-muted text-sm mt-2 leading-relaxed">Your browser doesn&apos;t offer them, so in-app notifications cover due dates and payments.</p>
             <div className="mt-6"><Button className="w-full" onClick={onDone}>Continue</Button></div>
           </>
         )}
@@ -133,7 +133,7 @@ export function NotificationPrompt({ onDone }: { onDone: () => void }) {
           <>
             <h2 className="text-center font-head font-semibold text-lg tracking-tight">Turn on notifications</h2>
             <p className="text-center text-muted text-sm mt-2 leading-relaxed">
-              Get notified of payment reminders and deliverable due dates.
+              Get notified of payment and deliverable due dates.
             </p>
             <div className="mt-6 space-y-2.5">
               <Button className="w-full" onClick={ask} disabled={phase === "pending"}>

@@ -68,14 +68,8 @@ export default function PrivacyPage() {
 
         <section className="space-y-2">
           <p className="text-muted text-sm leading-relaxed">
-            <strong>Payment reminders:</strong> Talby drafts payment-follow-up emails on your behalf using
-            your templates, so you can copy them or open them in your own email app. Talby does not send
-            email directly; only you can send a reminder, from your own mailbox. We store the drafted text
-            until you act on it or dismiss it.
-          </p>
-          <p className="text-muted text-sm leading-relaxed">
-            We never sell your email data. Access is used only for the purposes described here and you can
-            remove any drafted reminders at any time.
+            Talby never sells your data. Access to your information is used only to provide the service, and
+            you can remove any deal, payment, or drafted content at any time.
           </p>
         </section>
 

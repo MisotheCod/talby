@@ -25,11 +25,6 @@ type Content = {
 };
 type Todo = { id: string; title: string; done: boolean; due_date: string | null };
 type CalendarNote = { id: string; body: string; event_date: string; done: boolean };
-type Reminder = {
-  id: string; subject: string; body: string; rep_email: string | null;
-  payment_id: string; deal_id: string; status: string;
-  deal?: { brand: string } | null;
-};
 
 const FILTERS = ["Active", "Unpaid", "Paid", "All"] as const;
 
@@ -64,7 +59,6 @@ export default function OverviewPage() {
   const [content, setContent] = useState<Content[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [notes, setNotes] = useState<CalendarNote[]>([]);
-  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [plan, setPlan] = useState<"free" | "paid">("free");
@@ -84,20 +78,18 @@ export default function OverviewPage() {
       setPlan((row?.plan ?? "free") as "free" | "paid");
     }
     // All data for the week + payments + deals, user-scoped via RLS.
-    const [d, pay, c, t, n, rem] = await Promise.all([
+    const [d, pay, c, t, n] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       supabase.from("payments").select("*, deal:deals(brand)").order("expected_date", { ascending: true }),
       supabase.from("content").select("*").order("event_date", { ascending: true }),
       supabase.from("todos").select("*").not("due_date", "is", null),
       supabase.from("notes").select("id, body, event_date, done").not("event_date", "is", null),
-      supabase.from("nudges").select("id, subject, body, rep_email, payment_id:payments(id, deal:deals(brand)), deal_id").eq("status", "ready").order("created_at", { ascending: false }),
     ]);
     setDeals(d.data ?? []);
     setPayments(pay.data ?? []);
     setContent(c.data ?? []);
     setTodos((t.data ?? []) as unknown as Todo[]);
     setNotes((n.data ?? []) as unknown as CalendarNote[]);
-    setReminders((rem.data ?? []) as unknown as Reminder[]);
     setLoading(false);
   }, [supabase]);
 
@@ -211,7 +203,7 @@ export default function OverviewPage() {
     // dated to-dos (both pending and done — done stay visible, struck+dimmed)
     todos.filter((t) => t.due_date === iso)
       .forEach((t) => items.push({ t: "todo", n: t.title, done: t.done }));
-    // dated notes/reminders (done stay visible, struck+dimmed)
+    // dated notes/todos (done stay visible, struck+dimmed)
     notes.filter((n) => n.event_date === iso)
       .forEach((n) => items.push({ t: "note", n: n.body, done: n.done }));
     return items;
@@ -364,25 +356,6 @@ export default function OverviewPage() {
               timeline.map((p) => <PayRow key={p.id} p={p} />)
             )}
           </div>
-
-          {/* Needs a nudge — drafted reminders ready to copy or send */}
-          {reminders.length > 0 && (
-            <div className="rcard anim">
-              <div className="flex items-center justify-between mb-[15px]">
-                <h3 className="font-head text-[15px] font-bold">Needs a nudge</h3>
-                <Link href="/app/payments" className="text-xs text-accentink font-medium no-underline">Review</Link>
-              </div>
-              <div className="space-y-2">
-                {reminders.slice(0, 4).map((r) => (
-                  <div key={r.id} className="flex items-center gap-2.5">
-                    <Pill size="sm" source="var(--due)" className="px-2 py-0.5">NUDGE</Pill>
-                    <span className="flex-1 min-w-0 truncate text-[13px]">{r.subject}</span>
-                    <Link href={`/app/payments?reminder=${r.id}`} className="text-xs text-accentink font-medium no-underline shrink-0">Send</Link>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

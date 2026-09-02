@@ -23,8 +23,3 @@ export const EMBED_DIMENSIONS = 1536;
 
 /** Notion API version header (public). */
 export const NOTION_VERSION = "2022-06-28";
-
-/** Nudge engine defaults (overridable per user in Settings). */
-export const DEFAULT_NUDGE_DAYS_OVERDUE = 3;
-export const DEFAULT_NUDGE_CADENCE_DAYS = 6;
-export const DEFAULT_NUDGE_MAX_COUNT = 3;

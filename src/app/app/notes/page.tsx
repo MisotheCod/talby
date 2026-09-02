@@ -137,8 +137,15 @@ function CreateTaskPopover({ onClose, onSaved, position }: { onClose: () => void
 
   return (
     <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="fixed w-[380px] max-w-[90vw] bg-card border border-line2 rounded-2xl shadow-pop p-5 fade-up z-50" style={{ right: position.right, top: position.top }} onClick={(e) => e.stopPropagation()} role="dialog">
+      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
+      {/* On phones a centered sheet pinned inside the viewport; on desktop it
+          anchors near the "+" button. Never renders off-screen. */}
+      <div
+        className="fixed z-50 bg-card border border-line2 rounded-2xl shadow-pop p-5 fade-up w-[380px] max-w-[calc(100vw-2rem)] inset-x-4 sm:inset-x-auto mx-auto top-1/2 sm:top-auto -translate-y-1/2 sm:translate-y-0"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold">Create task</h3>
           <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={16} /></button>

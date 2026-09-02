@@ -262,8 +262,8 @@ export function AppShell({
           </button>
           <span className="tt">{pageTitle}</span>
           <div className="flex items-center gap-1">
-            <NotificationBell />
             <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
+            <NotificationBell />
           </div>
         </div>
         <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
