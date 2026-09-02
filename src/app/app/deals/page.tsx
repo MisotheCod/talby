@@ -688,16 +688,19 @@ function NotesTab({ dealId, deal, onSaved }: { dealId: string; deal: Deal; onSav
   const supabase = createClient();
   const [notes, setNotes] = useState(deal.notes ?? "");
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const save = async () => {
     setSaving(true);
     await supabase.from("deals").update({ notes }).eq("id", dealId);
     setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
     onSaved();
   };
   return (
     <div className="space-y-3">
       <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add notes about this deal…" className="min-h-[160px]" />
-      <div className="flex justify-end"><Button onClick={save} disabled={saving}>{saving ? <Spinner /> : "Save notes"}</Button></div>
+      <div className="flex justify-end"><Button onClick={save} disabled={saving}>{saving ? <Spinner /> : saved ? <span className="flex items-center gap-1.5"><IconCheck size={15} /> Saved</span> : "Save notes"}</Button></div>
     </div>
   );
 }
