@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, isPastDue, cn } from "@/lib/utils";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { IconPlus, IconMore, IconCheck } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 
@@ -79,6 +80,7 @@ export default function PaymentsPage() {
   const [range, setRange] = useState<Range>("month");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   /* Close ⋮ menu on outside click */
   useEffect(() => {
@@ -255,7 +257,14 @@ export default function PaymentsPage() {
 
   /* ---------- actions ---------- */
   const markReceived = async (id: string) => {
-    await supabase.from("payments").update({ status: "received" }).eq("id", id);
+    // Marking a payment received means an invoice was (at least) sent — being
+    // paid necessarily follows an invoice. Persist that so a received row never
+    // shows the "Not invoiced" fallback. Preserve an explicit no-invoice-needed.
+    const target = payments.find((p) => p.id === id);
+    const nextInv = (target?.invoice_state ?? null) === "no_invoice_needed"
+      ? "no_invoice_needed"
+      : "invoiced";
+    await supabase.from("payments").update({ status: "received", invoice_state: nextInv }).eq("id", id);
     setMenuOpen(null);
     load();
   };
@@ -337,10 +346,10 @@ export default function PaymentsPage() {
         {listItems.length === 0 ? (
           <p className="text-sm text-muted text-center py-10">No payments yet.</p>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-6 pb-16 sm:pb-0">
             {listItems.map((group) => (
               <div key={group.month}>
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">{group.label}</div>
+                <div className={cn("text-xs font-semibold uppercase tracking-wider text-muted mb-2", isMobile ? "pl-4" : "")}>{group.label}</div>
                 <div className="card divide-y divide-line">
                   {group.payments.map((p) => {
                     const st = rowsStatus(p);
@@ -349,50 +358,81 @@ export default function PaymentsPage() {
                     const isInvOverdue = st === "invoice_overdue";
                     const day = p.expected_date ? Number(p.expected_date.slice(8)) : null;
                     return (
-                      <div key={p.id} className="flex items-center gap-3 px-5 py-3">
-                        <span className={cn("w-8 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast || isInvOverdue ? "text-late" : "text-ink")}>
-                          {day ?? "–"}
-                        </span>
-                        <span className={cn("flex-1 min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>
-                          {p.deal?.brand ?? "Payment"}
-                        </span>
-                        <span className="shrink-0">
-                          {isRecv ? (
-                            <StatusPill size="sm" kind="paid">Paid</StatusPill>
-                          ) : isPast ? (
-                            <StatusPill size="sm" kind="late">Past due</StatusPill>
-                          ) : isInvOverdue ? (
-                            <StatusPill size="sm" kind="late">Invoice overdue</StatusPill>
-                          ) : (
-                            <StatusPill size="sm" kind="due">Expected</StatusPill>
-                          )}
-                        </span>
-                        <span className="shrink-0">
-                          <StatusPill size="sm" kind={invoiceKind(p.invoice_state)}>{invoiceLabel(p.invoice_state)}</StatusPill>
-                        </span>
-                        <span className={cn("shrink-0 text-sm font-semibold tabular-nums w-20 text-right", isRecv ? "text-ok" : "text-ink")}>
-                          {formatMoney(p.amount)}
-                        </span>
-                        {!isRecv && (
-                          <div className="relative shrink-0">
-                            <button onClick={() => setMenuOpen(menuOpen === p.id ? null : p.id)} aria-label="Actions" className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-card2 cursor-pointer">
-                              <IconMore size={16} />
-                            </button>
-                            {menuOpen === p.id && (
-                              <div ref={menuRef} className="absolute right-0 top-7 z-20 w-48 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up">
-                                <button onClick={() => setInvoice(p.id, "invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">Mark invoiced</button>
-                                <button onClick={() => setInvoice(p.id, "not_invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer" disabled={(p.invoice_state ?? "not_invoiced") === "not_invoiced"}>Mark not invoiced</button>
-                                <button onClick={() => setInvoice(p.id, "no_invoice_needed")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">No invoice needed</button>
-                                <div className="my-1 h-px bg-line" />
-                                <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
-                                  <IconCheck size={14} /> Mark as paid
-                                </button>
-                              </div>
-                            )}
+                      <div key={p.id}>
+                        {isMobile ? (
+                          /* --- Mobile: stacked block ---
+                             Line 1: day · brand (full, no truncation) · menu · amount (bold mono, right)
+                             Line 2: status pills were built below, so the brand must not truncate. */
+                          <div className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className={cn("w-7 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast || isInvOverdue ? "text-late" : "text-ink")}>
+                                {day ?? "–"}
+                              </span>
+                              <span className={cn("flex-1 min-w-0 text-sm leading-snug", isRecv ? "text-muted" : "font-medium")}>
+                                {p.deal?.brand ?? "Payment"}
+                              </span>
+                              <span className={cn("shrink-0 money text-[15px] font-semibold tabular-nums", isRecv ? "text-ok" : "text-ink")}>
+                                {formatMoney(p.amount)}
+                              </span>
+                              {!isRecv && <div className="relative shrink-0">{(renderMenu())}</div>}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5 pl-9">
+                              {renderStatusPills()}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3 px-5 py-3">
+                            <span className={cn("w-8 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast || isInvOverdue ? "text-late" : "text-ink")}>
+                              {day ?? "–"}
+                            </span>
+                            <span className={cn("flex-1 min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>
+                              {p.deal?.brand ?? "Payment"}
+                            </span>
+                            {renderStatusPills()}
+                            <span className={cn("shrink-0 text-sm font-semibold tabular-nums w-20 text-right", isRecv ? "text-ok" : "text-ink")}>
+                              {formatMoney(p.amount)}
+                            </span>
+                            {!isRecv && <div className="relative shrink-0">{(renderMenu())}</div>}
                           </div>
                         )}
                       </div>
                     );
+                    function renderStatusPills() {
+                      return (
+                        <>
+                          <span className="shrink-0">{renderStatusPill()}</span>
+                          <span className="shrink-0">
+                            <StatusPill size="sm" kind={invoiceKind(p.invoice_state)}>{invoiceLabel(p.invoice_state)}</StatusPill>
+                          </span>
+                        </>
+                      );
+                    }
+                    function renderStatusPill() {
+                      return isRecv ? <StatusPill size="sm" kind="paid">Paid</StatusPill>
+                        : isPast ? <StatusPill size="sm" kind="late">Past due</StatusPill>
+                        : isInvOverdue ? <StatusPill size="sm" kind="late">Invoice overdue</StatusPill>
+                        : <StatusPill size="sm" kind="due">Expected</StatusPill>;
+                    }
+                    function renderMenu() {
+                      return (
+                        <>
+                          <button onClick={() => setMenuOpen(menuOpen === p.id ? null : p.id)} aria-label="Actions" className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-card2 cursor-pointer">
+                            <IconMore size={16} />
+                          </button>
+                          {menuOpen === p.id && (
+                            <div ref={menuRef} className="absolute right-0 top-7 z-20 w-48 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up">
+                              <button onClick={() => setInvoice(p.id, "invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">Mark invoiced</button>
+                              <button onClick={() => setInvoice(p.id, "not_invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer" disabled={(p.invoice_state ?? "not_invoiced") === "not_invoiced"}>Mark not invoiced</button>
+                              <button onClick={() => setInvoice(p.id, "no_invoice_needed")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">No invoice needed</button>
+                              <div className="my-1 h-px bg-line" />
+                              <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
+                                <IconCheck size={14} /> Mark as paid
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      );
+                    }
                   })}
                 </div>
               </div>

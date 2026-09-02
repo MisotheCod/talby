@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
 import { Button, Input, Select, Spinner, Textarea, Pill, Segmented } from "@/components/ui";
 
@@ -55,18 +56,6 @@ const MOBILE_DOT_COLORS: Record<string, string> = {
   pay: "var(--paid)",
   due: "var(--late)",
 };
-
-function useIsMobile() {
-  const [mobile, setMobile] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-    const update = () => setMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return mobile;
-}
 
 // Map a content item to its mobile event type: delivered/published posts are the
 // deliverable DUE; everything else scheduled is a POST.
