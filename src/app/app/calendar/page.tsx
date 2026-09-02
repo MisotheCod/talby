@@ -270,7 +270,7 @@ export default function CalendarPage() {
                 <button onClick={prevMonth} aria-label="Previous month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer">‹</button>
                 <button onClick={nextMonth} aria-label="Next month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer">›</button>
               </div>
-              <Button onClick={() => openDay()} className="h-9 ml-auto text-[13px]"><IconPlus size={15} /> + Add</Button>
+              <Button onClick={() => openDay()} className="h-9 ml-auto text-[13px]"><IconPlus size={15} /> Add</Button>
             </div>
           </div>
         ) : (
