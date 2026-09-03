@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -53,22 +54,8 @@ export default function DealsPage() {
   const PAGE_SIZE = 10;
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
   const [rowMenu, setRowMenu] = useState<string | null>(null);
-
-  // ⋯ row menu: close on outside click (mouse + touch) and Escape, desktop + mobile.
-  const rowMenuRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!rowMenu) return;
-    const close = () => setRowMenu(null);
-    const onDoc = (e: MouseEvent | TouchEvent) => {
-      if (rowMenuRef.current && rowMenuRef.current.contains(e.target as Node)) return;
-      setRowMenu(null);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setRowMenu(null); };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("touchstart", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("touchstart", onDoc); document.removeEventListener("keydown", onKey); };
-  }, [rowMenu]);
+  // Only one row menu is open at a time; dismissal (outside click, Escape) is
+  // handled inside the portal RowMenuButton component.
 
   const loadDeals = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -293,7 +280,7 @@ export default function DealsPage() {
         <>
           <div className="panel overflow-hidden">
             {/* Column headers */}
-            <div className="hidden sm:grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_26px] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
+            <div className="hidden sm:grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_32px] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
               <span>Brand</span>
               <span>Status</span>
               <span>Payment</span>
@@ -329,25 +316,16 @@ export default function DealsPage() {
                     {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
                   </span>
                   <span className="d-amount money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
-                  {/* Dedicated overflow-menu column: never overlaps the amount */}
-                  <span className="d-menu relative" ref={rowMenu === d.id ? rowMenuRef : undefined} onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => setRowMenu(rowMenu === d.id ? null : d.id)}
-                      aria-label="Deal actions"
-                      aria-expanded={rowMenu === d.id}
-                      className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"
-                    >
-                      <IconMore size={16} />
-                    </button>
-                    {rowMenu === d.id && (
-                      <div className="absolute right-0 top-8 z-30 w-44 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up text-sm">
-                        <button onClick={() => setArchived(d, d.status !== "archived")} className="w-full text-left px-3.5 py-2 hover:bg-card2 cursor-pointer">
-                          {d.status === "archived" ? "Unarchive" : "Archive"}
-                        </button>
-                        <div className="my-1 h-px bg-line" />
-                        <button onClick={() => setDeleteTarget(d)} className="w-full text-left px-3.5 py-2 text-late hover:bg-card2 cursor-pointer">Delete deal</button>
-                      </div>
-                    )}
+                  {/* Dedicated overflow-menu column: one button, its own grid area. The dropdown
+                      itself renders in a portal to escape the table's overflow. */}
+                  <span className="d-menu relative">
+                    <RowMenuButton
+                      open={rowMenu === d.id}
+                      onToggle={() => setRowMenu(rowMenu === d.id ? null : d.id)}
+                      current={d}
+                      onArchive={(archived) => setArchived(d, archived)}
+                      onDelete={() => setDeleteTarget(d)}
+                    />
                   </span>
                 </div>
               </div>
@@ -838,6 +816,79 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
         <IconCheck size={13} className="text-paid" /> Saved
       </div>
     </div>
+  );
+}
+
+/* ---------------- Row overflow menu (portal) ----------------
+   Renders the ⋯ trigger in its own grid column. The dropdown itself is portal'd
+   to document.body so it escapes the table's overflow:hidden container, and is
+   positioned from the trigger's rect with collision handling: opens below, flips
+   up when there isn't room below. Dismisses on outside click / touch and Escape. */
+function RowMenuButton({ open, onToggle, current, onArchive, onDelete }: {
+  open: boolean; onToggle: () => void; current: Deal;
+  onArchive: (archived: boolean) => void; onDelete: () => void;
+}) {
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number; up: boolean } | null>(null);
+
+  // Position the portal'd menu when opened, based on the trigger's rect.
+  useEffect(() => {
+    if (!open || !btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    const W = 176, MENU_H = 132; // trigger height approx; flip if < space below
+    const spaceBelow = window.innerHeight - r.bottom - 8;
+    const up = spaceBelow < MENU_H && r.top > MENU_H + 8;
+    // Right-align to the trigger's right edge; clamp to viewport.
+    const x = Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8));
+    const y = up ? r.top - MENU_H - 4 : r.bottom + 4;
+    setPos({ x, y, up });
+  }, [open]);
+
+  // Outside click / touch + Escape dismiss.
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent | TouchEvent) => {
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      onToggle();
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onToggle(); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("touchstart", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open, onToggle]);
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={(e) => { e.stopPropagation(); onToggle(); }}
+        aria-label="Deal actions"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"
+      >
+        <IconMore size={16} />
+      </button>
+      {open && pos && createPortal(
+        <div
+          ref={menuRef}
+          role="menu"
+          className="fixed z-[95] w-44 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up text-sm"
+          style={{ left: pos.x, top: pos.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button onClick={() => { onToggle(); onArchive(current.status !== "archived"); }} className="w-full text-left px-3.5 py-2 hover:bg-card2 cursor-pointer">
+            {current.status === "archived" ? "Unarchive" : "Archive"}
+          </button>
+          <div className="my-1 h-px bg-line" />
+          <button onClick={() => { onToggle(); onDelete(); }} className="w-full text-left px-3.5 py-2 text-late hover:bg-card2 cursor-pointer">Delete deal</button>
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 

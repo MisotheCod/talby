@@ -812,7 +812,7 @@ input[type="range"].zoom::-moz-range-track {
    The desktop 6-column grid only applies at sm and up. */
 .deal-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   grid-template-areas:
     "brand amount menu"
     "status payment ."
@@ -833,7 +833,7 @@ input[type="range"].zoom::-moz-range-track {
 
 @media (min-width: 640px) {
   .deal-row {
-    grid-template-columns: minmax(0,2.2fr) minmax(0,0.8fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.8fr) 26px;
+    grid-template-columns: minmax(0,2.2fr) minmax(0,0.8fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.8fr) 32px;
     grid-template-areas: "brand status payment post payby amount menu";
     gap: 3px;
     align-items: center;
