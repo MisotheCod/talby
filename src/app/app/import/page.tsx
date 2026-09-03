@@ -41,6 +41,10 @@ export default function ImportPage() {
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [sourceName, setSourceName] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState(0);
+  // True when the user arrived here with a file already chosen (the add-deal
+  // upload modal stashes the CSV in sessionStorage and lands us here). That
+  // entry point has no source/upload steps behind it — it is forward-only.
+  const [enteredWithFile, setEnteredWithFile] = useState(false);
 
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [items, setItems] = useState<ImportItem[]>([]);
@@ -83,6 +87,7 @@ export default function ImportPage() {
     setSourceName(stored.length === 1 ? stored[0].name.replace(/\.csv$/i, "") : `${stored.length} CSV files`);
     setUploadedFiles(stored.length);
     setStep("columns");
+    setEnteredWithFile(true); // arrived with a file already chosen → forward-only
     setMapping({});
     setItems([]);
   };
@@ -99,6 +104,8 @@ export default function ImportPage() {
 
   const back = () => {
     if (done) { router.push("/app/deals"); return; }
+    // Forward-only entry (file already chosen): there is no step behind us.
+    if (enteredWithFile) { router.push("/app/deals"); return; }
     if (step === "source") { router.push("/app/deals"); return; }
     if (step === "notion") { resetUpload(); setSource(null); setStep("source"); return; }
     if (step === "upload") { resetUpload(); setSource(null); setStep("source"); return; }
@@ -108,6 +115,14 @@ export default function ImportPage() {
   };
 
   const resetUpload = () => { setColumns([]); setRows([]); setSourceName(""); setUploadedFiles(0); };
+
+  // Path-appropriate heading. "Import" is Notion-only; the file/upload path is
+  // "Upload". The Source picker (no choice yet) is called what it is: a picker.
+  const heading = () => {
+    if (done) return "Done";
+    if (step === "source") return "Add deals";
+    return source === "notion" ? "Import deals" : "Upload deals";
+  };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
@@ -375,21 +390,28 @@ export default function ImportPage() {
 
   return (
     <div className="fade-up">
-      {/* Top bar with back */}
-      <div className="flex items-center gap-1 mb-8">
-        <button onClick={back} className="flex items-center gap-2 text-sm text-inksoft hover:text-ink px-2 py-1.5 rounded-lg hover:bg-card2 cursor-pointer">
-          <IconArrowLeft size={16} /> {done ? "Back to deals" : step === "source" ? "Back to deals" : "Back"}
-        </button>
-        <h1 className="text-[22px] font-semibold tracking-tight pl-2">Import deals</h1>
-      </div>
+      {/* Top bar with back (hidden on the forward-only upload entry) */}
+      {!enteredWithFile && (
+        <div className="flex items-center gap-1 mb-8">
+          <button onClick={back} className="flex items-center gap-2 text-sm text-inksoft hover:text-ink px-2 py-1.5 rounded-lg hover:bg-card2 cursor-pointer">
+            <IconArrowLeft size={16} /> {done ? "Back to deals" : step === "source" ? "Back to deals" : "Back"}
+          </button>
+          <h1 className="text-[22px] font-semibold tracking-tight pl-2">{heading()}</h1>
+        </div>
+      )}
+      {enteredWithFile && !done && (
+        <h1 className="text-[22px] font-semibold tracking-tight mb-8">{heading()}</h1>
+      )}
 
-      {/* Stepper (shows only the active path's steps) */}
-      <Stepper current={step} source={source} />
+      {/* Stepper: only on the Notion path where it shows real progress. The upload
+          path is forward-only from detected rows, so a Source/Upload/Columns chain
+          would show one stale chip — worse than none. */}
+      {source === "notion" && !done && <Stepper current={step} source={source} />}
 
       {done && (
         <div className="panel p-12 text-center">
           <div className="h-12 w-12 rounded-2xl bg-paid text-white grid place-items-center mx-auto"><IconCheck size={24} /></div>
-          <h2 className="text-lg font-semibold mt-4">Deals imported</h2>
+          <h2 className="text-lg font-semibold mt-4">{source === "notion" ? "Deals imported" : "Deals added"}</h2>
           <p className="text-sm text-inksoft mt-1">
             {importSummary ? (
               <>
@@ -402,7 +424,18 @@ export default function ImportPage() {
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link href="/app/deals"><Button>View deals</Button></Link>
-            <Button variant="secondary" onClick={() => { setDone(false); resetUpload(); setSource(null); setStep("source"); }}>Import more</Button>
+            <Button variant="secondary" onClick={() => {
+              setDone(false); resetUpload();
+              if (enteredWithFile) {
+                // Forward-only upload entry: a fresh import still skips the
+                // source picker and goes straight to choosing a file.
+                setSource("csv"); setStep("upload");
+              } else {
+                setSource(null); setStep("source");
+              }
+            }}>
+              {source === "notion" ? "Import more" : "Upload more"}
+            </Button>
           </div>
         </div>
       )}
@@ -444,6 +477,7 @@ export default function ImportPage() {
           importing={importing}
           importError={importError}
           plan={plan}
+          actionLabel={source === "notion" ? "Import" : "Add"}
         />
       )}
 
@@ -669,7 +703,7 @@ function UploadStep({ onFile, fileRef, uploadedFiles }: { onFile: (e: React.Chan
         </div>
       ) : (
         <div className="mt-3 text-center">
-          <span className="text-[12px] text-inkfaint">This is a bulk import, not a single contract. Expect these columns: brand, value, status, due date, deliverable…</span>
+          <span className="text-[12px] text-inkfaint">This is a bulk spreadsheet, not a single contract. Expect these columns: brand, value, status, due date, deliverable…</span>
         </div>
       )}
       <input ref={fileRef} type="file" multiple accept=".csv,text/csv" className="hidden" onChange={onFile} />
@@ -710,12 +744,12 @@ function MappingLoading({ error, onRetry }: { error: string; onRetry: () => void
 }
 
 function ReviewStep({
-  mapping, items, lowCount, selCount, onToggle, onEdit, onEditDest, onImport, importing, importError, plan,
+  mapping, items, lowCount, selCount, onToggle, onEdit, onEditDest, onImport, importing, importError, plan, actionLabel = "Import",
 }: {
   mapping: Record<string, string>; items: ImportItem[]; lowCount: number; selCount: number;
   onToggle: (i: number, s: boolean) => void; onEdit: (i: number, f: keyof MapRow, v: string) => void;
   onEditDest: (i: number, dest: "content" | "payment", field: string, v: string) => void;
-  onImport: () => void; importing: boolean; importError: string; plan: "free" | "paid";
+  onImport: () => void; importing: boolean; importError: string; plan: "free" | "paid"; actionLabel?: string;
 }) {
   return (
     <div>
@@ -797,7 +831,7 @@ function ReviewStep({
       <div className="flex items-center justify-between">
         <span className="text-sm text-inksoft">{selCount} of {items.length} selected</span>
         <Button onClick={onImport} disabled={importing || selCount === 0}>
-          {importing ? <Spinner /> : null} Import {selCount} deal{selCount === 1 ? "" : "s"}
+          {importing ? <Spinner /> : null} {actionLabel} {selCount} deal{selCount === 1 ? "" : "s"}
         </Button>
       </div>
     </div>
