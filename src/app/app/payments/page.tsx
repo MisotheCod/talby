@@ -81,6 +81,7 @@ export default function PaymentsPage() {
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const [mutating, setMutating] = useState(false);
 
   /* Close ⋮ menu on outside click */
   useEffect(() => {
@@ -257,6 +258,8 @@ export default function PaymentsPage() {
 
   /* ---------- actions ---------- */
   const markReceived = async (id: string) => {
+    if (mutating) return;
+    setMutating(true);
     // Marking a payment received means an invoice was (at least) sent — being
     // paid necessarily follows an invoice. Persist that so a received row never
     // shows the "Not invoiced" fallback. Preserve an explicit no-invoice-needed.
@@ -265,11 +268,15 @@ export default function PaymentsPage() {
       ? "no_invoice_needed"
       : "invoiced";
     await supabase.from("payments").update({ status: "received", invoice_state: nextInv }).eq("id", id);
+    setMutating(false);
     setMenuOpen(null);
     load();
   };
   const setInvoice = async (id: string, state: string) => {
+    if (mutating) return;
+    setMutating(true);
     await supabase.from("payments").update({ invoice_state: state }).eq("id", id);
+    setMutating(false);
     setMenuOpen(null);
     load();
   };

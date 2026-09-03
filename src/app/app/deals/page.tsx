@@ -587,10 +587,15 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const notFullyPaid = deal.payment_status !== "paid" && deal.status !== "paid";
   const hasChargeableValue = !!payments.some((p) => p.status !== "received") || (deal.value !== null && deal.value > 0);
   const showMarkPaid = notFullyPaid && hasChargeableValue;
+  const [marking, setMarking] = useState(false);
 
   const markAllPaid = async () => {
-    await supabase.from("payments").update({ status: "received" }).eq("deal_id", deal.id);
+    if (marking) return;
+    setMarking(true);
+    const { error } = await supabase.from("payments").update({ status: "received" }).eq("deal_id", deal.id);
     await supabase.from("deals").update({ payment_status: "paid", status: "active", active: true }).eq("id", deal.id);
+    setMarking(false);
+    if (error) return;
     setPayments(payments.map((p) => ({ ...p, status: "received" })));
     onUpdated();
     onCelebrate?.();
@@ -614,10 +619,11 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
           {showMarkPaid && (
             <Button
               onClick={markAllPaid}
+              disabled={marking}
               size="lg"
               className="mt-3 w-full"
             >
-              <IconCheck size={16} /> Mark as paid
+              {marking ? <Spinner /> : <IconCheck size={16} />} {marking ? "Marking as paid…" : "Mark as paid"}
             </Button>
           )}
           {(deal.links as { url: string; label?: string }[] ?? []).filter((l) => /^From inbox/.test(l.label || "")).map((l, i) => (
@@ -865,17 +871,27 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
   const supabase = createClient();
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   const add = async () => {
-    if (!amount) return;
+    if (!amount || adding) return;
+    setAdding(true); setError("");
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: Number(amount), expected_date: date || null, invoice_state: "not_invoiced" }).select().single();
+    if (!user) { setError("Not signed in."); setAdding(false); return; }
+    const { data, error: err } = await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: Number(amount), expected_date: date || null, invoice_state: "not_invoiced" }).select().single();
+    setAdding(false);
+    if (err) { setError(err.message); return; }
     if (data) { setPayments([data as unknown as Payment, ...payments]); setAmount(""); setDate(""); onChanged(); }
   };
   const markReceived = async (id: string) => {
-    await supabase.from("payments").update({ status: "received" }).eq("id", id);
-    setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received" } : p)));
+    if (markingId) return;
+    setMarkingId(id); setError("");
+    const { error: err } = await supabase.from("payments").update({ status: "received", invoice_state: "invoiced" }).eq("id", id);
+    setMarkingId(null);
+    if (err) { setError(err.message); return; }
+    setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received", invoice_state: "invoiced" } : p)));
     onChanged();
     onCelebrate?.();
   };
@@ -889,7 +905,8 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
         <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount" />
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
-      <Button onClick={add} className="w-full"><IconPlus size={16} /> Add payment</Button>
+      {error && <p className="text-sm text-bad" role="alert">{error}</p>}
+      <Button onClick={add} disabled={adding} className="w-full">{adding ? <Spinner /> : <IconPlus size={16} />} {adding ? "Adding…" : "Add payment"}</Button>
       <ul className="space-y-2">
         {payments.map((p) => (
           <li key={p.id} className="py-2 border-b border-line last:border-0">
@@ -916,7 +933,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
                 </div>
               </div>
               {p.status !== "received" && (
-                <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark as paid</Button>
+                <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)} disabled={markingId === p.id}>{markingId === p.id ? <Spinner /> : <IconCheck size={14} />} {markingId === p.id ? "Marking…" : "Mark as paid"}</Button>
               )}
             </div>
           </li>

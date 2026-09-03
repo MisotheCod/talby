@@ -13,7 +13,7 @@ import {
 } from "@/components/deal-form";
 import { useCelebration } from "@/components/confetti";
 
-type ContractDraft = DealFormValues & { __name?: string; __auto?: (keyof DealFormValues)[]; __flags?: DealFlag[]; __file?: File; __text?: string };
+type ContractDraft = DealFormValues & { __name?: string; __auto?: (keyof DealFormValues)[]; __flags?: DealFlag[]; __file?: File; __text?: string; __key?: string };
 
 /**
  * Unified Upload modal. Opens with ONLY a dropzone (never auto-opens the native
@@ -142,16 +142,27 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
         notes: d.notes.trim() || null,
         active: d.status !== "archived",
       };
-      const { data: created, error: insErr } = await supabase.from("deals").insert({ user_id: user.id, brand: d.brand.trim(), ...payload }).select("id").single();
-      if (insErr) { setError(insErr.message); break; }
-      // Persist each contract into its deal's Files tab (paid tier only).
-      if (plan === "paid" && (d.__file as File | undefined)) {
-        const createdId = (created as unknown as { id?: string } | null)?.id;
-        if (createdId) {
+      // Server-side create with a per-draft idempotency key so a retried batch
+      // (double-click / slow network) cannot double-create any deal in the queue.
+      const key = d.__key || (d.__key = (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : String(Date.now() + "-" + Math.random()));
+      let createdId: string | null = null;
+      try {
+        const res = await fetch("/api/deals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brand: d.brand.trim(), payload, idempotencyKey: key, text: d.__text?.trim() || undefined }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setError(data?.error || "Could not add one of the deals."); break; }
+        createdId = (data?.deal as { id?: string } | undefined)?.id ?? null;
+        const isDup = data?.duplicate === true;
+        // Persist each contract into its deal's Files tab (paid tier only) — only
+        // on the FIRST insert of that key; a retried batch already saved it.
+        if (plan === "paid" && (d.__file as File | undefined) && createdId && !isDup) {
           const path = `${user.id}/${createdId}/${Date.now()}-${d.__file!.name}`;
           await supabase.storage.from("deal-files").upload(path, d.__file!);
           await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: d.__file!.name, path, size_bytes: d.__file!.size, mime: d.__file!.type });
-          // Ingest the extracted contract text for assistant Q&A.
+          // Ingest the extracted contract text for assistant Q&A (server-side).
           if (d.__text?.trim()) {
             try {
               await fetch("/api/assistant/ingest", {
@@ -161,7 +172,11 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
             } catch { /* non-fatal; deal already saved */ }
           }
         }
+      } catch {
+        setError("Could not reach the server. Nothing was added.");
+        break;
       }
+      if (!createdId) { setError("Could not add one of the deals."); break; }
       added++;
     }
     setSaving(false);

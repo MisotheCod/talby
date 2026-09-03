@@ -143,6 +143,10 @@ export function DealForm({
 }) {
   const supabase = createClient();
   const [v, setV] = useState<DealFormValues>(initial);
+  const [busy, setBusy] = useState(false);
+  // Idempotency key generated once per form mount — a retried/double submit
+  // reuses it, so the server returns the already-created deal instead of a dup.
+  const idemKey = useRef<string>(typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Date.now() + Math.random())).current;
   const [savedFlash, setSavedFlash] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
@@ -193,6 +197,7 @@ export function DealForm({
   };
 
   const doSubmit = async () => {
+    if (busy) return; // double-submit guard on the client too
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError("Not signed in."); return; }
 
@@ -214,23 +219,30 @@ export function DealForm({
     const srcFile = contractFile || stagedFile;
     if (mode === "create") {
       if (onDraftSave) { onDraftSave(v); return; }
-      const { data: created, error } = await supabase.from("deals").insert({ user_id: user.id, brand: v.brand.trim(), ...payload }).select("id").single();
-      if (error) { setError(error.message); return; }
-      const createdId = (created as unknown as { id?: string } | null)?.id;
-      if (plan === "paid" && srcFile && createdId) {
-        const path = `${user.id}/${createdId}/${Date.now()}-${srcFile.name}`;
-        await supabase.storage.from("deal-files").upload(path, srcFile);
-        await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: srcFile.name, path, size_bytes: srcFile.size, mime: srcFile.type });
-      }
-      // Ingest the extracted contract text for assistant Q&A (server-side chunk+embed).
-      if (plan === "paid" && createdId && stagedText.trim()) {
-        try {
-          await fetch("/api/assistant/ingest", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ dealId: createdId, text: stagedText }),
-          });
-        } catch { /* ingest is safe to fail silently; the deal is already saved */ }
+      setBusy(true); setError("");
+      try {
+        // Server-side create with idempotency: repeated submit with the same key
+        // (a slow retry / double-click) returns the existing deal, never a dup.
+        const res = await fetch("/api/deals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ brand: v.brand.trim(), payload, idempotencyKey: idemKey, text: stagedText.trim() || undefined }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setError(data?.error || "Could not create the deal."); return; }
+        const createdId = (data?.deal as { id?: string } | undefined)?.id;
+        const isDup = data?.duplicate === true;
+        // Only upload the contract file on the FIRST (non-duplicate) insert — a
+        // retried submit already persisted it.
+        if (plan === "paid" && srcFile && createdId && !isDup) {
+          const path = `${user.id}/${createdId}/${Date.now()}-${srcFile.name}`;
+          await supabase.storage.from("deal-files").upload(path, srcFile);
+          await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: srcFile.name, path, size_bytes: srcFile.size, mime: srcFile.type });
+        }
+      } catch {
+        setError("Could not reach the server. Nothing was saved.");
+      } finally {
+        setBusy(false);
       }
     } else {
       if (!dealId) { setError("Missing deal."); return; }
@@ -414,8 +426,8 @@ export function DealForm({
       )}
 
       <div className="flex justify-end">
-        <Button onClick={doSubmit} disabled={pending || (mode === "edit" && !dirty)}>
-          {pending ? <Spinner /> : savedFlash ? (
+        <Button onClick={doSubmit} disabled={pending || busy || (mode === "edit" && !dirty)}>
+          {pending || busy ? <Spinner /> : savedFlash ? (
             <span className="flex items-center gap-1.5"><IconCheck size={15} /> Saved</span>
           ) : submitLabel}
         </Button>
