@@ -20,6 +20,7 @@ type Deal = {
   links: { url: string; label?: string }[]; active: boolean;
   rep_name: string | null; rep_email: string | null;
   payment_status: string; pay_terms: string | null; exclusivity_days: number | null;
+  deal_type?: string | null; nudge_mode?: string | null;
   created_at?: string;
   // Joined lookups for the six-column list:
   post_date?: string | null;   // earliest content.event_date
@@ -31,7 +32,7 @@ type Payment = { id: string; deal_id: string | null; amount: number; expected_da
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null };
 
-const FILTERS = ["Negotiating", "Active", "Paid", "All"] as const;
+const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
 
 export default function DealsPage() {
   const supabase = createClient();
@@ -52,6 +53,22 @@ export default function DealsPage() {
   const PAGE_SIZE = 10;
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
   const [rowMenu, setRowMenu] = useState<string | null>(null);
+
+  // ⋯ row menu: close on outside click (mouse + touch) and Escape, desktop + mobile.
+  const rowMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!rowMenu) return;
+    const close = () => setRowMenu(null);
+    const onDoc = (e: MouseEvent | TouchEvent) => {
+      if (rowMenuRef.current && rowMenuRef.current.contains(e.target as Node)) return;
+      setRowMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setRowMenu(null); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("touchstart", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [rowMenu]);
 
   const loadDeals = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -122,6 +139,7 @@ export default function DealsPage() {
       case "Negotiating": return d.status === "pipeline";
       case "Active": return d.active && d.status !== "archived" && !paid && d.status !== "pipeline";
       case "Paid": return paid;
+      case "Archived": return d.status === "archived";
       default: return true;
     }
   });
@@ -164,6 +182,23 @@ export default function DealsPage() {
     setRowMenu(null);
     await supabase.from("deals").update({ status: archived ? "archived" : "active", active: !archived }).eq("id", deal.id);
     await loadDeals();
+  };
+  // Duplicate: insert a fresh copy of the deal's fields (no idempotency key so a
+  // repeat opens its own copy), then refresh. Note: files/contract are not copied.
+  const duplicateDeal = async (deal: Deal) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from("deals").insert({
+      user_id: user.id,
+      brand: `${deal.brand}`,
+      deliverable: deal.deliverable, value: deal.value, status: deal.status,
+      payment_status: deal.payment_status, due_date: deal.due_date,
+      pay_terms: deal.pay_terms, exclusivity_days: deal.exclusivity_days,
+      rep_name: deal.rep_name, rep_email: deal.rep_email, deal_type: deal.deal_type,
+      nudge_mode: deal.nudge_mode, notes: deal.notes,
+      active: deal.active,
+    }).select("id").single();
+    if (data) { setSelectedId(null); celeb.fire(); loadDeals(); }
   };
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" /></div>;
@@ -258,13 +293,14 @@ export default function DealsPage() {
         <>
           <div className="panel overflow-hidden">
             {/* Column headers */}
-            <div className="hidden sm:grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
+            <div className="hidden sm:grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_26px] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
               <span>Brand</span>
               <span>Status</span>
               <span>Payment</span>
               <span>Post date</span>
               <span>Pay by</span>
               <span className="text-right">Amount</span>
+              <span className="text-right"> </span>
             </div>
             {pageItems.map((d) => (
               <div
@@ -276,7 +312,7 @@ export default function DealsPage() {
                   onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(d.id); }}
                   role="button"
                   tabIndex={0}
-                  className={cn("w-full grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
+                  className={cn("w-full grid gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
                 >
                   <span className="d-brand flex items-center gap-3 min-w-0">
                     <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
@@ -293,26 +329,26 @@ export default function DealsPage() {
                     {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
                   </span>
                   <span className="d-amount money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
-                </div>
-                {/* Row overflow menu: archive (prominent) + delete (deliberate) */}
-                <div className="absolute right-[8px] top-1/2 -translate-y-1/2 z-20">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setRowMenu(rowMenu === d.id ? null : d.id); }}
-                    aria-label="Deal actions"
-                    aria-expanded={rowMenu === d.id}
-                    className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"
-                  >
-                    <IconMore size={16} />
-                  </button>
-                  {rowMenu === d.id && (
-                    <div className="absolute right-0 top-8 z-30 w-44 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up text-sm">
-                      <button onClick={() => setArchived(d, d.status !== "archived")} className="w-full text-left px-3.5 py-2 hover:bg-card2 cursor-pointer">
-                        {d.status === "archived" ? "Unarchive" : "Archive"}
-                      </button>
-                      <div className="my-1 h-px bg-line" />
-                      <button onClick={() => setDeleteTarget(d)} className="w-full text-left px-3.5 py-2 text-late hover:bg-card2 cursor-pointer">Delete…</button>
-                    </div>
-                  )}
+                  {/* Dedicated overflow-menu column: never overlaps the amount */}
+                  <span className="d-menu relative" ref={rowMenu === d.id ? rowMenuRef : undefined} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => setRowMenu(rowMenu === d.id ? null : d.id)}
+                      aria-label="Deal actions"
+                      aria-expanded={rowMenu === d.id}
+                      className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"
+                    >
+                      <IconMore size={16} />
+                    </button>
+                    {rowMenu === d.id && (
+                      <div className="absolute right-0 top-8 z-30 w-44 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up text-sm">
+                        <button onClick={() => setArchived(d, d.status !== "archived")} className="w-full text-left px-3.5 py-2 hover:bg-card2 cursor-pointer">
+                          {d.status === "archived" ? "Unarchive" : "Archive"}
+                        </button>
+                        <div className="my-1 h-px bg-line" />
+                        <button onClick={() => setDeleteTarget(d)} className="w-full text-left px-3.5 py-2 text-late hover:bg-card2 cursor-pointer">Delete deal</button>
+                      </div>
+                    )}
+                  </span>
                 </div>
               </div>
             ))}
@@ -357,6 +393,7 @@ export default function DealsPage() {
           onCelebrate={celeb.fire}
           onArchive={(archived) => setArchived(selected, archived)}
           onDeleteRequest={() => setDeleteTarget(selected)}
+          onDuplicate={(d) => duplicateDeal(d)}
         />
       )}
 
@@ -535,14 +572,15 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
 }
 
 /* ---------------- Deal Detail Drawer ---------------- */
-function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDeleteRequest }: { deal: Deal; onClose: () => void; onUpdated: () => void; onCelebrate?: () => void; onArchive: (archived: boolean) => void; onDeleteRequest: () => void }) {
+function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDeleteRequest, onDuplicate }: { deal: Deal; onClose: () => void; onUpdated: () => void; onCelebrate?: () => void; onArchive: (archived: boolean) => void; onDeleteRequest: () => void; onDuplicate: (deal: Deal) => void }) {
   const supabase = createClient();
   const isArchived = deal.status === "archived";
-  const [tab, setTab] = useState<"Fields" | "Checklist" | "Notes" | "Files" | "Payments">("Fields");
+  const [tab, setTab] = useState<"details" | "checklist" | "notes" | "files" | "payments">("details");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [files, setFiles] = useState<DealFile[]>([]);
   const [plan, setPlan] = useState<"free" | "paid">("free");
+  const [menu, setMenu] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -562,13 +600,12 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     })();
   }, [supabase, deal.id]);
 
-  const TABS = ["Fields", "Checklist", "Notes", "Files", "Payments"] as const;
+  const paid = deal.payment_status === "paid" || deal.status === "paid" || (payments.length > 0 && payments.every((p) => p.status === "received"));
 
-  // Keyboard + swipe dismiss: Escape closes, and on touch a downward drag
-  // past a threshold closes the drawer. Guarantees there is always a way out.
+  // Keyboard dismiss: Escape closes the drawer (menu handled by its own effect).
   const touchStart = useRef<number | null>(null);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenu(false); onClose(); } };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
@@ -580,170 +617,260 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     if (dy > 80) onClose();
   };
 
-  /* One-tap "Mark as paid": mark every outstanding payment on the deal as received
-     and stamp the deal's payment_status to paid, so a user never has to dig
-     through the Payments tab to record that money landed. Works for deals with
-     payment rows AND deals that just carry a value (no rows yet). */
-  const notFullyPaid = deal.payment_status !== "paid" && deal.status !== "paid";
-  const hasChargeableValue = !!payments.some((p) => p.status !== "received") || (deal.value !== null && deal.value > 0);
-  const showMarkPaid = notFullyPaid && hasChargeableValue;
-  const [marking, setMarking] = useState(false);
+  // ⋯ menu: close on outside click (mouse + touch, but not clicks inside the menu)
+  // and Escape.
+  const drawerMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: MouseEvent | TouchEvent) => {
+      if (drawerMenuRef.current && drawerMenuRef.current.contains(e.target as Node)) return;
+      setMenu(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("touchstart", close);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("touchstart", close); };
+  }, [menu]);
 
+  const [marking, setMarking] = useState(false);
   const markAllPaid = async () => {
-    if (marking) return;
+    if (marking || paid) return;
     setMarking(true);
-    const { error } = await supabase.from("payments").update({ status: "received" }).eq("deal_id", deal.id);
+    await supabase.from("payments").update({ status: "received", invoice_state: "invoiced" }).eq("deal_id", deal.id);
     await supabase.from("deals").update({ payment_status: "paid", status: "active", active: true }).eq("id", deal.id);
     setMarking(false);
-    if (error) return;
-    setPayments(payments.map((p) => ({ ...p, status: "received" })));
+    setPayments(payments.map((p) => ({ ...p, status: "received", invoice_state: "invoiced" })));
     onUpdated();
     onCelebrate?.();
   };
 
+  const doneCount = checklist.filter((c) => c.done).length;
+  const TABS: { id: typeof tab; label: string; n?: string }[] = [
+    { id: "details", label: "Details" },
+    { id: "checklist", label: "Checklist", n: checklist.length ? `${doneCount}/${checklist.length}` : undefined },
+    { id: "notes", label: "Notes" },
+    { id: "files", label: "Files", n: files.length ? String(files.length) : undefined },
+    { id: "payments", label: "Payments", n: payments.length ? String(payments.length) : undefined },
+  ];
+
   return (
     <div className="fixed inset-0 z-[85] bg-black/20" onClick={onClose} role="presentation">
       <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
-        <header className="px-6 py-5 border-b border-line">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="h-11 w-11 rounded-xl flex items-center justify-center font-bold text-[16px] bg-card2 text-inksoft border border-line">{deal.brand.charAt(0).toUpperCase()}</span>
-              <div>
-                <h2 className="text-xl font-semibold tracking-tight">{deal.brand}</h2>
-                <p className="text-sm text-inksoft mt-0.5">{deal.deliverable || "No deliverable"}</p>
+        {/* Header: logo, brand, amount + due, ⋯ menu, close */}
+        <header className="px-5 py-4 border-b border-line">
+          <div className="flex items-center gap-3">
+            <span className="h-10 w-10 rounded-xl flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line flex-none">{deal.brand.charAt(0).toUpperCase()}</span>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-[17px] font-semibold tracking-tight truncate">{deal.brand}</h2>
+              <div className="text-[12.5px] text-inksoft mt-0.5">
+                <span className="money font-medium text-ink">{formatMoney(deal.value)}</span>
+                {deal.due_date ? <span className="text-inksoft"> · Due {formatDate(deal.due_date)}</span> : null}
               </div>
             </div>
-            <button onClick={onClose} aria-label="Close drawer" className="p-1.5 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
+            <div className="relative flex-none" ref={drawerMenuRef} data-drawer-menu>
+              <button onClick={(e) => { e.stopPropagation(); setMenu((m) => !m); }} aria-label="More actions" aria-expanded={menu} className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconMore size={17} /></button>
+              {menu && (
+                <div className="absolute right-0 top-8 z-40 w-48 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up">
+                  <button onClick={() => { setMenu(false); onDuplicate(deal); }} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">Duplicate deal</button>
+                  <button onClick={() => { setMenu(false); onArchive(!isArchived); }} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">{isArchived ? "Unarchive" : "Archive"}</button>
+                  <div className="my-1 h-px bg-line" />
+                  <button onClick={() => { setMenu(false); onDeleteRequest(); }} className="w-full text-left px-3.5 py-2 text-sm text-late hover:bg-card2 cursor-pointer">Delete deal</button>
+                </div>
+              )}
+            </div>
+            <button onClick={onClose} aria-label="Close drawer" className="flex-none p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
           </div>
-          <div className="mt-3"><DealStatusBadge status={deal.status} payment_status={deal.payment_status} active={deal.active} due={deal.due_date} /></div>
-          {showMarkPaid && (
-            <Button
-              onClick={markAllPaid}
-              disabled={marking}
-              size="lg"
-              className="mt-3 w-full"
-            >
-              {marking ? <Spinner /> : <IconCheck size={16} />} {marking ? "Marking as paid…" : "Mark as paid"}
-            </Button>
-          )}
-          {(deal.links as { url: string; label?: string }[] ?? []).filter((l) => /^From inbox/.test(l.label || "")).map((l, i) => (
-            <a
-              key={i}
-              href={l.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 flex items-center gap-2 text-xs text-accent-ink rounded-lg bg-card2 border border-line px-2.5 py-1.5 hover:border-[var(--accent)] transition w-fit cursor-pointer"
-            >
-              <IconMail size={13} /> {l.label}{l.url.startsWith("mailto:") ? " · Reply" : ""}
-            </a>
-          ))}
         </header>
 
         {/* Tabs */}
-        <div className="flex border-b border-line px-2">
+        <div className="flex border-b border-line px-2 flex-none">
           {TABS.map((t) => (
-            <button key={t} onClick={() => setTab(t)} className={cn("px-3 py-2.5 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px", tab === t ? "text-accentink border-[var(--accent)] font-semibold" : "text-inksoft hover:text-ink border-transparent")}>
-              {t}
+            <button key={t.id} onClick={() => setTab(t.id)} className={cn("px-3 py-2.5 text-[12.5px] font-medium transition-colors cursor-pointer border-b-2 -mb-px whitespace-nowrap", tab === t.id ? "text-accentink border-[var(--accent)] font-semibold" : "text-inksoft hover:text-ink border-transparent")}>
+              {t.label}
+              {t.n != null && <span className="text-[10.5px] text-inksoft ml-1">{t.n}</span>}
             </button>
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          {tab === "Fields" && <FieldsTab deal={deal} onSaved={onUpdated} />}
-          {tab === "Checklist" && <ChecklistTab dealId={deal.id} items={checklist} setItems={setChecklist} />}
-          {tab === "Notes" && <NotesTab dealId={deal.id} deal={deal} onSaved={onUpdated} />}
-          {tab === "Files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
-          {tab === "Payments" && <DrawerPaymentsTab dealId={deal.id} payments={payments} setPayments={setPayments} onChanged={onUpdated} onCelebrate={onCelebrate} />}
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {tab === "details" && <DetailsTab deal={deal} onSaved={onUpdated} />}
+          {tab === "checklist" && <ChecklistTab dealId={deal.id} items={checklist} setItems={setChecklist} onChanged={onUpdated} />}
+          {tab === "notes" && <NotesTab dealId={deal.id} deal={deal} onSaved={onUpdated} />}
+          {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
+          {tab === "payments" && <DrawerPaymentsTab dealId={deal.id} payments={payments} setPayments={setPayments} onChanged={onUpdated} onCelebrate={onCelebrate} />}
         </div>
 
-        {/* Drawer footer: archive is the prominent, low-risk action; delete is deliberate. */}
-        <div className="border-t border-line px-6 py-3 flex items-center gap-2">
-          <Button variant="secondary" onClick={() => onArchive(!isArchived)} className="flex-1">
-            {isArchived ? "Unarchive" : "Archive"}
+        {/* Footer: single pinned primary action */}
+        <div className="border-t border-line px-5 py-3 bg-card2/40 flex-none">
+          <Button onClick={paid ? undefined : markAllPaid} disabled={marking || paid} size="lg" className={cn("w-full", paid && "bg-paid")}>
+            {marking ? <Spinner /> : <IconCheck size={16} />} {marking ? "Marking…" : paid ? "Paid" : "Mark as paid"}
           </Button>
-          <button
-            onClick={onDeleteRequest}
-            className="shrink-0 h-9 px-3 rounded-lg text-[13px] font-medium text-late hover:bg-late/10 transition-colors cursor-pointer"
-          >
-            <IconDelete size={15} /> Delete
-          </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Details tab (autosave) ----------------
+   Flat label-and-input rows under three section labels. Every field is a real
+   editable input/select wired to a deals column. Changes autosave ~500ms after
+   the user stops typing, with a "Saved" indicator. No explicit Save button. */
+function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
+  const supabase = createClient();
+  const [form, setForm] = useState({
+    value: deal.value?.toString() ?? "",
+    status: deal.status === "archived" ? "archived" : deal.status === "pipeline" ? "pipeline" : "active",
+    deliverable: deal.deliverable ?? "",
+    deal_type: deal.deal_type ?? "",
+    payment_status: deal.status === "paid" ? "paid" : deal.payment_status ?? "expected",
+    due_date: deal.due_date ?? "",
+    pay_terms: deal.pay_terms ?? "",
+    exclusivity_days: deal.exclusivity_days?.toString() ?? "",
+    rep_name: deal.rep_name ?? "",
+    rep_email: deal.rep_email ?? "",
+    nudge_mode: deal.nudge_mode ?? "draft",
+  });
+  const [saved, setSaved] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const set = <K extends keyof typeof form>(k: K, val: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: val }));
+
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  const handle = <K extends keyof typeof form>(k: K, val: (typeof form)[K]) => {
+    set(k, val);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      const patch: Record<string, unknown> = {};
+      if (k === "value") patch.value = val ? Number(val) : null;
+      else if (k === "status") patch.status = val;
+      else if (k === "deal_type") patch.deal_type = val;
+      else if (k === "payment_status") patch.payment_status = val;
+      else if (k === "due_date") patch.due_date = (val as string) || null;
+      else if (k === "pay_terms") patch.pay_terms = val;
+      else if (k === "exclusivity_days") patch.exclusivity_days = val ? Number(val) : null;
+      else if (k === "rep_name") patch.rep_name = val;
+      else if (k === "rep_email") patch.rep_email = val;
+      else if (k === "nudge_mode") patch.nudge_mode = val;
+      else patch[k] = val;
+      // Archiving via status must also flip `active` (cap accounting).
+      if (k === "status") patch.active = (val as string) !== "archived";
+      const { error } = await supabase.from("deals").update(patch).eq("id", deal.id);
+      if (!error) { setSaved(true); onSaved(); setTimeout(() => setSaved(false), 1600); }
+    }, 500);
+  };
+
+  const Section = ({ label, children }: { label: string; children?: React.ReactNode }) => (
+    <div className="mt-5 first:mt-0">
+      <div className="text-[10.5px] font-semibold uppercase tracking-wide text-inkfaint mb-1">{label}</div>
+      {children}
+    </div>
+  );
+  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="flex items-center gap-3 py-1.5 border-b border-line last:border-b-0">
+      <span className="w-[92px] flex-none text-[12px] text-inksoft">{label}</span>
+      <div className="flex-1 min-w-0">{children}</div>
+    </div>
+  );
+  const inputCls = "w-full bg-transparent border border-transparent rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition";
+  const selectCls = `${inputCls} cursor-pointer`;
+
+  return (
+    <div>
+      <Row label="Value"><input className={`${inputCls} money`} value={form.value} onChange={(e) => handle("value", e.target.value)} inputMode="decimal" placeholder="$0" /></Row>
+      <Row label="Deal status">
+        <select className={selectCls} value={form.status} onChange={(e) => handle("status", e.target.value)}>
+          <option value="active">Active</option>
+          <option value="pipeline">Negotiating</option>
+          <option value="archived">Archived</option>
+        </select>
+      </Row>
+      <Row label="Deliverable"><input className={inputCls} value={form.deliverable} onChange={(e) => handle("deliverable", e.target.value)} placeholder="e.g. 1 YouTube integration" /></Row>
+      <Row label="Deal type">
+        <select className={selectCls} value={form.deal_type} onChange={(e) => handle("deal_type", e.target.value)}>
+          <option value="">No set type</option>
+          <option value="paid_partnership">Paid Partnership</option>
+          <option value="ugc">UGC</option>
+          <option value="gifted">Gifted / PR</option>
+          <option value="affiliate">Affiliate</option>
+          <option value="ambassador">Ambassador</option>
+          <option value="event">Event</option>
+        </select>
+      </Row>
+
+      <Section label="Terms">
+        <Row label="Payment">
+          <select className={selectCls} value={form.payment_status} onChange={(e) => handle("payment_status", e.target.value)}>
+            <option value="expected">Expected</option>
+            <option value="paid">Received</option>
+            <option value="none">No payment tracked</option>
+          </select>
+        </Row>
+        <Row label="Pay by"><input type="date" className={inputCls} value={form.due_date} onChange={(e) => handle("due_date", e.target.value)} /></Row>
+        <Row label="Pay terms">
+          <select className={selectCls} value={form.pay_terms} onChange={(e) => handle("pay_terms", e.target.value)}>
+            <option value="">No set terms</option>
+            <option value="due_on_receipt">Due on receipt</option>
+            <option value="net_15">Net 15</option>
+            <option value="net_30">Net 30</option>
+            <option value="net_45">Net 45</option>
+            <option value="net_60">Net 60</option>
+            <option value="net_90">Net 90</option>
+            <option value="milestone">Milestone-based</option>
+          </select>
+        </Row>
+        <Row label="Exclusivity"><input className={inputCls} value={form.exclusivity_days} onChange={(e) => handle("exclusivity_days", e.target.value)} inputMode="numeric" placeholder="Days" /></Row>
+      </Section>
+
+      <Section label="Rep contact">
+        <Row label="Name"><input className={inputCls} value={form.rep_name} onChange={(e) => handle("rep_name", e.target.value)} placeholder="Contact name" /></Row>
+        <Row label="Email"><input className={inputCls} type="email" value={form.rep_email} onChange={(e) => handle("rep_email", e.target.value)} placeholder="rep@brand.com" /></Row>
+        <Row label="Nudge mode">
+          <select className={selectCls} value={form.nudge_mode} onChange={(e) => handle("nudge_mode", e.target.value)}>
+            <option value="draft">Draft for review</option>
+            <option value="notify">Notify me only</option>
+            <option value="auto">Send automatically</option>
+            <option value="off">Off</option>
+          </select>
+        </Row>
+      </Section>
+
+      <div className={cn("flex items-center gap-1.5 text-[11.5px] text-inksoft mt-4 transition-opacity", saved ? "opacity-100" : "opacity-0")}>
+        <IconCheck size={13} className="text-paid" /> Saved
       </div>
     </div>
   );
 }
 
 /* ---------------- Confirm Delete ----------------
-   Deleting is irreversible and cascades (payments, files, checklist, contract,
-   and the contract's embedded chunks). Require a deliberate two-step confirm
-   that names exactly what is going away. */
+   Two clicks total: open ⋯ menu → Delete, then this confirm is the second and
+   final click. Names exactly what's removed. Wires to the cascade route. */
 function ConfirmDeleteDeal({ deal, onCancel, onConfirm }: { deal: Deal; onCancel: () => void; onConfirm: () => void }) {
-  const [armed, setArmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const doDelete = async () => {
+    if (busy) return;
+    setBusy(true);
+    await onConfirm();
+  };
   return (
-    <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={() => { if (!busy) onCancel(); }}>
       <div className="bg-card w-full max-w-sm rounded-2xl border border-line2 shadow-pop p-6" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true">
         <div className="flex items-start gap-3">
           <span className="h-10 w-10 rounded-xl grid place-items-center bg-late/15 text-late shrink-0"><IconDelete size={18} /></span>
           <div>
             <h3 className="text-[15px] font-semibold leading-tight">Delete {deal.brand}?</h3>
             <p className="text-[13px] text-inksoft mt-1 leading-relaxed">
-              This removes the deal, its payments, files, and contract. It can&apos;t be undone.
+              This removes the deal, its payments, files, checklist, notes, and contract. This can&apos;t be undone.
             </p>
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
-          {armed ? (
-            <Button onClick={onConfirm} className="bg-late hover:brightness-95">Permanently delete</Button>
-          ) : (
-            <Button onClick={() => setArmed(true)} variant="secondary" className="text-late border-late/30">Delete deal</Button>
-          )}
+          <Button variant="secondary" onClick={onCancel} disabled={busy}>Cancel</Button>
+          <Button onClick={doDelete} className="bg-late hover:brightness-95" disabled={busy}>{busy ? <Spinner /> : "Delete deal"}</Button>
         </div>
-        {!armed && (
-          <p className="text-[11px] text-inkfaint mt-3">Tap again to confirm — this can&apos;t be undone.</p>
-        )}
       </div>
     </div>
   );
-}
-
-function FieldsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
-  const supabase = createClient();
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const initial: DealFormValues = {
-    brand: deal.brand,
-    deliverable: deal.deliverable ?? "",
-    value: deal.value?.toString() ?? "",
-    status: deal.status === "unpaid" || deal.status === "paid" ? deal.active ? "active" : "archived" : deal.status,
-    payment_status: deal.status === "paid" ? "paid" : deal.status === "unpaid" ? "expected" : (deal.payment_status ?? "expected"),
-    due_date: deal.due_date ?? "",
-    pay_terms: deal.pay_terms ?? "",
-    exclusivity_days: deal.exclusivity_days?.toString() ?? "",
-    rep_name: deal.rep_name ?? "",
-    rep_email: deal.rep_email ?? "",
-    links: (deal.links as { url: string; label?: string }[] ?? []),
-    notes: deal.notes ?? "",
-  };
-
-  return (
-    <div className="space-y-4">
-      <DealForm
-        mode="edit"
-        dealId={deal.id}
-        initial={initial}
-        onSaved={onSaved}
-        setError={setError}
-        pending={saving}
-        submitLabel="Save changes"
-      />
-      {error && <p className="text-sm text-late" role="alert">{error}</p>}
-    </div>
-  );
-}
-
-function ChecklistTab({ dealId, items, setItems }: { dealId: string; items: ChecklistItem[]; setItems: (i: ChecklistItem[]) => void }) {
+}function ChecklistTab({ dealId, items, setItems, onChanged }: { dealId: string; items: ChecklistItem[]; setItems: (i: ChecklistItem[]) => void; onChanged?: () => void }) {
   const supabase = createClient();
   const [title, setTitle] = useState("");
   const add = async () => {
@@ -751,15 +878,17 @@ function ChecklistTab({ dealId, items, setItems }: { dealId: string; items: Chec
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase.from("deal_checklist").insert({ user_id: user.id, deal_id: dealId, title: title.trim() }).select().single();
-    if (data) { setItems([data as unknown as ChecklistItem, ...items]); setTitle(""); }
+    if (data) { setItems([data as unknown as ChecklistItem, ...items]); setTitle(""); onChanged?.(); }
   };
   const toggle = async (id: string, done: boolean) => {
     setItems(items.map((i) => (i.id === id ? { ...i, done } : i)));
     await supabase.from("deal_checklist").update({ done }).eq("id", id);
+    onChanged?.();
   };
   const remove = async (id: string) => {
     setItems(items.filter((i) => i.id !== id));
     await supabase.from("deal_checklist").delete().eq("id", id);
+    onChanged?.();
   };
   return (
     <div className="space-y-3">
@@ -769,12 +898,12 @@ function ChecklistTab({ dealId, items, setItems }: { dealId: string; items: Chec
       </div>
       <ul className="space-y-1">
         {items.map((i) => (
-          <li key={i.id} className="flex items-center gap-2 py-1.5">
+          <li key={i.id} className="flex items-center gap-2 py-1.5 group">
             <button onClick={() => toggle(i.id, !i.done)} aria-label="Toggle" className={cn("h-5 w-5 rounded-md border grid place-items-center shrink-0 cursor-pointer", i.done ? "bg-accent border-[var(--accent)]" : "border-line2 hover:border-[var(--accent)]")}>
               {i.done && <IconCheck size={12} className="text-onaccent" />}
             </button>
             <span className={cn("text-sm flex-1", i.done && "line-through text-inksoft")}>{i.title}</span>
-            <button onClick={() => remove(i.id)} aria-label="Delete" className="text-inksoft hover:text-late cursor-pointer"><IconDelete size={14} /></button>
+            <button onClick={() => remove(i.id)} aria-label="Delete" className="text-inksoft hover:text-late cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"><IconDelete size={14} /></button>
           </li>
         ))}
       </ul>
@@ -786,21 +915,23 @@ function ChecklistTab({ dealId, items, setItems }: { dealId: string; items: Chec
 function NotesTab({ dealId, deal, onSaved }: { dealId: string; deal: Deal; onSaved: () => void }) {
   const supabase = createClient();
   const [notes, setNotes] = useState(deal.notes ?? "");
-  const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const dirty = notes !== (deal.notes ?? "");
-  const save = async () => {
-    setSaving(true);
-    await supabase.from("deals").update({ notes }).eq("id", dealId);
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-    onSaved();
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  const onText = (val: string) => {
+    setNotes(val);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(async () => {
+      const { error } = await supabase.from("deals").update({ notes: val }).eq("id", dealId);
+      if (!error) { setSaved(true); onSaved(); setTimeout(() => setSaved(false), 1600); }
+    }, 500);
   };
   return (
     <div className="space-y-3">
-      <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add notes about this deal…" className="min-h-[160px]" />
-      <div className="flex justify-end"><Button onClick={save} disabled={saving || !dirty}>{saving ? <Spinner /> : saved ? <span className="flex items-center gap-1.5"><IconCheck size={15} /> Saved</span> : "Save notes"}</Button></div>
+      <Textarea value={notes} onChange={(e) => onText(e.target.value)} placeholder="Anything worth remembering about this deal…" className="min-h-[220px]" />
+      <div className={cn("flex items-center gap-1.5 text-[11.5px] text-inksoft transition-opacity", saved ? "opacity-100" : "opacity-0")}>
+        <IconCheck size={13} className="text-paid" /> Saved
+      </div>
     </div>
   );
 }

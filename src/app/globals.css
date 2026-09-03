@@ -814,9 +814,9 @@ input[type="range"].zoom::-moz-range-track {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "brand amount"
-    "status payment"
-    "post payby";
+    "brand amount menu"
+    "status payment ."
+    "post payby .";
   gap: 6px 16px;
   align-items: center;
 }
@@ -829,11 +829,12 @@ input[type="range"].zoom::-moz-range-track {
 .deal-row .d-post::before { content: "Post date · "; color: var(--ink-faint); font-weight: 500; }
 .deal-row .d-payby { grid-area: payby; justify-self: end; }
 .deal-row .d-payby::before { content: "Pay by · "; color: var(--ink-faint); font-weight: 500; }
+.deal-row .d-menu { grid-area: menu; justify-self: end; }
 
 @media (min-width: 640px) {
   .deal-row {
-    grid-template-columns: minmax(0,2.2fr) minmax(0,0.8fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.8fr);
-    grid-template-areas: "brand status payment post payby amount";
+    grid-template-columns: minmax(0,2.2fr) minmax(0,0.8fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.8fr) 26px;
+    grid-template-areas: "brand status payment post payby amount menu";
     gap: 3px;
     align-items: center;
   }
