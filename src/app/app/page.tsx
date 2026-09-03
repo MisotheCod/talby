@@ -236,7 +236,7 @@ export default function OverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <Link href="/app/deals?new=1" className="no-underline">
+          <Link href="/app/deals?choose=1" className="no-underline">
             <button className="btn3d" data-tour="add-deal"><svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add deal</button>
           </Link>
         </div>
@@ -454,7 +454,7 @@ function EmptyDeals({ search }: { search: boolean }) {
           <p className="text-[13px] text-inksoft mt-1 max-w-xs mx-auto">
             Track your first brand collaboration and watch your money, content, and payments come together in one calm place.
           </p>
-          <Link href="/app/deals?new=1" className="inline-block mt-4 no-underline">
+          <Link href="/app/deals?choose=1" className="inline-block mt-4 no-underline">
             <button className="btn3d"><svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add your first deal</button>
           </Link>
         </>

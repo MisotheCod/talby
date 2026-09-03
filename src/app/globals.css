@@ -638,6 +638,9 @@ h1, h2, h3, h4 {
     box-shadow 0.09s cubic-bezier(0.3, 0.7, 0.4, 1), filter 0.15s;
   transform: translateY(0);
 }
+/* Give every btn3d icon a concrete size + stroke so inline SVGs (like the
+   Overview Add-deal plus) actually render instead of collapsing to 0. */
+.btn3d svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 2.4; fill: none; flex: none; }
 .btn3d:hover { filter: brightness(1.04); transform: translateY(-1px); }
 .btn3d:active {
   transform: translateY(4px);
