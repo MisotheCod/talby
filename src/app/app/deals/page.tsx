@@ -699,8 +699,8 @@ function NotesTab({ dealId, deal, onSaved }: { dealId: string; deal: Deal; onSav
 function FilesTab({ dealId, files, setFiles, plan }: { dealId: string; files: DealFile[]; setFiles: (f: DealFile[]) => void; plan: "free" | "paid" }) {
   const supabase = createClient();
   const [showUpgrade, setShowUpgrade] = useState(false);
-  const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const [dragOver, setDragOver] = useState(false);
+  const onFile = async (file: File) => {
     if (!file) return;
     if (plan !== "paid") { setShowUpgrade(true); return; }
     const { data: { user } } = await supabase.auth.getUser();
@@ -712,11 +712,25 @@ function FilesTab({ dealId, files, setFiles, plan }: { dealId: string; files: De
     const { data } = await supabase.from("deal_files").select("*").eq("deal_id", dealId);
     setFiles((data ?? []) as unknown as DealFile[]);
   };
+  const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    await onFile(file);
+  };
   return (
     <div className="space-y-3">
-      <label className="cursor-pointer">
-        <span className="flex items-center justify-center gap-2 border-2 border-dashed border-line2 rounded-xl p-6 text-sm text-inksoft hover:border-[var(--accent)] hover:text-ink transition">
-          <IconPaperclip size={16} /> {plan === "paid" ? "Upload a file" : "Files are on the paid plan"}
+      <label
+        className="cursor-pointer block"
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) onFile(f); }}
+      >
+        <span className={cn(
+          "flex items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 text-sm text-inksoft hover:border-[var(--accent)] hover:text-ink transition",
+          plan !== "paid" ? "border-line2" : dragOver ? "border-[var(--accent)] bg-accenttint text-accentink" : "border-line2"
+        )}>
+          <IconPaperclip size={16} /> {plan === "paid" ? (dragOver ? "Drop to upload" : "Drop a file or click to browse") : "Files are on the paid plan"}
         </span>
         <input type="file" className="hidden" onChange={onUpload} disabled={plan !== "paid"} />
       </label>

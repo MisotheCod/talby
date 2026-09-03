@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconClose, IconUpload, IconDelete } from "@/components/icons";
 import { Button, Spinner, StatusPill } from "@/components/ui";
@@ -37,6 +38,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
   const [saving, setSaving] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [plan, setPlan] = useState<"free" | "paid">("free");
+  const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -48,10 +50,8 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
     })();
   }, [supabase]);
 
-  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    e.target.value = "";
-    if (!files.length) return;
+  const onFiles = async (files: File[]) => {
+    if (extracting || !files.length) return;
     setError("");
 
     // A CSV anywhere means spreadsheet import regardless of other selections.
@@ -188,8 +188,15 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
         {phase === "pick" && (
           <div>
             <button
+              type="button"
               onClick={() => fileRef.current?.click()}
-              className="w-full border-2 border-dashed border-line2 rounded-2xl p-12 text-center cursor-pointer hover:border-[var(--accent)] transition bg-card"
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); const files = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : []; if (files.length) onFiles(files); }}
+              className={cn(
+                "w-full border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer hover:border-[var(--accent)] transition bg-card border-line2",
+                dragOver && "border-[var(--accent)] bg-accenttint"
+              )}
             >
               <span className="h-12 w-12 rounded-2xl bg-accenttint text-accentink grid place-items-center mx-auto">{extracting ? <Spinner /> : <IconUpload size={22} />}</span>
               <span className="block font-semibold mt-3 text-ink">{extracting ? "Reading contracts…" : "Drop files or click to browse"}</span>
@@ -205,7 +212,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
                 <div className="text-[12px] text-inksoft mt-0.5">CSV, one row per deal</div>
               </div>
             </div>
-            <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,text/plain,application/pdf,text/csv" className="hidden" onChange={onFile} />
+            <input ref={fileRef} type="file" multiple accept=".pdf,.txt,.md,.csv,text/plain,application/pdf,text/csv" className="hidden" onChange={(e) => { onFiles(e.target.files ? Array.from(e.target.files) : []); e.target.value = ""; }} />
           </div>
         )}
 
