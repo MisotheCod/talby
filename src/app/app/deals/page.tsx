@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail } from "@/components/icons";
 import { Button, Input, Textarea, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
@@ -50,6 +50,8 @@ export default function DealsPage() {
   const [sort, setSort] = useState<"newest" | "brand" | "value_high" | "value_low" | "pay_by">("newest");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
+  const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
+  const [rowMenu, setRowMenu] = useState<string | null>(null);
 
   const loadDeals = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -146,6 +148,23 @@ export default function DealsPage() {
 
   const onCreated = () => { setNewMode(null); celeb.fire(); loadDeals(); };
   const onUpdated = () => loadDeals();
+
+  // Permanently delete via the server route (owns the cascade + storage + chunks).
+  const performDelete = async (deal: Deal) => {
+    setDeleteTarget(null);
+    setRowMenu(null);
+    const res = await fetch(`/api/deals/${deal.id}`, { method: "DELETE" });
+    if (!res.ok) return;
+    if (selectedId === deal.id) setSelectedId(null);
+    await loadDeals(); // recalc totals, deal count, cap usage
+  };
+  // Archive (keeps history, frees a cap slot) vs delete (destroys). Archive is
+  // the low-risk, prominent action; delete is the deliberate one behind a confirm.
+  const setArchived = async (deal: Deal, archived: boolean) => {
+    setRowMenu(null);
+    await supabase.from("deals").update({ status: archived ? "archived" : "active", active: !archived }).eq("id", deal.id);
+    await loadDeals();
+  };
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" /></div>;
 
@@ -248,28 +267,54 @@ export default function DealsPage() {
               <span className="text-right">Amount</span>
             </div>
             {pageItems.map((d) => (
-              <button
+              <div
                 key={d.id}
-                onClick={() => setSelectedId(d.id)}
-                onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(d.id); }}
-                className={cn("w-full grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
+                className={cn("relative", selectedId === d.id && "bg-card2")}
               >
-                <span className="d-brand flex items-center gap-3 min-w-0">
-                  <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
-                    {d.brand.charAt(0).toUpperCase()}
+                <div
+                  onClick={() => setSelectedId(d.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(d.id); }}
+                  role="button"
+                  tabIndex={0}
+                  className={cn("w-full grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)] gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
+                >
+                  <span className="d-brand flex items-center gap-3 min-w-0">
+                    <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
+                      {d.brand.charAt(0).toUpperCase()}
+                    </span>
+                    <span className="d-brand-name text-[15px] font-semibold truncate">{d.brand}</span>
                   </span>
-                  <span className="d-brand-name text-[15px] font-semibold truncate">{d.brand}</span>
-                </span>
-                <span className="d-status"><DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} /></span>
-                <span className="d-payment">{paymentPill(d)}</span>
-                <span className={cn("d-post text-[12.5px] tabular-nums", d.post_date && isPastDue(d.post_date) && d.status !== "archived" ? "text-late font-medium" : "text-inksoft")}>
-                  {d.post_date ? formatDate(d.post_date) : <NotSet />}
-                </span>
-                <span className={cn("d-payby text-[12.5px] tabular-nums", d.pay_by && isPastDue(d.pay_by) && d.payment_status !== "paid" && d.status !== "paid" ? "text-late font-medium" : "text-inksoft")}>
-                  {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
-                </span>
-                <span className="d-amount money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
-              </button>
+                  <span className="d-status"><DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} /></span>
+                  <span className="d-payment">{paymentPill(d)}</span>
+                  <span className={cn("d-post text-[12.5px] tabular-nums", d.post_date && isPastDue(d.post_date) && d.status !== "archived" ? "text-late font-medium" : "text-inksoft")}>
+                    {d.post_date ? formatDate(d.post_date) : <NotSet />}
+                  </span>
+                  <span className={cn("d-payby text-[12.5px] tabular-nums", d.pay_by && isPastDue(d.pay_by) && d.payment_status !== "paid" && d.status !== "paid" ? "text-late font-medium" : "text-inksoft")}>
+                    {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
+                  </span>
+                  <span className="d-amount money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
+                </div>
+                {/* Row overflow menu: archive (prominent) + delete (deliberate) */}
+                <div className="absolute right-[8px] top-1/2 -translate-y-1/2 z-20">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setRowMenu(rowMenu === d.id ? null : d.id); }}
+                    aria-label="Deal actions"
+                    aria-expanded={rowMenu === d.id}
+                    className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"
+                  >
+                    <IconMore size={16} />
+                  </button>
+                  {rowMenu === d.id && (
+                    <div className="absolute right-0 top-8 z-30 w-44 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up text-sm">
+                      <button onClick={() => setArchived(d, d.status !== "archived")} className="w-full text-left px-3.5 py-2 hover:bg-card2 cursor-pointer">
+                        {d.status === "archived" ? "Unarchive" : "Archive"}
+                      </button>
+                      <div className="my-1 h-px bg-line" />
+                      <button onClick={() => setDeleteTarget(d)} className="w-full text-left px-3.5 py-2 text-late hover:bg-card2 cursor-pointer">Delete…</button>
+                    </div>
+                  )}
+                </div>
+              </div>
             ))}
             {/* Sum footer — totals the visible/filtered rows */}
             <div className="flex items-center justify-between px-[22px] py-3 border-t border-line bg-card2/40">
@@ -310,10 +355,20 @@ export default function DealsPage() {
           onClose={() => setSelectedId(null)}
           onUpdated={onUpdated}
           onCelebrate={celeb.fire}
+          onArchive={(archived) => setArchived(selected, archived)}
+          onDeleteRequest={() => setDeleteTarget(selected)}
         />
       )}
 
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
+
+      {deleteTarget && (
+        <ConfirmDeleteDeal
+          deal={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => performDelete(deleteTarget)}
+        />
+      )}
       {celeb.ToastEl}
     </div>
   );
@@ -480,8 +535,9 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
 }
 
 /* ---------------- Deal Detail Drawer ---------------- */
-function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onClose: () => void; onUpdated: () => void; onCelebrate?: () => void }) {
+function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDeleteRequest }: { deal: Deal; onClose: () => void; onUpdated: () => void; onCelebrate?: () => void; onArchive: (archived: boolean) => void; onDeleteRequest: () => void }) {
   const supabase = createClient();
+  const isArchived = deal.status === "archived";
   const [tab, setTab] = useState<"Fields" | "Checklist" | "Notes" | "Files" | "Payments">("Fields");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
@@ -593,6 +649,53 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate }: { deal: Deal; onC
           {tab === "Files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
           {tab === "Payments" && <DrawerPaymentsTab dealId={deal.id} payments={payments} setPayments={setPayments} onChanged={onUpdated} onCelebrate={onCelebrate} />}
         </div>
+
+        {/* Drawer footer: archive is the prominent, low-risk action; delete is deliberate. */}
+        <div className="border-t border-line px-6 py-3 flex items-center gap-2">
+          <Button variant="secondary" onClick={() => onArchive(!isArchived)} className="flex-1">
+            {isArchived ? "Unarchive" : "Archive"}
+          </Button>
+          <button
+            onClick={onDeleteRequest}
+            className="shrink-0 h-9 px-3 rounded-lg text-[13px] font-medium text-late hover:bg-late/10 transition-colors cursor-pointer"
+          >
+            <IconDelete size={15} /> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Confirm Delete ----------------
+   Deleting is irreversible and cascades (payments, files, checklist, contract,
+   and the contract's embedded chunks). Require a deliberate two-step confirm
+   that names exactly what is going away. */
+function ConfirmDeleteDeal({ deal, onCancel, onConfirm }: { deal: Deal; onCancel: () => void; onConfirm: () => void }) {
+  const [armed, setArmed] = useState(false);
+  return (
+    <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={onCancel}>
+      <div className="bg-card w-full max-w-sm rounded-2xl border border-line2 shadow-pop p-6" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true">
+        <div className="flex items-start gap-3">
+          <span className="h-10 w-10 rounded-xl grid place-items-center bg-late/15 text-late shrink-0"><IconDelete size={18} /></span>
+          <div>
+            <h3 className="text-[15px] font-semibold leading-tight">Delete {deal.brand}?</h3>
+            <p className="text-[13px] text-inksoft mt-1 leading-relaxed">
+              This removes the deal, its payments, files, and contract. It can&apos;t be undone.
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          {armed ? (
+            <Button onClick={onConfirm} className="bg-late hover:brightness-95">Permanently delete</Button>
+          ) : (
+            <Button onClick={() => setArmed(true)} variant="secondary" className="text-late border-late/30">Delete deal</Button>
+          )}
+        </div>
+        {!armed && (
+          <p className="text-[11px] text-inkfaint mt-3">Tap again to confirm — this can&apos;t be undone.</p>
+        )}
       </div>
     </div>
   );
