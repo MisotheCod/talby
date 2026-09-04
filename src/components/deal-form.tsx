@@ -54,7 +54,6 @@ export type DealFormValues = {
   deliverable: string;
   value: string;
   status: string;            // deal lifecycle: active / pipeline / archived
-  payment_status: string;    // expected / paid / none
   due_date: string;
   pay_terms: string;         // due_on_receipt / net_15 / net_30 ...
   exclusivity_days: string;
@@ -83,15 +82,10 @@ const DEAL_STATUSES = [
   { value: "pipeline", label: "Negotiating" },
   { value: "archived", label: "Archived" },
 ];
-const PAYMENT_STATUSES = [
-  { value: "expected", label: "Expected" },
-  { value: "paid", label: "Paid" },
-  { value: "none", label: "No payment tracked" },
-];
 
 export function emptyDealForm(): DealFormValues {
   return {
-    brand: "", deliverable: "", value: "", status: "active", payment_status: "expected",
+    brand: "", deliverable: "", value: "", status: "active",
     due_date: "", pay_terms: "", exclusivity_days: "", rep_name: "", rep_email: "",
     links: [], notes: "",
   };
@@ -205,7 +199,6 @@ export function DealForm({
       deliverable: v.deliverable.trim() || null,
       value: v.value ? Number(v.value) : null,
       status: v.status,
-      payment_status: v.payment_status,
       due_date: v.due_date || null,
       pay_terms: v.pay_terms || null,
       exclusivity_days: v.exclusivity_days ? Number(v.exclusivity_days) : null,
@@ -261,7 +254,6 @@ export function DealForm({
   // ---- one-line summaries for collapsed sections ----
   const repSummary = [v.rep_name.trim(), v.rep_email.trim()].filter(Boolean).join(" · ");
   const termsSummary = [
-    v.payment_status === "expected" ? "Expected" : v.payment_status === "paid" ? "Paid" : v.payment_status === "none" ? "No payment tracked" : null,
     v.due_date ? `Due ${v.due_date}` : null,
     PAY_TERM_OPTIONS.find((o) => o.value === v.pay_terms)?.label && v.pay_terms ? PAY_TERM_OPTIONS.find((o) => o.value === v.pay_terms)!.label : null,
     v.exclusivity_days ? `${v.exclusivity_days} days exclusivity` : null,
@@ -382,9 +374,6 @@ export function DealForm({
       >
         <div className="grid grid-cols-2 gap-4">
           <Field label="Due date" spark={spark("due_date")}><Input type="date" value={v.due_date} onChange={(e) => set("due_date", e.target.value)} /></Field>
-          <Field label="Payment status"><Select value={v.payment_status} onChange={(e) => set("payment_status", e.target.value)}>
-            {PAYMENT_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </Select></Field>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Pay terms" spark={spark("pay_terms")}>
@@ -470,11 +459,6 @@ function FlagEdit({ field, value, onChange }: { field: keyof DealFormValues; val
   if (field === "status") return (
     <Select value={value} onChange={(e) => onChange(e.target.value)}>
       {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </Select>
-  );
-  if (field === "payment_status") return (
-    <Select value={value} onChange={(e) => onChange(e.target.value)}>
-      {PAYMENT_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </Select>
   );
   return <Input value={value} onChange={(e) => onChange(e.target.value)} className="!h-7 !text-xs flex-1" />;

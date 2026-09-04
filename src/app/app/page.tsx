@@ -5,6 +5,7 @@ import Link from "next/link";
 import gsap from "gsap";
 import { createClient } from "@/lib/supabase/client";
 import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
+import { dealPayRollup, type DealRollup, type PayStatus } from "@/lib/pay-status";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus } from "@/components/icons";
 import { Pill, Segmented } from "@/components/ui";
@@ -13,7 +14,8 @@ import { AddDealFlow } from "@/components/add-deal-flow";
 type Deal = {
   id: string; brand: string; status: string; value: number | null;
   due_date: string | null; deliverable: string | null; active: boolean;
-  notes: string | null; created_at: string; payment_status: string;
+  notes: string | null; created_at: string;
+  pay_rollup?: DealRollup;
 };
 type Payment = {
   id: string; deal_id: string | null; amount: number;
@@ -87,7 +89,10 @@ export default function OverviewPage() {
       supabase.from("todos").select("*").not("due_date", "is", null),
       supabase.from("notes").select("id, body, event_date, done").not("event_date", "is", null),
     ]);
-    setDeals(d.data ?? []);
+    setDeals((d.data ?? []).map((deal) => ({
+      ...(deal as Deal),
+      pay_rollup: dealPayRollup((pay.data ?? []).filter((p) => (p as { deal_id?: string | null }).deal_id === (deal as Deal).id).map((p) => ({ pay_status: (p as { pay_status?: string | null }).pay_status ?? null, expected_date: (p as { expected_date?: string | null }).expected_date ?? null }))),
+    })));
     setPayments(pay.data ?? []);
     setContent(c.data ?? []);
     setTodos((t.data ?? []) as unknown as Todo[]);
@@ -158,7 +163,7 @@ export default function OverviewPage() {
       const inNotes = (d.notes ?? "").toLowerCase().includes(q);
       if (!inBrand && !inNotes) return false;
     }
-    const paid = d.payment_status === "paid" || d.status === "paid";
+    const paid = (d.pay_rollup?.status ?? "not_invoiced") === "paid";
     switch (filter) {
       case "Unpaid": return !paid;
       case "Paid": return paid;
@@ -395,15 +400,18 @@ function CapacityCard({ used, cap }: { used: number; cap: number }) {
 }
 
 function DealRow({ deal }: { deal: Deal }) {
-  const paid = deal.payment_status === "paid" || deal.status === "paid";
+  const r = deal.pay_rollup ?? { status: "not_invoiced" as PayStatus, paidCount: 0, totalCount: 0 };
   const pill = (() => {
     if (deal.status === "archived") return <span className="pill pill-pipe">Archived</span>;
     if (deal.status === "pipeline") return <span className="pill pill-pipe">Negotiating</span>;
-    if (paid) return <span className="pill pill-paid">Paid</span>;
-    if (isPastDue(deal.due_date)) return <span className="pill pill-late">Past due</span>;
-    if (deal.status === "unpaid" || deal.payment_status === "expected") return <span className="pill pill-due">Awaiting pay</span>;
-    return <span className="pill pill">Active</span>;
+    switch (r.status) {
+      case "paid": return <span className="pill pill-paid">Paid</span>;
+      case "invoiced": return <span className="pill pill-due">Invoiced</span>;
+      case "no_invoice_needed": return <span className="pill pill-pipe">No invoice needed</span>;
+      default: return <span className="pill pill-due">Not invoiced</span>;
+    }
   })();
+  const progress = r.totalCount >= 2 ? `${r.paidCount}/${r.totalCount}` : null;
   return (
     <button
       onClick={() => { window.location.href = `/app/deals?open=${deal.id}`; }}
@@ -412,6 +420,7 @@ function DealRow({ deal }: { deal: Deal }) {
       <span className="dlogo dlogo-ink">{deal.brand.charAt(0).toUpperCase()}</span>
       <span className="dmid">
         <span className="dbrand truncate">{deal.brand}</span>
+        {progress && <span className="text-[10.5px] text-inksoft tabular-nums">{progress} paid</span>}
       </span>
       <span className="text-right flex-none flex items-center gap-2.5">
         <span className="flex-none">{pill}</span>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
+import { paidPaymentGap } from "@/lib/pay-status";
 import { IconPlus, IconClose, IconRefresh } from "@/components/icons";
 import { Button, Spinner, StatusPill } from "@/components/ui";
 import { emptyDealForm, DealForm } from "@/components/deal-form";
@@ -213,7 +214,6 @@ function InlineNotionImport({ onClose, onDone }: { onClose: () => void; onDone: 
       const status = ["active", "pipeline", "unpaid", "paid", "archived"].includes((r.status || "").toLowerCase()) ? (r.status || "active").toLowerCase() : "active";
       const { data: created, error } = await supabase.from("deals").insert({
         user_id: user.id, brand, value: toNum(r.value), status,
-        payment_status: /paid|received/i.test(r.payment?.status || "") || /paid/i.test(r.status || "") ? "paid" : "expected",
         deliverable: r.deliverable?.trim() || null, due_date: r.due_date?.trim() || null,
         notes: r.notes?.trim() || null, rep_email: r.rep_email?.trim() || null,
         active: status !== "archived",
@@ -224,8 +224,21 @@ function InlineNotionImport({ onClose, onDone }: { onClose: () => void; onDone: 
       if (dealId && r.content?.event_date) {
         await supabase.from("content").insert({ user_id: user.id, linked_deal_id: dealId, title: (r.content.title || brand).slice(0, 200), event_date: r.content.event_date.slice(0, 10), platform: r.content.platform || null, status: "planned" });
       }
-      if (dealId && r.payment?.expected_date) {
-        await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: toNum(r.payment.amount) ?? toNum(r.value) ?? 0, expected_date: r.payment.expected_date.slice(0, 10), status: /paid|received/i.test(r.payment.status || "") ? "received" : "expected", invoice_state: /paid|received/i.test(r.payment.status || "") ? "invoiced" : "not_invoiced" });
+      // Pay status is driven SOLELY by the mapped payment object. A deal is paid
+      // only when its payment is actually received — a lifecycle "paid" row with no
+      // received payment maps to not_invoiced (never a fabricated received payment).
+      const pm = r.payment;
+      const pmHas = pm && (String(pm.amount ?? "").trim() !== "" || String(pm.status ?? "").trim() !== "" || String(pm.expected_date ?? "").trim() !== "");
+      if (dealId && pmHas) {
+        const received = /paid|received/i.test(pm.status || "");
+        const amount = toNum(pm.amount) ?? toNum(r.value) ?? 0;
+        const date = pm.expected_date?.trim() ? pm.expected_date.slice(0, 10) : (r.due_date?.trim() ? r.due_date.slice(0, 10) : "");
+        await supabase.from("payments").insert({
+          user_id: user.id, deal_id: dealId, amount,
+          expected_date: date || null,
+          status: received ? "received" : "expected",
+          pay_status: received ? "paid" : /invoiced/i.test(pm.status || "") ? "invoiced" : "not_invoiced",
+        });
       }
     }
     setImporting(false);
@@ -234,6 +247,7 @@ function InlineNotionImport({ onClose, onDone }: { onClose: () => void; onDone: 
 
   const selCount = items.filter((i) => i.__selected).length;
   const lowCount = items.filter((i) => (i.confidence ?? 1) < 0.6 && i.__selected).length;
+  const paidGapCount = items.filter((i) => i.__selected && paidPaymentGap(i)).length;
 
   return (
     <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={onClose}>
@@ -286,6 +300,15 @@ function InlineNotionImport({ onClose, onDone }: { onClose: () => void; onDone: 
               <h4 className="font-semibold text-[15px]">Review your deals</h4>
               <p className="text-sm text-inksoft mt-0.5">{selCount} selected · {lowCount} flagged for review</p>
             </div>
+            {paidGapCount > 0 && (
+              <div className="border border-warn/40 bg-warn/10 rounded-lg p-3 mb-3" role="alert">
+                <p className="font-semibold text-[13px]">{paidGapCount} deal{paidGapCount === 1 ? "" : "s"} marked paid have no payment details</p>
+                <p className="text-[12.5px] text-ink mt-1">
+                  {paidGapCount === 1 ? "This source row says" : "These source rows say"} the deal is paid, but there is no payment amount, status, or date to back it.
+                  Talby will create {paidGapCount === 1 ? "it" : "them"} as <b>Not invoiced</b> with no payment record rather than guess. Unselect a row to leave it out, or close and fix the source before importing.
+                </p>
+              </div>
+            )}
             <div className="max-h-[46vh] overflow-y-auto space-y-2 pr-1">
               {items.map((r, i) => (
                 <div key={i} className={cn("panel p-3", (r.confidence ?? 1) < 0.6 && "ring-1 ring-late/40", !r.__selected && "opacity-60")}>
@@ -295,6 +318,7 @@ function InlineNotionImport({ onClose, onDone }: { onClose: () => void; onDone: 
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold truncate">{r.brand || "Unnamed deal"}</span>
                         {(r.confidence ?? 1) < 0.6 && <StatusPill kind="late" className="flex-none">Review</StatusPill>}
+                        {paidPaymentGap(r) && <StatusPill kind="late" className="flex-none">No payment</StatusPill>}
                       </div>
                       <div className="text-[12px] text-inksoft mt-0.5">
                         {r.value ? `${formatMoney(toNum(r.value))}` : ""}{r.due_date ? ` · Due ${r.due_date}` : ""}
