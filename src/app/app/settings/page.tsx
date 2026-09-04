@@ -479,6 +479,9 @@ function NotificationSettings() {
   const [inapp, setInapp] = useState(true);
   const [digest, setDigest] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Baseline loaded on mount; the Save button stays disabled until a toggle
+  // differs from what's currently stored.
+  const initial = useRef<{ inapp: boolean; digest: boolean }>({ inapp: true, digest: false });
 
   useEffect(() => {
     (async () => {
@@ -486,15 +489,21 @@ function NotificationSettings() {
       if (!user) return;
       const { data } = await supabase.from("profiles").select("notify_calendar_inapp, digest_enabled").eq("id", user.id).single();
       const p = (data as unknown as { notify_calendar_inapp?: boolean; digest_enabled?: boolean } | null) ?? null;
-      setInapp(p?.notify_calendar_inapp !== false);
-      setDigest(p?.digest_enabled === true);
+      const ni = p?.notify_calendar_inapp !== false;
+      const nd = p?.digest_enabled === true;
+      initial.current = { inapp: ni, digest: nd };
+      setInapp(ni);
+      setDigest(nd);
     })();
   }, [supabase]);
+
+  const dirty = inapp !== initial.current.inapp || digest !== initial.current.digest;
 
   const save = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     await supabase.from("profiles").update({ notify_calendar_inapp: inapp, digest_enabled: digest }).eq("id", user.id);
+    initial.current = { inapp, digest };
     setSaved(true);
     setTimeout(() => setSaved(false), 1500);
   };
@@ -532,7 +541,7 @@ function NotificationSettings() {
       </div>
 
       <div className="flex items-center gap-3 mt-5">
-        <Button onClick={save} disabled={saved}>{saved ? "Saved" : "Save preferences"}</Button>
+        <Button onClick={save} disabled={saved || !dirty}>{saved ? "Saved" : "Save preferences"}</Button>
       </div>
     </div>
   );
