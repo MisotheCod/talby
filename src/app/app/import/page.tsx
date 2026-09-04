@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { paidPaymentGap } from "@/lib/pay-status";
 import { IconArrowLeft, IconCheck, IconDownload, IconLink, IconRefresh } from "@/components/icons";
 import { Button, Chip, Input, Select, Spinner, StatusPill } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
@@ -346,15 +347,16 @@ export default function ImportPage() {
         posts++;
       }
       const pm = p.payment;
-      if (pm?.expected_date) {
-        const date = pm.expected_date.slice(0, 10);
+      const pmHas = pm && (String(pm.amount ?? "").trim() !== "" || String(pm.status ?? "").trim() !== "" || String(pm.expected_date ?? "").trim() !== "");
+      if (pmHas) {
+        const date = pm.expected_date?.trim() ? pm.expected_date.slice(0, 10) : (p.due_date?.trim() ? p.due_date.slice(0, 10) : (p.content?.event_date ?? "").slice(0, 10) || null);
         const amount = toNum(pm.amount) ?? p.value ?? 0;
         const received = /paid|received/i.test(pm.status || "");
         const status = received ? "received" : "expected";
         const payStatus = received ? "paid" : /invoiced/i.test(pm.status || "") ? "invoiced" : "not_invoiced";
-        const existingId = payByKey.get(`${dealId}|${date}|${amount}`);
-        if (existingId) { await supabase.from("payments").update({ status, pay_status: payStatus }).eq("id", existingId); }
-        else { await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount, expected_date: date, status, pay_status: payStatus }); }
+        const existingId = date ? payByKey.get(`${dealId}|${date}|${amount}`) : null;
+        if (date && existingId) { await supabase.from("payments").update({ status, pay_status: payStatus }).eq("id", existingId); }
+        else if (date) { await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount, expected_date: date, status, pay_status: payStatus }); }
         payments++;
       }
       // NOTE: no lifecycle-driven paid synthesis. A deal is shown as paid only
@@ -372,6 +374,7 @@ export default function ImportPage() {
 
   const lowCount = items.filter((i) => i.__review && i.__selected).length;
   const selCount = items.filter((i) => i.__selected).length;
+  const paidGapCount = items.filter((i) => i.__selected && paidPaymentGap(i)).length;
 
   return (
     <div className="fade-up">
@@ -455,6 +458,7 @@ export default function ImportPage() {
           items={items}
           lowCount={lowCount}
           selCount={selCount}
+          paidGapCount={paidGapCount}
           onToggle={toggleItem}
           onEdit={editItem}
           onEditDest={editDest}
@@ -729,9 +733,9 @@ function MappingLoading({ error, onRetry }: { error: string; onRetry: () => void
 }
 
 function ReviewStep({
-  mapping, items, lowCount, selCount, onToggle, onEdit, onEditDest, onImport, importing, importError, plan, actionLabel = "Import",
+  mapping, items, lowCount, selCount, paidGapCount, onToggle, onEdit, onEditDest, onImport, importing, importError, plan, actionLabel = "Import",
 }: {
-  mapping: Record<string, string>; items: ImportItem[]; lowCount: number; selCount: number;
+  mapping: Record<string, string>; items: ImportItem[]; lowCount: number; selCount: number; paidGapCount: number;
   onToggle: (i: number, s: boolean) => void; onEdit: (i: number, f: keyof MapRow, v: string) => void;
   onEditDest: (i: number, dest: "content" | "payment", field: string, v: string) => void;
   onImport: () => void; importing: boolean; importError: string; plan: "free" | "paid"; actionLabel?: string;
@@ -744,6 +748,19 @@ function ReviewStep({
           {selCount} selected · {lowCount} flagged for review · {plan === "free" ? `${FREE_ACTIVE_DEAL_CAP}-deal free limit applies` : "no limit on your plan"}
         </p>
       </div>
+
+      {/* Paid-but-no-payment conflict: never resolve silently. Surface how many
+          rows a...re affected and what Talby will do, before import. */}
+      {paidGapCount > 0 && (
+        <div className="border border-warn/40 bg-warn/10 rounded-xl p-4 mb-4" role="alert">
+          <p className="font-semibold text-[13px]">{paidGapCount} deal{paidGapCount === 1 ? "" : "s"} marked paid have no payment details</p>
+          <p className="text-[13px] text-ink mt-1.5">
+            {paidGapCount === 1 ? "This source row says" : "These source rows say"} the deal is paid, but there is no payment amount, status, or date to back it.
+            Talby will create {paidGapCount === 1 ? "it" : "them"} as <b>Not invoiced</b> with no payment record rather than guess.
+            Add the missing payment details or change the status in the row{paidGapCount === 1 ? "" : "s"} below before importing.
+          </p>
+        </div>
+      )}
 
       {/* Mapping summary */}
       <div className="bg-card2 border border-line rounded-xl p-4 mb-4">
@@ -781,6 +798,7 @@ function ReviewStep({
                 </div>
               </div>
               {r.__review && <StatusPill kind="late" className="flex-none mt-1">Review</StatusPill>}
+              {paidPaymentGap(r) && <StatusPill kind="late" className="flex-none mt-1">No payment</StatusPill>}
             </div>
             {r.content?.event_date && (
               <div className="w-full mt-3 border border-accent/30 bg-accent/5 rounded-xl p-3">
@@ -793,20 +811,20 @@ function ReviewStep({
                 </div>
               </div>
             )}
-            {r.payment?.expected_date && (
+            {r.payment?.expected_date || paidPaymentGap(r) ? (
               <div className="w-full mt-2 border border-warn/30 bg-warn/5 rounded-xl p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-warn mb-2">Payment</p>
                 <div className="grid md:grid-cols-3 gap-2">
-                  <Field label="Amount ($)"><Input value={r.payment.amount ?? ""} onChange={(e) => onEditDest(i, "payment", "amount", e.target.value)} /></Field>
-                  <Field label="Expected date"><Input type="date" value={r.payment.expected_date ?? ""} onChange={(e) => onEditDest(i, "payment", "expected_date", e.target.value)} /></Field>
+                  <Field label="Amount ($)"><Input value={r.payment?.amount ?? ""} onChange={(e) => onEditDest(i, "payment", "amount", e.target.value)} /></Field>
+                  <Field label="Expected date"><Input type="date" value={r.payment?.expected_date ?? ""} onChange={(e) => onEditDest(i, "payment", "expected_date", e.target.value)} /></Field>
                   <Field label="Status">
-                    <Select value={r.payment.status ?? "expected"} onChange={(e) => onEditDest(i, "payment", "status", e.target.value)}>
+                    <Select value={r.payment?.status ?? "expected"} onChange={(e) => onEditDest(i, "payment", "status", e.target.value)}>
                       <option value="expected">Expected</option><option value="received">Received</option>
                     </Select>
                   </Field>
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         ))}
       </div>

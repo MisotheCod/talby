@@ -69,3 +69,24 @@ export function isPayOverdue(status: PayStatus, payBy?: string | null, isPastDue
   if (!payBy) return false;
   return isPastDue ? isPastDue(payBy) : (payBy || "9999") < new Date().toISOString().slice(0, 10);
 }
+
+/**
+ * Conflicting source row? A row whose lifecycle says "paid" but whose payment
+ * object carries NO amount, status, or date. The importer would create the deal
+ * and leave it not_invoiced (there is no received payment to back a paid status),
+ * so this must be surfaced on the review screen instead of silently resolved.
+ * Returns a short reason when it is a conflict, null otherwise.
+ */
+export function paidPaymentGap(r: {
+  status?: string | null;
+  payment?: { amount?: string | null; status?: string | null; expected_date?: string | null } | null;
+}): string | null {
+  const lifePaid = /paid/i.test(r.status ?? "");
+  if (!lifePaid) return null;
+  const pm = r.payment;
+  const hasAmount = !!pm?.amount && String(pm.amount).trim() !== "";
+  const hasStatus = !!pm?.status && String(pm.status).trim() !== "";
+  const hasDate = !!pm?.expected_date && String(pm.expected_date).trim() !== "";
+  if (hasAmount || hasStatus || hasDate) return null;
+  return "Source marks this deal paid, but there is no payment amount, status, or date to back it. Talby will create the deal as Not invoiced with no payment record. Add the missing payment details or change the status before importing.";
+}
