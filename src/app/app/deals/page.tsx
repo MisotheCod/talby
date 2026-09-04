@@ -22,7 +22,7 @@ type Deal = {
   links: { url: string; label?: string }[]; active: boolean;
   rep_name: string | null; rep_email: string | null;
   pay_terms: string | null; exclusivity_days: number | null;
-  deal_type?: string | null; nudge_mode?: string | null;
+  deal_type?: string | null;
   created_at?: string;
   // Joined lookups for the six-column list:
   post_date?: string | null;   // earliest content.event_date
@@ -191,7 +191,7 @@ export default function DealsPage() {
       due_date: deal.due_date,
       pay_terms: deal.pay_terms, exclusivity_days: deal.exclusivity_days,
       rep_name: deal.rep_name, rep_email: deal.rep_email, deal_type: deal.deal_type,
-      nudge_mode: deal.nudge_mode, notes: deal.notes,
+      notes: deal.notes,
       active: deal.active,
     }).select("id").single();
     if (data) { setSelectedId(null); celeb.fire(); loadDeals(); }
@@ -727,7 +727,6 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
     exclusivity_days: deal.exclusivity_days?.toString() ?? "",
     rep_name: deal.rep_name ?? "",
     rep_email: deal.rep_email ?? "",
-    nudge_mode: deal.nudge_mode ?? "draft",
   });
   const [saved, setSaved] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -749,7 +748,6 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
       else if (k === "exclusivity_days") patch.exclusivity_days = val ? Number(val) : null;
       else if (k === "rep_name") patch.rep_name = val;
       else if (k === "rep_email") patch.rep_email = val;
-      else if (k === "nudge_mode") patch.nudge_mode = val;
       else patch[k] = val;
       // Archiving via status must also flip `active` (cap accounting).
       if (k === "status") patch.active = (val as string) !== "archived";
@@ -816,14 +814,6 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
       <Section label="Rep contact">
         <Row label="Name"><input className={inputCls} value={form.rep_name} onChange={(e) => handle("rep_name", e.target.value)} placeholder="Contact name" /></Row>
         <Row label="Email"><input className={inputCls} type="email" value={form.rep_email} onChange={(e) => handle("rep_email", e.target.value)} placeholder="rep@brand.com" /></Row>
-        <Row label="Nudge mode">
-          <select className={selectCls} value={form.nudge_mode} onChange={(e) => handle("nudge_mode", e.target.value)}>
-            <option value="draft">Draft for review</option>
-            <option value="notify">Notify me only</option>
-            <option value="auto">Send automatically</option>
-            <option value="off">Off</option>
-          </select>
-        </Row>
       </Section>
 
       <div className={cn("flex items-center gap-1.5 text-[11.5px] text-inksoft mt-4 transition-opacity", saved ? "opacity-100" : "opacity-0")}>
