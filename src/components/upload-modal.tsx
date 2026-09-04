@@ -133,7 +133,6 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
         deliverable: d.deliverable.trim() || null,
         value: d.value ? Number(d.value) : null,
         status: d.status,
-        payment_status: d.payment_status,
         due_date: d.due_date || null,
         pay_terms: d.pay_terms || null,
         exclusivity_days: d.exclusivity_days ? Number(d.exclusivity_days) : null,

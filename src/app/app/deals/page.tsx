@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
+import { dealPayRollup, payStatusLabel, isPayOverdue, type PayStatus, type DealRollup } from "@/lib/pay-status";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail } from "@/components/icons";
 import { Button, Input, Textarea, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
@@ -20,7 +21,7 @@ type Deal = {
   value: number | null; due_date: string | null; notes: string | null;
   links: { url: string; label?: string }[]; active: boolean;
   rep_name: string | null; rep_email: string | null;
-  payment_status: string; pay_terms: string | null; exclusivity_days: number | null;
+  pay_terms: string | null; exclusivity_days: number | null;
   deal_type?: string | null; nudge_mode?: string | null;
   created_at?: string;
   // Joined lookups for the six-column list:
@@ -28,8 +29,9 @@ type Deal = {
   pay_by?: string | null;      // earliest payment expected_date (received or not)
   pay_received?: boolean;      // any payment on the deal marked received
   all_invoiced?: boolean;      // every dated payment on the deal is invoiced
+  pay_rollup?: DealRollup;     // derived pay status + "N of M paid" progress
 };
-type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null };
+type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null };
 
@@ -62,7 +64,7 @@ export default function DealsPage() {
     const [d, posts, pays] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       user ? supabase.from("content").select("event_date, linked_deal_id").eq("user_id", user.id).gte("event_date", "1990-01-01").order("event_date", { ascending: true }) : { data: [] },
-      user ? supabase.from("payments").select("expected_date, status, deal_id, invoice_state").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
+      user ? supabase.from("payments").select("expected_date, status, deal_id, invoice_state, pay_status").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
     ]);
     const deals = (d.data ?? []) as unknown as Deal[];
     // post date = earliest content.event_date per deal
@@ -78,7 +80,10 @@ export default function DealsPage() {
     const receivedDeal = new Set<string>();
     const invoicedOkDeal = new Set<string>();
     const anyDatedDeal = new Set<string>();
-    for (const p of (pays.data ?? []) as { expected_date: string | null; status: string; deal_id: string | null; invoice_state: string | null }[]) {
+    // Rollup: collect each deal's payments (pay_status + date) to derive the
+    // single deal-level status (Paid only when all paid, else earliest unpaid).
+    const dealPays = new Map<string, { pay_status: string | null; expected_date: string | null }[]>();
+    for (const p of (pays.data ?? []) as { expected_date: string | null; status: string; deal_id: string | null; invoice_state: string | null; pay_status?: string | null }[]) {
       if (!p.deal_id) continue;
       if (p.status === "received") receivedDeal.add(p.deal_id);
       if (p.expected_date) {
@@ -88,6 +93,9 @@ export default function DealsPage() {
         const inv = (p.invoice_state ?? "not_invoiced");
         if (inv === "invoiced" || inv === "no_invoice_needed") invoicedOkDeal.add(p.deal_id);
       }
+      const arr = dealPays.get(p.deal_id) ?? [];
+      arr.push({ pay_status: p.pay_status ?? null, expected_date: p.expected_date });
+      dealPays.set(p.deal_id, arr);
     }
     setDeals(deals.map((deal) => ({
       ...deal,
@@ -95,6 +103,7 @@ export default function DealsPage() {
       pay_by: payByDeal.get(deal.id) ?? deal.pay_by ?? null,
       pay_received: receivedDeal.has(deal.id),
       all_invoiced: anyDatedDeal.has(deal.id) && invoicedOkDeal.has(deal.id),
+      pay_rollup: dealPayRollup(dealPays.get(deal.id) ?? []),
     })));
     setLoading(false);
   }, [supabase]);
@@ -121,7 +130,7 @@ export default function DealsPage() {
   const activeCount = deals.filter((d) => d.active && d.status !== "archived").length;
 
   const filtered = deals.filter((d) => {
-    const paid = d.payment_status === "paid" || d.status === "paid";
+    const paid = (d.pay_rollup?.status ?? "not_invoiced") === "paid";
     switch (filter) {
       case "Negotiating": return d.status === "pipeline";
       case "Active": return d.active && d.status !== "archived" && !paid && d.status !== "pipeline";
@@ -179,7 +188,7 @@ export default function DealsPage() {
       user_id: user.id,
       brand: `${deal.brand}`,
       deliverable: deal.deliverable, value: deal.value, status: deal.status,
-      payment_status: deal.payment_status, due_date: deal.due_date,
+      due_date: deal.due_date,
       pay_terms: deal.pay_terms, exclusivity_days: deal.exclusivity_days,
       rep_name: deal.rep_name, rep_email: deal.rep_email, deal_type: deal.deal_type,
       nudge_mode: deal.nudge_mode, notes: deal.notes,
@@ -307,12 +316,15 @@ export default function DealsPage() {
                     </span>
                     <span className="d-brand-name text-[15px] font-semibold truncate">{d.brand}</span>
                   </span>
-                  <span className="d-status"><DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} /></span>
-                  <span className="d-payment">{paymentPill(d)}</span>
+                  <span className="d-status"><DealStatusBadge status={d.status} active={d.active} /></span>
+                  <span className="d-payment flex items-center gap-1">
+                    {paymentPill(d)}
+                    {payProgressLine(d) && <span className="text-[10.5px] text-inksoft tabular-nums">{payProgressLine(d)}</span>}
+                  </span>
                   <span className={cn("d-post text-[12.5px] tabular-nums", d.post_date && isPastDue(d.post_date) && d.status !== "archived" ? "text-late font-medium" : "text-inksoft")}>
                     {d.post_date ? formatDate(d.post_date) : <NotSet />}
                   </span>
-                  <span className={cn("d-payby text-[12.5px] tabular-nums", d.pay_by && isPastDue(d.pay_by) && d.payment_status !== "paid" && d.status !== "paid" ? "text-late font-medium" : "text-inksoft")}>
+                  <span className={cn("d-payby text-[12.5px] tabular-nums", payOverdue(d) ? "text-late font-medium" : "text-inksoft")}>
                     {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
                   </span>
                   <span className="d-amount money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
@@ -389,31 +401,42 @@ export default function DealsPage() {
   );
 }
 
-function DealStatusBadge({ status, payment_status, active, due }: { status: string; payment_status?: string; active: boolean; due: string | null }) {
-  // Deal lifecycle (pipeline/active/archived) + payment (expected/paid/none).
-  const pay = payment_status ?? (status === "paid" ? "paid" : status === "unpaid" ? "expected" : "expected");
+function DealStatusBadge({ status, active }: { status: string; active: boolean }) {
+  // Deal LIFECYCLE only (negotiating / archived / active). Payment state is a
+  // separate derived pill (paymentPill), so life and money never blur into two
+  // payment-looking pills.
   if (status === "pipeline") return <StatusPill kind="pipeline">Negotiating</StatusPill>;
   if (status === "archived") return <StatusPill kind="neutral">Archived</StatusPill>;
-  if (pay === "paid") return <StatusPill kind="paid">Paid</StatusPill>;
-  if (isPastDue(due)) return <StatusPill kind="late">Past due</StatusPill>;
-  return <StatusPill kind="accent">{active ? "Active" : "Archived"}</StatusPill>;
+  return <StatusPill kind="accent">{active ? "Active" : "Inactive"}</StatusPill>;
 }
 
-/** Payment-status pill shown in the "Payment" column. "Past due" applies only
- *  to invoiced payments; an uninvoiced overdue payment reads "Invoice overdue"
- *  (the creator is late sending it), consistent with the Payments page. */
+/** Single pay-status pill derived from the deal's payment rollup. One pill, no
+ *  separate invoice field. Overdue is NOT a status value — it's the derived
+ *  danger date shown in the Pay-by column. */
+const PAYS_PILL_KIND: Record<PayStatus, "paid" | "due" | "neutral"> = {
+  paid: "paid",
+  invoiced: "due",
+  no_invoice_needed: "neutral",
+  not_invoiced: "due",
+};
 function paymentPill(d: Deal) {
-  if (d.payment_status === "paid" || d.status === "paid" || d.pay_received) {
-    return <StatusPill kind="paid">Paid</StatusPill>;
-  }
-  if (d.pay_by && isPastDue(d.pay_by)) {
-    if (d.all_invoiced) return <StatusPill kind="late">Past due</StatusPill>;
-    return <StatusPill kind="late">Invoice overdue</StatusPill>;
-  }
-  if (d.pay_by) {
-    return <StatusPill kind="due">Pay by {formatDate(d.pay_by)}</StatusPill>;
-  }
-  return <StatusPill kind="due">Expected</StatusPill>;
+  const r = d.pay_rollup ?? { status: "not_invoiced" as PayStatus, paidCount: 0, totalCount: 0 };
+  const label = payStatusLabel(r.status);
+  return <StatusPill size="sm" kind={PAYS_PILL_KIND[r.status]}>{label}</StatusPill>;
+}
+
+/** Deal-row convenience: derived overdue from the deal's rollup + pay-by date. */
+function payOverdue(d: Deal): boolean {
+  const status = (d.pay_rollup ?? { status: "not_invoiced" as PayStatus }).status;
+  return isPayOverdue(status, d.pay_by, isPastDue);
+}
+
+/** Progress line shown on the deal row when a deal has multiple payments:
+ *  "3 of 12 paid". Null for single-payment / zero-payment deals. */
+function payProgressLine(d: Deal): string | null {
+  const r = d.pay_rollup;
+  if (!r || r.totalCount < 2) return null;
+  return `${r.paidCount} of ${r.totalCount} paid`;
 }
 
 /** "Not set" placeholder — a muted, legible empty rather than a dash or gap. */
@@ -430,8 +453,8 @@ function filterLabel(filter: (typeof FILTERS)[number]): string {
 /* ---------------- Deal Board (kanban) ---------------- */
 const BOARD_COLS: { id: string; label: string; match: (d: Deal) => boolean }[] = [
   { id: "pipeline", label: "Negotiating", match: (d) => d.status === "pipeline" },
-  { id: "active", label: "Active", match: (d) => d.active && d.status !== "pipeline" && d.status !== "archived" && d.status !== "paid" },
-  { id: "paid", label: "Paid", match: (d) => d.payment_status === "paid" || d.status === "paid" },
+  { id: "active", label: "Active", match: (d) => d.active && d.status !== "pipeline" && d.status !== "archived" && (d.pay_rollup?.status ?? "not_invoiced") !== "paid" },
+  { id: "paid", label: "Paid", match: (d) => (d.pay_rollup?.status ?? "not_invoiced") === "paid" },
   { id: "archived", label: "Archived", match: (d) => d.status === "archived" },
 ];
 
@@ -447,7 +470,7 @@ function DealBoard({ deals, onOpen, onChanged }: { deals: Deal[]; onOpen: (id: s
       const patch: Record<string, unknown> = {};
       if (col === "pipeline") { patch.status = "pipeline"; patch.active = false; }
       else if (col === "archived") { patch.status = "archived"; patch.active = false; }
-      else if (col === "paid") { patch.payment_status = "paid"; patch.status = "active"; patch.active = true; }
+      else if (col === "paid") { patch.status = "active"; patch.active = true; }
       else { patch.status = "active"; patch.active = true; }
       await supabase.from("deals").update(patch).eq("id", dragId);
       onChanged();
@@ -484,7 +507,7 @@ function DealBoard({ deals, onOpen, onChanged }: { deals: Deal[]; onOpen: (id: s
               </button>
               <div className="flex items-center justify-between mt-2">
                 <span className="money text-sm font-medium">{formatMoney(d.value)}</span>
-                <DealStatusBadge status={d.status} payment_status={d.payment_status} active={d.active} due={d.due_date} />
+                <span className="flex items-center gap-1.5"><DealStatusBadge status={d.status} active={d.active} />{paymentPill(d)}</span>
               </div>
             </div>
           ))}
@@ -578,7 +601,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     })();
   }, [supabase, deal.id]);
 
-  const paid = deal.payment_status === "paid" || deal.status === "paid" || (payments.length > 0 && payments.every((p) => p.status === "received"));
+  const paid = (dealPayRollup(payments as unknown as { pay_status: string | null; expected_date: string | null }[])).status === "paid";
 
   // Keyboard dismiss: Escape closes the drawer (menu handled by its own effect).
   const touchStart = useRef<number | null>(null);
@@ -613,10 +636,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const markAllPaid = async () => {
     if (marking || paid) return;
     setMarking(true);
-    await supabase.from("payments").update({ status: "received", invoice_state: "invoiced" }).eq("deal_id", deal.id);
-    await supabase.from("deals").update({ payment_status: "paid", status: "active", active: true }).eq("id", deal.id);
+    await supabase.from("payments").update({ status: "received", pay_status: "paid" }).eq("deal_id", deal.id);
+    await supabase.from("deals").update({ status: "active", active: true }).eq("id", deal.id);
     setMarking(false);
-    setPayments(payments.map((p) => ({ ...p, status: "received", invoice_state: "invoiced" })));
+    setPayments(payments.map((p) => ({ ...p, status: "received", pay_status: "paid" })));
     onUpdated();
     onCelebrate?.();
   };
@@ -699,7 +722,6 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
     status: deal.status === "archived" ? "archived" : deal.status === "pipeline" ? "pipeline" : "active",
     deliverable: deal.deliverable ?? "",
     deal_type: deal.deal_type ?? "",
-    payment_status: deal.status === "paid" ? "paid" : deal.payment_status ?? "expected",
     due_date: deal.due_date ?? "",
     pay_terms: deal.pay_terms ?? "",
     exclusivity_days: deal.exclusivity_days?.toString() ?? "",
@@ -722,7 +744,6 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
       if (k === "value") patch.value = val ? Number(val) : null;
       else if (k === "status") patch.status = val;
       else if (k === "deal_type") patch.deal_type = val;
-      else if (k === "payment_status") patch.payment_status = val;
       else if (k === "due_date") patch.due_date = (val as string) || null;
       else if (k === "pay_terms") patch.pay_terms = val;
       else if (k === "exclusivity_days") patch.exclusivity_days = val ? Number(val) : null;
@@ -776,13 +797,6 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
       </Row>
 
       <Section label="Terms">
-        <Row label="Payment">
-          <select className={selectCls} value={form.payment_status} onChange={(e) => handle("payment_status", e.target.value)}>
-            <option value="expected">Expected</option>
-            <option value="paid">Received</option>
-            <option value="none">No payment tracked</option>
-          </select>
-        </Row>
         <Row label="Pay by"><input type="date" className={inputCls} value={form.due_date} onChange={(e) => handle("due_date", e.target.value)} /></Row>
         <Row label="Pay terms">
           <select className={selectCls} value={form.pay_terms} onChange={(e) => handle("pay_terms", e.target.value)}>
@@ -1062,7 +1076,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
     setAdding(true); setError("");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError("Not signed in."); setAdding(false); return; }
-    const { data, error: err } = await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: Number(amount), expected_date: date || null, invoice_state: "not_invoiced" }).select().single();
+    const { data, error: err } = await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: Number(amount), expected_date: date || null, pay_status: "not_invoiced" }).select().single();
     setAdding(false);
     if (err) { setError(err.message); return; }
     if (data) { setPayments([data as unknown as Payment, ...payments]); setAmount(""); setDate(""); onChanged(); }
@@ -1070,16 +1084,18 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
   const markReceived = async (id: string) => {
     if (markingId) return;
     setMarkingId(id); setError("");
-    const { error: err } = await supabase.from("payments").update({ status: "received", invoice_state: "invoiced" }).eq("id", id);
+    const { error: err } = await supabase.from("payments").update({ status: "received", pay_status: "paid" }).eq("id", id);
     setMarkingId(null);
     if (err) { setError(err.message); return; }
-    setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received", invoice_state: "invoiced" } : p)));
+    setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received", pay_status: "paid" } : p)));
     onChanged();
     onCelebrate?.();
   };
-  const setInvoiceState = async (p: Payment, state: string) => {
-    await supabase.from("payments").update({ invoice_state: state }).eq("id", p.id);
-    setPayments(payments.map((x) => (x.id === p.id ? { ...x, invoice_state: state } : x)));
+  const setPayStatus = async (p: Payment, val: string) => {
+    const next = val; // not_invoiced | invoiced | paid | no_invoice_needed
+    const { error: err } = await supabase.from("payments").update({ pay_status: next, status: next === "paid" ? "received" : p.status }).eq("id", p.id);
+    if (err) return;
+    setPayments(payments.map((x) => (x.id === p.id ? { ...x, pay_status: next, status: next === "paid" ? "received" : x.status } : x)));
   };
   return (
     <div className="space-y-4">
@@ -1095,23 +1111,22 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
             <div className="flex items-center justify-between">
               <div>
                 <div className="font-semibold money tabular-nums">{formatMoney(p.amount)}</div>
-                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className={cn("text-xs", p.status === "received" ? "text-paid" : isPastDue(p.expected_date) ? "text-late" : "text-inksoft")}>
                     {p.status === "received" ? "Received" : isPastDue(p.expected_date) ? "Past due" : formatDate(p.expected_date)}
                   </span>
-                  {p.status !== "received" && (
-                    <button
-                      onClick={() => { const s = p.invoice_state ?? "not_invoiced"; const next = s === "invoiced" ? "not_invoiced" : s === "not_invoiced" ? "no_invoice_needed" : "invoiced"; setInvoiceState(p, next); }}
-                      className={cn(
-                        "text-[10.5px] font-semibold rounded-full px-2 py-0.5 border cursor-pointer transition-colors",
-                        (p.invoice_state ?? "not_invoiced") === "invoiced" && "bg-paidbg text-paid border-paid/30",
-                        (p.invoice_state ?? "not_invoiced") === "not_invoiced" && "bg-duebg text-due border-due/30",
-                        (p.invoice_state ?? "not_invoiced") === "no_invoice_needed" && "bg-card2 text-inksoft border-line2"
-                      )}
+                  <span onClick={(e) => e.stopPropagation()}>
+                    <select
+                      value={p.pay_status ?? "not_invoiced"}
+                      onChange={(e) => setPayStatus(p, e.target.value)}
+                      className="text-[10.5px] font-semibold rounded-full px-2 py-0.5 border border-line2 bg-card text-inksoft cursor-pointer outline-none"
                     >
-                      {(p.invoice_state ?? "not_invoiced") === "invoiced" ? "Invoiced" : (p.invoice_state ?? "not_invoiced") === "no_invoice_needed" ? "No invoice needed" : "Not invoiced"}
-                    </button>
-                  )}
+                      <option value="not_invoiced">Not invoiced</option>
+                      <option value="invoiced">Invoiced</option>
+                      <option value="paid">Paid</option>
+                      <option value="no_invoice_needed">No invoice needed</option>
+                    </select>
+                  </span>
                 </div>
               </div>
               {p.status !== "received" && (

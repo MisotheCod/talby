@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, isPastDue, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
+import type { PayStatus } from "@/lib/pay-status";
 import { IconPlus, IconMore, IconCheck } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 
@@ -12,6 +13,7 @@ type Payment = {
   id: string; deal_id: string | null; amount: number;
   expected_date: string | null; status: string;
   invoice_state: string | null;
+  pay_status: string | null;
   deal?: { brand: string } | null;
 };
 type Deal = {
@@ -40,23 +42,9 @@ function fmtYear(iso: string): string { return iso.slice(0, 4); }
 function rowsStatus(p: Payment): "past_due" | "invoice_overdue" | "expected" | "received" {
   if (p.status === "received") return "received";
   if (!isPastDue(p.expected_date)) return "expected";
-  // "Past due" means the brand is late paying an invoice they were sent. If no
-  // invoice was sent yet, the creator is the one who is overdue, so it reads
-  // "Invoice overdue", never "Past due" beside "Not invoiced".
-  return (p.invoice_state ?? "not_invoiced") === "invoiced" ? "past_due" : "invoice_overdue";
-}
-
-/* Invoice state label + pill kind. null/undefined -> "Not invoiced" so the
-   creators can spot a payment approaching that hasn't had an invoice sent. */
-function invoiceLabel(s: string | null): string {
-  if (s === "invoiced") return "Invoiced";
-  if (s === "no_invoice_needed") return "No invoice needed";
-  return "Not invoiced";
-}
-function invoiceKind(s: string | null): "paid" | "due" | "neutral" {
-  if (s === "invoiced") return "paid";
-  if (s === "no_invoice_needed") return "neutral";
-  return "due";
+  // "Past due" means the brand is late paying the amount expected. The payment
+  // is overdue regardless of invoice state (derived from the date).
+  return "past_due";
 }
 
 /* Year-over-year line helper: given a numeric for this period and a
@@ -218,7 +206,7 @@ export default function PaymentsPage() {
     const base = listFilter === "All" ? payments
       : listFilter === "Expected" ? pending
       : listFilter === "Received" ? received
-      : payments.filter((p) => (p.invoice_state ?? "not_invoiced") === "not_invoiced");
+      : payments.filter((p) => (p.pay_status ?? "not_invoiced") === "not_invoiced");
     // Payments with NO expected date don't fit a month bucket — surface them in
     // their own "Upcoming" group so they're never hidden.
     const undated = base.filter((p) => !p.expected_date);
@@ -260,22 +248,18 @@ export default function PaymentsPage() {
   const markReceived = async (id: string) => {
     if (mutating) return;
     setMutating(true);
-    // Marking a payment received means an invoice was (at least) sent — being
-    // paid necessarily follows an invoice. Persist that so a received row never
-    // shows the "Not invoiced" fallback. Preserve an explicit no-invoice-needed.
+    // Marking a payment received means it's paid. Single pay_status field.
     const target = payments.find((p) => p.id === id);
-    const nextInv = (target?.invoice_state ?? null) === "no_invoice_needed"
-      ? "no_invoice_needed"
-      : "invoiced";
-    await supabase.from("payments").update({ status: "received", invoice_state: nextInv }).eq("id", id);
+    const next = (target?.pay_status ?? null) === "no_invoice_needed" ? "no_invoice_needed" : "paid";
+    await supabase.from("payments").update({ status: "received", pay_status: next }).eq("id", id);
     setMutating(false);
     setMenuOpen(null);
     load();
   };
-  const setInvoice = async (id: string, state: string) => {
+  const setPayStatus = async (id: string, state: string) => {
     if (mutating) return;
     setMutating(true);
-    await supabase.from("payments").update({ invoice_state: state }).eq("id", id);
+    await supabase.from("payments").update({ pay_status: state, status: state === "paid" ? "received" : "expected" }).eq("id", id);
     setMutating(false);
     setMenuOpen(null);
     load();
@@ -405,20 +389,20 @@ export default function PaymentsPage() {
                       </div>
                     );
                     function renderStatusPills() {
-                      return (
-                        <>
-                          <span className="shrink-0">{renderStatusPill()}</span>
-                          <span className="shrink-0">
-                            <StatusPill size="sm" kind={invoiceKind(p.invoice_state)}>{invoiceLabel(p.invoice_state)}</StatusPill>
-                          </span>
-                        </>
-                      );
+                      return <span className="shrink-0">{renderStatusPill()}</span>;
                     }
                     function renderStatusPill() {
-                      return isRecv ? <StatusPill size="sm" kind="paid">Paid</StatusPill>
-                        : isPast ? <StatusPill size="sm" kind="late">Past due</StatusPill>
-                        : isInvOverdue ? <StatusPill size="sm" kind="late">Invoice overdue</StatusPill>
-                        : <StatusPill size="sm" kind="due">Expected</StatusPill>;
+                      const ps = (p.pay_status ?? "not_invoiced") as PayStatus;
+                      switch (ps) {
+                        case "paid": return <StatusPill size="sm" kind="paid">Paid</StatusPill>;
+                        case "invoiced": return isPastDue(p.expected_date)
+                          ? <StatusPill size="sm" kind="late">Overdue</StatusPill>
+                          : <StatusPill size="sm" kind="due">Invoiced</StatusPill>;
+                        case "no_invoice_needed": return <StatusPill size="sm" kind="neutral">No invoice needed</StatusPill>;
+                        default: return isPastDue(p.expected_date)
+                          ? <StatusPill size="sm" kind="late">Overdue</StatusPill>
+                          : <StatusPill size="sm" kind="due">Not invoiced</StatusPill>;
+                      }
                     }
                     function renderMenu() {
                       return (
@@ -428,9 +412,9 @@ export default function PaymentsPage() {
                           </button>
                           {menuOpen === p.id && (
                             <div ref={menuRef} className="absolute right-0 top-7 z-20 w-48 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up">
-                              <button onClick={() => setInvoice(p.id, "invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">Mark invoiced</button>
-                              <button onClick={() => setInvoice(p.id, "not_invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer" disabled={(p.invoice_state ?? "not_invoiced") === "not_invoiced"}>Mark not invoiced</button>
-                              <button onClick={() => setInvoice(p.id, "no_invoice_needed")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">No invoice needed</button>
+                              <button onClick={() => setPayStatus(p.id, "invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">Mark invoiced</button>
+                              <button onClick={() => setPayStatus(p.id, "not_invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer" disabled={(p.pay_status ?? "not_invoiced") === "not_invoiced"}>Mark not invoiced</button>
+                              <button onClick={() => setPayStatus(p.id, "no_invoice_needed")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">No invoice needed</button>
                               <div className="my-1 h-px bg-line" />
                               <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
                                 <IconCheck size={14} /> Mark as paid
@@ -547,7 +531,7 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: { id: string; bra
   const [dealId, setDealId] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
-  const [invoiceState, setInvoiceState] = useState("not_invoiced");
+  const [payStatus, setPayStatus] = useState("not_invoiced");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -558,7 +542,7 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: { id: string; bra
     if (!user) { setError("Not signed in."); setSaving(false); return; }
     const { error } = await supabase.from("payments").insert({
       user_id: user.id, deal_id: dealId || null, amount: Number(amount), expected_date: date || null,
-      invoice_state: invoiceState,
+      pay_status: payStatus, status: payStatus === "paid" ? "received" : "expected",
     });
     setSaving(false);
     if (error) { setError(error.message); return; }
@@ -586,10 +570,11 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: { id: string; bra
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
           <label className="block">
-            <span className="text-sm font-medium block mb-1.5">Invoice</span>
-            <Select value={invoiceState} onChange={(e) => setInvoiceState(e.target.value)}>
+            <span className="text-sm font-medium block mb-1.5">Pay status</span>
+            <Select value={payStatus} onChange={(e) => setPayStatus(e.target.value)}>
               <option value="not_invoiced">Not invoiced</option>
               <option value="invoiced">Invoiced</option>
+              <option value="paid">Paid</option>
               <option value="no_invoice_needed">No invoice needed</option>
             </Select>
           </label>

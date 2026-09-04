@@ -213,7 +213,6 @@ function InlineNotionImport({ onClose, onDone }: { onClose: () => void; onDone: 
       const status = ["active", "pipeline", "unpaid", "paid", "archived"].includes((r.status || "").toLowerCase()) ? (r.status || "active").toLowerCase() : "active";
       const { data: created, error } = await supabase.from("deals").insert({
         user_id: user.id, brand, value: toNum(r.value), status,
-        payment_status: /paid|received/i.test(r.payment?.status || "") || /paid/i.test(r.status || "") ? "paid" : "expected",
         deliverable: r.deliverable?.trim() || null, due_date: r.due_date?.trim() || null,
         notes: r.notes?.trim() || null, rep_email: r.rep_email?.trim() || null,
         active: status !== "archived",
@@ -224,8 +223,18 @@ function InlineNotionImport({ onClose, onDone }: { onClose: () => void; onDone: 
       if (dealId && r.content?.event_date) {
         await supabase.from("content").insert({ user_id: user.id, linked_deal_id: dealId, title: (r.content.title || brand).slice(0, 200), event_date: r.content.event_date.slice(0, 10), platform: r.content.platform || null, status: "planned" });
       }
+      // Pay status is driven SOLELY by the mapped payment object. A deal is paid
+      // only when its payment is actually received — a lifecycle "paid" row with no
+      // received payment maps to not_invoiced (never a fabricated received payment).
       if (dealId && r.payment?.expected_date) {
-        await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: toNum(r.payment.amount) ?? toNum(r.value) ?? 0, expected_date: r.payment.expected_date.slice(0, 10), status: /paid|received/i.test(r.payment.status || "") ? "received" : "expected", invoice_state: /paid|received/i.test(r.payment.status || "") ? "invoiced" : "not_invoiced" });
+        const received = /paid|received/i.test(r.payment.status || "");
+        const amount = toNum(r.payment.amount) ?? toNum(r.value) ?? 0;
+        await supabase.from("payments").insert({
+          user_id: user.id, deal_id: dealId, amount,
+          expected_date: r.payment.expected_date.slice(0, 10),
+          status: received ? "received" : "expected",
+          pay_status: received ? "paid" : "not_invoiced",
+        });
       }
     }
     setImporting(false);
