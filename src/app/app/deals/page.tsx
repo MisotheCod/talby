@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
@@ -38,7 +38,6 @@ const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
 export default function DealsPage() {
   const supabase = createClient();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -55,8 +54,6 @@ export default function DealsPage() {
   const PAGE_SIZE = 10;
   const [deleteTarget, setDeleteTarget] = useState<Deal | null>(null);
   const [rowMenu, setRowMenu] = useState<string | null>(null);
-  // Chooser modal opened via /app/deals?choose=1 (the Overview Add-deal button).
-  const [chooserOpen, setChooserOpen] = useState(false);
   // Only one row menu is open at a time; dismissal (outside click, Escape) is
   // handled inside the portal RowMenuButton component.
 
@@ -104,10 +101,9 @@ export default function DealsPage() {
 
   useEffect(() => { loadDeals(); }, [loadDeals, supabase]);
 
-  // Open drawer or new-deal modal via URL params (?open=id, ?new=1, ?choose=1)
+  // Open drawer or new-deal modal via URL params (?open=id, ?new=1)
   useEffect(() => {
     if (searchParams.get("new") === "1") setNewMode("blank");
-    if (searchParams.get("choose") === "1") setChooserOpen(true);
     if (searchParams.get("open")) setSelectedId(searchParams.get("open"));
   }, [searchParams]);
 
@@ -367,15 +363,6 @@ export default function DealsPage() {
         <UploadModal onClose={() => setNewMode(null)} onSaved={onCreated} />
       )}
 
-      {chooserOpen && (
-        <AddDealChooser
-          onClose={() => setChooserOpen(false)}
-          onNew={() => { setChooserOpen(false); setNewMode("blank"); }}
-          onUpload={() => { setChooserOpen(false); setNewMode("upload"); }}
-          onNotion={() => { setChooserOpen(false); router.push("/app/import?source=notion"); }}
-        />
-      )}
-
       {selected && (
         <DealDrawer
           deal={selected}
@@ -398,48 +385,6 @@ export default function DealsPage() {
         />
       )}
       {celeb.ToastEl}
-    </div>
-  );
-}
-
-/* ---------------- Add-deal chooser modal ----------------
-   The two-step flow from the Overview "Add deal" button: pick how to add a
-   deal (manual / upload a contract / import from Notion), then land in the
-   matching flow. Three cards in order, each with a short description. */
-function AddDealChooser({ onClose, onNew, onUpload, onNotion }: {
-  onClose: () => void; onNew: () => void; onUpload: () => void; onNotion: () => void;
-}) {
-  const cards = [
-    { label: "New deal", desc: "Enter the details by hand — brand, value, dates, and terms.", onPick: onNew, Icon: IconPlus },
-    { label: "Upload", desc: "One contract or CSV, filled in automatically by AI. Review, then add.", onPick: onUpload, Icon: IconUpload },
-    { label: "Import from Notion", desc: "Pull your whole deal database — connect, map, and review.", onPick: onNotion, Icon: null },
-  ] as const;
-  return (
-    <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={onClose}>
-      <div className="bg-card w-full max-w-md rounded-2xl border border-line2 shadow-pop p-6" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-[16px] font-semibold">Add a deal</h3>
-          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
-        </div>
-        <p className="text-[13px] text-inksoft mb-4">Choose how you&apos;d like to bring it in.</p>
-        <div className="space-y-2.5">
-          {cards.map((c) => (
-            <button
-              key={c.label}
-              onClick={c.onPick}
-              className="w-full flex items-start gap-3 card p-4 text-left cursor-pointer hover:border-[var(--accent)] transition-colors"
-            >
-              <span className="h-9 w-9 rounded-xl accent-tint-bg accent-ink grid place-items-center shrink-0">
-                {c.Icon ? <c.Icon size={18} /> : <NotionLogo size={18} />}
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-semibold">{c.label}</span>
-                <span className="block text-[13px] text-inksoft mt-0.5 leading-snug">{c.desc}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

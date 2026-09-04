@@ -8,6 +8,7 @@ import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus } from "@/components/icons";
 import { Pill, Segmented } from "@/components/ui";
+import { AddDealFlow } from "@/components/add-deal-flow";
 
 type Deal = {
   id: string; brand: string; status: string; value: number | null;
@@ -63,6 +64,7 @@ export default function OverviewPage() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [loading, setLoading] = useState(true);
+  const [addFlowOpen, setAddFlowOpen] = useState(false);
   const [selDay, setSelDay] = useState(0); // index into this week (today first)
   const [dealPage, setDealPage] = useState(1);
   const DEAL_PAGE_SIZE = 10;
@@ -236,9 +238,9 @@ export default function OverviewPage() {
           </p>
         </div>
         <div className="flex items-center gap-2.5">
-          <Link href="/app/deals?choose=1" className="no-underline">
-            <button className="btn3d" data-tour="add-deal"><svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add deal</button>
-          </Link>
+          <button className="btn3d" data-tour="add-deal" onClick={() => setAddFlowOpen(true)}>
+            <svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add deal
+          </button>
         </div>
       </div>
 
@@ -284,7 +286,7 @@ export default function OverviewPage() {
             </div>
           </div>
           {filteredDeals.length === 0 ? (
-            <EmptyDeals search={!!search} />
+            <EmptyDeals search={!!search} onAdd={() => setAddFlowOpen(true)} />
           ) : (
             pagedDeals.map((d) => <DealRow key={d.id} deal={d} />)
           )}
@@ -358,6 +360,12 @@ export default function OverviewPage() {
           </div>
         </div>
       </div>
+
+      <AddDealFlow
+        open={addFlowOpen}
+        onClose={() => setAddFlowOpen(false)}
+        onChanged={() => load()}
+      />
     </div>
   );
 }
@@ -443,7 +451,7 @@ function PayRow({ p }: { p: Payment }) {
   );
 }
 
-function EmptyDeals({ search }: { search: boolean }) {
+function EmptyDeals({ search, onAdd }: { search: boolean; onAdd: () => void }) {
   return (
     <div className="px-[22px] py-12 text-center">
       {search ? (
@@ -454,9 +462,9 @@ function EmptyDeals({ search }: { search: boolean }) {
           <p className="text-[13px] text-inksoft mt-1 max-w-xs mx-auto">
             Track your first brand collaboration and watch your money, content, and payments come together in one calm place.
           </p>
-          <Link href="/app/deals?choose=1" className="inline-block mt-4 no-underline">
-            <button className="btn3d"><svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add your first deal</button>
-          </Link>
+          <button className="btn3d inline-block mt-4" onClick={onAdd}>
+            <svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add your first deal
+          </button>
         </>
       )}
     </div>
