@@ -275,13 +275,56 @@ export default function DealsPage() {
         </div>
       </div>
 
-      {visible.length === 0 ? (
-        <div className="panel p-10 text-center flex flex-col items-center gap-3">
-          <p className="text-sm text-inksoft">No deals in this view yet.</p>
-          <div className="flex gap-2 flex-wrap justify-center">
-            <Button variant="secondary" onClick={() => setNewMode("blank")}><IconPlus size={16} /> Add a deal</Button>
-            <Link href="/app/import"><Button variant="secondary"><NotionLogo size={16} className="shrink-0" /> Import deals</Button></Link>
+      {deals.length === 0 ? (
+        <div className="deal-empty">
+          <h2 className="text-[17px] font-bold text-ink">Add your first deal</h2>
+          <p className="text-[13px] text-inksoft">Bring in what you already have, or start from scratch.</p>
+          <div className="deal-empty-grid mt-4">
+            <button
+              type="button"
+              onClick={() => setNewMode("upload")}
+              className="deal-empty-card on"
+            >
+              <span className="de-head">
+                <span className="de-icon"><IconUpload size={19} /></span>
+                <span className="de-title">Upload a file</span>
+                <span className="deal-empty-badge">Fastest</span>
+              </span>
+              <span className="de-desc">Drop in a signed contract or a spreadsheet and we pull out the brand, value, and dates for you.</span>
+              <span className="de-meta">PDF, DOCX, CSV</span>
+              <span className="de-btn">Choose a file</span>
+            </button>
+            <Link
+              href="/app/import?source=notion"
+              className="deal-empty-card"
+            >
+              <span className="de-head">
+                <span className="de-icon"><NotionLogo size={18} className="shrink-0" /></span>
+                <span className="de-title">Import from Notion</span>
+              </span>
+              <span className="de-desc">Connect your account, pick a database, and map the columns once.</span>
+              <span className="de-meta">Brings in every row</span>
+              <span className="de-btn">Connect Notion</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setNewMode("blank")}
+              className="deal-empty-card"
+            >
+              <span className="de-head">
+                <span className="de-icon"><IconPlus size={19} /></span>
+                <span className="de-title">Add one manually</span>
+              </span>
+              <span className="de-desc">Type in the brand, the deliverables, and what you are getting paid.</span>
+              <span className="de-meta">About a minute</span>
+              <span className="de-btn">Add a deal</span>
+            </button>
           </div>
+        </div>
+      ) : visible.length === 0 ? (
+        <div className="panel p-10 text-center flex flex-col items-center gap-3">
+          <p className="text-sm text-inksoft">No deals match this filter.</p>
+          <Button variant="secondary" onClick={() => setFilter("All")}>View all deals</Button>
         </div>
       ) : view === "board" ? (
         <DealBoard deals={visible} onOpen={(id) => setSelectedId(id)} onChanged={onUpdated} />
