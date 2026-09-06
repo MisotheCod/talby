@@ -988,6 +988,7 @@ input[type="range"].zoom::-moz-range-track {
   background: var(--card-2);
   color: var(--ink);
   font-size: 13px; font-weight: 600;
+  text-align: center;
   cursor: pointer;
 }
 .deal-empty-card .de-btn:hover { background: var(--accent-tint); color: var(--accent-ink); }
