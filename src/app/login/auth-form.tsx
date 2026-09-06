@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -26,15 +27,18 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     setError("");
 
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { setError(error.message); setLoading(false); return; }
+      // PostHog: identify so every account's funnel/retention is tracked (no PII in capture; email only in identify).
+      if (data.user) { posthog.identify(data.user.id, { email }); posthog.capture("login"); }
       const next = searchParams.get("next");
       router.push(next || "/app");
       router.refresh();
     } else {
-      const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/onboarding` } });
+      const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/onboarding` } });
       if (error) { setError(error.message); setLoading(false); return; }
       // Auto-signed-in on Supabase; go to onboarding.
+      if (data.user) { posthog.identify(data.user.id, { email }); posthog.capture("signup"); }
       router.push("/onboarding");
       router.refresh();
     }

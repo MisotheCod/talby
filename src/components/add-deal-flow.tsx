@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { paidPaymentGap } from "@/lib/pay-status";
@@ -30,48 +31,48 @@ export function AddDealFlow({ open, onClose, onChanged }: {
   const [flow, setFlow] = useState<Flow>("choose");
 
   // Reset to the chooser whenever the root modal re-opens.
-  useEffect(() => { if (open) setFlow("choose"); }, [open]);
+  useEffect(() => { if (open) { setFlow("choose"); posthog.capture("deal_add_started"); } }, [open]);
 
   if (!open) return null;
 
   if (flow === "new") {
     return (
       <InlineNewDeal
-        onClose={() => { setFlow("choose"); onClose(); }}
-        onSaved={() => { onChanged?.(); setFlow("choose"); onClose(); }}
+        onClose={() => { posthog.capture("deal_add_abandoned", { method: "new" }); setFlow("choose"); onClose(); }}
+        onSaved={() => { posthog.capture("deal_add_completed", { method: "new" }); onChanged?.(); setFlow("choose"); onClose(); }}
       />
     );
   }
   if (flow === "upload") {
     return (
       <UploadModal
-        onClose={() => { setFlow("choose"); onClose(); }}
-        onSaved={() => { onChanged?.(); setFlow("choose"); onClose(); }}
+        onClose={() => { posthog.capture("deal_add_abandoned", { method: "upload" }); setFlow("choose"); onClose(); }}
+        onSaved={() => { posthog.capture("deal_add_completed", { method: "upload" }); onChanged?.(); setFlow("choose"); onClose(); }}
       />
     );
   }
   if (flow === "notion") {
     return (
       <InlineNotionImport
-        onClose={() => { setFlow("choose"); onClose(); }}
-        onDone={() => { onChanged?.(); setFlow("choose"); onClose(); }}
+        onClose={() => { posthog.capture("deal_add_abandoned", { method: "notion" }); setFlow("choose"); onClose(); }}
+        onDone={() => { posthog.capture("deal_add_completed", { method: "notion" }); onChanged?.(); setFlow("choose"); onClose(); }}
       />
     );
   }
 
   // Chooser: three cards, in order.
   return (
-    <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={() => { setFlow(null); onClose(); }}>
+    <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={() => { posthog.capture("deal_add_abandoned", { method: "none" }); setFlow(null); onClose(); }}>
       <div className="bg-card w-full max-w-md rounded-2xl border border-line2 shadow-pop p-6" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-[16px] font-semibold">Add a deal</h3>
-          <button onClick={() => { setFlow(null); onClose(); }} aria-label="Close" className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
+          <button onClick={() => { posthog.capture("deal_add_abandoned", { method: "none" }); setFlow(null); onClose(); }} aria-label="Close" className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
         </div>
         <p className="text-[13px] text-inksoft mb-4">Choose how you&apos;d like to bring it in.</p>
         <div className="space-y-2.5">
-          <ChooserCard icon={<IconPlus size={18} />} label="New deal" desc="Enter the details by hand — brand, value, dates, and terms." onClick={() => setFlow("new")} />
-          <ChooserCard icon={<IconUpload />} label="Upload" desc="One contract or CSV, filled in automatically by AI. Review, then add." onClick={() => setFlow("upload")} />
-          <ChooserCard icon={<NotionLogo size={18} />} label="Import from Notion" desc="Pull your whole deal database — connect, map, and review." onClick={() => setFlow("notion")} />
+          <ChooserCard icon={<IconPlus size={18} />} label="New deal" desc="Enter the details by hand — brand, value, dates, and terms." onClick={() => { posthog.capture("deal_add_chosen", { method: "new" }); setFlow("new"); }} />
+          <ChooserCard icon={<IconUpload />} label="Upload" desc="One contract or CSV, filled in automatically by AI. Review, then add." onClick={() => { posthog.capture("deal_add_chosen", { method: "upload" }); setFlow("upload"); }} />
+          <ChooserCard icon={<NotionLogo size={18} />} label="Import from Notion" desc="Pull your whole deal database — connect, map, and review." onClick={() => { posthog.capture("deal_add_chosen", { method: "notion" }); setFlow("notion"); }} />
         </div>
       </div>
     </div>
