@@ -12,6 +12,8 @@ export const metadata: Metadata = {
     title: "Talby — organize your brand deals",
     description:
       "Talby helps creators track brand deals and payments, plan content, and draft the awkward follow-up emails for you to send.",
+    url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/`,
+    images: [{ url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/og.png`, width: 1200, height: 630, alt: "Talby — organize your brand deals" }],
     type: "website",
   },
 };

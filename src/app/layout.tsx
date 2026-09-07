@@ -59,12 +59,19 @@ export const metadata: Metadata = {
     title: "Talby — Brand deals & money, in one calm place",
     description:
       "The calm command center for creators: tracking brand deals, payments, and content without the Notion chaos.",
+    url: `${SITE_URL}/`,
+    images: [{ url: `${SITE_URL}/og.png`, width: 1200, height: 630, alt: "Talby — Brand deals & money, in one calm place" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Talby — Brand deals & money, in one calm place",
     description:
       "The calm command center for creators: tracking brand deals, payments, and content without the Notion chaos.",
+    images: [`${SITE_URL}/og.png`],
+  },
+  icons: {
+    icon: "/icon.png",
+    apple: "/apple-icon.png",
   },
   robots: {
     index: true,
