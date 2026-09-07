@@ -584,6 +584,7 @@ function NewDealModal({ plan, activeCount, initialMode, onClose, onCreated, onUp
         initial={emptyDealForm()}
         uploadOnMount={initialMode === "contract"}
         onSaved={onCreated}
+        onCancel={onClose}
         setError={setError}
         pending={saving}
         submitLabel="Add deal"

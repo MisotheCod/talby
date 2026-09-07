@@ -134,6 +134,7 @@ function InlineNewDeal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
             mode="create"
             initial={emptyDealForm()}
             onSaved={onSaved}
+            onCancel={onClose}
             setError={() => {}}
             pending={false}
             submitLabel="Add deal"

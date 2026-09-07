@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck } from "@/components/icons";
+import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck, IconUpload } from "@/components/icons";
 import { Button, Input, Select, Textarea, Spinner } from "@/components/ui";
 
 /** Map the contract-extraction JSON onto DealFormValues. Used by DealForm, UploadModal. */
@@ -85,7 +85,7 @@ const DEAL_STATUSES = [
 
 export function emptyDealForm(): DealFormValues {
   return {
-    brand: "", deliverable: "", value: "", status: "active",
+    brand: "", deliverable: "", value: "", status: "pipeline",
     due_date: "", pay_terms: "", exclusivity_days: "", rep_name: "", rep_email: "",
     links: [], notes: "",
   };
@@ -115,6 +115,7 @@ export function DealForm({
   onDraftSave,
   onSaved,
   setError,
+  onCancel,
   submitLabel,
   pending,
 }: {
@@ -134,6 +135,7 @@ export function DealForm({
   setError: (e: string) => void;
   submitLabel: string;
   pending: boolean;
+  onCancel?: () => void;
 }) {
   const supabase = createClient();
   const [v, setV] = useState<DealFormValues>(initial);
@@ -145,7 +147,7 @@ export function DealForm({
   const [extracting, setExtracting] = useState(false);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [stagedText, setStagedText] = useState(""); // extracted contract text for assistant ingest
-  const [plan, setPlan] = useState<"free" | "paid">("free");
+  const [dragOver, setDragOver] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const set = <K extends keyof DealFormValues>(k: K, val: DealFormValues[K]) => setV((p) => ({ ...p, [k]: val }));
@@ -156,18 +158,6 @@ export function DealForm({
   const isReview = variant === "review" || (mode === "create" && !!selfReview);
   const effectiveAuto = selfReview ? selfReview.auto : autoFields;
   const effectiveFlags = selfReview ? selfReview.flags : flagged;
-
-  // On mount, resolve the current plan for file gating.
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-        setPlan(((p.data as unknown as { plan?: string })?.plan === "paid") ? "paid" : "free");
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase]);
 
   const uploadContract = async (file: File) => {
     if (variant === "review") { setStagedFile(file); onReplaceFile?.(); return; }
@@ -225,9 +215,9 @@ export function DealForm({
         if (!res.ok) { setError(data?.error || "Could not create the deal."); return; }
         const createdId = (data?.deal as { id?: string } | undefined)?.id;
         const isDup = data?.duplicate === true;
-        // Only upload the contract file on the FIRST (non-duplicate) insert — a
+        // Upload the contract file on the FIRST (non-duplicate) insert — a
         // retried submit already persisted it.
-        if (plan === "paid" && srcFile && createdId && !isDup) {
+        if (srcFile && createdId && !isDup) {
           const path = `${user.id}/${createdId}/${Date.now()}-${srcFile.name}`;
           await supabase.storage.from("deal-files").upload(path, srcFile);
           await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: srcFile.name, path, size_bytes: srcFile.size, mime: srcFile.type });
@@ -284,7 +274,7 @@ export function DealForm({
         <p className="text-xs italic text-inksoft -mt-1">Pulled from your contract. Check the flagged fields.</p>
       )}
 
-      {/* File strip (review) OR compact upload line (manual) */}
+      {/* Contract upload: full-width dropzone (manual/create), file strip (review) */}
       {mode === "create" && (
         isReview ? (
           stagedFile || contractFile || filename ? (
@@ -296,21 +286,27 @@ export function DealForm({
             </div>
           ) : null
         ) : (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fileRef.current?.click()}
-              type="button"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-inksoft hover:text-ink cursor-pointer"
-            >
-              {extracting ? <Spinner className="h-3.5 w-3.5" /> : <IconPaperclip size={13} className="text-inksoft" />}
-              <span>{extracting ? "Reading contract…" : uploadOnMount ? "Start with a contract" : "Upload a contract to auto-fill"}</span>
-            </button>
-            {plan === "free" && (
-              <div className="ml-0.5 flex items-center gap-2 pl-3 pr-2.5 py-1.5 rounded-lg border border-accent/30 bg-accent-soft">
-                <span className="text-[11px] text-accentink leading-tight">Saving contract files is on Unlimited</span>
-                <a href="/#pricing" className="text-[11px] font-semibold accent-text hover:underline no-underline whitespace-nowrap" onClick={(e) => e.stopPropagation()}>Go unlimited</a>
-              </div>
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) uploadContract(f); }}
+            role="button"
+            aria-label="Upload or drop a contract to auto-fill this deal"
+            className={cn(
+              "w-full border-2 border-dashed rounded-2xl p-6 cursor-pointer hover:border-[var(--accent)] transition bg-card border-line2 text-left",
+              dragOver && "border-[var(--accent)] bg-accent-soft"
             )}
+          >
+            <div className="flex items-center gap-3">
+              <span className="h-10 w-10 rounded-xl bg-accent-soft text-accentink grid place-items-center shrink-0">
+                {extracting ? <Spinner /> : <IconUpload size={19} />}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-ink">{extracting ? "Reading contract…" : uploadOnMount ? "Start with a contract" : "Drop in a signed contract"}</div>
+                <div className="text-xs text-inksoft mt-0.5">and we will fill this in for you. Click to browse or drag a file here. PDF, .txt, .md.</div>
+              </div>
+            </div>
           </div>
         )
       )}
@@ -346,7 +342,7 @@ export function DealForm({
         <Field label="Brand *" spark={spark("brand")}><Input value={v.brand} onChange={(e) => set("brand", e.target.value)} placeholder="e.g. Glossier" /></Field>
       )}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Value ($)" spark={spark("value")}><Input type="number" value={v.value} onChange={(e) => set("value", e.target.value)} placeholder="1500" /></Field>
+        <Field label="Payment" spark={spark("value")}><Input type="number" value={v.value} onChange={(e) => set("value", e.target.value)} placeholder="1500" /></Field>
         <Field label="Deal status"><Select value={v.status} onChange={(e) => set("status", e.target.value)}>
           {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select></Field>
@@ -368,7 +364,7 @@ export function DealForm({
 
       <AccordionSection
         label="Terms"
-        summary={termsSummary || "Payment, due date, pay terms, exclusivity"}
+        summary={termsSummary || "Payment, due date, pay terms"}
         open={!!openSections.terms}
         onToggle={() => toggle("terms")}
       >
@@ -414,7 +410,10 @@ export function DealForm({
         <p className="text-[11px] text-inksoft flex items-center gap-1.5"><IconAuto size={13} className="text-due" /> <span>Sparkle = filled by your contract. Edit anything before adding.</span></p>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-3">
+        {mode === "create" && onCancel && (
+          <Button variant="secondary" size="md" onClick={onCancel}>Cancel</Button>
+        )}
         <Button onClick={doSubmit} disabled={pending || busy || (mode === "edit" && !dirty)}>
           {pending || busy ? <Spinner /> : savedFlash ? (
             <span className="flex items-center gap-1.5"><IconCheck size={15} /> Saved</span>
@@ -474,7 +473,7 @@ function AccordionSection({ label, summary, open, onToggle, children }: { label:
         className="w-full flex items-center gap-2 px-3.5 py-3 hover:bg-card2 transition-colors cursor-pointer"
       >
         <span className="text-sm font-medium text-ink flex-1 text-left">{label}</span>
-        <span className={cn("text-xs text-inksoft truncate max-w-[50%] text-right", !open && "italic")}>
+        <span className={cn("text-xs text-inksoft truncate max-w-[62%] text-right", !open && "italic")}>
           {open ? "Hide" : summary}
         </span>
         <svg className={cn("chev shrink-0 transition-transform", open && "rotate-90")} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9 6l6 6-6 6" /></svg>

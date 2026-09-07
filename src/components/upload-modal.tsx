@@ -241,6 +241,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
             flagged={single.__flags}
             onReplaceFile={() => setPhase("pick")}
             onSaved={onCreated}
+            onCancel={onClose}
             setError={setError}
             pending={saving}
             submitLabel="Add deal"
@@ -258,6 +259,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
             flagged={drafts[editingIndex]?.__flags}
             onDraftSave={(v) => { setDraft(editingIndex, v); setEditingIndex(null); setPhase("multi"); }}
             onSaved={() => { setEditingIndex(null); setPhase("multi"); }}
+            onCancel={() => { setEditingIndex(null); setPhase("multi"); }}
             setError={setError}
             pending={saving}
             submitLabel="Save & back to queue"
