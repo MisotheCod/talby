@@ -29,8 +29,15 @@ export async function GET(req: Request) {
 
   // Read the notion_state cookie /api/notion/connect set before redirecting to
   // Notion. It pins the round-trip to the signed-in user (no account switch).
+  // NOTE: the cookie is also set sameSite="lax", so on Notion's cross-site
+  // OAuth redirect back it may NOT be sent. We therefore fall back to the
+  // signed-in session (auth.getUser()) for user_id when the cookie is absent —
+  // connect only ever initiates OAuth for the currently signed-in user, so the
+  // session is the more reliable identity here.
   let user_id: string | null = null;
-  let redirect_to: string = "/app/import";
+  // Where to return the user after the OAuth round-trip. Default into the Notion
+  // import flow (pick a database) unless an app page was explicitly requested.
+  let redirect_to: string = "/app/import?source=notion";
   const reqCookies = new Map<string, string>();
   for (const c of req.headers.get("cookie")?.split(";") ?? []) {
     const eq = c.indexOf("=");
@@ -42,16 +49,25 @@ export async function GET(req: Request) {
       const parsed = JSON.parse(stateJson);
       if (parsed.state === state) {
         user_id = parsed.user_id;
-        if (typeof parsed.redirect_to === "string" && /^\/app\/[a-z0-9/_-]*$/i.test(parsed.redirect_to)) {
-          redirect_to = parsed.redirect_to;
+        if (typeof parsed.redirect_to === "string") {
+          // Allow an optional ?source=notion so a Settings-stage connect still
+          // routes into the database-selection flow (matches the import page's
+          // own Connect button). Base path must stay a /app page.
+          const [base, qs] = parsed.redirect_to.split("?");
+          if (/^\/app\/[a-z0-9/_-]*$/i.test(base)) {
+            redirect_to = qs ? `${base}?${qs}` : base;
+          }
         }
       }
     } catch {}
   }
 
   // Build the redirect response up front so the session cookie adapter can
-  // write straight onto it.
-  const res = NextResponse.redirect(`${origin}${redirect_to}?notion=error`);
+  // write straight onto it. Append the outcome flag correctly whether
+  // redirect_to already carries a query (?source=notion).
+  const withFlag = (flag: string) =>
+    `${origin}${redirect_to}${redirect_to.includes("?") ? "&" : "?"}${flag}`;
+  const res = NextResponse.redirect(withFlag("notion=error"));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -76,8 +92,21 @@ export async function GET(req: Request) {
     }
   );
 
+  // If the state cookie didn't yield a user (it's dropped on the cross-site
+  // redirect back due to sameSite=lax), recover identity from the signed-in
+  // session so OAuth still saves to the right account. connect() only starts
+  // OAuth for the currently-signed-in user, so this can't attach to a stranger.
+  if (!user_id) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    user_id = user?.id ?? null;
+  }
+
   if (error || !code || !user_id) {
-    console.error("notion callback early-return", { hasError: !!error, error, hasCode: !!code, hasUser: !!user_id, stateParam: state, hasStateCookie: !!stateJson, stateCookieMatch: stateJson ? JSON.parse(stateJson || "{}").state === state : false });
+    let stateEq: boolean = false;
+    try { stateEq = stateJson ? (JSON.parse(stateJson).state === state) : false; } catch {}
+    console.error("notion callback early-return", { hasError: !!error, error, hasCode: !!code, hasUser: !!user_id, stateParam: state, hasStateCookie: !!stateJson, stateCookieMatch: stateEq });
     // Refresh the session through the adapter so its cookies land on res.
     await supabase.auth.getUser();
     res.cookies.delete("notion_state");
@@ -101,13 +130,13 @@ export async function GET(req: Request) {
     await supabase.auth.getUser();
 
     res.cookies.delete("notion_state");
-    res.headers.set("Location", `${origin}${redirect_to}?notion=connected`);
+    res.headers.set("Location", withFlag("notion=connected"));
     return res;
   } catch (e) {
     console.error("notion callback error", e);
     await supabase.auth.getUser();
     res.cookies.delete("notion_state");
-    res.headers.set("Location", `${origin}${redirect_to}?notion=error`);
+    res.headers.set("Location", withFlag("notion=error"));
     return res;
   }
 }

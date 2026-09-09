@@ -1015,3 +1015,9 @@ input[type="range"].zoom::-moz-range-track {
 @media (max-width: 639px) {
   .deal-empty-grid { grid-template-columns: 1fr; }
 }
+
+/* Danger-zone separator: hairline tinted to the fixed danger red. --late is
+   stable across light/dark (only --late-bg/--late-ink shift), so one rgba works. */
+.danzone-hairline {
+  border-top: 1px solid rgba(242, 112, 91, 0.28);
+}

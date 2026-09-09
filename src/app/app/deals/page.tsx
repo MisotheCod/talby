@@ -8,11 +8,12 @@ import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, isPayOverdue, type PayStatus, type DealRollup } from "@/lib/pay-status";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail, IconArrowLeft } from "@/components/icons";
 import { Button, Input, Textarea, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
+import { SaveToastHost, notifySaved } from "@/components/save-toast";
 import UploadModal from "@/components/upload-modal";
 import { useCelebration } from "@/components/confetti";
 
@@ -34,6 +35,9 @@ type Deal = {
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null };
+type DraftField = "value" | "status" | "deliverable" | "deal_type" | "due_date" | "pay_terms" | "exclusivity_days" | "rep_name" | "rep_email" | "notes";
+type Draft = Record<DraftField, string>;
+const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "due_date", "pay_terms", "exclusivity_days", "rep_name", "rep_email", "notes"];
 
 const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
 
@@ -440,6 +444,7 @@ export default function DealsPage() {
         />
       )}
       {celeb.ToastEl}
+      <SaveToastHost />
     </div>
   );
 }
@@ -456,9 +461,9 @@ function DealStatusBadge({ status, active }: { status: string; active: boolean }
 /** Single pay-status pill derived from the deal's payment rollup. One pill, no
  *  separate invoice field. Overdue is NOT a status value — it's the derived
  *  danger date shown in the Pay-by column. */
-const PAYS_PILL_KIND: Record<PayStatus, "paid" | "due" | "neutral"> = {
+const PAYS_PILL_KIND: Record<PayStatus, "paid" | "due" | "neutral" | "accent"> = {
   paid: "paid",
-  invoiced: "due",
+  invoiced: "paid",   // green — a sent/active invoice reads as positive
   no_invoice_needed: "neutral",
   not_invoiced: "due",
 };
@@ -647,19 +652,97 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
 
   const paid = (dealPayRollup(payments as unknown as { pay_status: string | null; expected_date: string | null }[])).status === "paid";
 
-  // Keyboard dismiss: Escape closes the drawer (menu handled by its own effect).
-  const touchStart = useRef<number | null>(null);
+  // ---------- Explicit-save editing model ----------
+  // All editable detail fields + notes stage into `draft` locally. Nothing
+  // writes to the DB until save(). `saved` is the last-committed snapshot used
+  // for dirty detection and per-field undo. No blur handlers, no debounces,
+  // no timers, no onKeyDown writes — typing is never interrupted.
+  const toDraft = (d: Deal) => ({
+    value: d.value?.toString() ?? "",
+    status: d.status === "archived" ? "archived" : d.status === "pipeline" ? "pipeline" : "active",
+    deliverable: d.deliverable ?? "",
+    deal_type: d.deal_type ?? "",
+    due_date: d.due_date ?? "",
+    pay_terms: d.pay_terms ?? "",
+    exclusivity_days: d.exclusivity_days?.toString() ?? "",
+    rep_name: d.rep_name ?? "",
+    rep_email: d.rep_email ?? "",
+    notes: d.notes ?? "",
+  }) as Draft;
+  const [draft, setDraft] = useState<Draft>(() => toDraft(deal));
+  const [saved, setSaved] = useState<Draft>(() => toDraft(deal));
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+
+  // Re-init staging when a different deal is opened (component isn't keyed).
+  const draftDealRef = useRef(deal.id);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenu(false); onClose(); } };
+    if (draftDealRef.current !== deal.id) {
+      draftDealRef.current = deal.id;
+      const next = toDraft(deal);
+      setDraft(next); setSaved(next); setSaveError(null); setConfirmClose(false);
+    }
+  }, [deal]);
+
+  const isDirty = (k: DraftField) => draft[k] !== saved[k];
+  const dirtyList = FIELD_KEYS.filter(isDirty);
+  const hasChanges = dirtyList.length > 0;
+
+  const setField = (k: DraftField, v: string) => setDraft((next) => ({ ...next, [k]: v }));
+  const undo = (k: DraftField) => setDraft((next) => ({ ...next, [k]: saved[k] }));
+
+  const save = async () => {
+    if (saving || !hasChanges) return;
+    setSaving(true); setSaveError(null);
+    const patch: Record<string, unknown> = {};
+    for (const k of dirtyList) {
+      const val = draft[k];
+      if (k === "value" || k === "exclusivity_days") patch[k] = val ? Number(val) : null;
+      else if (k === "due_date") patch.due_date = val || null;
+      else patch[k] = val;
+    }
+    if (dirtyList.includes("status")) patch.active = draft.status !== "archived";
+    const { error } = await supabase.from("deals").update(patch).eq("id", deal.id);
+    setSaving(false);
+    if (error) { setSaveError(error.message || "Could not save changes."); return; }
+    setSaved({ ...draft });
+    onUpdated();
+    notifySaved();
+  };
+
+  // Keyboard: Cmd/Ctrl+S saves; Escape (not in a field) closes with a warn if dirty.
+  const saveRef = useRef(save); saveRef.current = save;
+  const hasChangesRef = useRef(hasChanges); hasChangesRef.current = hasChanges;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void saveRef.current();
+      } else if (e.key === "Escape") {
+        // A focused input/select/textarea handles Escape itself (revert field);
+        // only act when focus is not in an editable control.
+        const t = e.target as HTMLElement | null;
+        const editable = t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA");
+        if (editable) return;
+        e.preventDefault();
+        if (hasChangesRef.current) setConfirmClose(true); else onClose();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  const requestClose = () => { if (hasChanges) setConfirmClose(true); else onClose(); };
+
+  // Drag/swipe down to close — routes through requestClose so unsaved edits warn.
+  const touchStart = useRef<number | null>(null);
   const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientY; };
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchStart.current === null) return;
     const dy = e.changedTouches[0].clientY - touchStart.current;
     touchStart.current = null;
-    if (dy > 80) onClose();
+    if (dy > 80) requestClose();
   };
 
   // ⋯ menu: close on outside click (mouse + touch, but not clicks inside the menu)
@@ -698,7 +781,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   ];
 
   return (
-    <div className="fixed inset-0 z-[85] bg-black/20" onClick={onClose} role="presentation">
+    <div className="fixed inset-0 z-[85] bg-black/20" onClick={requestClose} role="presentation">
       <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
         {/* Header: logo, brand, amount + due, ⋯ menu, close */}
         <header className="px-5 py-4 border-b border-line">
@@ -722,7 +805,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
                 </div>
               )}
             </div>
-            <button onClick={onClose} aria-label="Close drawer" className="flex-none p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
+            <button onClick={requestClose} aria-label="Close drawer" className="flex-none p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
           </div>
         </header>
 
@@ -737,97 +820,107 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab deal={deal} onSaved={onUpdated} />}
+          {tab === "details" && <DetailsTab draft={draft} setField={setField} undo={undo} isDirty={isDirty} />}
           {tab === "checklist" && <ChecklistTab dealId={deal.id} items={checklist} setItems={setChecklist} onChanged={onUpdated} />}
-          {tab === "notes" && <NotesTab dealId={deal.id} deal={deal} onSaved={onUpdated} />}
+          {tab === "notes" && <NotesTab draft={draft} setField={setField} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
           {tab === "payments" && <DrawerPaymentsTab dealId={deal.id} payments={payments} setPayments={setPayments} onChanged={onUpdated} onCelebrate={onCelebrate} />}
         </div>
 
-        {/* Footer: single pinned primary action */}
-        <div className="border-t border-line px-5 py-3 bg-card2/40 flex-none">
-          <Button onClick={paid ? undefined : markAllPaid} disabled={marking || paid} size="lg" className={cn("w-full", paid && "bg-paid")}>
+        {saveError && (
+          <div className="px-5 py-2 border-t border-line bg-[var(--late-bg)] text-bad text-[12.5px] flex items-center gap-2" role="alert">
+            <span className="flex-none w-1.5 h-1.5 rounded-full bg-[var(--late)]" /> {saveError}
+          </div>
+        )}
+
+        {/* Footer: Save changes (primary) + Mark as paid (secondary). Both always
+            present, fixed height, expected position. Save is disabled + dimmed
+            when clean or in flight; a write never fires twice. */}
+        <div className="border-t border-line px-4 py-3 bg-card2/40 flex-none flex items-center gap-3">
+          <Button variant="secondary" size="lg" onClick={paid ? undefined : markAllPaid} disabled={marking || paid} className="flex-1 min-w-[120px]">
             {marking ? <Spinner /> : <IconCheck size={16} />} {marking ? "Marking…" : paid ? "Paid" : "Mark as paid"}
+          </Button>
+          <Button size="lg" onClick={save} disabled={!hasChanges || saving} className={cn("flex-1 min-w-[120px]", !hasChanges && "opacity-50")}>
+            {saving ? <Spinner /> : <IconCheck size={16} />} {saving ? "Saving…" : "Save changes"}
           </Button>
         </div>
       </div>
+
+      {/* Discard-unsaved-changes confirm: shown on X, overlay click, swipe, or Esc when dirty. */}
+      {confirmClose && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40" onClick={() => setConfirmClose(false)} role="presentation">
+          <div className="w-full max-w-sm bg-card border border-line2 rounded-2xl shadow-pop p-5" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+            <h3 className="text-[15px] font-semibold text-ink">Discard unsaved changes?</h3>
+            <p className="text-[13px] text-inksoft mt-1.5">You have {dirtyList.length} unsaved change{dirtyList.length === 1 ? "" : "s"}. Closing now will lose them.</p>
+            <div className="flex items-center justify-end gap-2 mt-4">
+              <Button variant="ghost" size="md" onClick={() => setConfirmClose(false)}>Keep editing</Button>
+              <Button variant="danger" size="md" onClick={() => { setConfirmClose(false); onClose(); }}>Discard</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ---------------- Details tab (autosave) ----------------
-   Flat label-and-input rows under three section labels. Every field is a real
-   editable input/select wired to a deals column. Changes autosave ~500ms after
-   the user stops typing, with a "Saved" indicator. No explicit Save button. */
-function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
-  const supabase = createClient();
-  const [form, setForm] = useState({
-    value: deal.value?.toString() ?? "",
-    status: deal.status === "archived" ? "archived" : deal.status === "pipeline" ? "pipeline" : "active",
-    deliverable: deal.deliverable ?? "",
-    deal_type: deal.deal_type ?? "",
-    due_date: deal.due_date ?? "",
-    pay_terms: deal.pay_terms ?? "",
-    exclusivity_days: deal.exclusivity_days?.toString() ?? "",
-    rep_name: deal.rep_name ?? "",
-    rep_email: deal.rep_email ?? "",
-  });
-  const [saved, setSaved] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const set = <K extends keyof typeof form>(k: K, val: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: val }));
-
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-
-  const handle = <K extends keyof typeof form>(k: K, val: (typeof form)[K]) => {
-    set(k, val);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      const patch: Record<string, unknown> = {};
-      if (k === "value") patch.value = val ? Number(val) : null;
-      else if (k === "status") patch.status = val;
-      else if (k === "deal_type") patch.deal_type = val;
-      else if (k === "due_date") patch.due_date = (val as string) || null;
-      else if (k === "pay_terms") patch.pay_terms = val;
-      else if (k === "exclusivity_days") patch.exclusivity_days = val ? Number(val) : null;
-      else if (k === "rep_name") patch.rep_name = val;
-      else if (k === "rep_email") patch.rep_email = val;
-      else patch[k] = val;
-      // Archiving via status must also flip `active` (cap accounting).
-      if (k === "status") patch.active = (val as string) !== "archived";
-      const { error } = await supabase.from("deals").update(patch).eq("id", deal.id);
-      if (!error) { setSaved(true); onSaved(); setTimeout(() => setSaved(false), 1600); }
-    }, 500);
-  };
-
+/* ---------------- Details tab (explicit save) ----------------
+   Pure controlled component: renders draft values, stages edits via setField,
+   reverts via undo, marks edited rows (accent border + undo arrow). Owns NO
+   state and performs NO writes — the drawer's Save button commits everything. */
+function DetailsTab({ draft, setField, undo, isDirty }: { draft: Draft; setField: (k: DraftField, v: string) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean }) {
   const Section = ({ label, children }: { label: string; children?: React.ReactNode }) => (
     <div className="mt-5 first:mt-0">
       <div className="text-[10.5px] font-semibold uppercase tracking-wide text-inkfaint mb-1">{label}</div>
       {children}
     </div>
   );
-  const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="flex items-center gap-3 py-1.5 border-b border-line last:border-b-0">
-      <span className="w-[92px] flex-none text-[12px] text-inksoft">{label}</span>
-      <div className="flex-1 min-w-0">{children}</div>
-    </div>
-  );
-  const inputCls = "w-full bg-transparent border border-transparent rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition";
-  const selectCls = `${inputCls} cursor-pointer`;
+  // Row shows an accent border + undo arrow when the field is dirty.
+  const Row = ({ label, field, children }: { label: string; field: DraftField; children: React.ReactNode }) => {
+    const dirty = isDirty(field);
+    return (
+      <div className={cn("flex items-center gap-2 py-1.5 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
+        <span className="w-[92px] flex-none text-[12px] text-inksoft">{label}</span>
+        <div className="flex-1 min-w-0">{children}</div>
+        {/* Reserved, fixed-width trailing slot so the row never reflows when the
+            undo button appears on the first keystroke (a layout shift there blurs
+            the focused input on iOS/WebKit). The button toggles opacity, not mount. */}
+        <span className="w-7 flex-none flex items-center justify-center">
+          <button
+            onClick={() => undo(field)}
+            aria-label={`Revert ${label}`}
+            title="Revert change"
+            tabIndex={dirty ? 0 : -1}
+            aria-hidden={!dirty}
+            className={cn(
+              "p-1 rounded-md text-inksoft hover:text-ink hover:bg-card2 cursor-pointer transition-opacity",
+              dirty ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}
+          ><IconArrowLeft size={16} /></button>
+        </span>
+      </div>
+    );
+  };
+  const baseCls = "w-full bg-transparent border rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition ";
+  const inputCls = (k: DraftField) => baseCls + (isDirty(k) ? "border-[var(--accent)]" : "border-transparent");
+  // Escape in a focused field reverts just that field and does not bubble to close.
+  const onEsc = (k: DraftField) => (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); undo(k); }
+  };
+  const selectCls = (k: DraftField) => inputCls(k) + " cursor-pointer";
 
   return (
     <div>
-      <Row label="Value"><input className={`${inputCls} money`} value={form.value} onChange={(e) => handle("value", e.target.value)} inputMode="decimal" placeholder="$0" /></Row>
-      <Row label="Deal status">
-        <select className={selectCls} value={form.status} onChange={(e) => handle("status", e.target.value)}>
+      <Row label="Value" field="value"><input className={inputCls("value")} value={draft.value} onChange={(e) => setField("value", e.target.value)} onKeyDown={onEsc("value")} inputMode="decimal" placeholder="$0" /></Row>
+      <Row label="Deal status" field="status">
+        <select className={selectCls("status")} value={draft.status} onChange={(e) => setField("status", e.target.value)} onKeyDown={onEsc("status")}>
           <option value="active">Active</option>
           <option value="pipeline">Negotiating</option>
           <option value="archived">Archived</option>
         </select>
       </Row>
-      <Row label="Deliverable"><input className={inputCls} value={form.deliverable} onChange={(e) => handle("deliverable", e.target.value)} placeholder="e.g. 1 YouTube integration" /></Row>
-      <Row label="Deal type">
-        <select className={selectCls} value={form.deal_type} onChange={(e) => handle("deal_type", e.target.value)}>
+      <Row label="Deliverable" field="deliverable"><input className={inputCls("deliverable")} value={draft.deliverable} onChange={(e) => setField("deliverable", e.target.value)} onKeyDown={onEsc("deliverable")} placeholder="e.g. 1 YouTube integration" /></Row>
+      <Row label="Deal type" field="deal_type">
+        <select className={selectCls("deal_type")} value={draft.deal_type} onChange={(e) => setField("deal_type", e.target.value)} onKeyDown={onEsc("deal_type")}>
           <option value="">No set type</option>
           <option value="paid_partnership">Paid Partnership</option>
           <option value="ugc">UGC</option>
@@ -839,9 +932,9 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
       </Row>
 
       <Section label="Terms">
-        <Row label="Pay by"><input type="date" className={inputCls} value={form.due_date} onChange={(e) => handle("due_date", e.target.value)} /></Row>
-        <Row label="Pay terms">
-          <select className={selectCls} value={form.pay_terms} onChange={(e) => handle("pay_terms", e.target.value)}>
+        <Row label="Pay by" field="due_date"><input type="date" className={inputCls("due_date")} value={draft.due_date} onChange={(e) => setField("due_date", e.target.value)} onKeyDown={onEsc("due_date")} /></Row>
+        <Row label="Pay terms" field="pay_terms">
+          <select className={selectCls("pay_terms")} value={draft.pay_terms} onChange={(e) => setField("pay_terms", e.target.value)} onKeyDown={onEsc("pay_terms")}>
             <option value="">No set terms</option>
             <option value="due_on_receipt">Due on receipt</option>
             <option value="net_15">Net 15</option>
@@ -852,17 +945,13 @@ function DetailsTab({ deal, onSaved }: { deal: Deal; onSaved: () => void }) {
             <option value="milestone">Milestone-based</option>
           </select>
         </Row>
-        <Row label="Exclusivity"><input className={inputCls} value={form.exclusivity_days} onChange={(e) => handle("exclusivity_days", e.target.value)} inputMode="numeric" placeholder="Days" /></Row>
+        <Row label="Exclusivity" field="exclusivity_days"><input className={inputCls("exclusivity_days")} value={draft.exclusivity_days} onChange={(e) => setField("exclusivity_days", e.target.value)} onKeyDown={onEsc("exclusivity_days")} inputMode="numeric" placeholder="Days" /></Row>
       </Section>
 
       <Section label="Rep contact">
-        <Row label="Name"><input className={inputCls} value={form.rep_name} onChange={(e) => handle("rep_name", e.target.value)} placeholder="Contact name" /></Row>
-        <Row label="Email"><input className={inputCls} type="email" value={form.rep_email} onChange={(e) => handle("rep_email", e.target.value)} placeholder="rep@brand.com" /></Row>
+        <Row label="Name" field="rep_name"><input className={inputCls("rep_name")} value={draft.rep_name} onChange={(e) => setField("rep_name", e.target.value)} onKeyDown={onEsc("rep_name")} placeholder="Contact name" /></Row>
+        <Row label="Email" field="rep_email"><input className={inputCls("rep_email")} value={draft.rep_email} onChange={(e) => setField("rep_email", e.target.value)} onKeyDown={onEsc("rep_email")} placeholder="rep@brand.com" /></Row>
       </Section>
-
-      <div className={cn("flex items-center gap-1.5 text-[11.5px] text-inksoft mt-4 transition-opacity", saved ? "opacity-100" : "opacity-0")}>
-        <IconCheck size={13} className="text-paid" /> Saved
-      </div>
     </div>
   );
 }
@@ -1011,26 +1100,25 @@ function ConfirmDeleteDeal({ deal, onCancel, onConfirm }: { deal: Deal; onCancel
   );
 }
 
-function NotesTab({ dealId, deal, onSaved }: { dealId: string; deal: Deal; onSaved: () => void }) {
-  const supabase = createClient();
-  const [notes, setNotes] = useState(deal.notes ?? "");
-  const [saved, setSaved] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-  const onText = (val: string) => {
-    setNotes(val);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      const { error } = await supabase.from("deals").update({ notes: val }).eq("id", dealId);
-      if (!error) { setSaved(true); onSaved(); setTimeout(() => setSaved(false), 1600); }
-    }, 500);
+function NotesTab({ draft, setField, undo, isDirty }: { draft: Draft; setField: (k: DraftField, v: string) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean }) {
+  const dirty = isDirty("notes");
+  const onEsc = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); undo("notes"); }
   };
   return (
     <div className="space-y-3">
-      <Textarea value={notes} onChange={(e) => onText(e.target.value)} placeholder="Anything worth remembering about this deal…" className="min-h-[220px]" />
-      <div className={cn("flex items-center gap-1.5 text-[11.5px] text-inksoft transition-opacity", saved ? "opacity-100" : "opacity-0")}>
-        <IconCheck size={13} className="text-paid" /> Saved
-      </div>
+      <Textarea
+        value={draft.notes}
+        onChange={(e) => setField("notes", e.target.value)}
+        onKeyDown={onEsc}
+        placeholder="Anything worth remembering about this deal…"
+        className={cn("min-h-[220px]", dirty && "border-[var(--accent)]")}
+      />
+      {dirty && (
+        <button onClick={() => undo("notes")} aria-label="Revert notes" title="Revert change" className="flex items-center gap-1.5 text-[12px] text-inksoft hover:text-ink cursor-pointer">
+          <IconArrowLeft size={13} /> Revert notes
+        </button>
+      )}
     </div>
   );
 }
@@ -1123,6 +1211,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
     if (err) { setError(err.message); return; }
     setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received", pay_status: "paid" } : p)));
     onChanged();
+    notifySaved();
     onCelebrate?.();
   };
   const setPayStatus = async (p: Payment, val: string) => {
@@ -1130,6 +1219,8 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
     const { error: err } = await supabase.from("payments").update({ pay_status: next, status: next === "paid" ? "received" : p.status }).eq("id", p.id);
     if (err) return;
     setPayments(payments.map((x) => (x.id === p.id ? { ...x, pay_status: next, status: next === "paid" ? "received" : x.status } : x)));
+    onChanged();
+    notifySaved();
   };
   return (
     <div className="space-y-4">

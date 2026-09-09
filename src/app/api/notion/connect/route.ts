@@ -22,7 +22,11 @@ export async function GET(req: Request) {
   // from the Import flow comes back to the import flow (not Settings).
   const u = new URL(req.url);
   let redirectTo = u.searchParams.get("redirect_to") || "/app/import";
-  if (!/^\/app\/[a-z0-9/_-]*$/i.test(redirectTo)) redirectTo = "/app/import";
+  // Allow an optional ?source=notion (routes into the import database flow);
+  // the base path must stay a /app page to avoid an open redirect.
+  const [rtBase, rtQs] = redirectTo.split("?");
+  if (!/^\/app\/[a-z0-9/_-]*$/i.test(rtBase)) redirectTo = "/app/import";
+  else redirectTo = rtQs ? `${rtBase}?${rtQs}` : rtBase;
 
   const state = randomUUID();
   const res = NextResponse.redirect(authUrl(state));

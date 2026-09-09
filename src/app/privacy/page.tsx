@@ -84,9 +84,10 @@ export default function PrivacyPage() {
 
         <section className="space-y-2">
           <h2 className="font-semibold">Your choices &amp; deletion</h2>
-          <p className="text-muted text-sm leading-relaxed">
-            You can delete your account and all associated data at any time by contacting us. We&apos;ll
-            remove your data within 30 days of a verified request.
+          <p className="text-sm text-muted leading-relaxed">
+            You can delete your account and all associated data at any time — either in-app under
+            Settings &rarr; Account &rarr; Danger zone, or by contacting us. It&apos;s irreversible,
+            and it cancels any active subscription.
           </p>
         </section>
 

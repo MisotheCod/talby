@@ -182,8 +182,8 @@ export default function OnboardingPage() {
                   placeholder="creatorhandle" className="pl-9" autoFocus maxLength={30} />
               </div>
               {error && <p className="text-sm text-late text-center mt-3" role="alert">{error}</p>}
-              <div className="mt-8 flex justify-center">
-                <Button size="lg" onClick={advanceFromHandle} disabled={!handler.trim()}>Continue <IconArrowRight size={16} /></Button>
+              <div className="mt-8 flex justify-center w-full max-w-xs mx-auto">
+                <Button size="lg" className="w-full" onClick={advanceFromHandle} disabled={!handler.trim()}>Continue <IconArrowRight size={16} /></Button>
               </div>
             </div>
           )}

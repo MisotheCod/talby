@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { IconCheck } from "@/components/icons";
 import { Button, Segmented, Spinner } from "@/components/ui";
 import { NotionLogo } from "@/components/marketing/notion-logo";
+import { DangerZone } from "@/components/danger-zone";
 
 type Profile = { handler: string | null; accent: string | null; plan: string; head_font: string | null; avatar_url: string | null };
 type AccountUser = { email?: string | null };
@@ -193,6 +194,9 @@ export default function SettingsPage() {
                         </div>
                       )}
                     </div>
+
+                    {/* Danger zone: irreversible account actions, separated by a hairline */}
+                    <DangerZone />
                   </>
                 )}
 
@@ -466,7 +470,7 @@ function ConnectionsList() {
         {notion?.connected ? (
           <Button variant="secondary" size="sm" onClick={disconnectNotion}>Disconnect</Button>
         ) : (
-          <Button size="sm" onClick={() => { window.location.href = "/api/notion/connect?redirect_to=/app/settings"; }}>Connect</Button>
+          <Button size="sm" onClick={() => { window.location.href = "/api/notion/connect?redirect_to=/app/import?source=notion"; }}>Connect</Button>
         )}
       </div>
     </div>
