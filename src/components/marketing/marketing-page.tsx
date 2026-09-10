@@ -413,7 +413,7 @@ export function MarketingPage() {
             <details open><summary>Is this just another Notion template?<IconChev /></summary><p>No. Notion makes you build the system before you can use it. Talby is the finished thing. Sign up, add a deal, and it works. Nothing to configure, no template to buy.</p></details>
             <details><summary>What makes it different from a deal tracker?<IconChev /></summary><p>Most trackers stop at deal status. Talby follows the money (expected, overdue, and received) and ties it to a content calendar, so the business side and posting side finally live together.</p></details>
             <details><summary>Do you post to my social accounts?<IconChev /></summary><p>Not right now. Talby plans and organizes your content. It doesn't publish for you. It's your command center, not your scheduler.</p></details>
-            <details><summary>What happens when I hit 5 deals?<IconChev /></summary><p>Only active deals count. Anything you've wrapped and archived is free and unlimited. When you've got more than five going at once, go unlimited for $20 a month. That also unlocks the AI assistant. Usually that means business is good.</p></details>
+            <details><summary>What happens when I hit 5 deals?<IconChev /></summary><p>Only active deals count. Anything you've wrapped and archived is free and unlimited. When you've got more than five going at once, go unlimited for $9 a month. That also unlocks the AI assistant and your income summary. Usually that means business is good.</p></details>
             <details><summary>What is the AI assistant?<IconChev /></summary><p>Unlimited includes a built-in assistant that answers questions about your own deals, payments, contracts, and calendar. Ask how much you're owed, what a contract clause says, or whether a deal conflicts with your exclusivity. It answers only from your data.</p></details>
             <details><summary>Is my data private?<IconChev /></summary><p>Yes. Everything you add is tied to your account and yours alone. Nobody else can see your deals, your money, or your numbers.</p></details>
           </div>
@@ -426,7 +426,7 @@ export function MarketingPage() {
           <div className="shead reveal">
             <span className="tag">Pricing</span>
             <h2>Free while you grow.</h2>
-            <p>The whole app is free up to 5 active deals. When business is good, go unlimited. $20 a month, cancel anytime.</p>
+            <p>The whole app is free up to 5 active deals. When business is good, go unlimited. $9 a month, cancel anytime.</p>
           </div>
           <div className="pricegrid">
             {/* Free */}
@@ -452,13 +452,14 @@ export function MarketingPage() {
                 <div className="pbadge">Most popular</div>
               </div>
               <div className="pname">Unlimited</div>
-              <div className="pamt">$20<small className="pper">/month</small></div>
+              <div className="pamt">$9<small className="pper">/month</small></div>
               <p>Everything in Free, minus the cap.</p>
               <div className="plabel">Everything in Free, plus</div>
               <ul className="pfeat">
                 <UnLi>Unlimited active deals</UnLi>
                 <UnLi>File and contract uploads</UnLi>
                 <UnLi>Talby AI assistant that answers about your deals, payments and contracts</UnLi>
+                <UnLi>Income summary — money received, gifted value, and a tax-ready export</UnLi>
               </ul>
               <GoUnlimitedButton />
             </div>

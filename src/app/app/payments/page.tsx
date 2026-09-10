@@ -7,6 +7,7 @@ import { useIsMobile } from "@/lib/use-is-mobile";
 import type { PayStatus } from "@/lib/pay-status";
 import { IconPlus, IconMore, IconCheck } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
+import { IncomeSummary } from "./income-summary";
 
 /* ---------- types ---------- */
 type Payment = {
@@ -14,11 +15,11 @@ type Payment = {
   expected_date: string | null; status: string;
   invoice_state: string | null;
   pay_status: string | null;
-  deal?: { brand: string } | null;
+  deal?: { brand: string; deliverable: string | null } | null;
 };
 type Deal = {
   id: string; brand: string; value: number | null; deal_type: string | null;
-  created_at: string; active: boolean; status: string;
+  created_at: string; active: boolean; status: string; deliverable: string | null;
 };
 type Range = "month" | "quarter" | "year" | "all";
 const RANGES: Range[] = ["month", "quarter", "year", "all"];
@@ -65,6 +66,8 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [listFilter, setListFilter] = useState<"All" | "Expected" | "Received" | "Not invoiced">("All");
+  const [view, setView] = useState<"Payments" | "Income summary">("Payments");
+  const [plan, setPlan] = useState<"free" | "paid">("free");
   const [range, setRange] = useState<Range>("month");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -82,9 +85,14 @@ export default function PaymentsPage() {
   }, [menuOpen]);
 
   const load = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
+      setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
+    }
     const [p, d] = await Promise.all([
-      supabase.from("payments").select("*, deal:deals(brand)").order("expected_date", { ascending: true }),
-      supabase.from("deals").select("id, brand, value, deal_type, created_at, active, status").order("created_at", { ascending: true }),
+      supabase.from("payments").select("*, deal:deals(brand, deliverable)").order("expected_date", { ascending: true }),
+      supabase.from("deals").select("id, brand, value, deal_type, created_at, active, status, deliverable").order("created_at", { ascending: true }),
     ]);
     setPayments((p.data ?? []) as unknown as Payment[]);
     setDeals((d.data ?? []) as unknown as Deal[]);
@@ -274,9 +282,17 @@ export default function PaymentsPage() {
           <h1 className="text-2xl font-semibold">Payments</h1>
           <p className="text-muted text-sm mt-1">Your money at a glance.</p>
         </div>
-        <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add expected payment</Button>
+        <div className="flex items-center gap-2">
+          <Segmented options={(["Payments", "Income summary"] as const)} value={view} onChange={setView} />
+          {view === "Payments" && <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add expected payment</Button>}
+        </div>
       </div>
 
+      {view === "Income summary" && (
+        <IncomeSummary payments={payments} deals={deals} plan={plan} />
+      )}
+      {view === "Payments" && (
+      <>
       {/* === 1. Four stat cards === */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Earned this year" value={formatMoney(receivedYtdTotal)} color="text-ok"
@@ -434,6 +450,8 @@ export default function PaymentsPage() {
 
       {showAdd && (
         <AddPaymentModal deals={deals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
+      )}
+      </>
       )}
     </div>
   );
