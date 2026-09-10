@@ -9,11 +9,11 @@ import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, isPayOverdue, type PayStatus, type DealRollup } from "@/lib/pay-status";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail, IconArrowLeft } from "@/components/icons";
-import { Button, Input, Textarea, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
+import { Button, Input, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
-import { SaveToastHost } from "@/components/save-toast";
+import { SaveToastHost, notifySaved } from "@/components/save-toast";
 import UploadModal from "@/components/upload-modal";
 import { useCelebration } from "@/components/confetti";
 
@@ -699,8 +699,27 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const collDirty = clNorm(checklist) !== checklistBase || pmNorm(payments) !== paymentsBase;
   const hasChanges = dirtyList.length > 0 || collDirty;
 
+  // Uncontrolled-input refs. The drawer's editable text/number inputs write
+  // their value ONLY into these DOM refs while the user types (no value=, no
+  // onChange, no onKeyDown). React never re-renders or re-touches them on a
+  // keystroke, so typing can't stall. Values are read once on Save.
+  const fieldRefs = useRef<Partial<Record<DraftField, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null>>>({});
+  const bindRef = (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => { (fieldRefs.current as Record<string, unknown>)[k] = el; };
+
+  // on blur: only stage the value locally (for dirty-marking + undo). Nothing
+  // writes — Save is the single commit. Typing stays 100% untouched.
+  const onFieldBlur = (k: DraftField) => {
+    const el = (fieldRefs.current as Record<string, unknown>)[k] as { value?: string } | null;
+    setField(k, el?.value ?? saved[k]);
+  };
+
   const setField = (k: DraftField, v: string) => setDraft((next) => ({ ...next, [k]: v }));
-  const undo = (k: DraftField) => setDraft((next) => ({ ...next, [k]: saved[k] }));
+
+  const undo = (k: DraftField) => {
+    const el = (fieldRefs.current as Record<string, unknown>)[k] as ({ value: string } | null) | undefined;
+    if (el) el.value = saved[k]; // rewrite the live DOM node
+    setField(k, saved[k]);       // clear dirty; Save commits the revert
+  };
 
   const save = async () => {
     if (saving || !hasChanges) return;
@@ -709,12 +728,18 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     if (!user) { setSaveError("Not signed in."); setSaving(false); return; }
     const patch: Record<string, unknown> = {};
     for (const k of dirtyList) {
-      const val = draft[k];
+      // Read the live DOM value (authoritative) — falls back to draft which
+      // blur already synced. Never invoked mid-keystroke.
+      const el = (fieldRefs.current as Record<string, unknown>)[k] as { value?: string } | null;
+      const val = el?.value ?? draft[k];
       if (k === "value" || k === "exclusivity_days") patch[k] = val ? Number(val) : null;
       else if (k === "due_date") patch.due_date = val || null;
       else patch[k] = val;
     }
-    if (dirtyList.includes("status")) patch.active = draft.status !== "archived";
+    if (dirtyList.includes("status")) {
+      const st = ((fieldRefs.current as Record<string, unknown>)["status"] as { value?: string } | null)?.value ?? draft.status;
+      patch.active = st !== "archived";
+    }
     if (Object.keys(patch).length) {
       const { error } = await supabase.from("deals").update(patch).eq("id", deal.id);
       if (error) { setSaveError(error.message || "Could not save changes."); setSaving(false); return; }
@@ -876,9 +901,9 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab draft={draft} setField={setField} undo={undo} isDirty={isDirty} />}
+          {tab === "details" && <DetailsTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
-          {tab === "notes" && <NotesTab draft={draft} setField={setField} undo={undo} isDirty={isDirty} />}
+          {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
           {tab === "payments" && <DrawerPaymentsTab payments={payments} setPayments={setPayments} />}
         </div>
@@ -919,11 +944,13 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   );
 }
 
-/* ---------------- Details tab (explicit save) ----------------
-   Pure controlled component: renders draft values, stages edits via setField,
-   reverts via undo, marks edited rows (accent border + undo arrow). Owns NO
-   state and performs NO writes — the drawer's Save button commits everything. */
-function DetailsTab({ draft, setField, undo, isDirty }: { draft: Draft; setField: (k: DraftField, v: string) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean }) {
+/* ---------------- Details tab (explicit save, uncontrolled inputs) ----------------
+   Every field renders defaultValue and binds a ref. NO onChange, NO onKeyDown,
+   NO value= — React never re-renders or re-touches an input while the user
+   types, so a keystroke can never stall. onBlur (leaving a field, one action)
+   syncs the value for dirty-marking/undo. The drawer's Save reads the refs
+   directly. Nothing writes to the DB except Save. */
+function DetailsTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean }) {
   const Section = ({ label, children }: { label: string; children?: React.ReactNode }) => (
     <div className="mt-5 first:mt-0">
       <div className="text-[10.5px] font-semibold uppercase tracking-wide text-inkfaint mb-1">{label}</div>
@@ -938,8 +965,7 @@ function DetailsTab({ draft, setField, undo, isDirty }: { draft: Draft; setField
         <span className="w-[92px] flex-none text-[12px] text-inksoft">{label}</span>
         <div className="flex-1 min-w-0">{children}</div>
         {/* Reserved, fixed-width trailing slot so the row never reflows when the
-            undo button appears on the first keystroke (a layout shift there blurs
-            the focused input on iOS/WebKit). The button toggles opacity, not mount. */}
+            undo button appears. The button toggles opacity, not mount. */}
         <span className="w-7 flex-none flex items-center justify-center">
           <button
             onClick={() => undo(field)}
@@ -956,27 +982,22 @@ function DetailsTab({ draft, setField, undo, isDirty }: { draft: Draft; setField
       </div>
     );
   };
-  const baseCls = "w-full bg-transparent border rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition ";
-  const inputCls = (k: DraftField) => baseCls + (isDirty(k) ? "border-[var(--accent)]" : "border-transparent");
-  // Escape in a focused field reverts just that field and does not bubble to close.
-  const onEsc = (k: DraftField) => (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); undo(k); }
-  };
-  const selectCls = (k: DraftField) => inputCls(k) + " cursor-pointer";
+  const inputCls = "w-full bg-transparent border border-transparent rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition";
+  const selectCls = `${inputCls} cursor-pointer`;
 
   return (
     <div>
-      <Row label="Value" field="value"><input className={inputCls("value")} value={draft.value} onChange={(e) => setField("value", e.target.value)} onKeyDown={onEsc("value")} inputMode="decimal" placeholder="$0" /></Row>
+      <Row label="Value" field="value"><input ref={bindRef("value")} defaultValue={draft.value} onBlur={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
       <Row label="Deal status" field="status">
-        <select className={selectCls("status")} value={draft.status} onChange={(e) => setField("status", e.target.value)} onKeyDown={onEsc("status")}>
+        <select ref={bindRef("status")} defaultValue={draft.status} onBlur={() => onFieldBlur("status")} className={selectCls}>
           <option value="active">Active</option>
           <option value="pipeline">Negotiating</option>
           <option value="archived">Archived</option>
         </select>
       </Row>
-      <Row label="Deliverable" field="deliverable"><input className={inputCls("deliverable")} value={draft.deliverable} onChange={(e) => setField("deliverable", e.target.value)} onKeyDown={onEsc("deliverable")} placeholder="e.g. 1 YouTube integration" /></Row>
+      <Row label="Deliverable" field="deliverable"><input ref={bindRef("deliverable")} defaultValue={draft.deliverable} onBlur={() => onFieldBlur("deliverable")} className={inputCls} placeholder="e.g. 1 YouTube integration" /></Row>
       <Row label="Deal type" field="deal_type">
-        <select className={selectCls("deal_type")} value={draft.deal_type} onChange={(e) => setField("deal_type", e.target.value)} onKeyDown={onEsc("deal_type")}>
+        <select ref={bindRef("deal_type")} defaultValue={draft.deal_type} onBlur={() => onFieldBlur("deal_type")} className={selectCls}>
           <option value="">No set type</option>
           <option value="paid_partnership">Paid Partnership</option>
           <option value="ugc">UGC</option>
@@ -988,9 +1009,9 @@ function DetailsTab({ draft, setField, undo, isDirty }: { draft: Draft; setField
       </Row>
 
       <Section label="Terms">
-        <Row label="Pay by" field="due_date"><input type="date" className={inputCls("due_date")} value={draft.due_date} onChange={(e) => setField("due_date", e.target.value)} onKeyDown={onEsc("due_date")} /></Row>
+        <Row label="Pay by" field="due_date"><input type="date" ref={bindRef("due_date")} defaultValue={draft.due_date} onBlur={() => onFieldBlur("due_date")} className={inputCls} /></Row>
         <Row label="Pay terms" field="pay_terms">
-          <select className={selectCls("pay_terms")} value={draft.pay_terms} onChange={(e) => setField("pay_terms", e.target.value)} onKeyDown={onEsc("pay_terms")}>
+          <select ref={bindRef("pay_terms")} defaultValue={draft.pay_terms} onBlur={() => onFieldBlur("pay_terms")} className={selectCls}>
             <option value="">No set terms</option>
             <option value="due_on_receipt">Due on receipt</option>
             <option value="net_15">Net 15</option>
@@ -1001,12 +1022,12 @@ function DetailsTab({ draft, setField, undo, isDirty }: { draft: Draft; setField
             <option value="milestone">Milestone-based</option>
           </select>
         </Row>
-        <Row label="Exclusivity" field="exclusivity_days"><input className={inputCls("exclusivity_days")} value={draft.exclusivity_days} onChange={(e) => setField("exclusivity_days", e.target.value)} onKeyDown={onEsc("exclusivity_days")} inputMode="numeric" placeholder="Days" /></Row>
+        <Row label="Exclusivity" field="exclusivity_days"><input ref={bindRef("exclusivity_days")} defaultValue={draft.exclusivity_days} onBlur={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
       </Section>
 
       <Section label="Rep contact">
-        <Row label="Name" field="rep_name"><input className={inputCls("rep_name")} value={draft.rep_name} onChange={(e) => setField("rep_name", e.target.value)} onKeyDown={onEsc("rep_name")} placeholder="Contact name" /></Row>
-        <Row label="Email" field="rep_email"><input className={inputCls("rep_email")} value={draft.rep_email} onChange={(e) => setField("rep_email", e.target.value)} onKeyDown={onEsc("rep_email")} placeholder="rep@brand.com" /></Row>
+        <Row label="Name" field="rep_name"><input ref={bindRef("rep_name")} defaultValue={draft.rep_name} onBlur={() => onFieldBlur("rep_name")} className={inputCls} placeholder="Contact name" /></Row>
+        <Row label="Email" field="rep_email"><input ref={bindRef("rep_email")} defaultValue={draft.rep_email} onBlur={() => onFieldBlur("rep_email")} className={inputCls} placeholder="rep@brand.com" /></Row>
       </Section>
     </div>
   );
@@ -1146,19 +1167,16 @@ function ConfirmDeleteDeal({ deal, onCancel, onConfirm }: { deal: Deal; onCancel
   );
 }
 
-function NotesTab({ draft, setField, undo, isDirty }: { draft: Draft; setField: (k: DraftField, v: string) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean }) {
+function NotesTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean }) {
   const dirty = isDirty("notes");
-  const onEsc = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); undo("notes"); }
-  };
   return (
     <div className="space-y-3">
-      <Textarea
-        value={draft.notes}
-        onChange={(e) => setField("notes", e.target.value)}
-        onKeyDown={onEsc}
+      <textarea
+        ref={bindRef("notes")}
+        defaultValue={draft.notes}
+        onBlur={() => onFieldBlur("notes")}
         placeholder="Anything worth remembering about this deal…"
-        className={cn("min-h-[220px]", dirty && "border-[var(--accent)]")}
+        className={cn("w-full bg-card border border-line2 rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition resize-y min-h-[220px] font-sans", dirty && "border-[var(--accent)]")}
       />
       {dirty && (
         <button onClick={() => undo("notes")} aria-label="Revert notes" title="Revert change" className="flex items-center gap-1.5 text-[12px] text-inksoft hover:text-ink cursor-pointer">
