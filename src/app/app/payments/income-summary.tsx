@@ -1,53 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatMoney, cn } from "@/lib/utils";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { UpgradeModal } from "@/components/upgrade-modal";
+import { IconCalendar, IconDown, IconCheck } from "@/components/icons";
+import {
+  buildPeriods, defaultPeriod, keyStr, periodLabel, periodDetail,
+  type Period as IncomePeriod, type PeriodKey,
+} from "./income-periods";
 
 /* ---------- types ---------- */
 type Payment = {
   id: string; deal_id: string | null; amount: number;
   expected_date: string | null; status: string; invoice_state: string | null; pay_status: string | null;
-  deal?: {
-    brand: string; deliverable: string | null;
-  } | null;
+  deal?: { brand: string; deliverable: string | null } | null;
 };
-
 type Deal = { id: string; brand: string; value: number | null };
 
-type Range = "month" | "quarter" | "year" | "ytd";
-const RANGES: { value: Range; label: string }[] = [
-  { value: "ytd", label: "Year to date" },
-  { value: "month", label: "Month" },
-  { value: "quarter", label: "Quarter" },
-  { value: "year", label: "Year" },
-];
-
-/** 1099-NEC reporting threshold — flag any brand reaching this in the period. */
 const THRESHOLD = 600;
-
-function monthLabel(key: string): string {
-  const [y, m] = key.split("-").map(Number);
-  if (!y || !m) return key;
-  return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-}
-function quarterLabel(key: string): string {
-  const m = key.match(/^(\d{4})-Q(\d)/);
-  return m ? `Q${m[2]} ${m[1].slice(2)}` : key;
-}
-
-/** Is a received payment's date within the selected range (defaults YTD)? */
-function inRange(iso: string | null, range: Range): boolean {
-  if (!iso) return false;
-  const now = new Date();
-  const y = Number(iso.slice(0, 4));
-  if (range === "year") return y === now.getFullYear();
-  if (range === "ytd") return y === now.getFullYear();
-  if (range === "month") return iso.slice(0, 7) === `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  // quarter
-  const q = Math.ceil(Number(iso.slice(5, 7)) / 3);
-  return y === now.getFullYear() && q === Math.ceil((now.getMonth() + 1) / 3);
-}
 
 function buildCsv(rows: Payment[], label: string): void {
   const header = ["date_received", "brand", "amount", "deal_name", "payment_status", "deliverable"];
@@ -56,12 +27,8 @@ function buildCsv(rows: Payment[], label: string): void {
   for (const p of rows) {
     const brand = p.deal?.brand ?? "";
     lines.push([
-      p.expected_date ?? "",
-      esc(brand),
-      p.amount.toFixed(2),
-      esc(brand),
-      esc(p.pay_status ?? p.status),
-      esc(p.deal?.deliverable ?? ""),
+      p.expected_date ?? "", esc(brand), p.amount.toFixed(2), esc(brand),
+      esc(p.pay_status ?? p.status), esc(p.deal?.deliverable ?? ""),
     ].join(","));
   }
   const blob = new Blob([lines.join("\n")], { type: "text/csv" });
@@ -72,70 +39,84 @@ function buildCsv(rows: Payment[], label: string): void {
   URL.revokeObjectURL(url);
 }
 
-/** Income Summary — second paid feature. Live, always available, gated to Unlimited. */
+const GROUP_LABELS: Record<string, string> = {
+  quick: "Quick", quarter: "Quarters", month: "Months", year: "Years",
+};
+
 export function IncomeSummary({ payments, deals, plan }: {
   payments: Payment[]; deals: Deal[]; plan: "free" | "paid";
 }) {
-  const [range, setRange] = useState<Range>("ytd");
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [csvMsg, setCsvMsg] = useState<string | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const now = new Date();
 
-  // Money that actually arrived this period = payments marked received.
+  // All received-payment dates drive the period options (cash + gifted, so a
+  // period isn't hidden just because it only had gifted value).
+  const receivedDates = payments
+    .filter((p) => p.status === "received")
+    .map((p) => p.expected_date)
+    .filter((d): d is string => !!d);
+
+  const [periodKey, setPeriodKey] = useState<PeriodKey>(() => defaultPeriod(receivedDates));
+
+  // Build the period list once from the data. The active key is always included.
+  const periods = buildPeriods(receivedDates, periodKey);
+  const active = periods.find((p) => keyStr(p.key) === keyStr(periodKey)) ?? periods[0];
+
+  const inActiveRange = (p: Payment): boolean =>
+    active ? (p.expected_date ? active.matches(p.expected_date) : false) : true;
+
   const received = payments.filter((p) => p.status === "received");
-  // Cash: received payments (money arrived this period).
-  const cashPmts = received.filter((p) => (p.pay_status ?? "") !== "no_invoice_needed");
-  // Gifted: any no-invoice-needed payment (product/swag, not cash). Tracked separately,
-  // grouped by date, counted whether or not it was marked received — it carries a value
-  // but no money arrives.
-  const giftedPmts = payments.filter((p) => (p.pay_status ?? "") === "no_invoice_needed" && inRange(p.expected_date, range));
+  const cashPmts = received.filter((p) => (p.pay_status ?? "") !== "no_invoice_needed" && inActiveRange(p));
+  const giftedPmts = payments.filter((p) => (p.pay_status ?? "") === "no_invoice_needed" && (p.expected_date ? active.matches(p.expected_date) : false));
 
   const totalReceived = cashPmts.reduce((s, p) => s + p.amount, 0);
   const totalGifted = giftedPmts.reduce((s, p) => s + p.amount, 0);
 
-  /* ---- By brand (cash received) ---- */
   const brandMap = new Map<string, number>();
   for (const p of cashPmts) {
     const b = p.deal?.brand ?? "Unattached payment";
     brandMap.set(b, (brandMap.get(b) ?? 0) + p.amount);
   }
-  const brandRows = [...brandMap.entries()]
-    .map(([brand, amt]) => ({ brand, amt }))
-    .sort((a, b) => b.amt - a.amt);
+  const brandRows = [...brandMap.entries()].map(([brand, amt]) => ({ brand, amt })).sort((a, b) => b.amt - a.amt);
 
-  /* ---- By month (cash received) ---- */
   const monthMap = new Map<string, number>();
   for (const p of cashPmts) {
     if (!p.expected_date) continue;
     const k = p.expected_date.slice(0, 7);
     monthMap.set(k, (monthMap.get(k) ?? 0) + p.amount);
   }
-  const monthRows = [...monthMap.entries()]
-    .map(([k, amt]) => ({ key: k, label: monthLabel(k), amt }))
-    .sort((a, b) => a.key.localeCompare(b.key));
+  const monthRows = [...monthMap.entries()].map(([k, amt]) => ({ key: k, label: monthLabelOf(k), amt })).sort((a, b) => a.key.localeCompare(b.key));
 
-  /* ---- Deals completed = distinct deals with a received payment in period ---- */
   const completedDeals = new Set(cashPmts.map((p) => p.deal_id).filter(Boolean));
 
-  /* ---- Not counted: deals with no payment record ---- */
   const paidDealIds = new Set(payments.map((p) => p.deal_id).filter(Boolean));
   const noRecordDeals = deals.filter((d) => !paidDealIds.has(d.id));
   const noRecordValue = noRecordDeals.reduce((s, d) => s + (d.value ?? 0), 0);
 
-  const periodLabel = (() => {
-    if (range === "ytd") return `ytd-${now.getFullYear()}`;
-    if (range === "year") return `${now.getFullYear()}`;
-    if (range === "month") return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    return `q${Math.ceil((now.getMonth() + 1) / 3)}-${now.getFullYear()}`;
-  })();
-
+  const csvLabel = periodKeyBtn(periodKey, now);
   const exportCsv = () => {
-    const rows = received.filter((p) => inRange(p.expected_date, range));
+    const rows = received.filter((p) => inActiveRange(p));
     if (!rows.length) { setCsvMsg("No received payments in this period yet."); return; }
-    buildCsv(rows, periodLabel);
+    buildCsv(rows, csvLabel);
     setCsvMsg(`Exported ${rows.length} payment${rows.length === 1 ? "" : "s"}.`);
     setTimeout(() => setCsvMsg(null), 4000);
   };
+
+  const choose = (p: IncomePeriod) => { setPeriodKey(p.key); setOpen(false); };
+
+  // close on outside click (desktop dropdown)
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", close);
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
+  }, [open]);
 
   if (plan !== "paid") {
     return (
@@ -149,6 +130,36 @@ export function IncomeSummary({ payments, deals, plan }: {
     );
   }
 
+  const list = (
+    <div className="py-1">
+      {(["quick", "quarter", "month", "year"] as const).map((g) => {
+        const items = periods.filter((p) => p.group === g);
+        if (!items.length) return null;
+        return (
+          <div key={g}>
+            <div className="text-[10.5px] font-semibold uppercase tracking-wider text-inkfaint px-3 pt-1.5 pb-1">{GROUP_LABELS[g]}</div>
+            {items.map((p) => (
+              <button
+                key={keyStr(p.key)}
+                onClick={() => choose(p)}
+                className={cn(
+                  "w-full flex items-center gap-2 px-3 py-2 text-left text-[13.5px] hover:bg-card2 cursor-pointer text-ink",
+                  keyStr(p.key) === keyStr(active.key) && "bg-accent-tint text-accentink font-medium"
+                )}
+              >
+                <span className={cn("flex-none w-4 grid place-items-center", keyStr(p.key) === keyStr(active.key) ? "text-accent" : "text-transparent")}>
+                  <IconCheck size={14} />
+                </span>
+                <span className="flex-1 truncate">{p.label}</span>
+                {p.detail && <span className="text-[11.5px] text-inkfaint flex-none">{p.detail}</span>}
+              </button>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <div className="space-y-6 fade-up">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -156,19 +167,63 @@ export function IncomeSummary({ payments, deals, plan }: {
           <h2 className="text-xl font-semibold">Income summary</h2>
           <p className="text-xs text-muted mt-0.5">Grouped by the date you marked each payment received.</p>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {RANGES.map((r) => (
-            <button key={r.value} onClick={() => setRange(r.value)}
-              className={cn("text-sm px-3 py-1.5 rounded-lg border cursor-pointer transition-colors",
-                range === r.value ? "border-transparent" : "border-line2 hover:bg-soft")}
-              style={range === r.value ? { background: "var(--accent)", color: "var(--onaccent)" } : undefined}>
-              {r.label}
-            </button>
-          ))}
+
+        {/* Period selector: dropdown on desktop, bottom sheet on mobile */}
+        <div className="relative" ref={wrapRef}>
+          <button
+            onClick={() => setOpen((o) => !o)}
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-label="Income period"
+            className="flex items-center gap-2 border border-line2 rounded-lg px-2.5 h-9 text-[13.5px] text-ink bg-card hover:bg-card2 cursor-pointer"
+          >
+            <IconCalendar size={16} className="text-inksoft flex-none" />
+            <span className="min-w-0 truncate flex-1 text-left">{active.label}</span>
+            <IconDown size={15} className={cn("text-inksoft flex-none transition-transform", open && "rotate-180")} />
+          </button>
+
+          {open && (
+            isMobile ? (
+              <>
+                <div className="fixed inset-0 z-[95] bg-black/25" onClick={() => setOpen(false)} />
+                <div role="listbox" className="fixed inset-x-0 bottom-0 z-[96] bg-card rounded-t-2xl shadow-lg border-t border-line fade-up" onClick={(e) => e.stopPropagation()}>
+                  <div className="sticky top-0 bg-card px-4 py-2.5 border-b border-line flex items-center justify-between">
+                    <span className="font-semibold text-sm">Income period</span>
+                    <button onClick={() => setOpen(false)} className="text-[12.5px] text-inksoft hover:text-ink cursor-pointer px-2.5 py-1 rounded-lg">Done</button>
+                  </div>
+                  <div className="max-h-[55vh] overflow-y-auto px-2">
+                    {(["quick", "quarter", "month", "year"] as const).map((g) => {
+                      const items = periods.filter((p) => p.group === g);
+                      if (!items.length) return null;
+                      return (
+                        <div key={g}>
+                          <div className="text-[10.5px] font-semibold uppercase tracking-wider text-inkfaint px-3 pt-1.5 pb-1">{GROUP_LABELS[g]}</div>
+                          {items.map((p) => (
+                            <button key={keyStr(p.key)} onClick={() => choose(p)}
+                              className={cn("w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-card2 cursor-pointer text-ink",
+                                keyStr(p.key) === keyStr(active.key) && "bg-accent-tint text-accentink font-medium")}>
+                              <span className={cn("flex-none w-4 grid place-items-center", keyStr(p.key) === keyStr(active.key) ? "text-accent" : "text-transparent")}><IconCheck size={14} /></span>
+                              <span className="flex-1 truncate">{p.label}</span>
+                              {p.detail && <span className="text-[12px] text-inkfaint flex-none">{p.detail}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {active.detail && <p className="text-[11.5px] text-inkfaint text-center py-1.5">{active.detail} · {active.label}</p>}
+                </div>
+              </>
+            ) : (
+              <div role="listbox" className="absolute right-0 top-12 z-40 w-56 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up max-h-80 overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                {list}
+              </div>
+            )
+          )}
         </div>
       </div>
 
-      {/* Totals: received, gifted, completed */}
+      {/* Totals */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card p-5">
           <div className="text-sm text-muted">Total received</div>
@@ -177,7 +232,7 @@ export function IncomeSummary({ payments, deals, plan }: {
         <div className="card p-5">
           <div className="text-sm text-muted">Gifted value</div>
           <div className="font-head text-2xl font-semibold mt-1 tabular-nums">{formatMoney(totalGifted)}</div>
-          <div className="text-xs text-muted mt-1">Tracked separately — never folded into received.</div>
+          <div className="text-xs text-muted mt-1">Tracked separately, never folded into received.</div>
         </div>
         <div className="card p-5">
           <div className="text-sm text-muted">Deals completed</div>
@@ -227,7 +282,7 @@ export function IncomeSummary({ payments, deals, plan }: {
       <div className="card p-5 border border-warn/30" style={{ background: "var(--warn-t)" }}>
         <div className="text-sm font-medium">Not included</div>
         <p className="text-xs text-muted mt-1">
-          <b>{noRecordDeals.length} deal{noRecordDeals.length === 1 ? "" : "s"}</b> have no payment record, worth <b>{formatMoney(noRecordValue)}</b>. They are not counted above — fix them to get a complete picture.
+          <b>{noRecordDeals.length} deal{noRecordDeals.length === 1 ? "" : "s"}</b> have no payment record, worth <b>{formatMoney(noRecordValue)}</b>. They are not counted above. Add a payment to get a complete picture.
         </p>
         <a href="/app/deals" className="text-xs accent-text hover:underline inline-block mt-2">Review deals →</a>
       </div>
@@ -247,4 +302,23 @@ export function IncomeSummary({ payments, deals, plan }: {
       <p className="text-[11px] text-muted text-center">This is a record of payments you marked as received in Talby. It is not a tax document.</p>
     </div>
   );
+}
+
+function monthLabelOf(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  if (!y || !m) return key;
+  return new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+}
+
+/** Filename-safe period slug. */
+function periodKeyBtn(k: PeriodKey, now: Date): string {
+  switch (k.kind) {
+    case "ytd": return `ytd-${now.getFullYear()}`;
+    case "this_quarter": return `q${Math.ceil((now.getMonth() + 1) / 3)}-${now.getFullYear()}`;
+    case "this_month": return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    case "all": return "all-time";
+    case "quarter": return `q${k.q}-${k.year}`;
+    case "month": return `${k.year}-${String(k.month).padStart(2, "0")}`;
+    case "year": return `${k.year}`;
+  }
 }
