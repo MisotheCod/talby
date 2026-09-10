@@ -13,7 +13,7 @@ import { Button, Input, Textarea, Select, StatusPill, Spinner, Segmented } from 
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
-import { SaveToastHost, notifySaved } from "@/components/save-toast";
+import { SaveToastHost } from "@/components/save-toast";
 import UploadModal from "@/components/upload-modal";
 import { useCelebration } from "@/components/confetti";
 
@@ -647,8 +647,14 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       setPayments((pay.data ?? []) as unknown as Payment[]);
       setChecklist((cl.data ?? []) as unknown as ChecklistItem[]);
       setFiles((fl.data ?? []) as unknown as DealFile[]);
+      setPaymentsBase(pmNorm(pay.data ?? []));
+      setChecklistBase(clNorm(cl.data ?? []));
     })();
   }, [supabase, deal.id]);
+
+  // Normalizers shared by dirty detection, load-baseline, and post-save baseline.
+  const clNorm = (xs: ChecklistItem[]) => JSON.stringify(xs.map((x) => `${x.id}|${x.done}|${x.title}`));
+  const pmNorm = (xs: Payment[]) => JSON.stringify(xs.map((x) => `${x.id}|${x.pay_status ?? ""}|${x.status}|${x.amount}|${x.expected_date ?? ""}`));
 
   const paid = (dealPayRollup(payments as unknown as { pay_status: string | null; expected_date: string | null }[])).status === "paid";
 
@@ -674,6 +680,9 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [confirmClose, setConfirmClose] = useState(false);
+  // Baselines for staged (checklist/payments) dirty detection — snapshot at load.
+  const [checklistBase, setChecklistBase] = useState<string>("");
+  const [paymentsBase, setPaymentsBase] = useState<string>("");
 
   // Re-init staging when a different deal is opened (component isn't keyed).
   const draftDealRef = useRef(deal.id);
@@ -687,7 +696,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
 
   const isDirty = (k: DraftField) => draft[k] !== saved[k];
   const dirtyList = FIELD_KEYS.filter(isDirty);
-  const hasChanges = dirtyList.length > 0;
+  const collDirty = clNorm(checklist) !== checklistBase || pmNorm(payments) !== paymentsBase;
+  const hasChanges = dirtyList.length > 0 || collDirty;
 
   const setField = (k: DraftField, v: string) => setDraft((next) => ({ ...next, [k]: v }));
   const undo = (k: DraftField) => setDraft((next) => ({ ...next, [k]: saved[k] }));
@@ -695,6 +705,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const save = async () => {
     if (saving || !hasChanges) return;
     setSaving(true); setSaveError(null);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaveError("Not signed in."); setSaving(false); return; }
     const patch: Record<string, unknown> = {};
     for (const k of dirtyList) {
       const val = draft[k];
@@ -703,12 +715,61 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       else patch[k] = val;
     }
     if (dirtyList.includes("status")) patch.active = draft.status !== "archived";
-    const { error } = await supabase.from("deals").update(patch).eq("id", deal.id);
+    if (Object.keys(patch).length) {
+      const { error } = await supabase.from("deals").update(patch).eq("id", deal.id);
+      if (error) { setSaveError(error.message || "Could not save changes."); setSaving(false); return; }
+    }
     setSaving(false);
-    if (error) { setSaveError(error.message || "Could not save changes."); return; }
+    // --- Commit staged checklist changes (diff against nothing: staged list IS authoritative) ---
+    // New items carry an id starting with "new-"; persist those; delete removals; update done flips.
+    try {
+      const { id } = deal;
+      const clResp = await supabase.from("deal_checklist").select("id").eq("deal_id", id);
+      const existingCl = (clResp.data ?? []) as { id: string }[];
+      const existingIds = new Set(existingCl.map((c) => c.id));
+      const stagedIds = new Set(checklist.map((c) => c.id).filter((i) => !i.startsWith("new-")));
+      // delete items removed from the staged list
+      for (const cid of existingIds) if (!stagedIds.has(cid)) await supabase.from("deal_checklist").delete().eq("id", cid);
+      for (const c of checklist) {
+        if (c.id.startsWith("new-")) {
+          await supabase.from("deal_checklist").insert({ user_id: user.id, deal_id: deal.id, title: c.title, done: c.done });
+        } else if (existingIds.has(c.id)) {
+          const orig = (await supabase.from("deal_checklist").select("done, title").eq("id", c.id).single()).data as { done?: boolean; title?: string } | null;
+          if (orig && (orig.done !== c.done || orig.title !== c.title)) await supabase.from("deal_checklist").update({ done: c.done, title: c.title }).eq("id", c.id);
+        }
+      }
+      // --- Commit staged payment changes ---
+      const pmResp = await supabase.from("payments").select("id").eq("deal_id", deal.id);
+      const existingPm = (pmResp.data ?? []) as { id: string }[];
+      const existingPmIds = new Set(existingPm.map((p) => p.id));
+      for (const p of payments) {
+        if (p.id.startsWith("new-")) {
+          await supabase.from("payments").insert({ user_id: user.id, deal_id: deal.id, amount: p.amount, expected_date: p.expected_date, status: p.status, notes: p.notes ?? null, invoice_state: p.invoice_state ?? null, pay_status: p.pay_status });
+        } else if (existingPmIds.has(p.id)) {
+          const orig = (await supabase.from("payments").select("pay_status, status, amount, expected_date").eq("id", p.id).single()).data as { pay_status?: string | null; status?: string | null; amount?: number | null; expected_date?: string | null } | null;
+          if (orig && (orig.pay_status !== p.pay_status || orig.status !== p.status || (orig.expected_date ?? null) !== (p.expected_date ?? null))) {
+            await supabase.from("payments").update({ pay_status: p.pay_status, status: p.status, amount: p.amount, expected_date: p.expected_date }).eq("id", p.id);
+          }
+        }
+      }
+    } catch (e) {
+      setSaveError("Could not save checklist or payments.");
+      return;
+    }
+    // Refetch the freshly-saved children so the drawer shows real DB rows/ids
+    // (new-* staged ids are replaced) and baselines match persisted state.
+    try {
+      const [clF, pmF] = await Promise.all([
+        supabase.from("deal_checklist").select("*").eq("deal_id", deal.id),
+        supabase.from("payments").select("*").eq("deal_id", deal.id),
+      ]);
+      setChecklist((clF.data ?? []) as unknown as ChecklistItem[]);
+      setChecklistBase(clNorm(clF.data ?? []));
+      setPayments((pmF.data ?? []) as unknown as Payment[]);
+      setPaymentsBase(pmNorm(pmF.data ?? []));
+    } catch { /* non-fatal: next open refetches */ }
     setSaved({ ...draft });
     onUpdated();
-    notifySaved();
   };
 
   // Keyboard: Cmd/Ctrl+S saves; Escape (not in a field) closes with a warn if dirty.
@@ -759,16 +820,11 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("touchstart", close); };
   }, [menu]);
 
-  const [marking, setMarking] = useState(false);
-  const markAllPaid = async () => {
-    if (marking || paid) return;
-    setMarking(true);
-    await supabase.from("payments").update({ status: "received", pay_status: "paid" }).eq("deal_id", deal.id);
-    await supabase.from("deals").update({ status: "active", active: true }).eq("id", deal.id);
-    setMarking(false);
+  const markAllPaid = () => {
+    if (paid) return;
+    // Stage: mark every payment received and the deal active; commits on Save.
     setPayments(payments.map((p) => ({ ...p, status: "received", pay_status: "paid" })));
-    onUpdated();
-    onCelebrate?.();
+    setDraft((n) => ({ ...n, status: "active" }));
   };
 
   const doneCount = checklist.filter((c) => c.done).length;
@@ -821,10 +877,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {tab === "details" && <DetailsTab draft={draft} setField={setField} undo={undo} isDirty={isDirty} />}
-          {tab === "checklist" && <ChecklistTab dealId={deal.id} items={checklist} setItems={setChecklist} onChanged={onUpdated} />}
+          {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab draft={draft} setField={setField} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
-          {tab === "payments" && <DrawerPaymentsTab dealId={deal.id} payments={payments} setPayments={setPayments} onChanged={onUpdated} onCelebrate={onCelebrate} />}
+          {tab === "payments" && <DrawerPaymentsTab payments={payments} setPayments={setPayments} />}
         </div>
 
         {saveError && (
@@ -837,8 +893,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
             present, fixed height, expected position. Save is disabled + dimmed
             when clean or in flight; a write never fires twice. */}
         <div className="border-t border-line px-4 py-3 bg-card2/40 flex-none flex items-center gap-3">
-          <Button variant="secondary" size="lg" onClick={paid ? undefined : markAllPaid} disabled={marking || paid} className="flex-1 min-w-[120px]">
-            {marking ? <Spinner /> : <IconCheck size={16} />} {marking ? "Marking…" : paid ? "Paid" : "Mark as paid"}
+          <Button variant="secondary" size="lg" onClick={paid ? undefined : markAllPaid} disabled={paid} className="flex-1 min-w-[120px]">
+            {<IconCheck size={16} />} {paid ? "Paid" : "Mark as paid"}
           </Button>
           <Button size="lg" onClick={save} disabled={!hasChanges || saving} className={cn("flex-1 min-w-[120px]", !hasChanges && "opacity-50")}>
             {saving ? <Spinner /> : <IconCheck size={16} />} {saving ? "Saving…" : "Save changes"}
@@ -851,7 +907,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/40" onClick={() => setConfirmClose(false)} role="presentation">
           <div className="w-full max-w-sm bg-card border border-line2 rounded-2xl shadow-pop p-5" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
             <h3 className="text-[15px] font-semibold text-ink">Discard unsaved changes?</h3>
-            <p className="text-[13px] text-inksoft mt-1.5">You have {dirtyList.length} unsaved change{dirtyList.length === 1 ? "" : "s"}. Closing now will lose them.</p>
+            <p className="text-[13px] text-inksoft mt-1.5">You have unsaved changes. Closing now will lose them.</p>
             <div className="flex items-center justify-end gap-2 mt-4">
               <Button variant="ghost" size="md" onClick={() => setConfirmClose(false)}>Keep editing</Button>
               <Button variant="danger" size="md" onClick={() => { setConfirmClose(false); onClose(); }}>Discard</Button>
@@ -1058,26 +1114,16 @@ function ConfirmDeleteDeal({ deal, onCancel, onConfirm }: { deal: Deal; onCancel
       </div>
     </div>
   );
-}function ChecklistTab({ dealId, items, setItems, onChanged }: { dealId: string; items: ChecklistItem[]; setItems: (i: ChecklistItem[]) => void; onChanged?: () => void }) {
-  const supabase = createClient();
+}function ChecklistTab({ items, setItems }: { items: ChecklistItem[]; setItems: (i: ChecklistItem[]) => void }) {
   const [title, setTitle] = useState("");
-  const add = async () => {
+  const nextId = () => `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const add = () => {
     if (!title.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from("deal_checklist").insert({ user_id: user.id, deal_id: dealId, title: title.trim() }).select().single();
-    if (data) { setItems([data as unknown as ChecklistItem, ...items]); setTitle(""); onChanged?.(); }
+    setItems([{ id: nextId(), deal_id: items[0]?.deal_id ?? "", title: title.trim(), done: false }, ...items]);
+    setTitle("");
   };
-  const toggle = async (id: string, done: boolean) => {
-    setItems(items.map((i) => (i.id === id ? { ...i, done } : i)));
-    await supabase.from("deal_checklist").update({ done }).eq("id", id);
-    onChanged?.();
-  };
-  const remove = async (id: string) => {
-    setItems(items.filter((i) => i.id !== id));
-    await supabase.from("deal_checklist").delete().eq("id", id);
-    onChanged?.();
-  };
+  const toggle = (id: string, done: boolean) => setItems(items.map((i) => (i.id === id ? { ...i, done } : i)));
+  const remove = (id: string) => setItems(items.filter((i) => i.id !== id));
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
@@ -1185,42 +1231,26 @@ function FilesTab({ dealId, files, setFiles, plan }: { dealId: string; files: De
   );
 }
 
-function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebrate }: { dealId: string; payments: Payment[]; setPayments: (p: Payment[]) => void; onChanged: () => void; onCelebrate?: () => void }) {
-  const supabase = createClient();
+function DrawerPaymentsTab({ payments, setPayments }: { payments: Payment[]; setPayments: (p: Payment[]) => void }) {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [markingId, setMarkingId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  const add = async () => {
-    if (!amount || adding) return;
-    setAdding(true); setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("Not signed in."); setAdding(false); return; }
-    const { data, error: err } = await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount: Number(amount), expected_date: date || null, pay_status: "not_invoiced" }).select().single();
-    setAdding(false);
-    if (err) { setError(err.message); return; }
-    if (data) { setPayments([data as unknown as Payment, ...payments]); setAmount(""); setDate(""); onChanged(); }
+  const nextId = () => `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const add = () => {
+    if (!amount) return;
+    setError("");
+    if (isNaN(Number(amount))) { setError("Enter a valid amount."); return; }
+    setPayments([{ id: nextId(), deal_id: null, amount: Number(amount), expected_date: date || null, status: "expected", notes: null, invoice_state: null, pay_status: "not_invoiced" }, ...payments]);
+    setAmount(""); setDate("");
   };
-  const markReceived = async (id: string) => {
-    if (markingId) return;
-    setMarkingId(id); setError("");
-    const { error: err } = await supabase.from("payments").update({ status: "received", pay_status: "paid" }).eq("id", id);
-    setMarkingId(null);
-    if (err) { setError(err.message); return; }
+  const markReceived = (id: string) => {
+    setError("");
     setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received", pay_status: "paid" } : p)));
-    onChanged();
-    notifySaved();
-    onCelebrate?.();
   };
-  const setPayStatus = async (p: Payment, val: string) => {
-    const next = val; // not_invoiced | invoiced | paid | no_invoice_needed
-    const { error: err } = await supabase.from("payments").update({ pay_status: next, status: next === "paid" ? "received" : p.status }).eq("id", p.id);
-    if (err) return;
-    setPayments(payments.map((x) => (x.id === p.id ? { ...x, pay_status: next, status: next === "paid" ? "received" : x.status } : x)));
-    onChanged();
-    notifySaved();
+  const setPayStatus = (p: Payment, val: string) => {
+    setError("");
+    setPayments(payments.map((x) => (x.id === p.id ? { ...x, pay_status: val, status: val === "paid" ? "received" : x.status } : x)));
   };
   return (
     <div className="space-y-4">
@@ -1229,7 +1259,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
       {error && <p className="text-sm text-bad" role="alert">{error}</p>}
-      <Button onClick={add} disabled={adding} className="w-full">{adding ? <Spinner /> : <IconPlus size={16} />} {adding ? "Adding…" : "Add payment"}</Button>
+      <Button onClick={add} className="w-full">{IconPlus && <IconPlus size={16} />} Add payment</Button>
       <ul className="space-y-2">
         {payments.map((p) => (
           <li key={p.id} className="py-2 border-b border-line last:border-0">
@@ -1255,7 +1285,7 @@ function DrawerPaymentsTab({ dealId, payments, setPayments, onChanged, onCelebra
                 </div>
               </div>
               {p.status !== "received" && (
-                <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)} disabled={markingId === p.id}>{markingId === p.id ? <Spinner /> : <IconCheck size={14} />} {markingId === p.id ? "Marking…" : "Mark as paid"}</Button>
+                <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark as paid</Button>
               )}
             </div>
           </li>
