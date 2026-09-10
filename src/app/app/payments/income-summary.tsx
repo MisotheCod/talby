@@ -150,8 +150,10 @@ export function IncomeSummary({ payments, deals, plan }: {
                 <span className={cn("flex-none w-4 grid place-items-center", keyStr(p.key) === keyStr(active.key) ? "text-accent" : "text-transparent")}>
                   <IconCheck size={14} />
                 </span>
-                <span className="flex-1 truncate">{p.label}</span>
-                {p.detail && <span className="text-[11.5px] text-inkfaint flex-none">{p.detail}</span>}
+                <span className="flex-1 min-w-0 text-left text-[13.5px]">
+                  <span className="block leading-tight">{p.label}</span>
+                  {p.detail && <span className="block text-[11.5px] text-inkfaint whitespace-normal">{p.detail}</span>}
+                </span>
               </button>
             ))}
           </div>
@@ -203,8 +205,10 @@ export function IncomeSummary({ payments, deals, plan }: {
                               className={cn("w-full flex items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-card2 cursor-pointer text-ink",
                                 keyStr(p.key) === keyStr(active.key) && "bg-accent-tint text-accentink font-medium")}>
                               <span className={cn("flex-none w-4 grid place-items-center", keyStr(p.key) === keyStr(active.key) ? "text-accent" : "text-transparent")}><IconCheck size={14} /></span>
-                              <span className="flex-1 truncate">{p.label}</span>
-                              {p.detail && <span className="text-[12px] text-inkfaint flex-none">{p.detail}</span>}
+                              <span className="flex-1 min-w-0 text-left text-sm">
+                                <span className="block leading-tight">{p.label}</span>
+                                {p.detail && <span className="block text-[12px] text-inkfaint whitespace-normal">{p.detail}</span>}
+                              </span>
                             </button>
                           ))}
                         </div>

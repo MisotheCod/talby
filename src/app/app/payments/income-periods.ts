@@ -95,19 +95,25 @@ export function buildPeriods(dates: string[], defaultKey: PeriodKey): Period[] {
   const tmMatch = (iso: string) => iso.slice(0, 7) === mStr(year, mon);
   const allMatch = () => true;
 
-  const has = (pred: (iso: string) => boolean) => dates.some(pred);
-
   const out: Period[] = [];
 
-  // Quick group (only when they contain data; ytd is the default and always listed)
-  if (has(ytdMatch)) out.push({ key: { kind: "ytd" }, label: "Year to date", group: "quick", matches: ytdMatch });
-  if (has(tqMatch)) out.push({ key: { kind: "this_quarter" }, label: qLabel(qNow, year), detail: qRange(qNow, year), group: "quick", matches: tqMatch });
-  if (has(tmMatch)) out.push({ key: { kind: "this_month" }, label: monthLabel(year, mon), group: "quick", matches: tmMatch });
-  if (dates.length) out.push({ key: { kind: "all" }, label: "All time", group: "quick", matches: allMatch });
+  // Quick group. "This month" and "This quarter" are current-period anchors and
+  // always show (a creator navigates to them to see the current window even if
+  // nothing has landed yet). Only HISTORICAL periods are gated on having data —
+  // someone who started in August shouldn't see Q1. "Year to date" and
+  // "All time" are always present (default + catch-all).
+  out.push({ key: { kind: "ytd" }, label: "Year to date", group: "quick", matches: ytdMatch });
+  out.push({ key: { kind: "this_month" }, label: "This month", detail: monthLabel(year, mon), group: "quick", matches: tmMatch });
+  out.push({ key: { kind: "this_quarter" }, label: "This quarter", detail: qRange(qNow, year), group: "quick", matches: tqMatch });
+  out.push({ key: { kind: "all" }, label: "All time", group: "quick", matches: allMatch });
 
   // Quarters, newest first
   for (const qk of desc([...quartersWithData])) {
-    const [y, qq] = [Number(qk.slice(0, 4)), Number(qk.slice(5))];
+    // qk is "YYYY-Qq" — split on "-Q" so the number never includes the "Q"
+    // letter (Number("Q3") = NaN, which produced "Invalid Date" ranges).
+    const dashQ = qk.indexOf("-Q");
+    const y = Number(qk.slice(0, dashQ));
+    const qq = Number(qk.slice(dashQ + 2));
     const m = (iso: string) => { const c = quarterOf(iso); return c.year === y && c.q === qq; };
     out.push({ key: { kind: "quarter", year: y, q: qq }, label: qLabel(qq, y), detail: qRange(qq, y), group: "quarter", matches: m });
   }
