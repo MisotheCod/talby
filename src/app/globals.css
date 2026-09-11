@@ -801,6 +801,20 @@ h1, h2, h3, h4 {
 .agenda-item:hover { background: var(--subtle); }
 .agenda-verb { flex: none; white-space: nowrap; }
 
+/* Optimistic add skeleton — muted + gently pulsing while the insert is in flight. */
+.calpill-skeleton {
+  opacity: 0.55;
+  box-shadow: none;
+}
+@keyframes calpill-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.85; }
+}
+.calpill-skeleton .calpill-tag,
+.calpill-skeleton .calpill-name {
+  animation: calpill-pulse 1.4s ease-in-out infinite;
+}
+
 /* Small header separator before Today on desktop. */
 .separa-h {
   width: 1px; height: 18px; background: var(--line-2); flex: none;

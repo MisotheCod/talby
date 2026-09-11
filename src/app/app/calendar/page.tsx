@@ -86,6 +86,7 @@ type DeskItem = {
   color: string;       // CSS var for the pill tint / tag
   time?: string;
   done?: boolean;
+  skeleton?: boolean;  // optimistic in-flight add: show muted + pulsing
   nav: { id: string; type: "content" | "deliverable" | "payment" | "todo" | "note" };
 };
 
@@ -160,6 +161,14 @@ export default function CalendarPage() {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dayHighlight, setDayHighlight] = useState<string | null>(() => toISO(new Date()));
   const clickLock = useRef(false); // suppress click immediately after a drag drop
+
+  // Optimistic add skeleton(s): pills rendered muted + pulsing while their
+  // insert is in flight. Dropped on the target day immediately on submit, then
+  // replaced by the real pill on save, or removed (reverting) on failure.
+  const [pendingAdds, setPendingAdds] = useState<PendingAdd[]>([]);
+  const [addError, setAddError] = useState<{ payload: AddPayload; message: string } | null>(null);
+  const dropSkeleton = (a: PendingAdd) => setPendingAdds((xs) => [...xs, a]);
+  const clearSkeleton = (key: string) => setPendingAdds((xs) => xs.filter((x) => x.key !== key));
 
   // --- Pointer-based drag (unified mouse + touch, since HTML5 draggable is mouse-only) ---
   // Long-press on touch, threshold-movement on mouse to distinguish scroll vs grab.
@@ -243,6 +252,50 @@ export default function CalendarPage() {
   const goToday = () => { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }); };
   const openDay = (date = toISO(new Date())) => setPopover({ date, x: 0, y: 0 });
 
+  // Optimistic add: close the modal, drop a muted pulsing skeleton onto the
+  // target day instantly, run the insert, then replace the skeleton with the
+  // real pill on success — or clear the skeleton, re-open the form with the
+  // user's input intact, and show the error on failure. Nothing is lost.
+  const handleAddSubmit = async (p: AddPayload) => {
+    // Build the skeleton synchronously (before any await) and drop it onto the
+    // target day in the SAME render pass that closes the modal — so it appears
+    // instantly, not after a round-trip.
+    setPopover(null);
+    const key = `skeleton-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const targetDay = p.kind === "note" ? (p.noteDate || toISO(new Date())) : (popover?.date || toISO(new Date()));
+    const deal = p.dealId ? deals.find((d) => d.id === p.dealId) : undefined;
+    const name = (p.kind === "note" ? p.note : p.title).trim();
+    dropSkeleton({ key, date: targetDay, type: p.kind === "note" ? "note" : "deal", name, amount: deal?.value ? formatMoney(deal.value) : null });
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) { clearSkeleton(key); setAddError({ payload: p, message: "Not signed in." }); openDay(); return; }
+    let error: { message: string } | null = null;
+    try {
+      const res = p.kind === "note"
+        ? await supabase.from("notes").insert({
+            user_id: user.id, body: name, event_date: targetDay, done: p.noteDone, details: p.noteDetails.trim() || null,
+          }).select()
+        : await supabase.from("content").insert({
+            user_id: user.id, title: name, platform: p.platform || null,
+            post_type: p.postType || null, event_date: targetDay, linked_deal_id: p.dealId || null,
+            scheduled_time: p.scheduledTime || null,
+            repeat_type: p.repeat || null, repeat_until: p.repeatUntil || null,
+          }).select();
+      error = res.error ? { message: res.error.message } : null;
+    } catch (e) {
+      // A thrown insert (e.g. network drop) is a failure too: never leave the
+      // skeleton stranded — clear it and surface the error with input preserved.
+      error = { message: e instanceof Error ? e.message : "Couldn't save." };
+    }
+    clearSkeleton(key);
+    if (error) {
+      setAddError({ payload: p, message: error.message });
+      openDay(targetDay);
+      return;
+    }
+    // Success: swap skeleton → real pill (the insert confirmed; refetch keeps id).
+    await load();
+  };
+
   // Switch Month/Agenda and persist the choice to the profile (desktop only).
   const switchView = async (v: "month" | "agenda") => {
     if (v === view) return;
@@ -293,6 +346,21 @@ export default function CalendarPage() {
   // for display: content/deals first, then payments, todos, notes.
   const deskItems = (iso: string): DeskItem[] => {
     const out: DeskItem[] = [];
+    // Optimistic add skeletons first, so an in-flight pill is always visible on
+    // the target day even when that cell already holds DESK_MAX_PILLS rows.
+    pendingAdds.filter((a) => a.date === iso).forEach((a) => {
+      if (a.type === "note") {
+        if (filter === "All" || filter === "Posts") {
+          out.push({ id: a.key, type: "note", name: a.name, fullName: a.name,
+            tag: DESK_TAG.note, label: DESK_LABEL.note, color: DESK_COLOR.note,
+            amount: null, skeleton: true, nav: { id: a.key, type: "note" } });
+        }
+      } else if (filter === "All" || filter === "Posts") {
+        out.push({ id: a.key, type: "deal", name: a.name, fullName: a.name,
+          tag: DESK_TAG.deal, label: DESK_LABEL.deal, color: DESK_COLOR.deal,
+          amount: a.amount, skeleton: true, nav: { id: a.key, type: "content" } });
+      }
+    });
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => {
       const deliv = c.status === "published";
@@ -523,7 +591,8 @@ export default function CalendarPage() {
                       <div
                         key={it.id}
                         onPointerDown={(e) => {
-                          const sel = window.getSelection?.();
+  if (it.skeleton) return;
+  const sel = window.getSelection?.();
                           sel?.removeAllRanges();
                           // Cancel any prior long-press state
                           if (dragRef.current?.timerId) { window.clearTimeout(dragRef.current.timerId); dragRef.current.timerId = null; }
@@ -594,14 +663,15 @@ export default function CalendarPage() {
                           if (d && d.pointerId === e.pointerId) endDrag();
                         }}
                         onClick={(e) => {
-                          if (dragId || clickLock.current) return;
+                          if (dragId || clickLock.current || it.skeleton) return;
                           e.stopPropagation();
                           const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                           setSelected({ itemId: it.id, type: it.nav.type, x: r.left, y: r.bottom + 6, date: iso });
                         }}
                         style={{ "--pill-source": it.color, touchAction: "none" } as React.CSSProperties}
                         className={cn(
-                          "calpill calendar-pill-desk text-[10.5px] rounded-md px-1.5 pt-0.5 cursor-grab select-none",
+                          "calpill calendar-pill-desk text-[10.5px] rounded-md px-1.5 pt-0.5 select-none",
+                          it.skeleton ? "calpill-skeleton cursor-wait" : "cursor-grab",
                           isDragging && "opacity-10",
                           dragId && !isDragging && "opacity-55",
                           it.done && "calpill-done"
@@ -642,8 +712,9 @@ export default function CalendarPage() {
         <AddEventPopover
           date={popover.date}
           deals={deals}
-          onClose={() => setPopover(null)}
-          onSaved={() => { setPopover(null); load(); }}
+          onClose={() => { setPopover(null); setAddError(null); }}
+          onSubmit={handleAddSubmit}
+          initial={addError}
         />
       )}
 
@@ -983,45 +1054,71 @@ function MobileDaySheet({ iso, rows, onClose, onOpen }: {
 }
 
 /* ---------------- Add event popover (inline, not a heavy modal) ---------------- */
-function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deals: Deal[]; onClose: () => void; onSaved: () => void }) {
-  const supabase = createClient();
-  const [kind, setKind] = useState<"post" | "note">("post");
-  const [title, setTitle] = useState("");
-  const [note, setNote] = useState("");
-  const [noteDone, setNoteDone] = useState(false);
-  const [noteDetails, setNoteDetails] = useState("");
-  const [noteDate, setNoteDate] = useState(date);
-  const [platform, setPlatform] = useState("");
-  const [postType, setPostType] = useState("");
-  const [dealId, setDealId] = useState("");
-  const [scheduledTime, setScheduledTime] = useState("");
-  const [showRepeat, setShowRepeat] = useState(false);
-  const [repeat, setRepeat] = useState<string>("");
-  const [repeatUntil, setRepeatUntil] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
 
-  const submit = async () => {
-    setSaving(true); setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("Not signed in."); setSaving(false); return; }
+// Optimistic skeleton: rendered muted + pulsing on the target day while the
+// insert is in flight; replaced by the real pill on save.
+type PendingAdd = {
+  key: string;          // stable identity so clearSkeleton can target it
+  date: string;         // target ISO day
+  type: "deal" | "note"; // skeleton display type (posts are "deal" tint)
+  name: string;         // title (post) or note text
+  amount: string | null;
+};
+
+// Everything the submit handler needs to build the real insert and, on failure,
+// re-open the form with the user's input preserved.
+type AddPayload = {
+  kind: "post" | "note";
+  title: string;
+  note: string;
+  noteDone: boolean;
+  noteDetails: string;
+  noteDate: string;
+  platform: string;
+  postType: string;
+  dealId: string;
+  scheduledTime: string;
+  showRepeat: boolean;
+  repeat: string;
+  repeatUntil: string;
+};
+
+function AddEventPopover({
+  date, deals, onClose, onSubmit, initial,
+}: {
+  date: string; deals: Deal[];
+  onClose: () => void;
+  onSubmit: (p: AddPayload) => void;
+  // Preserved input from a failed save, so the form reopens with nothing lost.
+  initial?: { payload: AddPayload; message: string } | null;
+}) {
+  const [kind, setKind] = useState<"post" | "note">(initial?.payload.kind ?? "post");
+  const [title, setTitle] = useState(initial?.payload.title ?? "");
+  const [note, setNote] = useState(initial?.payload.note ?? "");
+  const [noteDone, setNoteDone] = useState(initial?.payload.noteDone ?? false);
+  const [noteDetails, setNoteDetails] = useState(initial?.payload.noteDetails ?? "");
+  const [noteDate, setNoteDate] = useState(initial?.payload.noteDate ?? date);
+  const [platform, setPlatform] = useState(initial?.payload.platform ?? "");
+  const [postType, setPostType] = useState(initial?.payload.postType ?? "");
+  const [dealId, setDealId] = useState(initial?.payload.dealId ?? "");
+  const [scheduledTime, setScheduledTime] = useState(initial?.payload.scheduledTime ?? "");
+  const [showRepeat, setShowRepeat] = useState(initial?.payload.showRepeat ?? false);
+  const [repeat, setRepeat] = useState<string>(initial?.payload.repeat ?? "");
+  const [repeatUntil, setRepeatUntil] = useState(initial?.payload.repeatUntil ?? "");
+  const [error, setError] = useState(initial?.message ?? "");
+
+  const submit = () => {
     if (kind === "note") {
-      if (!note.trim()) { setError("Write a note."); setSaving(false); return; }
-      const { error } = await supabase.from("notes").insert({ user_id: user.id, body: note.trim(), event_date: noteDate || date, done: noteDone, details: noteDetails.trim() || null });
-      setSaving(false);
-      if (error) { setError(error.message); return; }
-      onSaved(); return;
-    }
-    if (!title.trim()) { setError("Add a title."); setSaving(false); return; }
-    const { error } = await supabase.from("content").insert({
-      user_id: user.id, title: title.trim(), platform: platform || null,
-      post_type: postType || null, event_date: date, linked_deal_id: dealId || null,
-      scheduled_time: scheduledTime || null,
-      repeat_type: repeat || null, repeat_until: repeatUntil || null,
+      if (!note.trim()) { setError("Write a note."); return; }
+    } else if (!title.trim()) { setError("Add a title."); return; }
+    // Hand the payload up; the parent closes the modal, drops an optimistic
+    // skeleton on the target day, performs the insert, and replaces/reverts.
+    onSubmit({
+      kind, title, note, noteDone, noteDetails,
+      noteDate: noteDate || date,
+      platform, postType, dealId, scheduledTime,
+      showRepeat, repeat, repeatUntil,
     });
-    setSaving(false);
-    if (error) { setError(error.message); return; }
-    onSaved();
   };
 
   return (
@@ -1124,7 +1221,7 @@ function AddEventPopover({ date, deals, onClose, onSaved }: { date: string; deal
           {error && <p className="text-sm text-bad" role="alert">{error}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button onClick={submit} disabled={saving}>{saving ? <Spinner /> : <IconPlus size={16} />} Add</Button>
+            <Button onClick={submit}><IconPlus size={16} /> Add</Button>
           </div>
         </div>
       </div>
