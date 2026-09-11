@@ -73,19 +73,31 @@ export default function SettingsPage() {
     setHandleMsg({ kind: "ok", text: "Handle saved." });
   };
   // ---- Password ----
+  const [pwCurrent, setPwCurrent] = useState("");
   const [pw, setPw] = useState("");
   const [pwConfirm, setPwConfirm] = useState("");
   const [pwMsg, setPwMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
   const updatePassword = async () => {
+    if (pwCurrent.length === 0) { setPwMsg({ kind: "bad", text: "Enter your current password." }); return; }
     if (pw.length < 8) { setPwMsg({ kind: "bad", text: "Password must be at least 8 characters." }); return; }
     if (pw !== pwConfirm) { setPwMsg({ kind: "bad", text: "Passwords do not match." }); return; }
     setPwBusy(true); setPwMsg(null);
-    const { error } = await supabase.auth.updateUser({ password: pw });
-    setPwBusy(false);
-    if (error) { if (/reauth/i.test(error.message)) setPwMsg({ kind: "bad", text: "Re-authenticate to change your password." }); else setPwMsg({ kind: "bad", text: error.message }); return; }
-    setPw(""); setPwConfirm("");
-    setPwMsg({ kind: "ok", text: "Password updated." });
+    try {
+      const r = await fetch("/api/account/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pw }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setPwMsg({ kind: "bad", text: (j.error as string) || "Could not change password." }); return; }
+      setPwCurrent(""); setPw(""); setPwConfirm("");
+      setPwMsg({ kind: "ok", text: "Password updated. A confirmation email was sent to your inbox." });
+    } catch (e) {
+      setPwMsg({ kind: "bad", text: "Network error. Try again." });
+    } finally {
+      setPwBusy(false);
+    }
   };
 
   // Theme editor state (shared preview/save logic)
@@ -240,6 +252,15 @@ export default function SettingsPage() {
                         <div className="flex-1 min-w-0 space-y-2">
                           <input
                             type="password"
+                            value={pwCurrent}
+                            onChange={(e) => { setPwCurrent(e.target.value); setPwMsg(null); }}
+                            placeholder="Current password"
+                            className="w-full bg-card border border-line2 rounded-xl px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
+                            autoComplete="current-password"
+                            aria-label="Current password"
+                          />
+                          <input
+                            type="password"
                             value={pw}
                             onChange={(e) => { setPw(e.target.value); setPwMsg(null); }}
                             placeholder="New password"
@@ -258,7 +279,7 @@ export default function SettingsPage() {
                           />
                           {pwMsg && <p className={cn("text-sm", pwMsg.kind === "ok" ? "text-paid" : "text-late")}>{pwMsg.text}</p>}
                         </div>
-                        <Button onClick={updatePassword} disabled={pwBusy || pw.length === 0}>{pwBusy ? <Spinner /> : "Update"}</Button>
+                        <Button onClick={updatePassword} disabled={pwBusy || pwCurrent.length === 0 || pw.length === 0}>{pwBusy ? <Spinner /> : "Update"}</Button>
                       </div>
 
                       {/* Plan */}
