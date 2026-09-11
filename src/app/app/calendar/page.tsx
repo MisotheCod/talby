@@ -110,7 +110,7 @@ const DESK_VERB: Record<DeskItem["type"], string> = {
 
 const DESK_COLOR: Record<DeskItem["type"], string> = {
   deal: "var(--accent)",
-  deliverable: "var(--late)",
+  deliverable: "var(--due)",
   payment: "var(--paid)",
   todo: "var(--purple)",
   note: "var(--ink-soft)",
@@ -410,10 +410,11 @@ export default function CalendarPage() {
             <Button onClick={() => openDay()} className="h-9"><IconPlus size={16} /> Add event</Button>
           </div>
         </div>
-        {/* Desktop type legend (calendar display types) */}
-        <div className="flex items-center gap-2 px-4 sm:px-5 pb-2 text-[11px] text-muted">
+        {/* Desktop type legend (calendar display types) — its own band with breathing
+            room above and below, even spacing between items. */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 px-4 sm:px-5 pt-2.5 pb-2 border-b border-border text-[11px] text-muted">
           {LEGEND_TYPES.map((t) => (
-            <span key={t.id} className="inline-flex items-center gap-1.5">
+            <span key={t.id} className="inline-flex items-center gap-2 whitespace-nowrap">
               <span className="calpill-dot" style={{ background: t.color }} aria-hidden />
               <span>{t.label}</span>
             </span>
@@ -577,12 +578,14 @@ export default function CalendarPage() {
                           setSelected({ itemId: it.id, type: it.nav.type, x: r.left, y: r.bottom + 6, date: iso });
                         }}
                         onMouseEnter={(e) => {
+                          // Only open on a real (non-drag) hover; the widget's own
+                          // pointer handlers manage touch, so mouse hover opens it.
                           if (dragId) return;
                           const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                           setHover({ item: it, x: r.left, y: r.top, date: iso });
                         }}
-                        onMouseLeave={() => setHover((h) => (h && h.item.id === it.id ? null : h))}
-                        style={{ touchAction: canDrag ? "none" : "auto" }}
+                        onMouseLeave={() => setHover(null)}
+                        style={{ "--pill-source": it.color, touchAction: canDrag ? "none" : "auto" } as React.CSSProperties}
                         className={cn(
                           "calpill calendar-pill-desk text-[11px] flex items-start gap-1.5 rounded-md px-1.5 py-1 cursor-grab select-none",
                           isDragging && "opacity-40 ring-2 ring-inset ring-[var(--accent)]",
@@ -591,7 +594,8 @@ export default function CalendarPage() {
                         )}
                       >
                         <span className="calpill-dot shrink-0 mt-0.5" style={{ background: it.color }} aria-hidden />
-                        <span className={cn("calpill-name", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
+                        <span className={cn("calpill-name flex-1", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
+                        {it.amount && <span className="shrink-0 money text-[10.5px] font-semibold tabular-nums ml-auto pl-1">{it.amount}</span>}
                       </div>
                     );
                                         })}
@@ -784,7 +788,7 @@ function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenD
 
   return (
     <div className="overflow-hidden">
-      <div className="agenda-list w-full px-3 sm:px-4 py-1 space-y-0.5">
+      <div className="agenda-list w-full px-2.5">
         {ordered.map((iso) => {
           const items = deskItemsFor(iso);
           const d = new Date(iso + "T00:00:00");
@@ -792,29 +796,43 @@ function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenD
           const dayNum = d.getDate();
           const isToday = iso === todayISO;
           return (
-            <div key={iso} data-day={iso} className={cn("agenda-row grid grid-cols-[56px_1fr] items-start gap-x-3 group cursor-pointer rounded-lg", isToday && "agenda-today")} onClick={(e) => onOpenDay(e, iso)}>
-              <div className="agenda-date shrink-0">
-                <div className="agenda-wd text-[10px] uppercase tracking-wide text-muted text-center">{wd}</div>
-                <div className={cn("text-center text-sm font-semibold tabular-nums w-[30px] h-[26px] leading-[26px]", isToday ? "accent-fill rounded-full" : "text-muted")}>{dayNum}</div>
-              </div>
-              <div className="agenda-events min-w-0">
-                {items.length === 0 ? (
-                  <div className="text-[13px] text-muted py-1">No events</div>
-                ) : (
-                  items.map((it) => (
-                    <button
-                      key={it.id}
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); onOpenItem(it, iso); }}
-                      className="agenda-item w-full text-left flex items-center gap-2 py-1 min-w-0 cursor-pointer"
-                    >
-                      <span className="calpill-dot shrink-0" style={{ background: it.color }} aria-hidden />
-                      <span className={cn("flex-1 min-w-0 text-sm leading-snug text-left", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
-                      <span className="agenda-verb text-xs text-inksoft shrink-0 text-left">{it.verb}{it.time ? ` · ${it.time}` : ""}</span>
-                      {it.amount && <span className="money shrink-0 text-sm font-medium text-ink tabular-nums">{it.amount}</span>}
-                    </button>
-                  ))
-                )}
+            <div
+              key={iso}
+              data-day={iso}
+              className={cn("agenda-row group cursor-pointer", isToday && "agenda-today")}
+              onClick={(e) => onOpenDay(e, iso)}
+            >
+              {/* Each row: fixed date column (weekday above number), then events.
+                  Type label sits muted right after the name; only the amount is
+                  right-aligned, kept inside the container's right padding. */}
+              <div className="flex items-center gap-x-4">
+                <div className="agenda-date shrink-0">
+                  <div className="text-[10px] uppercase tracking-wide text-center text-muted">{wd}</div>
+                  <div className={cn("agenda-daynum text-center text-sm font-semibold tabular-nums w-[30px] h-[26px] leading-[26px]", isToday && "accent-fill rounded-full", isToday && items.length === 0 && "bg-subtle/40")}>{dayNum}</div>
+                </div>
+                <div className="agenda-events flex-1 min-w-0">
+                  {items.length === 0 ? (
+                    <div className="text-[13px] text-muted">No events</div>
+                  ) : (
+                    items.map((it) => (
+                      <button
+                        key={it.id}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onOpenItem(it, iso); }}
+                        className="agenda-item w-full text-left flex items-center justify-between gap-2 min-w-0 cursor-pointer"
+                      >
+                        {/* Name + type label hug together on the left; only the
+                            amount is right-aligned via justify-between. */}
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className="calpill-dot shrink-0" style={{ background: it.color }} aria-hidden />
+                          <span className={cn("flex-1 min-w-0 text-sm leading-snug text-left", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
+                          <span className="agenda-verb text-xs text-inksoft shrink-0 text-left">{it.verb}{it.time ? ` · ${it.time}` : ""}</span>
+                        </span>
+                        {it.amount && <span className="money shrink-0 text-sm font-medium text-ink tabular-nums">{it.amount}</span>}
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           );

@@ -732,18 +732,28 @@ h1, h2, h3, h4 {
   width: 8px; height: 8px; border-radius: 999px; display: block; flex: none;
 }
 
-/* Expanded desktop pill: dot + wrapped name. No truncation — text wraps.
-   Rounded-rect rather than pill so two lines read cleanly. */
+/* Expanded desktop pill: dot + wrapped name (+ amount). No truncation — text
+   wraps. Rounded-rect rather than pill so two lines read cleanly. The NAME wraps
+   (up to 2 lines); the amount if present pins right. Tint derives from the
+   event's type color via --pill-source, same treatment as the status pills. */
 .calendar-pill-desk {
-  border: 1px solid var(--line);
-  background: var(--card-2);
-  color: var(--ink);
+  --pill-bg: color-mix(in srgb, var(--pill-source) 14%, var(--canvas));
+  --pill-bd: color-mix(in srgb, var(--pill-source) 34%, var(--canvas));
+  --pill-fg: color-mix(in srgb, var(--pill-source) 58%, var(--ink));
+  background: var(--pill-bg);
+  color: var(--pill-fg);
+  border: 1px solid var(--pill-bd);
   line-height: 1.2;
   width: 100%; box-sizing: border-box;
-  overflow: hidden;
+}
+[data-theme="dark"] .calendar-pill-desk {
+  --pill-bg: color-mix(in srgb, var(--pill-source) 14%, transparent);
+  --pill-bd: color-mix(in srgb, var(--pill-source) 42%, transparent);
+  --pill-fg: color-mix(in srgb, var(--pill-source) 74%, var(--ink));
 }
 .calendar-pill-desk .calpill-name {
   min-width: 0;
+  flex: 1 1 auto;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -754,12 +764,21 @@ h1, h2, h3, h4 {
 .calpill-done { opacity: 0.55; }
 
 /* Agenda view — vertical list, one row per day with events. */
+.agenda-row {
+  /* Uniform padding on every row (including today's accent-tinted one). */
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.agenda-list .agenda-row:last-child { border-bottom: none; }
 .agenda-today {
   background: var(--accent-tint);
+  border-bottom-color: color-mix(in srgb, var(--accent) 30%, var(--line));
 }
 .agenda-row:hover { background: var(--card-2); }
+.agenda-date { flex: none; }
 .agenda-item { border-radius: 6px; }
 .agenda-item:hover { background: var(--subtle); }
+.agenda-verb { flex: none; white-space: nowrap; }
 
 /* Small header separator before Today on desktop. */
 .separa-h {
