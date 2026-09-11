@@ -389,13 +389,21 @@ export default function CalendarPage() {
         {isMobile ? (
           <div className="px-4 py-3">
             <h2 className="text-lg font-semibold leading-tight">{MONTHS[cursor.m]} {cursor.y}</h2>
-            <div className="flex items-center gap-2 mt-2.5">
-              <Button variant="secondary" onClick={goToday} className="h-9 text-[13px]">Today</Button>
+            {/* Controls wrap onto more than one line at narrow widths rather than
+                hiding the Month/Agenda toggle — Agenda is the better mobile view. */}
+            <div className="flex flex-wrap items-center gap-2 mt-2.5">
+              <Segmented
+                options={["month", "agenda"] as const}
+                value={view}
+                onChange={(v) => switchView(v)}
+                getLabel={(v) => (v === "month" ? "Month" : "Agenda")}
+              />
+              <Button variant="secondary" onClick={goToday} className="h-9 px-2.5 text-[13px]">Today</Button>
               <div className="flex items-center gap-0.5 border border-line rounded-lg overflow-hidden">
                 <button onClick={prevMonth} aria-label="Previous month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer">‹</button>
                 <button onClick={nextMonth} aria-label="Next month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer">›</button>
               </div>
-              <Button onClick={() => openDay()} className="h-9 ml-auto text-[13px]"><IconPlus size={15} /> Add</Button>
+              <Button onClick={() => openDay()} className="h-9 px-2.5 text-[13px]"><IconPlus size={15} /> Add</Button>
             </div>
           </div>
         ) : (
@@ -434,20 +442,29 @@ export default function CalendarPage() {
         )}
         </>
         )}
-        {isMobile ? (
+        {view === "agenda" ? null : isMobile ? (
           <div className="grid grid-cols-7 border-b border-border">
             {MOBILE_WEEKDAYS.map((d) => (
               <div key={d} className="px-2 py-2 text-xs font-medium text-muted text-center">{d}</div>
             ))}
           </div>
-        ) : view === "agenda" ? null : (
+        ) : (
           <div className="grid grid-cols-7 border-b border-border">
             {WEEKDAYS.map((d) => (
               <div key={d} className="px-2 py-2 text-xs font-medium text-muted text-center">{d}</div>
             ))}
           </div>
         )}
-        {isMobile ? (
+        {view === "agenda" ? (
+          <CalendarAgendaView
+            cells={cells}
+            deskItemsFor={(iso) => deskItems(iso)}
+            todayISO={toISO(new Date())}
+            onOpenItem={(it, date) => setSelected({ itemId: it.nav.id, type: it.nav.type, x: 0, y: 0, date })}
+            onOpenDay={(e, iso) => { if (!dragId && !clickLock.current) showPopover(e, iso); }}
+            onAddDay={(iso) => { setDayHighlight(iso); openDay(iso); }}
+          />
+        ) : isMobile ? (
           <div className="cal-grid-mobile grid grid-cols-7">
             {cells.map((iso, idx) => {
               if (iso === null) return <div key={`e${idx}`} className="border-r border-b border-line" />;
@@ -481,15 +498,6 @@ export default function CalendarPage() {
               );
             })}
           </div>
-        ) : view === "agenda" ? (
-          <CalendarAgendaView
-            cells={cells}
-            deskItemsFor={(iso) => deskItems(iso)}
-            todayISO={toISO(new Date())}
-            onOpenItem={(it, date) => setSelected({ itemId: it.nav.id, type: it.nav.type, x: 0, y: 0, date })}
-            onOpenDay={(e, iso) => { if (!dragId && !clickLock.current) showPopover(e, iso); }}
-            onAddDay={(iso) => { setDayHighlight(iso); openDay(iso); }}
-          />
         ) : (
         <div className="calendar-grid calendar-grid-fixed grid grid-cols-7">
           {cells.map((iso, idx) =>
@@ -832,7 +840,7 @@ function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenD
 
   return (
     <div className="overflow-hidden">
-      <div className="agenda-list w-full px-2.5">
+      <div className="agenda-list w-full px-2.5 pb-16">
         {ordered.map((iso) => {
           const items = deskItemsFor(iso);
           const d = new Date(iso + "T00:00:00");
@@ -863,13 +871,13 @@ function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenD
                         key={it.id}
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onOpenItem(it, iso); }}
-                        className="agenda-item w-full text-left flex items-center gap-2 min-w-0 cursor-pointer"
+                        className="agenda-item w-full text-left flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0 cursor-pointer"
                       >
                         <span className="w-[86px] inline-flex items-center justify-center shrink-0 agenda-type" aria-hidden>
                           <Pill size="sm" dot={false} source={it.color} className="px-1.5 py-0.5 w-full justify-center">{it.label}</Pill>
                         </span>
-                        <span className={cn("flex-1 min-w-0 text-sm leading-snug text-left", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
-                        {it.amount && <span className="money shrink-0 text-sm font-medium text-ink tabular-nums">{it.amount}</span>}
+                        <span className={cn("agenda-name flex-1 min-w-[120px] text-sm leading-snug text-left", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
+                        {it.amount && <span className="money shrink-0 text-sm font-medium text-ink tabular-nums ml-auto">{it.amount}</span>}
                       </button>
                     ))
                   )}
