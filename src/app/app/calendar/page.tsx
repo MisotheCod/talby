@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
@@ -51,9 +50,10 @@ function toISO(d: Date) {
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+// US convention: weeks start on Sunday. Index 0 = Sunday to match Date.getDay().
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Mobile weekday headers degrade to single letters — full names clip at 375px.
-const MOBILE_WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
+const MOBILE_WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
 // One dot per event TYPE present that day (not one per event). Colors match the
 // existing type colors: post is blue (accent), payment is green, deliverable red.
 const MOBILE_DOT_COLORS: Record<string, string> = {
@@ -79,10 +79,11 @@ type DeskItem = {
   id: string;
   type: "deal" | "deliverable" | "payment" | "todo" | "note";
   name: string;        // display name: legal suffix stripped, untruncated
-  fullName: string;    // the original stored name (shown in the hover popover)
-  verb: string;        // plain words: "Post goes live", "Payment expected"...
-  amount: string | null; // formatted money for paid contacts/deals
-  color: string;       // CSS var for the pill dot
+  fullName: string;    // the original stored name
+  tag: string;         // uppercase pill tag: POST / PAYMENT / DELIVERABLE / TO-DO / NOTE
+  label: string;       // one-word agenda label: Deal / Payment / Deliverable / To-do / Note
+  amount: string | null; // formatted money for deals (posts) and payments
+  color: string;       // CSS var for the pill tint / tag
   time?: string;
   done?: boolean;
   nav: { id: string; type: "content" | "deliverable" | "payment" | "todo" | "note" };
@@ -100,12 +101,20 @@ function stripLegal(name: string): string {
   return trimmed;
 }
 
-const DESK_VERB: Record<DeskItem["type"], string> = {
-  deal: "Post goes live",
-  deliverable: "Deliverable due",
-  payment: "Payment expected",
+const DESK_LABEL: Record<DeskItem["type"], string> = {
+  deal: "Deal",
+  deliverable: "Deliverable",
+  payment: "Payment",
   todo: "To-do",
   note: "Note",
+};
+
+const DESK_TAG: Record<DeskItem["type"], string> = {
+  deal: "POST",
+  deliverable: "DELIVERABLE",
+  payment: "PAYMENT",
+  todo: "TO-DO",
+  note: "NOTE",
 };
 
 const DESK_COLOR: Record<DeskItem["type"], string> = {
@@ -116,13 +125,13 @@ const DESK_COLOR: Record<DeskItem["type"], string> = {
   note: "var(--ink-soft)",
 };
 
-// Header legend (desktop): dot color → display type name.
-const LEGEND_TYPES: { id: DeskItem["type"]; color: string; label: string }[] = [
-  { id: "deal", color: DESK_COLOR.deal, label: "Post goes live" },
-  { id: "payment", color: DESK_COLOR.payment, label: "Payment" },
-  { id: "deliverable", color: DESK_COLOR.deliverable, label: "Deliverable" },
-  { id: "todo", color: DESK_COLOR.todo, label: "To-do" },
-  { id: "note", color: DESK_COLOR.note, label: "Note" },
+// Header legend (month view): dot color → display type name.
+const LEGEND_TYPES: { id: DeskItem["type"]; color: string }[] = [
+  { id: "deal", color: DESK_COLOR.deal },
+  { id: "payment", color: DESK_COLOR.payment },
+  { id: "deliverable", color: DESK_COLOR.deliverable },
+  { id: "todo", color: DESK_COLOR.todo },
+  { id: "note", color: DESK_COLOR.note },
 ];
 
 export default function CalendarPage() {
@@ -138,8 +147,6 @@ export default function CalendarPage() {
   const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [view, setView] = useState<"month" | "agenda">("month");
-  // Desktop hover popover: which desk item is hovered + where to anchor it.
-  const [hover, setHover] = useState<{ item: DeskItem; x: number; y: number; date: string } | null>(null);
   const [popover, setPopover] = useState<{ date: string; x: number; y: number } | null>(null);
   const [dayReveal, setDayReveal] = useState<{ iso: string; x: number; y: number } | null>(null);
   // Mobile-only: the day whose events are shown in the bottom sheet.
@@ -159,8 +166,12 @@ export default function CalendarPage() {
   const dragRef = useRef<{
     id: string; type: "content" | "deliverable" | "payment" | "todo" | "note";
     origin: string; startX: number; startY: number; pointerId: number;
-    engaged: boolean; timerId: number | null; lastDay: string | null;
+    engaged: boolean; timerId: number | null; lastDay: string | null; item: DeskItem;
   } | null>(null);
+  // The drag ghost: a transform-following copy of the pill rendered over the
+  // grid during a drag. Positioned imperatively (no per-move re-render).
+  const dragGhost = useRef<HTMLDivElement | null>(null);
+  const [dragError, setDragError] = useState<string | null>(null);
 
   const engageDrag = (id: string, type: "content" | "deliverable" | "payment" | "todo" | "note", origin: string) => {
     if (!dragRef.current || dragRef.current.engaged) return;
@@ -171,6 +182,7 @@ export default function CalendarPage() {
 
   const endDrag = () => {
     dragRef.current = null;
+    if (dragGhost.current) dragGhost.current.style.opacity = "0";
     setDropTarget(null); setDragId(null); setDragType(null); setDragOrigin(null);
     setTimeout(() => { clickLock.current = false; }, 80);
   };
@@ -235,7 +247,6 @@ export default function CalendarPage() {
   const switchView = async (v: "month" | "agenda") => {
     if (v === view) return;
     setView(v);
-    setHover(null);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     await supabase.from("profiles").update({ calendar_view: v }).eq("id", user.id);
@@ -249,7 +260,7 @@ export default function CalendarPage() {
 
   const cells = useMemo(() => {
     const first = new Date(cursor.y, cursor.m, 1);
-    const startOffset = (first.getDay() + 6) % 7; // Monday-first
+    const startOffset = first.getDay(); // Sunday-first (0 = Sunday)
     const daysInMonth = new Date(cursor.y, cursor.m + 1, 0).getDate();
     const arr: (string | null)[] = Array(startOffset).fill(null);
     for (let d = 1; d <= daysInMonth; d++) arr.push(toISO(new Date(cursor.y, cursor.m, d)));
@@ -290,7 +301,7 @@ export default function CalendarPage() {
       const deal = c.linked_deal_id ? deals.find((d) => d.id === c.linked_deal_id) : undefined;
       out.push({
         id: c.id, type, name: stripLegal(c.title), fullName: c.title,
-        verb: DESK_VERB[type], color: DESK_COLOR[type],
+        tag: DESK_TAG[type], label: DESK_LABEL[type], color: DESK_COLOR[type],
         amount: deal?.value ? formatMoney(deal.value) : null,
         time: c.scheduled_time?.slice(0, 5) || undefined,
         nav: { id: c.id, type: deliv ? "deliverable" : "content" },
@@ -303,7 +314,7 @@ export default function CalendarPage() {
         out.push({
           id: "pay" + p.id, type: "payment",
           name: brand ? stripLegal(brand) : formatMoney(p.amount), fullName: brand || formatMoney(p.amount),
-          verb: DESK_VERB.payment, color: DESK_COLOR.payment, amount: formatMoney(p.amount),
+          tag: DESK_TAG.payment, label: DESK_LABEL.payment, color: DESK_COLOR.payment, amount: formatMoney(p.amount),
           nav: { id: p.id, type: "payment" },
         });
       });
@@ -311,14 +322,14 @@ export default function CalendarPage() {
     if (filter === "All" || filter === "Deliverables") {
       todos.filter((t) => t.due_date === iso).forEach((t) => out.push({
         id: "todo" + t.id, type: "todo", name: stripLegal(t.title), fullName: t.title,
-        verb: DESK_VERB.todo, color: DESK_COLOR.todo, amount: null, done: t.done,
+        tag: DESK_TAG.todo, label: DESK_LABEL.todo, color: DESK_COLOR.todo, amount: null, done: t.done,
         nav: { id: t.id, type: "todo" },
       }));
     }
     if (filter === "All" || filter === "Posts") {
       notes.filter((n) => n.event_date === iso).forEach((n) => out.push({
         id: "note" + n.id, type: "note", name: stripLegal(n.body), fullName: n.body,
-        verb: DESK_VERB.note, color: DESK_COLOR.note, amount: null, done: n.done,
+        tag: DESK_TAG.note, label: DESK_LABEL.note, color: DESK_COLOR.note, amount: null, done: n.done,
         nav: { id: n.id, type: "note" },
       }));
     }
@@ -410,16 +421,17 @@ export default function CalendarPage() {
             <Button onClick={() => openDay()} className="h-9"><IconPlus size={16} /> Add event</Button>
           </div>
         </div>
-        {/* Desktop type legend (calendar display types) — its own band with breathing
-            room above and below, even spacing between items. */}
+        {/* Desktop type legend — month view only (agenda rows self-label). */}
+        {view === "month" && (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 px-4 sm:px-5 pt-2.5 pb-2 border-b border-border text-[11px] text-muted">
           {LEGEND_TYPES.map((t) => (
             <span key={t.id} className="inline-flex items-center gap-2 whitespace-nowrap">
               <span className="calpill-dot" style={{ background: t.color }} aria-hidden />
-              <span>{t.label}</span>
+              <span>{DESK_TAG[t.id]}</span>
             </span>
           ))}
         </div>
+        )}
         </>
         )}
         {isMobile ? (
@@ -495,15 +507,14 @@ export default function CalendarPage() {
                 </span>
                 <div className="mt-1 space-y-0.5 px-1 calpill-stack">
                   {deskItems(iso).slice(0, DESK_MAX_PILLS).map((it) => {
-                    const activeId = it.nav.type === "content" ? it.id.replace(/^(pay|todo|note)/, "") : it.id;
+                    // Drag + drop use the real PK (nav.id) and table (nav.type);
+                    // the click/open path uses the prefixed display id separately.
+                    const activeId = it.nav.id;
                     const isDragging = dragId === activeId;
-                    const canDrag = it.nav.type !== "payment";
                     return (
                       <div
                         key={it.id}
                         onPointerDown={(e) => {
-                          // Payments are not draggable; ignore the grab to keep touch scroll
-                          if (!canDrag) return;
                           const sel = window.getSelection?.();
                           sel?.removeAllRanges();
                           // Cancel any prior long-press state
@@ -511,7 +522,7 @@ export default function CalendarPage() {
                           dragRef.current = {
                             id: activeId, type: it.nav.type, origin: iso,
                             startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
-                            engaged: false, timerId: null, lastDay: null,
+                            engaged: false, timerId: null, lastDay: null, item: it,
                           };
                           try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* non-fatal */ }
                           // Touch: long-press (~260ms) engages drag, so scrolling the page
@@ -540,12 +551,17 @@ export default function CalendarPage() {
                           }
                           if (d.engaged) {
                             e.preventDefault();
-                            // Highlight the day cell currently under the pointer.
+                            // Move the ghost imperatively (transform) — no re-render per move.
+                            if (dragGhost.current) {
+                              dragGhost.current.style.opacity = "1";
+                              dragGhost.current.style.transform = `translate(${Math.round(e.clientX - d.startX + 10)}px, ${Math.round(e.clientY - d.startY + 12)}px)`;
+                            }
+                            // Highlight the day cell under the pointer — only when it
+                            // changes, so we don't re-render / force-layout every move.
                             const el = document.elementFromPoint(e.clientX, e.clientY);
                             const cell = el?.closest?.("[data-day]") as HTMLElement | null;
                             const day = cell?.dataset.day ?? null;
-                            d.lastDay = day;
-                            setDropTarget(day);
+                            if (day !== d.lastDay) { d.lastDay = day; setDropTarget(day); }
                           }
                         }}
                         onPointerUp={(e) => {
@@ -553,8 +569,6 @@ export default function CalendarPage() {
                           if (!d || d.pointerId !== e.pointerId) return;
                           if (d.timerId) window.clearTimeout(d.timerId);
                           if (d.engaged) {
-                            // Prefer the last day we highlighted; fall back to a fresh
-                            // elementFromPoint on release.
                             let day = d.lastDay;
                             if (!day) {
                               const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -577,25 +591,20 @@ export default function CalendarPage() {
                           const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
                           setSelected({ itemId: it.id, type: it.nav.type, x: r.left, y: r.bottom + 6, date: iso });
                         }}
-                        onMouseEnter={(e) => {
-                          // Only open on a real (non-drag) hover; the widget's own
-                          // pointer handlers manage touch, so mouse hover opens it.
-                          if (dragId) return;
-                          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setHover({ item: it, x: r.left, y: r.top, date: iso });
-                        }}
-                        onMouseLeave={() => setHover(null)}
-                        style={{ "--pill-source": it.color, touchAction: canDrag ? "none" : "auto" } as React.CSSProperties}
+                        style={{ "--pill-source": it.color, touchAction: "none" } as React.CSSProperties}
                         className={cn(
-                          "calpill calendar-pill-desk text-[11px] flex items-start gap-1.5 rounded-md px-1.5 py-1 cursor-grab select-none",
-                          isDragging && "opacity-40 ring-2 ring-inset ring-[var(--accent)]",
-                          dragId && !isDragging && "opacity-60",
+                          "calpill calendar-pill-desk text-[10.5px] rounded-md px-1.5 pt-0.5 cursor-grab select-none",
+                          isDragging && "opacity-10",
+                          dragId && !isDragging && "opacity-55",
                           it.done && "calpill-done"
                         )}
                       >
-                        <span className="calpill-dot shrink-0 mt-0.5" style={{ background: it.color }} aria-hidden />
-                        <span className={cn("calpill-name flex-1", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
-                        {it.amount && <span className="shrink-0 money text-[10.5px] font-semibold tabular-nums ml-auto pl-1">{it.amount}</span>}
+                        {/* Type tag on its own line, uppercase, in the type color. */}
+                        <span className={cn("calpill-tag font-bold tracking-wide", it.done && "opacity-70")} style={{ color: it.color }}>{it.tag}</span>
+                        <span className="flex items-center min-w-0 w-full">
+                          <span className={cn("calpill-name flex-1", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
+                          {it.amount && <span className="shrink-0 money text-[10.5px] font-semibold tabular-nums ml-1">{it.amount}</span>}
+                        </span>
                       </div>
                     );
                                         })}
@@ -666,8 +675,7 @@ export default function CalendarPage() {
                   className="w-full text-left cursor-pointer flex flex-col items-start gap-1 rounded-lg px-2 py-2 hover:bg-card2 transition-colors"
                 >
                   <span className="flex items-center gap-2">
-                    <span className="calpill-dot shrink-0" style={{ background: it.color }} aria-hidden />
-                    <Pill size="sm" className="px-1.5 py-0.5">{it.verb}</Pill>
+                    <Pill size="sm" dot={false} source={it.color} className="px-1.5 py-0.5">{it.label}</Pill>
                   </span>
                   <span className={cn("text-sm leading-snug", it.done && "pill-done-title")}>{it.fullName}</span>
                   {it.amount && <span className="money text-sm font-medium text-ink tabular-nums">{it.amount}</span>}
@@ -722,42 +730,78 @@ export default function CalendarPage() {
           }}
         />
       )}
-      {hover && !isMobile && (
-        <DeskHoverPopover hover={hover} />
+      {/* Drag error — shown only when an optimistic drop fails and reverts. */}
+      {dragError && (
+        <div className="fixed z-[99] left-4 bottom-4 bg-bad text-white text-[13px] font-medium rounded-lg px-3.5 py-2 shadow-lg" role="alert">
+          {dragError}
+        </div>
+      )}
+
+      {/* Drag ghost — a transform-following copy of the pill shown over the grid
+          while dragging (per-move transform, no re-render). */}
+      {dragId && dragRef.current && (
+        <div
+          ref={dragGhost}
+          onClick={(e) => e.stopPropagation()}
+          className="calpill-ghost fixed z-[80] pointer-events-none left-0 top-0 rounded-md opacity-0 select-none"
+          style={{ "--pill-source": dragRef.current.item.color, width: 220 } as React.CSSProperties}
+        >
+          <div className={cn("calpill calendar-pill-desk text-[10.5px] rounded-md px-1.5 pt-0.5")}>
+            <span className={cn("calpill-tag font-bold tracking-wide")} style={{ color: dragRef.current.item.color }}>{dragRef.current.item.tag}</span>
+            <span className="flex items-center min-w-0 w-full">
+              <span className="calpill-name flex-1">{dragRef.current.item.name}</span>
+              {dragRef.current.item.amount && <span className="shrink-0 money text-[10.5px] font-semibold tabular-nums ml-1">{dragRef.current.item.amount}</span>}
+            </span>
+          </div>
+        </div>
       )}
     </div>
   );
 
   async function onDropToDay(targetDay: string, activeId: string, type: "content" | "deliverable" | "payment" | "todo" | "note" | null) {
-    if (!activeId) { resetDrag(); return; }
+    if (!activeId || !dragOrigin) { endDrag(); return; }
+    const origin = dragOrigin;
+    // Optimistic: move the item locally so the pill lands instantly. (This also
+    // avoids re-rendering the whole grid on drop — only the affected row rerenders
+    // via state.) If the DB write fails we revert below and surface an error.
+    const write = async (): Promise<string | null> => {
+      if (type === "content" || type === "deliverable") {
+        // Recurring posts are materialized as separate rows (the base row carries
+        // repeat_type; expanded instances have repeat_type null via the DB trigger).
+        // Updating event_date on the dragged row moves only that instance.
+        const { error } = await supabase.from("content").update({ event_date: targetDay }).eq("id", activeId);
+        if (!error) setContent((xs) => xs.map((x) => (x.id === activeId ? { ...x, event_date: targetDay } : x)));
+        return error?.message ?? null;
+      }
+      if (type === "payment") {
+        const { error } = await supabase.from("payments").update({ expected_date: targetDay }).eq("id", activeId);
+        if (!error) setPayments((xs) => xs.map((x) => (x.id === activeId ? { ...x, expected_date: targetDay } : x)));
+        return error?.message ?? null;
+      }
+      if (type === "todo") {
+        const { error } = await supabase.from("todos").update({ due_date: targetDay }).eq("id", activeId);
+        if (!error) setTodos((xs) => xs.map((x) => (x.id === activeId ? { ...x, due_date: targetDay } : x)));
+        return error?.message ?? null;
+      }
+      if (type === "note") {
+        const { error } = await supabase.from("notes").update({ event_date: targetDay }).eq("id", activeId);
+        if (!error) setNotes((xs) => xs.map((x) => (x.id === activeId ? { ...x, event_date: targetDay } : x)));
+        return error?.message ?? null;
+      }
+      return null;
+    };
 
-    // Received payments are not draggable: their date is a historical fact.
-    // dayItems() already omits received payments, but guard here too.
-    if (type === "payment") {
-      const { data: p } = await supabase.from("payments").select("status").eq("id", activeId).single();
-      if ((p as { status?: string } | null)?.status === "received") { resetDrag(); return; }
+    endDrag();
+    const err = await write();
+    if (err) {
+      // Revert to the origin date.
+      (type === "content" || type === "deliverable") && setContent((xs) => xs.map((x) => (x.id === activeId ? { ...x, event_date: origin } : x)));
+      type === "payment" && setPayments((xs) => xs.map((x) => (x.id === activeId ? { ...x, expected_date: origin } : x)));
+      type === "todo" && setTodos((xs) => xs.map((x) => (x.id === activeId ? { ...x, due_date: origin } : x)));
+      type === "note" && setNotes((xs) => xs.map((x) => (x.id === activeId ? { ...x, event_date: origin } : x)));
+      setDragError("Couldn't move that. Nothing changed.");
+      setTimeout(() => setDragError(null), 3600);
     }
-
-    if (type === "content" || type === "deliverable") {
-      // Recurring posts are materialized as separate rows (the base row carries
-      // repeat_type; expanded instances have repeat_type null via the DB trigger).
-      // Updating event_date on the dragged row moves only that instance, never the
-      // whole series. Dragging the base (repeat_type set) still only moves that one
-      // row; the series is not silently rescheduled.
-      await supabase.from("content").update({ event_date: targetDay }).eq("id", activeId);
-    } else if (type === "payment") {
-      await supabase.from("payments").update({ expected_date: targetDay }).eq("id", activeId);
-    } else if (type === "todo") {
-      await supabase.from("todos").update({ due_date: targetDay }).eq("id", activeId);
-    } else if (type === "note") {
-      await supabase.from("notes").update({ event_date: targetDay }).eq("id", activeId);
-    }
-    load();
-
-    function resetDrag() {
-      setDragId(null); setDragType(null); setDragOrigin(null); setDropTarget(null);
-    }
-    resetDrag();
   }
 }
 
@@ -792,7 +836,7 @@ function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenD
         {ordered.map((iso) => {
           const items = deskItemsFor(iso);
           const d = new Date(iso + "T00:00:00");
-          const wd = WEEKDAYS[(d.getDay() + 6) % 7].slice(0, 3);
+          const wd = WEEKDAYS[d.getDay()];
           const dayNum = d.getDate();
           const isToday = iso === todayISO;
           return (
@@ -802,10 +846,10 @@ function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenD
               className={cn("agenda-row group cursor-pointer", isToday && "agenda-today")}
               onClick={(e) => onOpenDay(e, iso)}
             >
-              {/* Each row: fixed date column (weekday above number), then events.
-                  Type label sits muted right after the name; only the amount is
-                  right-aligned, kept inside the container's right padding. */}
-              <div className="flex items-center gap-x-4">
+              {/* Row: fixed date column → events. Each event carries its own
+                  fixed-width type pill first (so labels line up down the page and
+                  every row is self-labeling — no legend), then name, then amount. */}
+              <div className="flex items-center gap-x-3">
                 <div className="agenda-date shrink-0">
                   <div className="text-[10px] uppercase tracking-wide text-center text-muted">{wd}</div>
                   <div className={cn("agenda-daynum text-center text-sm font-semibold tabular-nums w-[30px] h-[26px] leading-[26px]", isToday && "accent-fill rounded-full", isToday && items.length === 0 && "bg-subtle/40")}>{dayNum}</div>
@@ -819,15 +863,12 @@ function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenD
                         key={it.id}
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onOpenItem(it, iso); }}
-                        className="agenda-item w-full text-left flex items-center justify-between gap-2 min-w-0 cursor-pointer"
+                        className="agenda-item w-full text-left flex items-center gap-2 min-w-0 cursor-pointer"
                       >
-                        {/* Name + type label hug together on the left; only the
-                            amount is right-aligned via justify-between. */}
-                        <span className="flex items-center gap-2 min-w-0">
-                          <span className="calpill-dot shrink-0" style={{ background: it.color }} aria-hidden />
-                          <span className={cn("flex-1 min-w-0 text-sm leading-snug text-left", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
-                          <span className="agenda-verb text-xs text-inksoft shrink-0 text-left">{it.verb}{it.time ? ` · ${it.time}` : ""}</span>
+                        <span className="w-[86px] inline-flex items-center justify-center shrink-0 agenda-type" aria-hidden>
+                          <Pill size="sm" dot={false} source={it.color} className="px-1.5 py-0.5 w-full justify-center">{it.label}</Pill>
                         </span>
+                        <span className={cn("flex-1 min-w-0 text-sm leading-snug text-left", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
                         {it.amount && <span className="money shrink-0 text-sm font-medium text-ink tabular-nums">{it.amount}</span>}
                       </button>
                     ))
@@ -839,34 +880,6 @@ function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenD
         })}
       </div>
     </div>
-  );
-}
-
-/* ---------------- Desktop pill hover popover ----------------
-   The safety net for any pill that wraps awkwardly: full untrimmed name, plain
-   word event type, status pill, and amount. Anchored near the hovered pill via
-   a portal to document.body (escapes overflow:hidden + transformed ancestors). */
-function DeskHoverPopover({ hover: h }: { hover: { item: DeskItem; x: number; y: number; date: string } }) {
-  const W = 260;
-  const clampX = (x: number) => Math.max(8, Math.min(x, Math.max(8, window.innerWidth - W - 8)));
-  const top = Math.max(8, h.y);
-  const left = clampX(h.x + 16);
-  return createPortal(
-    <div
-      className="fixed z-[99] bg-card border border-line rounded-xl shadow-lg p-3"
-      style={{ left, top, width: W }}
-    >
-      <p className="text-[14px] leading-snug font-medium text-left">{h.item.fullName}</p>
-      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-        <span className="calpill-dot" style={{ background: h.item.color }} aria-hidden />
-        <span className="text-xs text-muted">{h.item.verb}</span>
-        <Pill size="sm" className="px-1.5 py-0.5">{h.item.type}</Pill>
-      </div>
-      {h.item.amount && (
-        <p className="money text-sm font-semibold text-ink tabular-nums mt-1.5">{h.item.amount}</p>
-      )}
-    </div>,
-    document.body
   );
 }
 
@@ -884,7 +897,7 @@ function MobileDaySheet({ iso, rows, onClose, onOpen }: {
   onClose: () => void; onOpen: (it: MobileSheetRow) => void;
 }) {
   const d = iso ? new Date(iso + "T00:00:00") : new Date();
-  const title = `${WEEKDAYS[(d.getDay() + 6) % 7]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  const title = `${WEEKDAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}`;
   const touch = useRef<{ y: number; translate: number } | null>(null);
   const [drift, setDrift] = useState(0);
 

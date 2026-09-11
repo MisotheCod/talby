@@ -732,24 +732,37 @@ h1, h2, h3, h4 {
   width: 8px; height: 8px; border-radius: 999px; display: block; flex: none;
 }
 
-/* Expanded desktop pill: dot + wrapped name (+ amount). No truncation — text
-   wraps. Rounded-rect rather than pill so two lines read cleanly. The NAME wraps
-   (up to 2 lines); the amount if present pins right. Tint derives from the
-   event's type color via --pill-source, same treatment as the status pills. */
+/* Expanded desktop pill: type tag line (uppercase, tinted) above a wrapped name
+   (+ right-aligned amount). No truncation — text wraps. Rounded-rect so two
+   lines read cleanly; a 3px tinted left bar carries the type color along with
+   the tinted background and matching text (so the label + tint carry meaning,
+   no dot needed). All derived from --pill-source like the status pills. */
 .calendar-pill-desk {
-  --pill-bg: color-mix(in srgb, var(--pill-source) 14%, var(--canvas));
-  --pill-bd: color-mix(in srgb, var(--pill-source) 34%, var(--canvas));
-  --pill-fg: color-mix(in srgb, var(--pill-source) 58%, var(--ink));
+  --pill-bg: color-mix(in srgb, var(--pill-source) 17%, var(--canvas));
+  --pill-bd: color-mix(in srgb, var(--pill-source) 40%, var(--canvas));
+  --pill-fg: color-mix(in srgb, var(--pill-source) 60%, var(--ink));
   background: var(--pill-bg);
   color: var(--pill-fg);
   border: 1px solid var(--pill-bd);
-  line-height: 1.2;
+  border-left: 3px solid var(--pill-source);
+  line-height: 1.15;
   width: 100%; box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 [data-theme="dark"] .calendar-pill-desk {
-  --pill-bg: color-mix(in srgb, var(--pill-source) 14%, transparent);
-  --pill-bd: color-mix(in srgb, var(--pill-source) 42%, transparent);
-  --pill-fg: color-mix(in srgb, var(--pill-source) 74%, var(--ink));
+  --pill-bg: color-mix(in srgb, var(--pill-source) 15%, transparent);
+  --pill-bd: color-mix(in srgb, var(--pill-source) 44%, transparent);
+  --pill-fg: color-mix(in srgb, var(--pill-source) 78%, var(--ink));
+}
+/* Type tag — uppercase, one line, in the type color. */
+.calendar-pill-desk .calpill-tag {
+  display: block;
+  font-size: 9.5px;
+  line-height: 1;
+  letter-spacing: 0.05em;
+  text-transform: none;
 }
 .calendar-pill-desk .calpill-name {
   min-width: 0;
@@ -762,6 +775,14 @@ h1, h2, h3, h4 {
 }
 .calpill-name.calpill-name:not(.pill-done-title) { font-weight: inherit; }
 .calpill-done { opacity: 0.55; }
+
+/* Drag ghost — a copy of the dragged pill; transform-driven, pointer-transparent. */
+.calpill-ghost {
+  transform: translate(-99999px, -99999px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  background: var(--pill-bg, var(--card-2));
+  color: var(--pill-fg, var(--ink));
+}
 
 /* Agenda view — vertical list, one row per day with events. */
 .agenda-row {

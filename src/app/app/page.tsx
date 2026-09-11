@@ -186,10 +186,11 @@ export default function OverviewPage() {
   const safeDealPage = Math.min(dealPage, dealTotalPages);
   const pagedDeals = filteredDeals.slice((safeDealPage - 1) * DEAL_PAGE_SIZE, safeDealPage * DEAL_PAGE_SIZE);
 
-  // ---- This week (7 days from today) ----
+  // ---- This week (Sun–Sat of the current calendar week, US convention) ----
   const today = new Date();
+  const weekStart = addDays(today, -today.getDay()); // getDay() 0 = Sunday
   const week: { date: Date; iso: string }[] = [];
-  for (let i = 0; i < 7; i++) week.push({ date: addDays(today, i), iso: toISO(addDays(today, i)) });
+  for (let i = 0; i < 7; i++) week.push({ date: addDays(weekStart, i), iso: toISO(addDays(weekStart, i)) });
   const todayIso = toISO(today);
 
   // Same payments data drives both the week and the Payments card (correlation).
