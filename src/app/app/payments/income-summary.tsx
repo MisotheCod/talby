@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatMoney, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { UpgradeModal } from "@/components/upgrade-modal";
-import { IconCalendar, IconDown, IconCheck } from "@/components/icons";
+import { IconCalendar, IconDown, IconCheck, IconFile } from "@/components/icons";
 import {
   buildPeriods, defaultPeriod, keyStr, periodLabel, periodDetail,
   type Period as IncomePeriod, type PeriodKey,
@@ -50,6 +50,7 @@ export function IncomeSummary({ payments, deals, plan }: {
   const [open, setOpen] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [csvMsg, setCsvMsg] = useState<string | null>(null);
+  const [tipBrand, setTipBrand] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const now = new Date();
 
@@ -82,6 +83,37 @@ export function IncomeSummary({ payments, deals, plan }: {
     brandMap.set(b, (brandMap.get(b) ?? 0) + p.amount);
   }
   const brandRows = [...brandMap.entries()].map(([brand, amt]) => ({ brand, amt })).sort((a, b) => b.amt - a.amt);
+
+  // 1099-NEC is a calendar-year threshold, so the flag must be based on the
+  // brand's FULL calendar-year total, never the selected period's total (a
+  // quarterly view would otherwise under/over-flag). Group every received cash
+  // payment by (year → brand), independent of the active period filter.
+  const brandYearTotals = new Map<string, Map<string, number>>();
+  for (const p of received) {
+    if ((p.pay_status ?? "") === "no_invoice_needed") continue;
+    const d = p.expected_date;
+    if (!d || d.length < 4) continue;
+    const year = d.slice(0, 4);
+    if (!year.length || Number(year) === 0) continue;
+    const byBrand = brandYearTotals.get(year) ?? new Map<string, number>();
+    const b = p.deal?.brand ?? "Unattached payment";
+    byBrand.set(b, (byBrand.get(b) ?? 0) + p.amount);
+    brandYearTotals.set(year, byBrand);
+  }
+  // Which calendar year is the current selection looking at? Derived from the
+  // active period so the flag uses the right annual total even when the view
+  // is a single month/quarter of that year.
+  const activeYear = ((): number | null => {
+    const k = periodKey.kind;
+    if (k === "ytd" || k === "this_quarter" || k === "this_month") return now.getFullYear();
+    if (k === "year" || k === "quarter" || k === "month") return (periodKey as { year: number }).year;
+    return null;
+  })();
+  const brandYearTotal = (brand: string): number => {
+    if (activeYear === null) return 0;
+    const byBrand = brandYearTotals.get(String(activeYear));
+    return byBrand?.get(brand) ?? 0;
+  };
 
   const monthMap = new Map<string, number>();
   for (const p of cashPmts) {
@@ -255,8 +287,27 @@ export function IncomeSummary({ payments, deals, plan }: {
             {brandRows.map((b) => (
               <div key={b.brand} className="flex items-center gap-3 py-2.5">
                 <span className="flex-1 truncate text-sm">{b.brand}</span>
-                {b.amt >= THRESHOLD && (
-                  <span className="text-xs font-semibold rounded-full px-2 py-0.5" style={{ background: "var(--warn-t)", color: "var(--warn)" }}>≥ $600 · 1099</span>
+                {brandYearTotal(b.brand) >= THRESHOLD && (
+                  <span
+                    className="relative inline-flex items-center text-inksoft cursor-pointer ml-1"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${b.brand}: at or above $600 in ${activeYear}, 1099-NEC likely sent`}
+                    onClick={() => setTipBrand(tipBrand === b.brand ? null : b.brand)}
+                    onMouseEnter={() => setTipBrand(b.brand)}
+                    onMouseLeave={() => setTipBrand(null)}
+                    onFocus={() => setTipBrand(b.brand)}
+                    onBlur={() => setTipBrand(null)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setTipBrand(tipBrand === b.brand ? null : b.brand); } }}
+                  >
+                    <IconFile size={15} className="text-inksoft" />
+                    {tipBrand === b.brand && (
+                      <span className={cn("theme-tip absolute bottom-[calc(100%+6px)] left-1/2 -translate-x-1/2 w-60 z-50 text-[11.5px] leading-relaxed rounded-lg px-3 py-2 shadow-pop pointer-events-none", "block")}>
+                        This brand paid you $600 or more this year, so they will likely send you a 1099-NEC form, and the amount on it should match what you see here.
+                        <span className="theme-tip-arrow absolute top-full left-1/2 -mt-[3px] border-4 border-transparent" />
+                      </span>
+                    )}
+                  </span>
                 )}
                 <span className="money text-sm font-semibold tabular-nums">{formatMoney(b.amt)}</span>
               </div>
