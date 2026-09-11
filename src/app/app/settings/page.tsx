@@ -35,13 +35,58 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [activeCount, setActiveCount] = useState(0);
-  const handlerRef = useRef<{ save: () => Promise<void>; saved: boolean; dirty: boolean } | null>(null);
-  const pwRef = useRef<{ update: () => Promise<void>; busy: boolean; hasValue: boolean } | null>(null);
   const [section, setSection] = useState<SectionId>(
     (searchParams.get("section") as SectionId) && SECTIONS.some((s) => s.id === searchParams.get("section"))
       ? (searchParams.get("section") as SectionId)
       : "account"
   );
+
+  // ---- Creator handle (state lives here so the Save button and field share
+  //      the same React state; stale ref bridging previously wedged the button) ----
+  const [handleVal, setHandleVal] = useState<string | null>(null);
+  const [handleMsg, setHandleMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
+  const handleDirty = () => {
+    const cur = (handleVal ?? "").trim();
+    const base = (profile?.handler ?? "").trim();
+    return cur !== base;
+  };
+  const saveHandle = async () => {
+    const val = (handleVal ?? "").trim();
+    if (!val) { setHandleMsg({ kind: "bad", text: "Enter a handle." }); return; }
+    if (!/^[A-Za-z0-9_]{3,30}$/.test(val)) { setHandleMsg({ kind: "bad", text: "Handles use 3-30 letters, numbers, or underscores." }); return; }
+    setSaving(true); setHandleMsg(null);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); setHandleMsg({ kind: "bad", text: "Not signed in." }); return; }
+    // Uniqueness: another user's profile already uses this handle?
+    const { data: clash } = await supabase.from("profiles").select("id").eq("handler", val).neq("id", user.id).maybeSingle();
+    if (clash) { setSaving(false); setHandleMsg({ kind: "bad", text: "That handle is already taken." }); return; }
+    const { error } = await supabase.from("profiles").update({ handler: val }).eq("id", user.id);
+    setSaving(false);
+    if (error) {
+      // profiles RLS hides other users' rows, so the client pre-check can't see
+      // a take. The DB unique index (profiles_handler_lower_uq) is the truth.
+      if (/unique constraint|duplicate key/i.test(error.message)) setHandleMsg({ kind: "bad", text: "That handle is already taken." });
+      else setHandleMsg({ kind: "bad", text: error.message });
+      return;
+    }
+    setProfile((p) => (p ? { ...p, handler: val } : p));
+    setHandleMsg({ kind: "ok", text: "Handle saved." });
+  };
+  // ---- Password ----
+  const [pw, setPw] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwMsg, setPwMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
+  const [pwBusy, setPwBusy] = useState(false);
+  const updatePassword = async () => {
+    if (pw.length < 8) { setPwMsg({ kind: "bad", text: "Password must be at least 8 characters." }); return; }
+    if (pw !== pwConfirm) { setPwMsg({ kind: "bad", text: "Passwords do not match." }); return; }
+    setPwBusy(true); setPwMsg(null);
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setPwBusy(false);
+    if (error) { if (/reauth/i.test(error.message)) setPwMsg({ kind: "bad", text: "Re-authenticate to change your password." }); else setPwMsg({ kind: "bad", text: error.message }); return; }
+    setPw(""); setPwConfirm("");
+    setPwMsg({ kind: "ok", text: "Password updated." });
+  };
 
   // Theme editor state (shared preview/save logic)
   const [current, setCurrent] = useState<HSL>(DEFAULT_HSL);
@@ -61,6 +106,7 @@ export default function SettingsPage() {
       const { data } = await supabase.from("profiles").select("handler, accent, plan, head_font, avatar_url").eq("id", user.id).single();
       const p = (data as unknown as Profile) ?? null;
       setProfile(p);
+      setHandleVal(p?.handler ?? null);
       const { data: deals } = await supabase
         .from("deals")
         .select("id")
@@ -169,18 +215,50 @@ export default function SettingsPage() {
                       <div className="flex items-center gap-4 px-6 py-5 border-b border-line flex-wrap">
                         <div className="w-[140px] shrink-0 text-sm text-inksoft">Creator handle</div>
                         <div className="flex-1 min-w-0">
-                          <HandlerField initial={profile?.handler ?? ""} />
+                          <div className="relative">
+                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-inksoft">@</span>
+                            <input
+                              value={handleVal ?? ""}
+                              onChange={(e) => { setHandleVal(e.target.value.replace(/\s/g, "")); setHandleMsg(null); }}
+                              className="w-full bg-card border border-line2 rounded-xl pl-9 pr-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
+                              maxLength={30}
+                              aria-label="Creator handle"
+                              autoComplete="off"
+                            />
+                          </div>
+                          {handleMsg && <p className={cn("text-sm mt-2", handleMsg.kind === "ok" ? "text-paid" : "text-late")}>{handleMsg.text}</p>}
                         </div>
-                        <Button onClick={() => handlerRef.current?.save()} disabled={handlerRef.current?.saved || !handlerRef.current?.dirty}>{handlerRef.current?.saved ? "Saved" : "Save"}</Button>
+                        <div className="flex items-center gap-2">
+                          {handleMsg?.kind === "ok" && <span className="text-xs text-paid">Saved</span>}
+                          <Button onClick={saveHandle} disabled={saving || !handleDirty()}>{saving ? <Spinner /> : "Save"}</Button>
+                        </div>
                       </div>
 
                       {/* Password */}
                       <div className="flex items-center gap-4 px-6 py-5 border-b border-line flex-wrap">
                         <div className="w-[140px] shrink-0 text-sm text-inksoft">Password</div>
-                        <div className="flex-1 min-w-0">
-                          <PasswordField />
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <input
+                            type="password"
+                            value={pw}
+                            onChange={(e) => { setPw(e.target.value); setPwMsg(null); }}
+                            placeholder="New password"
+                            className="w-full bg-card border border-line2 rounded-xl px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
+                            autoComplete="new-password"
+                            aria-label="New password"
+                          />
+                          <input
+                            type="password"
+                            value={pwConfirm}
+                            onChange={(e) => { setPwConfirm(e.target.value); setPwMsg(null); }}
+                            placeholder="Confirm new password"
+                            className="w-full bg-card border border-line2 rounded-xl px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
+                            autoComplete="new-password"
+                            aria-label="Confirm new password"
+                          />
+                          {pwMsg && <p className={cn("text-sm", pwMsg.kind === "ok" ? "text-paid" : "text-late")}>{pwMsg.text}</p>}
                         </div>
-                        <Button onClick={() => pwRef.current?.update()} disabled={pwRef.current?.busy || !pwRef.current?.hasValue}>{pwRef.current?.busy ? <Spinner /> : "Update"}</Button>
+                        <Button onClick={updatePassword} disabled={pwBusy || pw.length === 0}>{pwBusy ? <Spinner /> : "Update"}</Button>
                       </div>
 
                       {/* Plan */}
@@ -301,32 +379,6 @@ export default function SettingsPage() {
     </div>
   );
 
-  function HandlerField({ initial }: { initial: string }) {
-    const [val, setVal] = useState(initial);
-    const [saved, setSaved] = useState(false);
-    const dirty = val.trim() !== initial.trim();
-    const save = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      await supabase.from("profiles").update({ handler: val.trim() || null }).eq("id", user.id);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1500);
-    };
-    handlerRef.current = { save, saved, dirty };
-    return (
-      <div className="relative">
-        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-inksoft">@</span>
-        <input
-          value={val}
-          onChange={(e) => { setVal(e.target.value.replace(/\s/g, "")); setSaved(false); }}
-          className="w-full bg-card border border-line2 rounded-xl pl-9 pr-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
-          maxLength={30}
-          aria-label="Creator handle"
-        />
-      </div>
-    );
-  }
-
   function AvatarField({ handler, initial, onChanged }: { handler: string; initial: string | null; onChanged: (url: string | null) => void }) {
     const fileRef = useRef<HTMLInputElement>(null);
     const [busy, setBusy] = useState(false);
@@ -383,36 +435,7 @@ export default function SettingsPage() {
     );
   }
 
-  function PasswordField() {
-    const [pw, setPw] = useState("");
-    const [msg, setMsg] = useState<{ kind: "ok" | "bad"; text: string } | null>(null);
-    const [busy, setBusy] = useState(false);
-    const update = async () => {
-      if (pw.length < 8) { setMsg({ kind: "bad", text: "Password must be at least 8 characters." }); return; }
-      setBusy(true); setMsg(null);
-      const { error } = await supabase.auth.updateUser({ password: pw });
-      setBusy(false);
-      if (error) { setMsg({ kind: "bad", text: error.message }); return; }
-      setPw("");
-      setMsg({ kind: "ok", text: "Password updated." });
-    };
-    pwRef.current = { update, busy, hasValue: pw.length > 0 };
-    return (
-      <div>
-        <input
-          type="password"
-          value={pw}
-          onChange={(e) => { setPw(e.target.value); setMsg(null); }}
-          placeholder="New password"
-          className="w-full bg-card border border-line2 rounded-xl px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30 font-sans"
-          autoComplete="new-password"
-          aria-label="New password"
-        />
-        {msg && <p className={cn("text-sm mt-2", msg.kind === "ok" ? "text-paid" : "text-late")}>{msg.text}</p>}
-      </div>
-    );
   }
-}
 
 /** Free-plan upgrade panel: accent-tinted, growth-framed, sits at the card bottom. */
 function FreePlanPanel({ used, cap, onUpgrade, saving }: { used: number; cap: number; onUpgrade: () => void; saving: boolean }) {
