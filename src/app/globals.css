@@ -711,6 +711,61 @@ h1, h2, h3, h4 {
   box-shadow: 0 1px 2px rgba(13, 15, 19, 0.08), 0 2px 6px rgba(13, 15, 19, 0.06);
 }
 
+/* ------- Desktop calendar: fixed-height month grid + pills -------
+   Rows are a uniform fixed height so the grid never jumps as months change
+   (5 vs 6 weeks). Pills wrap to two lines — never an ellipsis. Overflow
+   collapses to "+N more". */
+.calendar-grid-fixed {
+  grid-auto-rows: 148px;
+  min-height: max(296px, calc(148px * 6));
+}
+
+/* A stack of event pills inside a day cell: constrain so overflow becomes +N more. */
+.calpill-stack {
+  min-height: 0;
+  display: grid;
+  gap: 4px;
+}
+
+/* The dot carries the event TYPE color (deal/payment/deliverable/todo/note). */
+.calpill-dot {
+  width: 8px; height: 8px; border-radius: 999px; display: block; flex: none;
+}
+
+/* Expanded desktop pill: dot + wrapped name. No truncation — text wraps.
+   Rounded-rect rather than pill so two lines read cleanly. */
+.calendar-pill-desk {
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--ink);
+  line-height: 1.2;
+  width: 100%; box-sizing: border-box;
+  overflow: hidden;
+}
+.calendar-pill-desk .calpill-name {
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: break-word;
+}
+.calpill-name.calpill-name:not(.pill-done-title) { font-weight: inherit; }
+.calpill-done { opacity: 0.55; }
+
+/* Agenda view — vertical list, one row per day with events. */
+.agenda-today {
+  background: var(--accent-tint);
+}
+.agenda-row:hover { background: var(--card-2); }
+.agenda-item { border-radius: 6px; }
+.agenda-item:hover { background: var(--subtle); }
+
+/* Small header separator before Today on desktop. */
+.separa-h {
+  width: 1px; height: 18px; background: var(--line-2); flex: none;
+}
+
 /* ------- Drawer ------- */
 .drawer-in { animation: talby-slide-in 0.22s cubic-bezier(0.32, 0.72, 0, 1); }
 @keyframes talby-slide-in {

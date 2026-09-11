@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
@@ -19,6 +20,10 @@ type Todo = { id: string; title: string; done: boolean; due_date: string | null 
 type CalendarNote = { id: string; body: string; event_date: string; updated_at: string; done: boolean; details: string | null };
 
 const FILTERS = ["All", "Posts", "Deliverables", "Payments"] as const;
+
+// How many event pills fit in a fixed-height desktop month cell before overflow
+// collapses to "+N more". Pills wrap (never truncate), so keep the count small.
+const DESK_MAX_PILLS = 2;
 
 const PLATFORMS = [
   "TikTok", "Instagram", "YouTube", "YouTube Shorts", "Twitch",
@@ -63,6 +68,63 @@ function contentType(c: Content): "post" | "due" {
   return c.status === "published" ? "due" : "post";
 }
 
+/* ---------------- Desktop calendar item model ---------------- */
+
+// The desktop (Month/Agenda) views get one shared, rich item shape. The brand
+// name is what identifies the event, so it is carried untruncated; the amount
+// and a plain-word verb live alongside it, and the hover popover shows the
+// full set. The mobile dot-grid + day sheet keep the legacy string-based
+// path below (MobileDaySheet) untouched.
+type DeskItem = {
+  id: string;
+  type: "deal" | "deliverable" | "payment" | "todo" | "note";
+  name: string;        // display name: legal suffix stripped, untruncated
+  fullName: string;    // the original stored name (shown in the hover popover)
+  verb: string;        // plain words: "Post goes live", "Payment expected"...
+  amount: string | null; // formatted money for paid contacts/deals
+  color: string;       // CSS var for the pill dot
+  time?: string;
+  done?: boolean;
+  nav: { id: string; type: "content" | "deliverable" | "payment" | "todo" | "note" };
+};
+
+// Legal-entity suffixes stripped for DISPLAY ONLY in the calendar (never the
+// stored value, never elsewhere). "Glow Ritual Skincare, Inc." → display name.
+const LEGAL_SUFFIX_RE =
+  /^(.*?)(?:\s*,\s*|\s+)(?:inc\.?|llc\.?|ltd\.?|co\.?|corp\.?|corporation|incorporated|limited|company|llp|l\.c\.?|company inc\.?)$/i;
+
+function stripLegal(name: string): string {
+  const trimmed = name.trim();
+  const m = trimmed.match(LEGAL_SUFFIX_RE);
+  if (m && m[1]?.trim()) return m[1].trim();
+  return trimmed;
+}
+
+const DESK_VERB: Record<DeskItem["type"], string> = {
+  deal: "Post goes live",
+  deliverable: "Deliverable due",
+  payment: "Payment expected",
+  todo: "To-do",
+  note: "Note",
+};
+
+const DESK_COLOR: Record<DeskItem["type"], string> = {
+  deal: "var(--accent)",
+  deliverable: "var(--late)",
+  payment: "var(--paid)",
+  todo: "var(--purple)",
+  note: "var(--ink-soft)",
+};
+
+// Header legend (desktop): dot color → display type name.
+const LEGEND_TYPES: { id: DeskItem["type"]; color: string; label: string }[] = [
+  { id: "deal", color: DESK_COLOR.deal, label: "Post goes live" },
+  { id: "payment", color: DESK_COLOR.payment, label: "Payment" },
+  { id: "deliverable", color: DESK_COLOR.deliverable, label: "Deliverable" },
+  { id: "todo", color: DESK_COLOR.todo, label: "To-do" },
+  { id: "note", color: DESK_COLOR.note, label: "Note" },
+];
+
 export default function CalendarPage() {
   const supabase = createClient();
   const [cursor, setCursor] = useState(() => {
@@ -75,6 +137,9 @@ export default function CalendarPage() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+  const [view, setView] = useState<"month" | "agenda">("month");
+  // Desktop hover popover: which desk item is hovered + where to anchor it.
+  const [hover, setHover] = useState<{ item: DeskItem; x: number; y: number; date: string } | null>(null);
   const [popover, setPopover] = useState<{ date: string; x: number; y: number } | null>(null);
   const [dayReveal, setDayReveal] = useState<{ iso: string; x: number; y: number } | null>(null);
   // Mobile-only: the day whose events are shown in the bottom sheet.
@@ -133,18 +198,21 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     const from = toISO(new Date(cursor.y, cursor.m, 1));
     const to = toISO(new Date(cursor.y, cursor.m + 1, 0));
-    const [c, d, p, t, n] = await Promise.all([
+    const [c, d, p, t, n, prof] = await Promise.all([
       supabase.from("content").select("*").gte("event_date", from).lte("event_date", to),
       supabase.from("deals").select("id, brand, value"),
       supabase.from("payments").select("*, deal:deals(brand)").gte("expected_date", from).lte("expected_date", to),
       supabase.from("todos").select("*").not("due_date", "is", null).gte("due_date", from).lte("due_date", to),
       supabase.from("notes").select("id, body, event_date, updated_at, done, details").not("event_date", "is", null).gte("event_date", from).lte("event_date", to),
+      supabase.from("profiles").select("calendar_view").maybeSingle(),
     ]);
     setContent((c.data ?? []) as unknown as Content[]);
     setDeals((d.data ?? []) as unknown as Deal[]);
     setPayments((p.data ?? []) as unknown as Payment[]);
     setTodos((t.data ?? []) as unknown as Todo[]);
     setNotes((n.data ?? []) as unknown as CalendarNote[]);
+    const saved = (prof.data as { calendar_view?: string } | null)?.calendar_view;
+    if (saved === "month" || saved === "agenda") setView(saved);
     setLoading(false);
   }, [supabase, cursor]);
 
@@ -162,6 +230,16 @@ export default function CalendarPage() {
   const nextMonth = () => setCursor((c) => ({ y: c.m === 11 ? c.y + 1 : c.y, m: c.m === 11 ? 0 : c.m + 1 }));
   const goToday = () => { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }); };
   const openDay = (date = toISO(new Date())) => setPopover({ date, x: 0, y: 0 });
+
+  // Switch Month/Agenda and persist the choice to the profile (desktop only).
+  const switchView = async (v: "month" | "agenda") => {
+    if (v === view) return;
+    setView(v);
+    setHover(null);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("profiles").update({ calendar_view: v }).eq("id", user.id);
+  };
 
   const monthRange = useMemo(() => {
     const lastDay = new Date(cursor.y, cursor.m + 1, 0).getDate();
@@ -198,6 +276,53 @@ export default function CalendarPage() {
     const dayNotes = notes.filter((n) => n.event_date === iso);
     dayNotes.forEach((n) => items.push({ type: "note", id: "note" + n.id, title: n.body, label: "NOTE", done: n.done }));
     return items;
+  };
+
+  // Desktop (Month/Agenda) items: rich, filter-aware, untruncated. Type order
+  // for display: content/deals first, then payments, todos, notes.
+  const deskItems = (iso: string): DeskItem[] => {
+    const out: DeskItem[] = [];
+    const dayContent = content.filter((c) => c.event_date === iso);
+    dayContent.forEach((c) => {
+      const deliv = c.status === "published";
+      const type = deliv ? "deliverable" : "deal";
+      if (filter !== "All" && !(filter === "Posts" && !deliv) && !(filter === "Deliverables" && deliv)) return;
+      const deal = c.linked_deal_id ? deals.find((d) => d.id === c.linked_deal_id) : undefined;
+      out.push({
+        id: c.id, type, name: stripLegal(c.title), fullName: c.title,
+        verb: DESK_VERB[type], color: DESK_COLOR[type],
+        amount: deal?.value ? formatMoney(deal.value) : null,
+        time: c.scheduled_time?.slice(0, 5) || undefined,
+        nav: { id: c.id, type: deliv ? "deliverable" : "content" },
+      });
+    });
+    if (filter === "All" || filter === "Payments") {
+      const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
+      dayPays.forEach((p) => {
+        const brand = p.deal?.brand ?? "";
+        out.push({
+          id: "pay" + p.id, type: "payment",
+          name: brand ? stripLegal(brand) : formatMoney(p.amount), fullName: brand || formatMoney(p.amount),
+          verb: DESK_VERB.payment, color: DESK_COLOR.payment, amount: formatMoney(p.amount),
+          nav: { id: p.id, type: "payment" },
+        });
+      });
+    }
+    if (filter === "All" || filter === "Deliverables") {
+      todos.filter((t) => t.due_date === iso).forEach((t) => out.push({
+        id: "todo" + t.id, type: "todo", name: stripLegal(t.title), fullName: t.title,
+        verb: DESK_VERB.todo, color: DESK_COLOR.todo, amount: null, done: t.done,
+        nav: { id: t.id, type: "todo" },
+      }));
+    }
+    if (filter === "All" || filter === "Posts") {
+      notes.filter((n) => n.event_date === iso).forEach((n) => out.push({
+        id: "note" + n.id, type: "note", name: stripLegal(n.body), fullName: n.body,
+        verb: DESK_VERB.note, color: DESK_COLOR.note, amount: null, done: n.done,
+        nav: { id: n.id, type: "note" },
+      }));
+    }
+    return out;
   };
 
   // Distinct event TYPES present on a day (mobile dots: one per type, not per event).
@@ -263,12 +388,20 @@ export default function CalendarPage() {
             </div>
           </div>
         ) : (
+        <>
         <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-border">
           <div>
             <h2 className="text-lg font-semibold leading-tight">{MONTHS[cursor.m]} {cursor.y}</h2>
             <p className="text-xs text-muted mt-0.5 whitespace-nowrap">{monthRange.first}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <Segmented
+              options={["month", "agenda"] as const}
+              value={view}
+              onChange={(v) => switchView(v)}
+              getLabel={(v) => (v === "month" ? "Month" : "Agenda")}
+            />
+            <span className="separa-h" />
             <Button variant="secondary" onClick={goToday} className="h-9">Today</Button>
             <div className="flex items-center gap-0.5 border border-border rounded-lg overflow-hidden">
               <button onClick={prevMonth} aria-label="Previous month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-subtle cursor-pointer">‹</button>
@@ -277,12 +410,30 @@ export default function CalendarPage() {
             <Button onClick={() => openDay()} className="h-9"><IconPlus size={16} /> Add event</Button>
           </div>
         </div>
-        )}
-        <div className="grid grid-cols-7 border-b border-border">
-          {(isMobile ? MOBILE_WEEKDAYS : WEEKDAYS).map((d) => (
-            <div key={d} className="px-2 py-2 text-xs font-medium text-muted text-center">{d}</div>
+        {/* Desktop type legend (calendar display types) */}
+        <div className="flex items-center gap-2 px-4 sm:px-5 pb-2 text-[11px] text-muted">
+          {LEGEND_TYPES.map((t) => (
+            <span key={t.id} className="inline-flex items-center gap-1.5">
+              <span className="calpill-dot" style={{ background: t.color }} aria-hidden />
+              <span>{t.label}</span>
+            </span>
           ))}
         </div>
+        </>
+        )}
+        {isMobile ? (
+          <div className="grid grid-cols-7 border-b border-border">
+            {MOBILE_WEEKDAYS.map((d) => (
+              <div key={d} className="px-2 py-2 text-xs font-medium text-muted text-center">{d}</div>
+            ))}
+          </div>
+        ) : view === "agenda" ? null : (
+          <div className="grid grid-cols-7 border-b border-border">
+            {WEEKDAYS.map((d) => (
+              <div key={d} className="px-2 py-2 text-xs font-medium text-muted text-center">{d}</div>
+            ))}
+          </div>
+        )}
         {isMobile ? (
           <div className="cal-grid-mobile grid grid-cols-7">
             {cells.map((iso, idx) => {
@@ -317,8 +468,17 @@ export default function CalendarPage() {
               );
             })}
           </div>
+        ) : view === "agenda" ? (
+          <CalendarAgendaView
+            cells={cells}
+            deskItemsFor={(iso) => deskItems(iso)}
+            todayISO={toISO(new Date())}
+            onOpenItem={(it, date) => setSelected({ itemId: it.nav.id, type: it.nav.type, x: 0, y: 0, date })}
+            onOpenDay={(e, iso) => { if (!dragId && !clickLock.current) showPopover(e, iso); }}
+            onAddDay={(iso) => { setDayHighlight(iso); openDay(iso); }}
+          />
         ) : (
-        <div className="calendar-grid grid grid-cols-7 auto-rows-[104px] md:auto-rows-[124px]">
+        <div className="calendar-grid calendar-grid-fixed grid grid-cols-7">
           {cells.map((iso, idx) =>
             iso === null ? (
               <div key={`e${idx}`} className="border-r border-b border-border bg-subtle/40" />
@@ -332,11 +492,11 @@ export default function CalendarPage() {
                 <span className={cn("inline-grid place-items-center rounded-full text-xs", iso === toISO(new Date()) ? "h-5 min-w-5 px-1 accent-fill font-semibold" : dayHighlight === iso ? "h-5 min-w-5 px-1 font-semibold ring-1 ring-[var(--accent)] text-accentink" : "text-muted h-5 w-5")}>
                   {Number(iso.slice(8))}
                 </span>
-                <div className="mt-1 space-y-0.5 px-1">
-                  {dayItems(iso).slice(0, 2).map((it) => {
-                    const activeId = it.id.replace(/^(pay|todo|note)/, "");
+                <div className="mt-1 space-y-0.5 px-1 calpill-stack">
+                  {deskItems(iso).slice(0, DESK_MAX_PILLS).map((it) => {
+                    const activeId = it.nav.type === "content" ? it.id.replace(/^(pay|todo|note)/, "") : it.id;
                     const isDragging = dragId === activeId;
-                    const canDrag = it.type !== "payment";
+                    const canDrag = it.nav.type !== "payment";
                     return (
                       <div
                         key={it.id}
@@ -348,7 +508,7 @@ export default function CalendarPage() {
                           // Cancel any prior long-press state
                           if (dragRef.current?.timerId) { window.clearTimeout(dragRef.current.timerId); dragRef.current.timerId = null; }
                           dragRef.current = {
-                            id: activeId, type: it.type, origin: iso,
+                            id: activeId, type: it.nav.type, origin: iso,
                             startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
                             engaged: false, timerId: null, lastDay: null,
                           };
@@ -358,7 +518,7 @@ export default function CalendarPage() {
                           // on first move (below).
                           if (e.pointerType === "touch") {
                             dragRef.current.timerId = window.setTimeout(() => {
-                              if (dragRef.current && !dragRef.current.engaged) engageDrag(activeId, it.type, iso);
+                              if (dragRef.current && !dragRef.current.engaged) engageDrag(activeId, it.nav.type, iso);
                             }, 260);
                           }
                         }}
@@ -414,32 +574,28 @@ export default function CalendarPage() {
                           if (dragId || clickLock.current) return;
                           e.stopPropagation();
                           const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                          setSelected({ itemId: it.id, type: it.type, x: r.left, y: r.bottom + 6, date: iso });
+                          setSelected({ itemId: it.id, type: it.nav.type, x: r.left, y: r.bottom + 6, date: iso });
                         }}
+                        onMouseEnter={(e) => {
+                          if (dragId) return;
+                          const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          setHover({ item: it, x: r.left, y: r.top, date: iso });
+                        }}
+                        onMouseLeave={() => setHover((h) => (h && h.item.id === it.id ? null : h))}
                         style={{ touchAction: canDrag ? "none" : "auto" }}
                         className={cn(
-                          "calpill text-[11px] flex items-center gap-1 rounded-full px-2 py-0.5 cursor-grab select-none",
-                          it.type === "payment" ? "pill-due font-semibold cursor-pointer" :
-                          it.type === "todo" ? "pill-purple" :
-                          it.type === "note" ? "pill-note" :
-                          it.type === "content" ? "pill-accent" : "pill-paid font-semibold",
-                          it.done && "tpill-done",
+                          "calpill calendar-pill-desk text-[11px] flex items-start gap-1.5 rounded-md px-1.5 py-1 cursor-grab select-none",
                           isDragging && "opacity-40 ring-2 ring-inset ring-[var(--accent)]",
-                          dragId && !isDragging && "opacity-60"
+                          dragId && !isDragging && "opacity-60",
+                          it.done && "calpill-done"
                         )}
                       >
-                        {it.done && (
-                          <svg className="pill-check" viewBox="0 0 20 20" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M16.5 5 7.5 14 3.5 10" />
-                          </svg>
-                        )}
-                        <span className={cn("shrink-0 text-[9px] font-bold uppercase tracking-wide opacity-60")}>{it.label}</span>
-                        <span className={cn("truncate", it.type === "content" && "font-semibold", it.done && "pill-done-title")}>{it.title}</span>
-                        {it.time && <span className="shrink-0 ml-auto text-[10px] tabular-nums font-medium opacity-70">{it.time}</span>}
+                        <span className="calpill-dot shrink-0 mt-0.5" style={{ background: it.color }} aria-hidden />
+                        <span className={cn("calpill-name", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
                       </div>
                     );
                                         })}
-                                      {dayItems(iso).length > 2 && (
+                                      {deskItems(iso).length > DESK_MAX_PILLS && (
                                         <button
                                           type="button"
                                           onClick={(e) => {
@@ -450,7 +606,7 @@ export default function CalendarPage() {
                                           className="block w-full text-left cursor-pointer"
                                           aria-expanded={dayReveal?.iso === iso}
                                         >
-                                          <Pill size="sm" source="var(--ink-soft)" className="px-2 py-0.5">+{dayItems(iso).length - 2} more</Pill>
+                                          <Pill size="sm" source="var(--ink-soft)" className="px-2 py-0.5">+{deskItems(iso).length - DESK_MAX_PILLS} more</Pill>
                                         </button>
                                       )}
                 </div>
@@ -493,7 +649,7 @@ export default function CalendarPage() {
           title={`${MONTHS[cursor.m]} ${dayReveal.iso.slice(8)}`}
         >
           <div className="space-y-1.5">
-            {dayItems(dayReveal.iso).map((it) => {
+            {deskItems(dayReveal.iso).map((it) => {
               return (
                 <button
                   key={it.id}
@@ -501,17 +657,16 @@ export default function CalendarPage() {
                   onClick={(e) => {
                     e.stopPropagation();
                     setDayReveal(null);
-                    setSelected({ itemId: it.id, type: it.type, x: dayReveal.x, y: dayReveal.y, date: dayReveal.iso });
+                    setSelected({ itemId: it.nav.id, type: it.nav.type, x: dayReveal.x, y: dayReveal.y, date: dayReveal.iso });
                   }}
-                  className="w-full text-left cursor-pointer flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-card2 transition-colors"
+                  className="w-full text-left cursor-pointer flex flex-col items-start gap-1 rounded-lg px-2 py-2 hover:bg-card2 transition-colors"
                 >
-                  <Pill size="sm" done={it.done} className={cn(
-                    it.type === "payment" ? "pill-due" :
-                    it.type === "todo" ? "pill-purple" :
-                    it.type === "note" ? "pill-note" :
-                    it.type === "content" ? "pill-accent" : "pill-paid"
-                  )}>{it.label}</Pill>
-                  <span className={cn("flex-1 truncate text-sm", it.done && "pill-done-title")}>{it.title}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="calpill-dot shrink-0" style={{ background: it.color }} aria-hidden />
+                    <Pill size="sm" className="px-1.5 py-0.5">{it.verb}</Pill>
+                  </span>
+                  <span className={cn("text-sm leading-snug", it.done && "pill-done-title")}>{it.fullName}</span>
+                  {it.amount && <span className="money text-sm font-medium text-ink tabular-nums">{it.amount}</span>}
                 </button>
               );
             })}
@@ -563,6 +718,9 @@ export default function CalendarPage() {
           }}
         />
       )}
+      {hover && !isMobile && (
+        <DeskHoverPopover hover={hover} />
+      )}
     </div>
   );
 
@@ -597,6 +755,101 @@ export default function CalendarPage() {
     }
     resetDrag();
   }
+}
+
+/* ---------------- Desktop agenda view ----------------
+   A vertical list of days — one row per day that has events. Empty days are
+   skipped except today (which always appears). Full row width means no
+   truncation anywhere: dot + full brand name + plain-word verb, amount
+   right-aligned in mono for payments. Today's row is accent tinted. */
+function CalendarAgendaView({ cells, deskItemsFor, todayISO, onOpenItem, onOpenDay, onAddDay }: {
+  cells: (string | null)[];
+  deskItemsFor: (iso: string) => DeskItem[];
+  todayISO: string;
+  onOpenItem: (it: DeskItem, date: string) => void;
+  onOpenDay: (e: React.MouseEvent, iso: string) => void;
+  onAddDay: (iso: string) => void;
+}) {
+  const rows = cells.filter((iso) => iso !== null) as string[];
+  const ordered = rows.filter((iso) => {
+    const has = deskItemsFor(iso).length > 0;
+    return has || iso === todayISO;
+  });
+
+  if (ordered.length === 0) {
+    return (
+      <div className="px-5 py-8 text-center text-sm text-muted">Nothing scheduled this month.</div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden">
+      <div className="agenda-list w-full px-3 sm:px-4 py-1 space-y-0.5">
+        {ordered.map((iso) => {
+          const items = deskItemsFor(iso);
+          const d = new Date(iso + "T00:00:00");
+          const wd = WEEKDAYS[(d.getDay() + 6) % 7].slice(0, 3);
+          const dayNum = d.getDate();
+          const isToday = iso === todayISO;
+          return (
+            <div key={iso} data-day={iso} className={cn("agenda-row grid grid-cols-[56px_1fr] items-start gap-x-3 group cursor-pointer rounded-lg", isToday && "agenda-today")} onClick={(e) => onOpenDay(e, iso)}>
+              <div className="agenda-date shrink-0">
+                <div className="agenda-wd text-[10px] uppercase tracking-wide text-muted text-center">{wd}</div>
+                <div className={cn("text-center text-sm font-semibold tabular-nums w-[30px] h-[26px] leading-[26px]", isToday ? "accent-fill rounded-full" : "text-muted")}>{dayNum}</div>
+              </div>
+              <div className="agenda-events min-w-0">
+                {items.length === 0 ? (
+                  <div className="text-[13px] text-muted py-1">No events</div>
+                ) : (
+                  items.map((it) => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onOpenItem(it, iso); }}
+                      className="agenda-item w-full text-left flex items-center gap-2 py-1 min-w-0 cursor-pointer"
+                    >
+                      <span className="calpill-dot shrink-0" style={{ background: it.color }} aria-hidden />
+                      <span className={cn("flex-1 min-w-0 text-sm leading-snug text-left", it.type === "deal" && "font-semibold", it.done && "pill-done-title")}>{it.name}</span>
+                      <span className="agenda-verb text-xs text-inksoft shrink-0 text-left">{it.verb}{it.time ? ` · ${it.time}` : ""}</span>
+                      {it.amount && <span className="money shrink-0 text-sm font-medium text-ink tabular-nums">{it.amount}</span>}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Desktop pill hover popover ----------------
+   The safety net for any pill that wraps awkwardly: full untrimmed name, plain
+   word event type, status pill, and amount. Anchored near the hovered pill via
+   a portal to document.body (escapes overflow:hidden + transformed ancestors). */
+function DeskHoverPopover({ hover: h }: { hover: { item: DeskItem; x: number; y: number; date: string } }) {
+  const W = 260;
+  const clampX = (x: number) => Math.max(8, Math.min(x, Math.max(8, window.innerWidth - W - 8)));
+  const top = Math.max(8, h.y);
+  const left = clampX(h.x + 16);
+  return createPortal(
+    <div
+      className="fixed z-[99] bg-card border border-line rounded-xl shadow-lg p-3"
+      style={{ left, top, width: W }}
+    >
+      <p className="text-[14px] leading-snug font-medium text-left">{h.item.fullName}</p>
+      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+        <span className="calpill-dot" style={{ background: h.item.color }} aria-hidden />
+        <span className="text-xs text-muted">{h.item.verb}</span>
+        <Pill size="sm" className="px-1.5 py-0.5">{h.item.type}</Pill>
+      </div>
+      {h.item.amount && (
+        <p className="money text-sm font-semibold text-ink tabular-nums mt-1.5">{h.item.amount}</p>
+      )}
+    </div>,
+    document.body
+  );
 }
 
 /* ---------------- Mobile day bottom sheet ----------------
