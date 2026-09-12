@@ -193,10 +193,6 @@ export function AppShell({
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarUrl}`
     : null;
   const capUsed = activeDeals;
-  const pageTitle = pathname === "/app" ? "Overview"
-    : MANAGE_NAV.find((n) => pathname.startsWith(n.href))?.label
-    ?? CREATE_NAV.find((n) => pathname.startsWith(n.href))?.label
-    ?? "Overview";
 
   const nav = (
     <>
@@ -260,7 +256,6 @@ export function AppShell({
           <button className="hamb" aria-label="Open menu" onClick={() => setMobileOpen((o) => !o)}>
             <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
-          <span className="tt">{pageTitle}</span>
           <div className="ml-auto flex items-center gap-1.5">
             <NotificationBell />
             <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>

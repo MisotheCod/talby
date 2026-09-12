@@ -441,7 +441,7 @@ export default function CalendarPage() {
     <div className="space-y-5 fade-up">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Content</h1>
+          <h1 className="text-2xl font-semibold">Calendar</h1>
           <p className="text-muted text-sm mt-1">Plan posts and track deliverables by day.</p>
         </div>
       </div>

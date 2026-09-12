@@ -489,7 +489,7 @@ export function MarketingPage() {
             </div>
             <div style={{ display: "flex", gap: 60, flexWrap: "wrap" }}>
               <div className="fcol"><h5>Product</h5><a href="#features">Features</a><a href="#paid">Payments</a><a href="#details">Details</a><a href="#faq">FAQ</a></div>
-              <div className="fcol"><h5>Company</h5><a href="#">About</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="#">Contact</a></div>
+              <div className="fcol"><h5>Company</h5><a href="#">About</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:support@talby.app">Contact</a></div>
               <div className="fcol"><h5>Start</h5><a href="/signup">Sign up free</a><a href="/login">Log in</a></div>
             </div>
           </div>
