@@ -284,7 +284,7 @@ export default function PaymentsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Segmented options={(["Payments", "Income summary"] as const)} value={view} onChange={setView} />
-          {view === "Payments" && <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add expected payment</Button>}
+          {view === "Payments" && <Button onClick={() => setShowAdd(true)}><IconPlus size={16} /> Add payment</Button>}
         </div>
       </div>
 
@@ -570,7 +570,7 @@ function AddPaymentModal({ deals, onClose, onSaved }: { deals: { id: string; bra
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div className="card w-full max-w-md p-6 fade-up" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <h2 className="text-lg font-semibold mb-4">Add expected payment</h2>
+        <h2 className="text-lg font-semibold mb-4">Add payment</h2>
         <div className="space-y-4">
           <label className="block">
             <span className="text-sm font-medium block mb-1.5">Deal (optional)</span>
