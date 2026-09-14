@@ -325,11 +325,7 @@ export default function CalendarPage() {
     const dayContent = content.filter((c) => c.event_date === iso);
     dayContent.forEach((c) => {
       const deliv = c.status === "published";
-      // For a content item linked to a deal, surface the deal value on the pill
-      // (e.g. "Haleon · $10,550") so the calendar shows what it's worth.
-      const deal = c.linked_deal_id ? deals.find((d) => d.id === c.linked_deal_id) : undefined;
-      const worth = deal?.value ? ` · ${formatMoney(deal.value)}` : "";
-      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: `${c.title}${worth}`, label: deliv ? "DUE" : "DEAL", time: c.scheduled_time?.slice(0, 5) || undefined });
+      items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: c.title, label: deliv ? "DUE" : "DEAL", time: c.scheduled_time?.slice(0, 5) || undefined });
     });
     const dayPays = payments.filter((p) => p.status !== "received" && p.expected_date === iso);
     dayPays.forEach((p) => items.push({ type: "payment", id: "pay" + p.id, title: p.deal?.brand ? `${p.deal.brand} · ${formatMoney(p.amount)}` : formatMoney(p.amount), label: "PAYMENT" }));
@@ -366,11 +362,12 @@ export default function CalendarPage() {
       const deliv = c.status === "published";
       const type = deliv ? "deliverable" : "deal";
       if (filter !== "All" && !(filter === "Posts" && !deliv) && !(filter === "Deliverables" && deliv)) return;
-      const deal = c.linked_deal_id ? deals.find((d) => d.id === c.linked_deal_id) : undefined;
       out.push({
         id: c.id, type, name: stripLegal(c.title), fullName: c.title,
         tag: DESK_TAG[type], label: DESK_LABEL[type], color: DESK_COLOR[type],
-        amount: deal?.value ? formatMoney(deal.value) : null,
+        // No deal-value amount on posts/deliverables — only actual payments carry
+        // money, so a post does not read as a payment on the same day.
+        amount: null,
         time: c.scheduled_time?.slice(0, 5) || undefined,
         nav: { id: c.id, type: deliv ? "deliverable" : "content" },
       });
