@@ -1,14 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/cron/nudges",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/inbox",
-      "schedule": "30 14 * * *"
-    },
-    {
       "path": "/api/cron/notifications",
       "schedule": "0 15 * * *"
     },

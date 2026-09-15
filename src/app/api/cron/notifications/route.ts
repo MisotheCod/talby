@@ -21,7 +21,10 @@ type NotificationRow = { user_id: string; kind: string; title: string; body: str
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+  // Fail closed: reject unless CRON_SECRET is set and the bearer token matches.
+  // Vercel sends CRON_SECRET on real cron invocations; without it the route must
+  // not be reachable publicly.
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

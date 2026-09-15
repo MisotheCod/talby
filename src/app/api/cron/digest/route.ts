@@ -45,7 +45,12 @@ function buildPlainText(summary: string, dateLabel: string, items: DayDigest, un
  */
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+  // Fail closed: if CRON_SECRET isn't set, or the bearer token doesn't match,
+  // reject. Vercel sends CRON_SECRET as an Authorization bearer header on real
+  // cron invocations, so this lets scheduled runs through and blocks everyone
+  // else. (The old `if (secret && ...)` silently opened the route when the env
+  // var was absent — anyone could trigger a digest.)
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
