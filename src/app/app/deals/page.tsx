@@ -625,7 +625,7 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
 function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDeleteRequest, onDuplicate }: { deal: Deal; onClose: () => void; onUpdated: () => void; onCelebrate?: () => void; onArchive: (archived: boolean) => void; onDeleteRequest: () => void; onDuplicate: (deal: Deal) => void }) {
   const supabase = createClient();
   const isArchived = deal.status === "archived";
-  const [tab, setTab] = useState<"details" | "checklist" | "notes" | "files" | "payments">("details");
+  const [tab, setTab] = useState<"details" | "checklist" | "notes" | "files">("details");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [files, setFiles] = useState<DealFile[]>([]);
@@ -859,7 +859,6 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     { id: "checklist", label: "Checklist", n: checklist.length ? `${doneCount}/${checklist.length}` : undefined },
     { id: "notes", label: "Notes" },
     { id: "files", label: "Files", n: files.length ? String(files.length) : undefined },
-    { id: "payments", label: "Payments", n: payments.length ? String(payments.length) : undefined },
   ];
 
   return (
@@ -902,11 +901,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
+          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
-          {tab === "payments" && <DrawerPaymentsTab payments={payments} setPayments={setPayments} />}
         </div>
 
         {saveError && (
@@ -951,7 +949,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
    types, so a keystroke can never stall. onBlur (leaving a field, one action)
    syncs the value for dirty-marking/undo. The drawer's Save reads the refs
    directly. Nothing writes to the DB except Save. */
-function DetailsTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean }) {
+function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty }: {
+  deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[];
+  draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
+}) {
   const Section = ({ label, children }: { label: string; children?: React.ReactNode }) => (
     <div className="mt-5 first:mt-0">
       <div className="text-[10.5px] font-semibold uppercase tracking-wide text-inkfaint mb-1">{label}</div>
@@ -986,30 +987,29 @@ function DetailsTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Dra
   const inputCls = "w-full bg-transparent border border-transparent rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition";
   const selectCls = `${inputCls} cursor-pointer`;
 
+  // Deal-level pay status: single control that sets the deal's payment status
+  // (falls back to the derived rollup). "paid" also flips the payment to received.
+  const dealStatus = (deal.pay_rollup?.status) || (payments.length ? payments[0].pay_status ?? "not_invoiced" : "not_invoiced");
+  const setDealStatus = (val: string) => {
+    setPayments(payments.map((p) => ({ ...p, pay_status: val, status: val === "paid" ? "received" : p.status })));
+  };
+
+  // Invoice row: until deal_files gains a `kind` flag (decision 1), show what is
+  // attached plainly rather than guessing which file is the invoice.
+  const invoiceFileName = files.length ? files[0].name : null;
+
   return (
     <div>
-      <Row label="Value" field="value"><input ref={bindRef("value")} defaultValue={draft.value} onBlur={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
-      <Row label="Deal status" field="status">
-        <select ref={bindRef("status")} defaultValue={draft.status} onBlur={() => onFieldBlur("status")} className={selectCls}>
-          <option value="active">Active</option>
-          <option value="pipeline">Negotiating</option>
-          <option value="archived">Archived</option>
-        </select>
-      </Row>
-      <Row label="Deliverable" field="deliverable"><input ref={bindRef("deliverable")} defaultValue={draft.deliverable} onBlur={() => onFieldBlur("deliverable")} className={inputCls} placeholder="e.g. 1 YouTube integration" /></Row>
-      <Row label="Deal type" field="deal_type">
-        <select ref={bindRef("deal_type")} defaultValue={draft.deal_type} onBlur={() => onFieldBlur("deal_type")} className={selectCls}>
-          <option value="">No set type</option>
-          <option value="paid_partnership">Paid Partnership</option>
-          <option value="ugc">UGC</option>
-          <option value="gifted">Gifted / PR</option>
-          <option value="affiliate">Affiliate</option>
-          <option value="ambassador">Ambassador</option>
-          <option value="event">Event</option>
-        </select>
-      </Row>
-
-      <Section label="Terms">
+      <Section label="Payment">
+        <Row label="Value" field="value"><input ref={bindRef("value")} defaultValue={draft.value} onBlur={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
+        <Row label="Pay status" field="value">
+          <select value={dealStatus} onChange={(e) => setDealStatus(e.target.value)} className={selectCls}>
+            <option value="not_invoiced">Not invoiced</option>
+            <option value="invoiced">Invoiced</option>
+            <option value="paid">Paid</option>
+            <option value="no_invoice_needed">No invoice needed</option>
+          </select>
+        </Row>
         <Row label="Pay by" field="due_date"><input type="date" ref={bindRef("due_date")} defaultValue={draft.due_date} onBlur={() => onFieldBlur("due_date")} className={inputCls} /></Row>
         <Row label="Pay terms" field="pay_terms">
           <select ref={bindRef("pay_terms")} defaultValue={draft.pay_terms} onBlur={() => onFieldBlur("pay_terms")} className={selectCls}>
@@ -1023,6 +1023,41 @@ function DetailsTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Dra
             <option value="milestone">Milestone-based</option>
           </select>
         </Row>
+        <Row label="Invoice" field="value">
+          {invoiceFileName ? (
+            <span className="text-[13px] text-ink flex items-center gap-1.5">
+              <IconPaperclip size={14} className="text-inksoft" /> <span className="truncate">{invoiceFileName}</span>
+            </span>
+          ) : <span className="text-[12px] text-inkfaint">Not attached</span>}
+        </Row>
+      </Section>
+
+      <Section label="Deal">
+        <Row label="Deal status" field="status">
+          <select ref={bindRef("status")} defaultValue={draft.status} onBlur={() => onFieldBlur("status")} className={selectCls}>
+            <option value="active">Active</option>
+            <option value="pipeline">Negotiating</option>
+            <option value="archived">Archived</option>
+          </select>
+        </Row>
+        <Row label="Deliverable" field="deliverable"><input ref={bindRef("deliverable")} defaultValue={draft.deliverable} onBlur={() => onFieldBlur("deliverable")} className={inputCls} placeholder="e.g. 1 YouTube integration" /></Row>
+        <Row label="Deal type" field="deal_type">
+          <select ref={bindRef("deal_type")} defaultValue={draft.deal_type} onBlur={() => onFieldBlur("deal_type")} className={selectCls}>
+            <option value="">No set type</option>
+            <option value="paid_partnership">Paid Partnership</option>
+            <option value="ugc">UGC</option>
+            <option value="gifted">Gifted / PR</option>
+            <option value="affiliate">Affiliate</option>
+            <option value="ambassador">Ambassador</option>
+            <option value="event">Event</option>
+          </select>
+        </Row>
+        <Row label="Post date" field="value">
+          {deal.post_date ? <span className="text-[13px] text-ink tabular-nums">{formatDate(deal.post_date)}</span> : <span className="text-[12px] text-inkfaint">No post scheduled</span>}
+        </Row>
+      </Section>
+
+      <Section label="Terms">
         <Row label="Exclusivity" field="exclusivity_days"><input ref={bindRef("exclusivity_days")} defaultValue={draft.exclusivity_days} onBlur={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
       </Section>
 
@@ -1246,81 +1281,6 @@ function FilesTab({ dealId, files, setFiles, plan }: { dealId: string; files: De
         ))}
       </ul>
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
-    </div>
-  );
-}
-
-function DrawerPaymentsTab({ payments, setPayments }: { payments: Payment[]; setPayments: (p: Payment[]) => void }) {
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState("");
-  const [error, setError] = useState("");
-
-  const nextId = () => `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-  const add = () => {
-    if (!amount) return;
-    setError("");
-    if (isNaN(Number(amount))) { setError("Enter a valid amount."); return; }
-    setPayments([{ id: nextId(), deal_id: null, amount: Number(amount), expected_date: date || null, status: "expected", notes: null, invoice_state: null, pay_status: "not_invoiced" }, ...payments]);
-    setAmount(""); setDate("");
-  };
-  const markReceived = (id: string) => {
-    setError("");
-    setPayments(payments.map((p) => (p.id === id ? { ...p, status: "received", pay_status: "paid" } : p)));
-  };
-  const setPayStatus = (p: Payment, val: string) => {
-    setError("");
-    setPayments(payments.map((x) => (x.id === p.id ? { ...x, pay_status: val, status: val === "paid" ? "received" : x.status } : x)));
-  };
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2">
-        <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="Amount" />
-        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-      </div>
-      {error && <p className="text-sm text-bad" role="alert">{error}</p>}
-      <Button onClick={add} className="w-full">{IconPlus && <IconPlus size={16} />} Add payment</Button>
-      <ul className="space-y-2">
-        {payments.map((p) => (
-          <li key={p.id} className="py-2 border-b border-line last:border-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-semibold money tabular-nums">{formatMoney(p.amount)}</div>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className={cn("text-xs", p.status === "received" ? "text-paid" : isPastDue(p.expected_date) ? "text-late" : "text-inksoft")}>
-                    {p.status === "received" ? (
-                      "Received"
-                    ) : (
-                      <input
-                        type="date"
-                        value={p.expected_date ?? ""}
-                        onChange={(e) => setPayments(payments.map((x) => (x.id === p.id ? { ...x, expected_date: e.target.value || null } : x)))}
-                        className="text-xs px-1 py-0.5 border border-line2 rounded-md bg-card text-inksoft cursor-pointer outline-none"
-                        aria-label={`Expected payment date for ${formatMoney(p.amount)}`}
-                      />
-                    )}
-                  </span>
-                  <span onClick={(e) => e.stopPropagation()}>
-                    <select
-                      value={p.pay_status ?? "not_invoiced"}
-                      onChange={(e) => setPayStatus(p, e.target.value)}
-                      className="text-[10.5px] font-semibold rounded-full px-2 py-0.5 border border-line2 bg-card text-inksoft cursor-pointer outline-none"
-                    >
-                      <option value="not_invoiced">Not invoiced</option>
-                      <option value="invoiced">Invoiced</option>
-                      <option value="paid">Paid</option>
-                      <option value="no_invoice_needed">No invoice needed</option>
-                    </select>
-                  </span>
-                </div>
-              </div>
-              {p.status !== "received" && (
-                <Button size="sm" variant="secondary" onClick={() => markReceived(p.id)}><IconCheck size={14} /> Mark as paid</Button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-      {payments.length === 0 && <p className="text-sm text-inksoft py-2">No payments on this deal yet.</p>}
     </div>
   );
 }
