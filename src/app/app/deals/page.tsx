@@ -19,14 +19,13 @@ import { useCelebration } from "@/components/confetti";
 
 type Deal = {
   id: string; brand: string; status: string; deliverable: string | null;
-  value: number | null; due_date: string | null; notes: string | null;
+  value: number | null; post_date: string | null; notes: string | null;
   links: { url: string; label?: string }[]; active: boolean;
   rep_name: string | null; rep_email: string | null;
   pay_terms: string | null; exclusivity_days: number | null;
   deal_type?: string | null;
   created_at?: string;
   // Joined lookups for the six-column list:
-  post_date?: string | null;   // earliest content.event_date
   pay_by?: string | null;      // earliest payment expected_date (received or not)
   pay_received?: boolean;      // any payment on the deal marked received
   all_invoiced?: boolean;      // every dated payment on the deal is invoiced
@@ -34,10 +33,10 @@ type Deal = {
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
-type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null };
-type DraftField = "value" | "status" | "deliverable" | "deal_type" | "due_date" | "pay_terms" | "exclusivity_days" | "rep_name" | "rep_email" | "notes";
+type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null; kind?: "contract" | "invoice" | "other" | null };
+type DraftField = "value" | "status" | "deliverable" | "deal_type" | "post_date" | "pay_terms" | "exclusivity_days" | "rep_name" | "rep_email" | "notes";
 type Draft = Record<DraftField, string>;
-const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "due_date", "pay_terms", "exclusivity_days", "rep_name", "rep_email", "notes"];
+const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "post_date", "pay_terms", "exclusivity_days", "rep_name", "rep_email", "notes"];
 
 const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
 
@@ -65,19 +64,11 @@ export default function DealsPage() {
 
   const loadDeals = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    const [d, posts, pays] = await Promise.all([
+    const [d, pays] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
-      user ? supabase.from("content").select("event_date, linked_deal_id").eq("user_id", user.id).gte("event_date", "1990-01-01").order("event_date", { ascending: true }) : { data: [] },
       user ? supabase.from("payments").select("expected_date, status, deal_id, invoice_state, pay_status").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
     ]);
     const deals = (d.data ?? []) as unknown as Deal[];
-    // post date = earliest content.event_date per deal
-    const postByDeal = new Map<string, string>();
-    for (const c of (posts.data ?? []) as { event_date: string; linked_deal_id: string | null }[]) {
-      if (!c.linked_deal_id || !c.event_date) continue;
-      const cur = postByDeal.get(c.linked_deal_id);
-      if (!cur || c.event_date < cur) postByDeal.set(c.linked_deal_id, c.event_date.slice(0, 10));
-    }
     // pay by = earliest payment expected_date; pay_received = any received;
     // all_invoiced = every dated payment is invoiced (or needs no invoice)
     const payByDeal = new Map<string, string>();
@@ -103,7 +94,10 @@ export default function DealsPage() {
     }
     setDeals(deals.map((deal) => ({
       ...deal,
-      post_date: postByDeal.get(deal.id) ?? deal.post_date ?? null,
+      // post_date is a stored, editable column now — it is NOT derived from
+      // content anymore. The Deals table, the drawer, and the calendar must all
+      // read deals.post_date (the same field) so editing one surface is seen
+      // everywhere.
       pay_by: payByDeal.get(deal.id) ?? deal.pay_by ?? null,
       pay_received: receivedDeal.has(deal.id),
       all_invoiced: anyDatedDeal.has(deal.id) && invoicedOkDeal.has(deal.id),
@@ -192,7 +186,7 @@ export default function DealsPage() {
       user_id: user.id,
       brand: `${deal.brand}`,
       deliverable: deal.deliverable, value: deal.value, status: deal.status,
-      due_date: deal.due_date,
+      post_date: deal.post_date,
       pay_terms: deal.pay_terms, exclusivity_days: deal.exclusivity_days,
       rep_name: deal.rep_name, rep_email: deal.rep_email, deal_type: deal.deal_type,
       notes: deal.notes,
@@ -668,7 +662,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     status: d.status === "archived" ? "archived" : d.status === "pipeline" ? "pipeline" : "active",
     deliverable: d.deliverable ?? "",
     deal_type: d.deal_type ?? "",
-    due_date: d.due_date ?? "",
+    post_date: d.post_date ?? "",
     pay_terms: d.pay_terms ?? "",
     exclusivity_days: d.exclusivity_days?.toString() ?? "",
     rep_name: d.rep_name ?? "",
@@ -733,6 +727,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       const el = (fieldRefs.current as Record<string, unknown>)[k] as { value?: string } | null;
       const val = el?.value ?? draft[k];
       if (k === "value" || k === "exclusivity_days") patch[k] = val ? Number(val) : null;
+      else if (k === "post_date") patch.post_date = val || null;
       // NOTE: due_date is no longer written here. Pay by is owned by the
       // payment's expected_date (single source of truth). deals.due_date is
       // left as-is until a later migration drops it.
@@ -989,6 +984,16 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
       </div>
     );
   };
+  // Same row, but for payment-bound controls (Pay status, Pay by) that are not
+  // DraftFields — no per-field dirty/undo, since their dirty state rides on the
+  // staged payments diff (collDirty) instead.
+  const PRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="flex items-center gap-2 py-1.5 border-b border-line last:border-b-0">
+      <span className="w-[92px] flex-none text-[12px] text-inksoft">{label}</span>
+      <div className="flex-1 min-w-0">{children}</div>
+      <span className="w-7 flex-none" />
+    </div>
+  );
   const inputCls = "w-full bg-transparent border border-transparent rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition";
   const selectCls = `${inputCls} cursor-pointer`;
 
@@ -1013,25 +1018,23 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     }
   };
 
-  // Invoice row: until deal_files gains a `kind` flag (decision 1), show what is
-  // attached plainly rather than guessing which file is the invoice.
-  const invoiceFileName = files.length ? files[0].name : null;
+  // Invoice row: shows the attached invoice (kind=invoice) once uploaded.
 
   return (
     <div>
       <Section label="Payment">
         <Row label="Value" field="value"><input ref={bindRef("value")} defaultValue={draft.value} onBlur={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
-        <Row label="Pay status" field="value">
+        <PRow label="Pay status">
           <select value={dealStatus} onChange={(e) => setDealStatus(e.target.value)} className={selectCls}>
             <option value="not_invoiced">Not invoiced</option>
             <option value="invoiced">Invoiced</option>
             <option value="paid">Paid</option>
             <option value="no_invoice_needed">No invoice needed</option>
           </select>
-        </Row>
-        <Row label="Pay by" field="due_date">
+        </PRow>
+        <PRow label="Pay by">
           <input type="date" value={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={inputCls} aria-label="Pay by date" />
-        </Row>
+        </PRow>
         <Row label="Pay terms" field="pay_terms">
           <select ref={bindRef("pay_terms")} defaultValue={draft.pay_terms} onBlur={() => onFieldBlur("pay_terms")} className={selectCls}>
             <option value="">No set terms</option>
@@ -1044,13 +1047,16 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="milestone">Milestone-based</option>
           </select>
         </Row>
-        <Row label="Invoice" field="value">
-          {invoiceFileName ? (
-            <span className="text-[13px] text-ink flex items-center gap-1.5">
-              <IconPaperclip size={14} className="text-inksoft" /> <span className="truncate">{invoiceFileName}</span>
-            </span>
-          ) : <span className="text-[12px] text-inkfaint">Not attached</span>}
-        </Row>
+        <PRow label="Invoice">
+          {(() => {
+            const inv = files.filter((f) => f.kind === "invoice")[0];
+            return inv ? (
+              <span className="text-[13px] text-ink flex items-center gap-1.5">
+                <IconPaperclip size={14} className="text-inksoft" /> <span className="truncate">{inv.name}</span>
+              </span>
+            ) : <span className="text-[12px] text-inkfaint">Not attached</span>;
+          })()}
+        </PRow>
       </Section>
 
       <Section label="Deal">
@@ -1073,9 +1079,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="event">Event</option>
           </select>
         </Row>
-        <Row label="Post date" field="value">
-          {deal.post_date ? <span className="text-[13px] text-ink tabular-nums">{formatDate(deal.post_date)}</span> : <span className="text-[12px] text-inkfaint">No post scheduled</span>}
-        </Row>
+        <Row label="Post date" field="post_date"><input type="date" ref={bindRef("post_date")} defaultValue={draft.post_date} onBlur={() => onFieldBlur("post_date")} className={inputCls} aria-label="Post date" /></Row>
       </Section>
 
       <Section label="Terms">
