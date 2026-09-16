@@ -733,7 +733,9 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       const el = (fieldRefs.current as Record<string, unknown>)[k] as { value?: string } | null;
       const val = el?.value ?? draft[k];
       if (k === "value" || k === "exclusivity_days") patch[k] = val ? Number(val) : null;
-      else if (k === "due_date") patch.due_date = val || null;
+      // NOTE: due_date is no longer written here. Pay by is owned by the
+      // payment's expected_date (single source of truth). deals.due_date is
+      // left as-is until a later migration drops it.
       else patch[k] = val;
     }
     if (dirtyList.includes("status")) {
@@ -872,7 +874,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
               <h2 className="text-[17px] font-semibold tracking-tight truncate">{deal.brand}</h2>
               <div className="text-[12.5px] text-inksoft mt-0.5">
                 <span className="money font-medium text-ink">{formatMoney(deal.value)}</span>
-                {deal.due_date ? <span className="text-inksoft"> · Due {formatDate(deal.due_date)}</span> : null}
+                {(() => {
+                  const d = payments.map((p) => p.expected_date ?? "").filter((x) => x !== "").sort()[0];
+                  return d ? <span className="text-inksoft"> · Due {formatDate(d.slice(0, 10))}</span> : null;
+                })()}
               </div>
             </div>
             <div className="relative flex-none" ref={drawerMenuRef} data-drawer-menu>
@@ -994,6 +999,20 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     setPayments(payments.map((p) => ({ ...p, pay_status: val, status: val === "paid" ? "received" : p.status })));
   };
 
+  // Pay by = the earliest payment's expected_date (single source of truth).
+  // Editing it stages a change to that payment; with no payment row yet, one is
+  // created. Committed on Save via the existing payments write path.
+  const payByDate = payments.map((p) => p.expected_date ?? "").filter((d) => d !== "").sort()[0] ?? "";
+  const setPayByDate = (val: string) => {
+    if (payments.length) {
+      // Update the earliest-dated payment's expected_date.
+      setPayments(payments.map((p) => ({ ...p, expected_date: (p.expected_date ?? "") <= (payByDate || "9999-99-99") ? (val || null) : p.expected_date })));
+    } else {
+      // No payment row yet: create one carrying the date (amount from the deal).
+      setPayments([{ id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, deal_id: deal.id, amount: deal.value ?? 0, expected_date: val || null, status: "expected", notes: null, invoice_state: null, pay_status: dealStatus }]);
+    }
+  };
+
   // Invoice row: until deal_files gains a `kind` flag (decision 1), show what is
   // attached plainly rather than guessing which file is the invoice.
   const invoiceFileName = files.length ? files[0].name : null;
@@ -1010,7 +1029,9 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="no_invoice_needed">No invoice needed</option>
           </select>
         </Row>
-        <Row label="Pay by" field="due_date"><input type="date" ref={bindRef("due_date")} defaultValue={draft.due_date} onBlur={() => onFieldBlur("due_date")} className={inputCls} /></Row>
+        <Row label="Pay by" field="due_date">
+          <input type="date" value={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={inputCls} aria-label="Pay by date" />
+        </Row>
         <Row label="Pay terms" field="pay_terms">
           <select ref={bindRef("pay_terms")} defaultValue={draft.pay_terms} onBlur={() => onFieldBlur("pay_terms")} className={selectCls}>
             <option value="">No set terms</option>
