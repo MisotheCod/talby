@@ -794,6 +794,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       setPaymentsBase(pmNorm(pmF.data ?? []));
     } catch { /* non-fatal: next open refetches */ }
     setSaved({ ...draft });
+    notifySaved();
     onUpdated();
   };
 
