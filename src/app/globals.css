@@ -951,7 +951,7 @@ input[type="range"].zoom::-moz-range-track {
     align-items: center;
   }
   .deal-row .d-amount { justify-self: auto; }
-  .deal-row .d-status, .deal-row .d-payment { justify-self: auto; }
+  .deal-row .d-status, .deal-row .d-payment, .deal-row .d-payby { justify-self: auto; }
   .deal-row .d-post::before, .deal-row .d-payby::before { content: none; }
 }
 
