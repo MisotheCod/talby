@@ -1287,7 +1287,17 @@ function DrawerPaymentsTab({ payments, setPayments }: { payments: Payment[]; set
                 <div className="font-semibold money tabular-nums">{formatMoney(p.amount)}</div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className={cn("text-xs", p.status === "received" ? "text-paid" : isPastDue(p.expected_date) ? "text-late" : "text-inksoft")}>
-                    {p.status === "received" ? "Received" : isPastDue(p.expected_date) ? "Past due" : formatDate(p.expected_date)}
+                    {p.status === "received" ? (
+                      "Received"
+                    ) : (
+                      <input
+                        type="date"
+                        value={p.expected_date ?? ""}
+                        onChange={(e) => setPayments(payments.map((x) => (x.id === p.id ? { ...x, expected_date: e.target.value || null } : x)))}
+                        className="text-xs px-1 py-0.5 border border-line2 rounded-md bg-card text-inksoft cursor-pointer outline-none"
+                        aria-label={`Expected payment date for ${formatMoney(p.amount)}`}
+                      />
+                    )}
                   </span>
                   <span onClick={(e) => e.stopPropagation()}>
                     <select
