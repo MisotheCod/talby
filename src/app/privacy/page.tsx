@@ -94,7 +94,7 @@ export default function PrivacyPage() {
         <section className="space-y-2">
           <h2 className="font-semibold">Contact</h2>
           <p className="text-muted text-sm leading-relaxed">
-            Privacy questions: privacy@talby.app
+            Privacy questions: info@talby.io
           </p>
         </section>
       </main>
