@@ -1080,9 +1080,6 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           </select>
         </Row>
         <Row label="Post date" field="post_date"><input type="date" ref={bindRef("post_date")} defaultValue={draft.post_date} onBlur={() => onFieldBlur("post_date")} className={inputCls} aria-label="Post date" /></Row>
-      </Section>
-
-      <Section label="Terms">
         <Row label="Exclusivity" field="exclusivity_days"><input ref={bindRef("exclusivity_days")} defaultValue={draft.exclusivity_days} onBlur={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
       </Section>
 

@@ -13,7 +13,7 @@ type Content = {
   caption: string | null; scheduled_time: string | null;
   repeat_type: string | null;
 };
-type Deal = { id: string; brand: string; value: number | null };
+type Deal = { id: string; brand: string; value: number | null; post_date: string | null };
 type Payment = { id: string; amount: number; expected_date: string | null; status: string; deal?: { brand: string } | null };
 type Todo = { id: string; title: string; done: boolean; due_date: string | null };
 type CalendarNote = { id: string; body: string; event_date: string; updated_at: string; done: boolean; details: string | null };
@@ -87,6 +87,7 @@ type DeskItem = {
   time?: string;
   done?: boolean;
   skeleton?: boolean;  // optimistic in-flight add: show muted + pulsing
+  readonly?: boolean;  // display-only (deal-level post_date): not draggable
   nav: { id: string; type: "content" | "deliverable" | "payment" | "todo" | "note" };
 };
 
@@ -221,7 +222,7 @@ export default function CalendarPage() {
     const to = toISO(new Date(cursor.y, cursor.m + 1, 0));
     const [c, d, p, t, n, prof] = await Promise.all([
       supabase.from("content").select("*").gte("event_date", from).lte("event_date", to),
-      supabase.from("deals").select("id, brand, value"),
+      supabase.from("deals").select("id, brand, value, post_date"),
       supabase.from("payments").select("*, deal:deals(brand)").gte("expected_date", from).lte("expected_date", to),
       supabase.from("todos").select("*").not("due_date", "is", null).gte("due_date", from).lte("due_date", to),
       supabase.from("notes").select("id, body, event_date, updated_at, done, details").not("event_date", "is", null).gte("event_date", from).lte("event_date", to),
@@ -320,9 +321,23 @@ export default function CalendarPage() {
     return arr;
   }, [cursor]);
 
+  // Deals that have a post_date but NO linked content rows. Their post_date is
+  // the only thing putting them on the calendar, so it is drawn as a single
+  // event. When a deal has linked content, those rows win and the deal-level
+  // date is NOT drawn separately (nothing double-renders).
+  const noContentDealIds = useMemo(() => {
+    const linked = new Set(content.map((c) => c.linked_deal_id).filter((x): x is string => !!x));
+    return new Set(deals.filter((d) => d.post_date && !linked.has(d.id)).map((d) => d.id));
+  }, [content, deals]);
+
   const dayItems = (iso: string) => {
     const items: { type: "content" | "deliverable" | "payment" | "todo" | "note"; id: string; title: string; label: string; time?: string; color?: string; done?: boolean }[] = [];
     const dayContent = content.filter((c) => c.event_date === iso);
+    // Deal-level post dates for deals with no linked content: surfaced as a
+    // single POST event so a deal isn't invisible just because it has no posts.
+    deals.filter((d) => noContentDealIds.has(d.id) && d.post_date === iso).forEach((d) => {
+      items.push({ type: "content", id: "dealpost-" + d.id, title: d.brand, label: "DEAL" });
+    });
     dayContent.forEach((c) => {
       const deliv = c.status === "published";
       items.push({ type: deliv ? "deliverable" : "content", id: c.id, title: c.title, label: deliv ? "DUE" : "DEAL", time: c.scheduled_time?.slice(0, 5) || undefined });
@@ -358,6 +373,18 @@ export default function CalendarPage() {
       }
     });
     const dayContent = content.filter((c) => c.event_date === iso);
+    // Deal-level post dates (deals with no linked content) surface as a single
+    // POST event so a deal isn't invisible on the calendar. Content rows for a
+    // deal win — never drawn both ways.
+    if (filter === "All" || filter === "Posts") {
+      deals.filter((d) => noContentDealIds.has(d.id) && d.post_date === iso).forEach((d) => {
+        out.push({
+          id: "dealpost-" + d.id, type: "deal", name: stripLegal(d.brand), fullName: d.brand,
+          tag: DESK_TAG.deal, label: DESK_LABEL.deal, color: DESK_COLOR.deal, amount: null,
+          readonly: true, nav: { id: d.id, type: "content" },
+        });
+      });
+    }
     dayContent.forEach((c) => {
       const deliv = c.status === "published";
       const type = deliv ? "deliverable" : "deal";
@@ -404,6 +431,8 @@ export default function CalendarPage() {
   // Distinct event TYPES present on a day (mobile dots: one per type, not per event).
   const dayDotTypes = (iso: string): ("post" | "pay" | "due")[] => {
     const types = new Set<"post" | "pay" | "due">();
+    // Deal-level post dates (no linked content) count as a POST dot.
+    deals.filter((d) => noContentDealIds.has(d.id) && d.post_date === iso).forEach(() => types.add("post"));
     content.filter((c) => c.event_date === iso).forEach((c) => types.add(contentType(c)));
     payments.filter((p) => p.status !== "received" && p.expected_date === iso).forEach(() => types.add("pay"));
     // Deliverable DUE from content is already covered above; order post→pay→due.
@@ -588,7 +617,7 @@ export default function CalendarPage() {
                       <div
                         key={it.id}
                         onPointerDown={(e) => {
-  if (it.skeleton) return;
+  if (it.skeleton || it.readonly) return;
   const sel = window.getSelection?.();
                           sel?.removeAllRanges();
                           // Cancel any prior long-press state
