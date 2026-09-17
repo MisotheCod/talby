@@ -932,6 +932,19 @@ input[type="range"].zoom::-moz-range-track {
   gap: 6px 16px;
   align-items: center;
 }
+/* Deal drawer date fields: hide the native up/down spin buttons. Clicking them
+   on some browsers (Arc/WebKit) toggled the picker popover and appeared to
+   "close" it. Keeping the calendar indicator so the popover still opens; click
+   the field body or indicator to pick. */
+.deal-date-input::-webkit-inner-spin-button,
+.deal-date-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+.deal-date-input {
+  -moz-appearance: textfield;
+}
 .deal-row .d-brand { grid-area: brand; min-width: 0; }
 .deal-row .d-brand-name { white-space: normal; overflow: visible; }
 .deal-row .d-amount { grid-area: amount; justify-self: end; }

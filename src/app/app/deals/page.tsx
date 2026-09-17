@@ -1133,7 +1133,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           </select>
         </PRow>
         <PRow label="Pay by">
-          <input type="date" value={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={inputCls} aria-label="Pay by date" />
+          <input type="date" value={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={`${inputCls} deal-date-input`} aria-label="Pay by date" />
         </PRow>
         {invoiceReview && (
           <div className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-tint)] px-2.5 py-2 mt-1.5 mb-1.5 text-[12px]">
@@ -1200,7 +1200,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="event">Event</option>
           </select>
         </Row>
-        <Row label="Post date" field="post_date"><input type="date" ref={bindRef("post_date")} defaultValue={draft.post_date} onBlur={() => onFieldBlur("post_date")} className={inputCls} aria-label="Post date" /></Row>
+        <Row label="Post date" field="post_date"><input type="date" ref={bindRef("post_date")} defaultValue={draft.post_date} onBlur={() => onFieldBlur("post_date")} className={`${inputCls} deal-date-input`} aria-label="Post date" /></Row>
         <Row label="Exclusivity" field="exclusivity_days"><input ref={bindRef("exclusivity_days")} defaultValue={draft.exclusivity_days} onBlur={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
       </Section>
 
