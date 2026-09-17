@@ -858,6 +858,56 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     { id: "files", label: "Files", n: files.length ? String(files.length) : undefined },
   ];
 
+  // ---- Invoice extraction -> pay-by + review prompt ----
+  // resolved: proposed expected_date (may be null if the invoice had no date)
+  // and the pay-terms value the invoice implies. Applied directly when there is
+  // no conflicting pay-by; otherwise a non-blocking tinted row under Pay by asks
+  // Use invoice date / Keep current.
+  const [invoiceReview, setInvoiceReview] = useState<{ proposed: string | null; current: string | null; terms?: string | null } | null>(null);
+
+  const handleInvoiceExtracted = useCallback((f: { invoice_date: string | null; due_date: string | null; net_terms: string | null; amount: number | null; brand: string | null }) => {
+    // Compute the invoice's pay-by: explicit due_date wins; else invoice_date +
+    // net terms.
+    let proposed: string | null = f.due_date ?? null;
+    if (!proposed && f.net_terms && f.invoice_date) {
+      try {
+        const base = new Date(f.invoice_date + "T00:00:00");
+        const days = { due_on_receipt: 0, net_15: 15, net_30: 30, net_45: 45, net_60: 60, net_90: 90 }[f.net_terms];
+        if (days !== undefined) { base.setDate(base.getDate() + days); proposed = `${base.getFullYear()}-${String(base.getMonth()+1).padStart(2,"0")}-${String(base.getDate()).padStart(2,"0")}`; }
+      } catch { proposed = null; }
+    }
+    // An invoice always flips the deal to invoiced.
+    setPayments((ps) => ps.map((p) => ({ ...p, pay_status: "invoiced", status: "expected" })));
+    // If no date was found, tell the user rather than guessing.
+    if (!proposed) { setInvoiceReview({ proposed: null, current: null }); return; }
+    const cur = payments.map((p) => p.expected_date ?? "").filter((x) => x !== "").sort()[0] ?? null;
+    // No current pay-by, or it matches the invoice: set silently, no prompt.
+    if (!cur || cur === proposed) {
+      if (payments.length) {
+        setPayments((ps) => ps.map((p) => ({ ...p, expected_date: (p.expected_date ?? "") <= (cur ?? "9999-99-99") ? proposed : p.expected_date })));
+      } else {
+        setPayments([{ id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, deal_id: deal.id, amount: f.amount ?? deal.value ?? 0, expected_date: proposed, status: "expected", notes: null, invoice_state: null, pay_status: "invoiced" }]);
+      }
+      setInvoiceReview(null);
+    } else {
+      // Conflict: show the tinted row; the user decides. Stays until chosen.
+      setInvoiceReview({ proposed, current: cur });
+    }
+  }, [payments, deal.id, deal.value]);
+
+  const acceptInvoiceDate = () => {
+    if (!invoiceReview || !invoiceReview.proposed) { setInvoiceReview(null); return; }
+    const proposed = invoiceReview.proposed;
+    const cur = invoiceReview.current;
+    if (payments.length) {
+      setPayments((ps) => ps.map((p) => ({ ...p, expected_date: (p.expected_date ?? "") <= (cur ?? "9999-99-99") ? proposed : p.expected_date })));
+    } else {
+      setPayments([{ id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, deal_id: deal.id, amount: deal.value ?? 0, expected_date: proposed, status: "expected", notes: null, invoice_state: null, pay_status: "invoiced" }]);
+    }
+    setInvoiceReview(null);
+  };
+  const keepInvoiceDate = () => setInvoiceReview(null);
+
   return (
     <div className="fixed inset-0 z-[85] bg-black/20" onClick={requestClose} role="presentation">
       <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
@@ -901,10 +951,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
+          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
-          {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} />}
+          {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} onInvoiceExtracted={handleInvoiceExtracted} />}
         </div>
 
         {saveError && (
@@ -949,9 +999,11 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
    types, so a keystroke can never stall. onBlur (leaving a field, one action)
    syncs the value for dirty-marking/undo. The drawer's Save reads the refs
    directly. Nothing writes to the DB except Save. */
-function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty }: {
+function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate }: {
   deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[];
   draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
+  invoiceReview: { proposed: string | null; current: string | null } | null;
+  onAcceptInvoiceDate: () => void; onKeepInvoiceDate: () => void;
 }) {
   const Section = ({ label, children }: { label: string; children?: React.ReactNode }) => (
     <div className="mt-5 first:mt-0">
@@ -1035,6 +1087,21 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
         <PRow label="Pay by">
           <input type="date" value={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={inputCls} aria-label="Pay by date" />
         </PRow>
+        {invoiceReview && (
+          <div className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-tint)] px-2.5 py-2 mt-1.5 mb-1.5 text-[12px]">
+            {invoiceReview.proposed ? (
+              <>
+                <span className="text-ink block">The invoice says due {formatDate(invoiceReview.proposed)}. Current pay by is {invoiceReview.current ? formatDate(invoiceReview.current) : "not set"}.</span>
+                <div className="flex gap-2 mt-1.5">
+                  <button type="button" onClick={onAcceptInvoiceDate} className="px-2.5 h-7 rounded-md text-[12px] font-medium cursor-pointer bg-[var(--accent)] text-onaccent hover:brightness-95">Use invoice date</button>
+                  <button type="button" onClick={onKeepInvoiceDate} className="px-2.5 h-7 rounded-md text-[12px] font-medium cursor-pointer border border-line2 bg-card text-inksoft hover:text-ink">Keep current</button>
+                </div>
+              </>
+            ) : (
+              <span className="text-inksoft">This invoice didn&apos;t include a due date, so pay by was left unchanged.</span>
+            )}
+          </div>
+        )}
         <Row label="Pay terms" field="pay_terms">
           <select ref={bindRef("pay_terms")} defaultValue={draft.pay_terms} onBlur={() => onFieldBlur("pay_terms")} className={selectCls}>
             <option value="">No set terms</option>
@@ -1245,21 +1312,60 @@ function NotesTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Draft
   );
 }
 
-function FilesTab({ dealId, files, setFiles, plan }: { dealId: string; files: DealFile[]; setFiles: (f: DealFile[]) => void; plan: "free" | "paid" }) {
+function FilesTab({ dealId, files, setFiles, plan, onInvoiceExtracted }: {
+  dealId: string; files: DealFile[]; setFiles: (f: DealFile[]) => void; plan: "free" | "paid";
+  onInvoiceExtracted: (fields: { invoice_date: string | null; due_date: string | null; net_terms: string | null; amount: number | null; brand: string | null }) => void;
+}) {
   const supabase = createClient();
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [kind, setKind] = useState<"auto" | "contract" | "invoice" | "other">("auto");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
   const onFile = async (file: File) => {
     if (!file) return;
     if (plan !== "paid") { setShowUpgrade(true); return; }
+    setBusy(true); setMsg(null);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) { setBusy(false); return; }
     const path = `${user.id}/${dealId}/${Date.now()}-${file.name}`;
+
+    // Resolve the file's kind. The user picks when they choose the file; the
+    // extractor can only default it when it is confident it read an invoice.
+    // Never a silent filename guess.
+    let chosen: DealFile["kind"] = "other";
+    if (kind === "contract") chosen = "contract";
+    else if (kind === "invoice") chosen = "invoice";
+    else {
+      // auto: ask the extractor; only trust it when it returns invoice-ish data.
+      try {
+        const fd = new FormData(); fd.append("file", file);
+        const res = await fetch("/api/deals/extract-invoice", { method: "POST", body: fd });
+        if (res.ok) {
+          const j = await res.json();
+          const inv = j && (j.invoice_date || j.due_date || j.net_terms || j.amount != null);
+          if (inv) { chosen = "invoice"; onInvoiceExtracted(j); }
+        }
+      } catch { /* non-fatal: falls back to other */ }
+    }
+
     const { error } = await supabase.storage.from("deal-files").upload(path, file);
-    if (error) return;
-    await supabase.from("deal_files").insert({ user_id: user.id, deal_id: dealId, name: file.name, path, size_bytes: file.size, mime: file.type });
+    if (error) { setBusy(false); setMsg("Upload failed."); return; }
+    await supabase.from("deal_files").insert({ user_id: user.id, deal_id: dealId, name: file.name, path, size_bytes: file.size, mime: file.type, kind: chosen ?? "other" });
     const { data } = await supabase.from("deal_files").select("*").eq("deal_id", dealId);
     setFiles((data ?? []) as unknown as DealFile[]);
+    if (chosen === "invoice") setMsg("Invoice attached.");
+
+    // Explicit invoice selection always runs extraction (kind=invoice).
+    if (kind === "invoice") {
+      try {
+        const fd = new FormData(); fd.append("file", file);
+        const res = await fetch("/api/deals/extract-invoice", { method: "POST", body: fd });
+        if (res.ok) { const j = await res.json(); onInvoiceExtracted(j); }
+      } catch { /* non-fatal */ }
+    }
+    setBusy(false);
   };
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1269,6 +1375,19 @@ function FilesTab({ dealId, files, setFiles, plan }: { dealId: string; files: De
   };
   return (
     <div className="space-y-3">
+      <div>
+        <span className="text-[10.5px] font-semibold uppercase tracking-wide text-inkfaint mb-1 block">File type</span>
+        <div className="flex gap-1.5">
+          {(["auto", "contract", "invoice", "other"] as const).map((k) => (
+            <button key={k} type="button" onClick={() => setKind(k)}
+              className={cn("px-2.5 h-7 rounded-md text-[12px] font-medium border cursor-pointer", kind === k ? "border-[var(--accent)] bg-accenttint accent-ink" : "border-line2 text-inksoft hover:text-ink")}>
+              {k === "auto" ? "Auto" : k === "contract" ? "Contract" : k === "invoice" ? "Invoice" : "Other"}
+            </button>
+          ))}
+        </div>
+      </div>
+      {busy && <p className="text-[12px] text-inksoft">Reading file…</p>}
+      {msg && <p className="text-[12px] text-inksoft">{msg}</p>}
       <label
         className="cursor-pointer block"
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
