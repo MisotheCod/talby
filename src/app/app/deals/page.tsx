@@ -908,6 +908,42 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   };
   const keepInvoiceDate = () => setInvoiceReview(null);
 
+  // Shared file upload: storage + deal_files insert + refresh, then invoice
+  // extraction (pay-by / invoiced / review prompt) when the kind is invoice.
+  // Used by BOTH the Files tab and the Details Payment "Invoice" row, so one
+  // file list has two entry points.
+  const uploadDealFile = useCallback(async (file: File, kind: DealFile["kind"]) => {
+    if (!file) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const path = `${user.id}/${deal.id}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("deal-files").upload(path, file);
+    if (error) return;
+    await supabase.from("deal_files").insert({ user_id: user.id, deal_id: deal.id, name: file.name, path, size_bytes: file.size, mime: file.type, kind: kind ?? "other" });
+    const { data } = await supabase.from("deal_files").select("*").eq("deal_id", deal.id);
+    setFiles((data ?? []) as DealFile[]);
+    if (kind === "invoice") {
+      // Same extraction path as the Files tab: set pay-by, flip to invoiced,
+      // and show the conflict prompt when the dates differ.
+      try {
+        const fd = new FormData(); fd.append("file", file);
+        const res = await fetch("/api/deals/extract-invoice", { method: "POST", body: fd });
+        if (res.ok) handleInvoiceExtracted(await res.json());
+      } catch { /* non-fatal */ }
+    }
+  }, [supabase, deal.id, setFiles, handleInvoiceExtracted]);
+
+  const removeDealFile = useCallback(async (f: DealFile) => {
+    await supabase.storage.from("deal-files").remove([f.path]);
+    await supabase.from("deal_files").delete().eq("id", f.id);
+    setFiles((xs) => xs.filter((x) => x.id !== f.id));
+  }, [supabase, setFiles]);
+
+  const openDealFile = useCallback(async (f: DealFile) => {
+    const { data } = await supabase.storage.from("deal-files").createSignedUrl(f.path, 300);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  }, [supabase]);
+
   return (
     <div className="fixed inset-0 z-[85] bg-black/20" onClick={requestClose} role="presentation">
       <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
@@ -951,10 +987,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} />}
+          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
-          {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} onInvoiceExtracted={handleInvoiceExtracted} />}
+          {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} onUploadFile={uploadDealFile} />}
         </div>
 
         {saveError && (
@@ -999,11 +1035,14 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
    types, so a keystroke can never stall. onBlur (leaving a field, one action)
    syncs the value for dirty-marking/undo. The drawer's Save reads the refs
    directly. Nothing writes to the DB except Save. */
-function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate }: {
+function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile }: {
   deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[];
   draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
   invoiceReview: { proposed: string | null; current: string | null } | null;
   onAcceptInvoiceDate: () => void; onKeepInvoiceDate: () => void;
+  onUploadFile: (file: File, kind: DealFile["kind"]) => Promise<void>;
+  onOpenFile: (f: DealFile) => Promise<void>;
+  onRemoveFile: (f: DealFile) => Promise<void>;
 }) {
   const Section = ({ label, children }: { label: string; children?: React.ReactNode }) => (
     <div className="mt-5 first:mt-0">
@@ -1115,14 +1154,12 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           </select>
         </Row>
         <PRow label="Invoice">
-          {(() => {
-            const inv = files.filter((f) => f.kind === "invoice")[0];
-            return inv ? (
-              <span className="text-[13px] text-ink flex items-center gap-1.5">
-                <IconPaperclip size={14} className="text-inksoft" /> <span className="truncate">{inv.name}</span>
-              </span>
-            ) : <span className="text-[12px] text-inkfaint">Not attached</span>;
-          })()}
+          <InvoiceRow
+            files={files}
+            onPick={(file) => onUploadFile(file, "invoice")}
+            onOpen={onOpenFile}
+            onRemove={onRemoveFile}
+          />
         </PRow>
       </Section>
 
@@ -1155,6 +1192,49 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
         <Row label="Email" field="rep_email"><input ref={bindRef("rep_email")} defaultValue={draft.rep_email} onBlur={() => onFieldBlur("rep_email")} className={inputCls} placeholder="rep@brand.com" /></Row>
       </Section>
     </div>
+  );
+}
+
+/** Invoice action row: upload from the Payment section. No file -> "Add
+ *  invoice" button. Attached -> filename (opens on click), plus replace and
+ *  remove. Uploading here always sets kind to invoice (the row already says
+ *  what it is) and funnels into the same extraction path as the Files tab. */
+function InvoiceRow({ files, onPick, onOpen, onRemove }: {
+  files: DealFile[];
+  onPick: (file: File) => void;
+  onOpen: (f: DealFile) => Promise<void>;
+  onRemove: (f: DealFile) => Promise<void>;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inv = files.filter((f) => f.kind === "invoice")[0];
+  const pick = () => inputRef.current?.click();
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        className="hidden"
+        accept=".pdf,.txt,.md,application/pdf,text/*"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onPick(f); e.target.value = ""; }}
+      />
+      {inv ? (
+        <div className="flex items-center gap-1.5 min-w-0">
+          <button type="button" onClick={() => onOpen(inv)} title="Open or download"
+            className="flex-1 min-w-0 truncate text-left text-[13px] text-ink flex items-center gap-1.5 hover:text-[var(--accent)] cursor-pointer">
+            <IconPaperclip size={14} className="text-inksoft shrink-0" /> <span className="truncate">{inv.name}</span>
+          </button>
+          <button type="button" onClick={pick} title="Replace invoice" aria-label="Replace invoice"
+            className="shrink-0 text-[11px] text-inksoft hover:text-ink cursor-pointer px-1">Replace</button>
+          <button type="button" onClick={() => onRemove(inv)} title="Remove invoice" aria-label="Remove invoice"
+            className="shrink-0 text-inksoft hover:text-late cursor-pointer"><IconDelete size={14} /></button>
+        </div>
+      ) : (
+        <button type="button" onClick={pick}
+          className="text-[13px] text-inksoft hover:text-ink cursor-pointer inline-flex items-center gap-1.5">
+          <IconUpload size={14} /> Add invoice
+        </button>
+      )}
+    </>
   );
 }
 
@@ -1312,9 +1392,9 @@ function NotesTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Draft
   );
 }
 
-function FilesTab({ dealId, files, setFiles, plan, onInvoiceExtracted }: {
+function FilesTab({ dealId, files, setFiles, plan, onUploadFile }: {
   dealId: string; files: DealFile[]; setFiles: (f: DealFile[]) => void; plan: "free" | "paid";
-  onInvoiceExtracted: (fields: { invoice_date: string | null; due_date: string | null; net_terms: string | null; amount: number | null; brand: string | null }) => void;
+  onUploadFile: (file: File, kind: DealFile["kind"]) => Promise<void>;
 }) {
   const supabase = createClient();
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -1327,10 +1407,6 @@ function FilesTab({ dealId, files, setFiles, plan, onInvoiceExtracted }: {
     if (!file) return;
     if (plan !== "paid") { setShowUpgrade(true); return; }
     setBusy(true); setMsg(null);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setBusy(false); return; }
-    const path = `${user.id}/${dealId}/${Date.now()}-${file.name}`;
-
     // Resolve the file's kind. The user picks when they choose the file; the
     // extractor can only default it when it is confident it read an invoice.
     // Never a silent filename guess.
@@ -1345,26 +1421,12 @@ function FilesTab({ dealId, files, setFiles, plan, onInvoiceExtracted }: {
         if (res.ok) {
           const j = await res.json();
           const inv = j && (j.invoice_date || j.due_date || j.net_terms || j.amount != null);
-          if (inv) { chosen = "invoice"; onInvoiceExtracted(j); }
+          if (inv) chosen = "invoice";
         }
       } catch { /* non-fatal: falls back to other */ }
     }
-
-    const { error } = await supabase.storage.from("deal-files").upload(path, file);
-    if (error) { setBusy(false); setMsg("Upload failed."); return; }
-    await supabase.from("deal_files").insert({ user_id: user.id, deal_id: dealId, name: file.name, path, size_bytes: file.size, mime: file.type, kind: chosen ?? "other" });
-    const { data } = await supabase.from("deal_files").select("*").eq("deal_id", dealId);
-    setFiles((data ?? []) as unknown as DealFile[]);
+    await onUploadFile(file, chosen);
     if (chosen === "invoice") setMsg("Invoice attached.");
-
-    // Explicit invoice selection always runs extraction (kind=invoice).
-    if (kind === "invoice") {
-      try {
-        const fd = new FormData(); fd.append("file", file);
-        const res = await fetch("/api/deals/extract-invoice", { method: "POST", body: fd });
-        if (res.ok) { const j = await res.json(); onInvoiceExtracted(j); }
-      } catch { /* non-fatal */ }
-    }
     setBusy(false);
   };
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1372,6 +1434,11 @@ function FilesTab({ dealId, files, setFiles, plan, onInvoiceExtracted }: {
     if (!file) return;
     e.target.value = "";
     await onFile(file);
+  };
+  const removeFile = async (f: DealFile) => {
+    await supabase.storage.from("deal-files").remove([f.path]);
+    await supabase.from("deal_files").delete().eq("id", f.id);
+    setFiles(files.filter((x) => x.id !== f.id));
   };
   return (
     <div className="space-y-3">
