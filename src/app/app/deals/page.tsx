@@ -1054,11 +1054,33 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   onOpenFile: (f: DealFile) => Promise<void>;
   onRemoveFile: (f: DealFile) => Promise<void>;
 }) {
-  // Payment-bound rows are dirty when the staged payments differ from the
-  // snapshot taken at load; undo restores that snapshot.
-  const pmi = (xs: Payment[]) => JSON.stringify(xs.map((x) => `${x.id}|${x.pay_status ?? ""}|${x.status}|${x.amount}|${x.expected_date ?? ""}`));
-  const payDirty = pmi(payments) !== pmi(paymentsSaved);
-  const undoPayment = () => setPayments(paymentsSaved.map((p) => ({ ...p })));
+  // Payment-bound rows are independent controls, so each tracks its own dirty
+  // state and its own undo. Pay status sketches pay_status/status; Pay by
+  // sketches expected_date. Sharing one flag made them light up together and
+  // undoing one reverted the other — they are not connected.
+  const pmSig = (xs: Payment[]) => JSON.stringify(xs.map((x) => `${x.id}|${x.pay_status ?? ""}|${x.status}`));
+  const pbSig = (xs: Payment[]) => JSON.stringify(xs.map((x) => `${x.id}|${x.expected_date ?? ""}`));
+  const payStatusDirty = pmSig(payments) !== pmSig(paymentsSaved);
+  const payByDirty = pbSig(payments) !== pbSig(paymentsSaved);
+
+  // Undo restores only that row's field from the saved snapshot. A payment
+  // added mid-edit (new-* from Pay by) is removed, not reverted in place.
+  const undoPayStatus = () => setPayments(
+    payments
+      .filter((p) => !p.id.startsWith("new-") || paymentsSaved.some((s) => s.id === p.id))
+      .map((p) => {
+        const s = paymentsSaved.find((x) => x.id === p.id);
+        return s ? { ...p, pay_status: s.pay_status, status: s.status } : p;
+      })
+  );
+  const undoPayBy = () => setPayments(
+    payments
+      .filter((p) => !p.id.startsWith("new-") || paymentsSaved.some((s) => s.id === p.id))
+      .map((p) => {
+        const s = paymentsSaved.find((x) => x.id === p.id);
+        return s ? { ...p, expected_date: s.expected_date } : p;
+      })
+  );
   // True after a free user uploads an invoice but the paid extraction 403'd.
   // Not an error — the file attached fine; it just says reading it is on
   // Unlimited.
@@ -1155,7 +1177,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     <div>
       <Section label="Payment">
         <Row label="Value" field="value"><input ref={bindRef("value")} defaultValue={draft.value} onBlur={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
-        <PRow label="Pay status" onUndo={undoPayment} dirty={payDirty}>
+        <PRow label="Pay status" onUndo={undoPayStatus} dirty={payStatusDirty}>
           <select value={dealStatus} onChange={(e) => setDealStatus(e.target.value)} className={selectCls}>
             <option value="not_invoiced">Not invoiced</option>
             <option value="invoiced">Invoiced</option>
@@ -1163,7 +1185,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="no_invoice_needed">No invoice needed</option>
           </select>
         </PRow>
-        <PRow label="Pay by" onUndo={undoPayment} dirty={payDirty}>
+        <PRow label="Pay by" onUndo={undoPayBy} dirty={payByDirty}>
           <input type="date" value={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={`${inputCls} deal-date-input`} aria-label="Pay by date" />
         </PRow>
         {invoiceReview && (
