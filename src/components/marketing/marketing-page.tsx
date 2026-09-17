@@ -221,7 +221,7 @@ export function MarketingPage() {
             <span className="w">Organize</span> <span className="w">your</span><br />
             <span className="w blue">brand</span> <span className="w blue">deals.</span>
           </h1>
-          <p id="heroP">Talby is the calm command center for creators — organize brand deals, track what&rsquo;s owed and paid, and plan content in one place.</p>
+          <p id="heroP">Talby is the calm command center for creators: organize brand deals, track what&rsquo;s owed and paid, and plan content in one place.</p>
           <div className="hero-cta" id="heroC">
             <a href="/signup" className="btn btn-3d btn-lg">Sign up free</a>
             <a href="#features" className="btn btn-ghost btn-lg">See how it works</a>

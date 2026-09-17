@@ -233,7 +233,7 @@ export default function OverviewPage() {
       <div className="top anim">
         <div>
           <h1 className="text-[26px] font-head font-bold">
-            {greeting()}{handle ? `, ${userName(handle)}` : ""}
+            {greeting()}
           </h1>
           <p className="text-sm text-inksoft mt-1.5">
             {activeDeals.length === 0
@@ -497,7 +497,4 @@ function OverviewSkeleton() {
 
 function pastDueCount(payments: Payment[]) {
   return payments.filter((p) => p.status !== "received" && isPastDue(p.expected_date)).length;
-}
-function userName(handle: string) {
-  return handle.replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
