@@ -79,7 +79,7 @@ export default function TermsPage() {
         <section className="space-y-2">
           <h2 className="font-semibold">8. Contact</h2>
           <p className="text-muted text-sm leading-relaxed">
-            Questions about these terms: support@talby.app
+            Questions about these terms: info@talby.io
           </p>
         </section>
       </main>
