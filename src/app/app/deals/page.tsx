@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, isPayOverdue, type PayStatus, type DealRollup } from "@/lib/pay-status";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail, IconArrowLeft } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail, IconUndo } from "@/components/icons";
 import { Button, Input, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
@@ -639,6 +639,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         supabase.from("deal_files").select("*").eq("deal_id", deal.id),
       ]);
       setPayments((pay.data ?? []) as unknown as Payment[]);
+      setPaymentsSaved((pay.data ?? []) as unknown as Payment[]);
       setChecklist((cl.data ?? []) as unknown as ChecklistItem[]);
       setFiles((fl.data ?? []) as unknown as DealFile[]);
       setPaymentsBase(pmNorm(pay.data ?? []));
@@ -677,6 +678,9 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   // Baselines for staged (checklist/payments) dirty detection — snapshot at load.
   const [checklistBase, setChecklistBase] = useState<string>("");
   const [paymentsBase, setPaymentsBase] = useState<string>("");
+  // Snapshot of the loaded/saved payments array, so the payment-bound rows
+  // (Pay status, Pay by) can offer an undo that reverts the staged change.
+  const [paymentsSaved, setPaymentsSaved] = useState<Payment[]>([]);
 
   // Re-init staging when a different deal is opened (component isn't keyed).
   const draftDealRef = useRef(deal.id);
@@ -788,6 +792,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       setChecklist((clF.data ?? []) as unknown as ChecklistItem[]);
       setChecklistBase(clNorm(clF.data ?? []));
       setPayments((pmF.data ?? []) as unknown as Payment[]);
+      setPaymentsSaved((pmF.data ?? []) as unknown as Payment[]);
       setPaymentsBase(pmNorm(pmF.data ?? []));
     } catch { /* non-fatal: next open refetches */ }
     setSaved({ ...draft });
@@ -992,7 +997,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} />}
+          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} onUploadFile={uploadDealFile} />}
@@ -1040,8 +1045,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
    types, so a keystroke can never stall. onBlur (leaving a field, one action)
    syncs the value for dirty-marking/undo. The drawer's Save reads the refs
    directly. Nothing writes to the DB except Save. */
-function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile }: {
-  deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[];
+function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved }: {
+  deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[]; paymentsSaved: Payment[];
   draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
   invoiceReview: { proposed: string | null; current: string | null } | null;
   onAcceptInvoiceDate: () => void; onKeepInvoiceDate: () => void;
@@ -1049,6 +1054,11 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   onOpenFile: (f: DealFile) => Promise<void>;
   onRemoveFile: (f: DealFile) => Promise<void>;
 }) {
+  // Payment-bound rows are dirty when the staged payments differ from the
+  // snapshot taken at load; undo restores that snapshot.
+  const pmi = (xs: Payment[]) => JSON.stringify(xs.map((x) => `${x.id}|${x.pay_status ?? ""}|${x.status}|${x.amount}|${x.expected_date ?? ""}`));
+  const payDirty = pmi(payments) !== pmi(paymentsSaved);
+  const undoPayment = () => setPayments(paymentsSaved.map((p) => ({ ...p })));
   // True after a free user uploads an invoice but the paid extraction 403'd.
   // Not an error — the file attached fine; it just says reading it is on
   // Unlimited.
@@ -1079,19 +1089,35 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
               "p-1 rounded-md text-inksoft hover:text-ink hover:bg-card2 cursor-pointer transition-opacity",
               dirty ? "opacity-100" : "opacity-0 pointer-events-none"
             )}
-          ><IconArrowLeft size={16} /></button>
+          ><IconUndo size={16} /></button>
         </span>
       </div>
     );
   };
   // Same row, but for payment-bound controls (Pay status, Pay by) that are not
-  // DraftFields — no per-field dirty/undo, since their dirty state rides on the
-  // staged payments diff (collDirty) instead.
-  const PRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="flex items-center gap-2 py-1.5 border-b border-line last:border-b-0">
+  // DraftFields. Their dirty state rides on the staged payments diff (collDirty);
+  // when dirty, an optional undo reverts the staged payment change to the
+  // snapshot taken at load/save.
+  const PRow = ({ label, children, onUndo, dirty }: { label: string; children: React.ReactNode; onUndo?: () => void; dirty?: boolean }) => (
+    <div className={cn("flex items-center gap-2 py-1.5 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
       <span className="w-[92px] flex-none text-[12px] text-inksoft">{label}</span>
       <div className="flex-1 min-w-0">{children}</div>
-      <span className="w-7 flex-none" />
+      <span className="w-7 flex-none flex items-center justify-center">
+        {onUndo && (
+          <button
+            type="button"
+            onClick={onUndo}
+            aria-label={`Revert ${label}`}
+            title="Revert change"
+            tabIndex={dirty ? 0 : -1}
+            aria-hidden={!dirty}
+            className={cn(
+              "p-1 rounded-md text-inksoft hover:text-ink hover:bg-card2 cursor-pointer transition-opacity",
+              dirty ? "opacity-100" : "opacity-0 pointer-events-none"
+            )}
+          ><IconUndo size={16} /></button>
+        )}
+      </span>
     </div>
   );
   const inputCls = "w-full bg-transparent border border-transparent rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition";
@@ -1129,7 +1155,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     <div>
       <Section label="Payment">
         <Row label="Value" field="value"><input ref={bindRef("value")} defaultValue={draft.value} onBlur={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
-        <PRow label="Pay status">
+        <PRow label="Pay status" onUndo={undoPayment} dirty={payDirty}>
           <select value={dealStatus} onChange={(e) => setDealStatus(e.target.value)} className={selectCls}>
             <option value="not_invoiced">Not invoiced</option>
             <option value="invoiced">Invoiced</option>
@@ -1137,7 +1163,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="no_invoice_needed">No invoice needed</option>
           </select>
         </PRow>
-        <PRow label="Pay by">
+        <PRow label="Pay by" onUndo={undoPayment} dirty={payDirty}>
           <input type="date" value={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={`${inputCls} deal-date-input`} aria-label="Pay by date" />
         </PRow>
         {invoiceReview && (
@@ -1407,7 +1433,7 @@ function NotesTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Draft
       />
       {dirty && (
         <button onClick={() => undo("notes")} aria-label="Revert notes" title="Revert change" className="flex items-center gap-1.5 text-[12px] text-inksoft hover:text-ink cursor-pointer">
-          <IconArrowLeft size={13} /> Revert notes
+          <IconUndo size={13} /> Revert notes
         </button>
       )}
     </div>

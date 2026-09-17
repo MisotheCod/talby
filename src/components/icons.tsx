@@ -29,6 +29,7 @@ import {
   ChevronUp,
   ArrowRight,
   ArrowLeft,
+  Undo2,
   ArrowUp,
   ArrowDown,
   Check,
@@ -113,6 +114,7 @@ export const IconDown = l(ChevronDown);
 export const IconUp = l(ChevronUp);
 export const IconArrowRight = l(ArrowRight);
 export const IconArrowLeft = l(ArrowLeft);
+export const IconUndo = l(Undo2);
 export const IconArrowUp = l(ArrowUp);
 export const IconArrowDown = l(ArrowDown);
 export const IconCheck = l(Check);
