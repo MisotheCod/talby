@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import "../auth.css";
 import { AuthForm } from "@/app/login/auth-form";
 
 export const metadata: Metadata = {

@@ -1,0 +1,429 @@
+/* Auth pages (login / signup): split layout with a brand panel.
+   Scoped under .auth-split so it never touches the app shell or marketing. */
+.auth-split {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  padding: 20px;
+  background: var(--bg, #ffffff);
+  color: var(--ink, #0d0f13);
+  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
+}
+
+/* --- Left column: form --- */
+.auth-col {
+  min-width: 0;
+}
+.auth-form-col {
+  display: flex;
+  flex-direction: column;
+}
+.auth-top {
+  padding: 8px 4px 0;
+}
+.auth-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.auth-brand .lmark,
+.auth-brand svg {
+  flex: none;
+}
+.auth-wordmark {
+  font-family: var(--font-lexend), 'Lexend', sans-serif;
+  font-weight: 600;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  color: var(--ink, #0d0f13);
+}
+.auth-form-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-form-inner {
+  width: 100%;
+  max-width: 384px;
+}
+.auth-heading {
+  font-family: var(--font-lexend), 'Lexend', sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 8px;
+  color: var(--ink, #0d0f13);
+}
+.auth-switch {
+  font-size: 14px;
+  color: var(--ink-soft, #5a6170);
+  margin: 0 0 28px;
+}
+.auth-switch-link {
+  color: #1f7ae0;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.auth-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink, #0d0f13);
+}
+.auth-pw-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.auth-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.auth-forgot {
+  font-size: 13px;
+  color: #1f7ae0;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.auth-pw-input {
+  position: relative;
+  display: flex;
+}
+.auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 46px;
+  padding: 0 14px;
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--ink, #0d0f13);
+  background: #fff;
+  border: 1px solid var(--line2, #e1e3e9);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.auth-input::placeholder {
+  color: var(--ink-faint, #9aa1ae);
+}
+.auth-input:focus-visible {
+  border-color: #1f7ae0;
+  box-shadow: 0 0 0 3px rgba(31, 122, 224, 0.15);
+}
+.auth-input-pw {
+  padding-right: 44px;
+}
+.auth-eye {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft, #5a6170);
+  cursor: pointer;
+  border-radius: 8px;
+}
+.auth-eye:hover {
+  color: var(--ink, #0d0f13);
+  background: rgba(13, 15, 19, 0.05);
+}
+.auth-eye:focus-visible {
+  outline: 2px solid #1f7ae0;
+  outline-offset: 1px;
+}
+.auth-error {
+  font-size: 13px;
+  color: #e5484d;
+  margin: 0;
+}
+.auth-submit {
+  height: 46px;
+  margin-top: 4px;
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  background: #1f7ae0;
+  color: #fff;
+  font-family: var(--font-inter), 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, box-shadow .15s;
+}
+.auth-submit:hover {
+  background: #1a6ac6;
+}
+.auth-submit:focus-visible {
+  box-shadow: 0 0 0 3px rgba(31, 122, 224, 0.25);
+}
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.auth-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: auth-spin .7s linear infinite;
+}
+@keyframes auth-spin {
+  to { transform: rotate(360deg); }
+}
+.auth-terms {
+  font-size: 12.5px;
+  color: var(--ink-faint, #9aa1ae);
+  margin: 20px 0 0;
+  line-height: 1.5;
+}
+.auth-term-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* --- Right column: brand panel --- */
+.auth-brand-col {
+  display: flex;
+}
+.auth-panel {
+  flex: 1;
+  border-radius: 18px;
+  background: linear-gradient(160deg, #2384ec 0%, #1a6ac6 100%);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  overflow: hidden;
+}
+/* App's faint dot texture overlaid on the brand panel. */
+.auth-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: 18px 18px;
+  pointer-events: none;
+}
+.auth-panel-inner {
+  width: 100%;
+  max-width: 440px;
+  position: relative;
+  z-index: 1;
+}
+.auth-panel-h {
+  font-family: var(--font-lexend), 'Lexend', sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #fff;
+  margin: 0 0 6px;
+}
+.auth-panel-sub {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0 0 26px;
+}
+.auth-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.auth-panel-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 24px rgba(10, 40, 90, 0.18);
+}
+
+/* Card: contract extraction */
+.ac-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ac-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e8f6ee;
+  color: #2f9e6f;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  flex: none;
+}
+.ac-file {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0d0f13;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ac-check {
+  color: #2f9e6f;
+  flex: none;
+}
+.ac-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+.ac-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.ac-k {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9aa1ae;
+  font-weight: 600;
+}
+.ac-v {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0d0f13;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ac-v-money,
+.ac-income-val {
+  font-family: var(--font-mono-mono), 'JetBrains Mono', monospace;
+  color: #2f9e6f;
+}
+
+/* Card: this week */
+.ac-week-label,
+.ac-income-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9aa1ae;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.ac-week {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ac-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+.ac-dw {
+  font-size: 10px;
+  color: #9aa1ae;
+  text-transform: uppercase;
+}
+.ac-day-today .ac-dw {
+  color: #1f7ae0;
+  font-weight: 700;
+}
+.ac-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+/* Dots carry inline background: colors are provided inline on the elements.
+   Today's highlight + pay chip use brand blue. */
+.ac-day-today .ac-dot {
+  box-shadow: 0 0 0 2px rgba(31, 122, 224, 0.25);
+}
+.ac-paychip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #f0f6ff;
+  color: #1a6ac6;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 20px;
+  padding: 5px 11px;
+}
+.ac-paydot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1f7ae0;
+}
+
+/* Card: income */
+.ac-income-val {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.ac-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 46px;
+}
+.ac-bar {
+  flex: 1;
+  display: block;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, #1f7ae0 0%, #86b6f2 100%);
+  min-height: 8px;
+}
+
+/* --- Responsive: hide the panel below 900px --- */
+@media (max-width: 899px) {
+  .auth-split {
+    display: block;
+  }
+  .auth-brand-col {
+    display: none;
+  }
+  .auth-form-wrap {
+    min-height: calc(100vh - 80px);
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .auth-spinner {
+    animation: none;
+  }
+  .auth-input,
+  .auth-submit,
+  .auth-eye {
+    transition: none;
+  }
+}
