@@ -241,7 +241,7 @@ export function MarketingPage() {
                 <div className="hm-nav"><IconPayments />Payments</div>
               </div>
               <div className="hm-main">
-                <div className="hm-greet">Good evening, Chanel</div>
+                <div className="hm-greet">Good evening, Creator</div>
                 <div className="hm-stats">
                   <div className="hm-stat"><div className="l">Booked</div><div className="v hnum" data-n="8400">$0</div></div>
                   <div className="hm-stat"><div className="l">Paid</div><div className="v hnum" data-n="5150" style={{ color: "var(--green)" }}>$0</div></div>
