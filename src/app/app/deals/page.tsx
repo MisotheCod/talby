@@ -912,25 +912,30 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   // extraction (pay-by / invoiced / review prompt) when the kind is invoice.
   // Used by BOTH the Files tab and the Details Payment "Invoice" row, so one
   // file list has two entry points.
-  const uploadDealFile = useCallback(async (file: File, kind: DealFile["kind"]) => {
-    if (!file) return;
+  const uploadDealFile = useCallback(async (file: File, kind: DealFile["kind"]): Promise<{ extractionBlocked: boolean }> => {
+    if (!file) return { extractionBlocked: false };
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return { extractionBlocked: false };
     const path = `${user.id}/${deal.id}/${Date.now()}-${file.name}`;
     const { error } = await supabase.storage.from("deal-files").upload(path, file);
-    if (error) return;
+    if (error) return { extractionBlocked: false };
     await supabase.from("deal_files").insert({ user_id: user.id, deal_id: deal.id, name: file.name, path, size_bytes: file.size, mime: file.type, kind: kind ?? "other" });
     const { data } = await supabase.from("deal_files").select("*").eq("deal_id", deal.id);
     setFiles((data ?? []) as DealFile[]);
     if (kind === "invoice") {
       // Same extraction path as the Files tab: set pay-by, flip to invoiced,
-      // and show the conflict prompt when the dates differ.
+      // and show the conflict prompt when the dates differ. On the free plan the
+      // server 403s extraction — that's not a failure (the file is stored); it
+      // means reading the invoice is on Unlimited. Report it so the caller can
+      // say so, not swallow it silently.
       try {
         const fd = new FormData(); fd.append("file", file);
         const res = await fetch("/api/deals/extract-invoice", { method: "POST", body: fd });
         if (res.ok) handleInvoiceExtracted(await res.json());
+        else if (res.status === 403) return { extractionBlocked: true };
       } catch { /* non-fatal */ }
     }
+    return { extractionBlocked: false };
   }, [supabase, deal.id, setFiles, handleInvoiceExtracted]);
 
   const removeDealFile = useCallback(async (f: DealFile) => {
@@ -990,7 +995,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
           {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
-          {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} plan={plan} onUploadFile={uploadDealFile} />}
+          {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} onUploadFile={uploadDealFile} />}
         </div>
 
         {saveError && (
@@ -1040,10 +1045,14 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
   invoiceReview: { proposed: string | null; current: string | null } | null;
   onAcceptInvoiceDate: () => void; onKeepInvoiceDate: () => void;
-  onUploadFile: (file: File, kind: DealFile["kind"]) => Promise<void>;
+  onUploadFile: (file: File, kind: DealFile["kind"]) => Promise<{ extractionBlocked: boolean }>;
   onOpenFile: (f: DealFile) => Promise<void>;
   onRemoveFile: (f: DealFile) => Promise<void>;
 }) {
+  // True after a free user uploads an invoice but the paid extraction 403'd.
+  // Not an error — the file attached fine; it just says reading it is on
+  // Unlimited.
+  const [invoiceExtractionBlocked, setInvoiceExtractionBlocked] = useState(false);
   const Section = ({ label, children }: { label: string; children?: React.ReactNode }) => (
     <div className="mt-5 first:mt-0">
       <div className="text-[10.5px] font-semibold uppercase tracking-wide text-inkfaint mb-1">{label}</div>
@@ -1156,11 +1165,19 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
         <PRow label="Invoice">
           <InvoiceRow
             files={files}
-            onPick={(file) => onUploadFile(file, "invoice")}
+            onPick={async (file) => {
+              const r = await onUploadFile(file, "invoice");
+              setInvoiceExtractionBlocked(r.extractionBlocked);
+            }}
             onOpen={onOpenFile}
             onRemove={onRemoveFile}
           />
         </PRow>
+        {invoiceExtractionBlocked && (
+          <div className="mt-1.5 mb-1.5 rounded-md px-2.5 py-2 text-[12px] leading-snug text-inksoft bg-card2/40">
+            Invoice attached. Reading it and filling in the pay by date is on <a href="/#pricing" onClick={(e) => { setInvoiceExtractionBlocked(false); }} className="accent-ink font-semibold underline underline-offset-2 hover:opacity-80">Unlimited</a>.
+          </div>
+        )}
       </Section>
 
       <Section label="Deal">
@@ -1392,21 +1409,20 @@ function NotesTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Draft
   );
 }
 
-function FilesTab({ dealId, files, setFiles, plan, onUploadFile }: {
-  dealId: string; files: DealFile[]; setFiles: (f: DealFile[]) => void; plan: "free" | "paid";
-  onUploadFile: (file: File, kind: DealFile["kind"]) => Promise<void>;
+function FilesTab({ dealId, files, setFiles, onUploadFile }: {
+  dealId: string; files: DealFile[]; setFiles: (f: DealFile[]) => void;
+  onUploadFile: (file: File, kind: DealFile["kind"]) => Promise<{ extractionBlocked: boolean }>;
 }) {
   const supabase = createClient();
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [kind, setKind] = useState<"auto" | "contract" | "invoice" | "other">("auto");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [extractionBlocked, setExtractionBlocked] = useState(false);
 
   const onFile = async (file: File) => {
     if (!file) return;
-    if (plan !== "paid") { setShowUpgrade(true); return; }
-    setBusy(true); setMsg(null);
+    setBusy(true); setMsg(null); setExtractionBlocked(false);
     // Resolve the file's kind. The user picks when they choose the file; the
     // extractor can only default it when it is confident it read an invoice.
     // Never a silent filename guess.
@@ -1425,8 +1441,9 @@ function FilesTab({ dealId, files, setFiles, plan, onUploadFile }: {
         }
       } catch { /* non-fatal: falls back to other */ }
     }
-    await onUploadFile(file, chosen);
+    const r = await onUploadFile(file, chosen);
     if (chosen === "invoice") setMsg("Invoice attached.");
+    if (r.extractionBlocked) setExtractionBlocked(true);
     setBusy(false);
   };
   const onUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1455,6 +1472,11 @@ function FilesTab({ dealId, files, setFiles, plan, onUploadFile }: {
       </div>
       {busy && <p className="text-[12px] text-inksoft">Reading file…</p>}
       {msg && <p className="text-[12px] text-inksoft">{msg}</p>}
+      {extractionBlocked && (
+        <div className="rounded-md px-2.5 py-2 text-[12px] leading-snug text-inksoft bg-card2/40">
+          Invoice attached. Reading it and filling in the pay by date is on <a href="/#pricing" className="accent-ink font-semibold underline underline-offset-2 hover:opacity-80">Unlimited</a>.
+        </div>
+      )}
       <label
         className="cursor-pointer block"
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -1463,11 +1485,11 @@ function FilesTab({ dealId, files, setFiles, plan, onUploadFile }: {
       >
         <span className={cn(
           "flex items-center justify-center gap-2 border-2 border-dashed rounded-xl p-6 text-sm text-inksoft hover:border-[var(--accent)] hover:text-ink transition",
-          plan !== "paid" ? "border-line2" : dragOver ? "border-[var(--accent)] bg-accenttint text-accentink" : "border-line2"
+          dragOver ? "border-[var(--accent)] bg-accenttint text-accentink" : "border-line2"
         )}>
-          <IconPaperclip size={16} /> {plan === "paid" ? (dragOver ? "Drop to upload" : "Drop a file or click to browse") : "Files are on the paid plan"}
+          <IconPaperclip size={16} /> {dragOver ? "Drop to upload" : "Drop a file or click to browse"}
         </span>
-        <input type="file" className="hidden" onChange={onUpload} disabled={plan !== "paid"} />
+        <input type="file" className="hidden" onChange={onUpload} />
       </label>
       <ul className="space-y-1">
         {files.map((f) => (
@@ -1488,7 +1510,6 @@ function FilesTab({ dealId, files, setFiles, plan, onUploadFile }: {
           </li>
         ))}
       </ul>
-      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>
   );
 }
