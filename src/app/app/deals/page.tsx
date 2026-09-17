@@ -1097,9 +1097,14 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   const inputCls = "w-full bg-transparent border border-transparent rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition";
   const selectCls = `${inputCls} cursor-pointer`;
 
-  // Deal-level pay status: single control that sets the deal's payment status
-  // (falls back to the derived rollup). "paid" also flips the payment to received.
-  const dealStatus = (deal.pay_rollup?.status) || (payments.length ? payments[0].pay_status ?? "not_invoiced" : "not_invoiced");
+  // Deal-level pay status: single control that sets the deal's payment status.
+  // Derived from the LIVE staged payments (not the passed-in deal.pay_rollup
+  // snapshot, which never updates and was forcing the select back to the old
+  // value on every re-render — the status "never changed"). "paid" flips the
+  // payment to received.
+  const dealStatus = payments.length
+    ? (dealPayRollup(payments as unknown as { pay_status: string | null; expected_date: string | null }[]).status ?? "not_invoiced")
+    : (deal.pay_rollup?.status ?? "not_invoiced");
   const setDealStatus = (val: string) => {
     setPayments(payments.map((p) => ({ ...p, pay_status: val, status: val === "paid" ? "received" : p.status })));
   };
