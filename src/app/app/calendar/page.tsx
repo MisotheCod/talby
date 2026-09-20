@@ -439,6 +439,32 @@ export default function CalendarPage() {
     return (["post", "pay", "due"] as const).filter((t) => types.has(t));
   };
 
+  // Mobile month-view chips: one labelled, untruncated chip per event (not
+  // opaque dots). Reuses deskItems for the exact same event set + colors as the
+  // desktop grid (and its filter tabs), and carries the platform/subtype line a
+  // post chip needs. Tapping a chip reuses the drawer/doc open path (setSelected
+  // with the same prefixed id the desktop detail resolvers expect), so mobile
+  // opens the identical surface desktop opens — nothing new is built.
+  const mobileChips = (iso: string) => deskItems(iso).map((it) => {
+    const sub = it.type === "deal" || it.type === "deliverable"
+      ? (content.find((c) => c.id === it.nav.id)?.platform) || null
+      : null;
+    return {
+      id: it.id,          // prefixed display id: "pay"+id / "todo"+id / "note"+id / content id
+      type: it.nav.type,  // content | deliverable | payment | todo | note (what the resolver checks)
+      name: it.fullName,  // untruncated: legal suffix intact, wraps in the chip
+      amount: it.amount,  // payments only
+      sub,                // posts only: platform (or post_type fallback)
+      color: it.color,
+      done: it.done,
+      readonly: it.skeleton || it.readonly, // optimistic add / deal-level display: not tappable
+    };
+  });
+  const openMobileChip = (it: ReturnType<typeof mobileChips>[number], iso: string) => {
+    if (it.readonly) return;
+    setSelected({ itemId: it.id, type: it.type, x: 0, y: 0, date: iso });
+  };
+
   const sheetItems = sheetDay ? dayItems(sheetDay) : [];
   const sheetRow = (it: (typeof sheetItems)[number]): MobileSheetRow => {
     // Normalize to the three mobile labels now: POST / PAY / DUE.
@@ -562,30 +588,37 @@ export default function CalendarPage() {
           <div className="cal-grid-mobile grid grid-cols-7">
             {cells.map((iso, idx) => {
               if (iso === null) return <div key={`e${idx}`} className="border-r border-b border-line" />;
-              const dots = dayDotTypes(iso);
+              const chips = mobileChips(iso);
               const today = iso === toISO(new Date());
               return (
                 <div
                   key={iso}
                   data-day={iso}
                   className={cn(
-                    "cal-cell-mobile border-r border-b border-line flex flex-col items-center justify-center min-h-0 px-0.5",
-                    dots.length > 0 && "cursor-pointer",
+                    "cal-cell-mobile border-r border-b border-line flex flex-col items-stretch justify-start min-h-0",
                     dayHighlight === iso && "bg-subtle/60"
                   )}
-                  onClick={dots.length > 0 ? (e) => { e.stopPropagation(); showMobileSheet(iso); } : undefined}
-                  role={dots.length > 0 ? "button" : undefined}
-                  aria-label={dots.length > 0 ? `Open ${MONTHS[cursor.m]} ${Number(iso.slice(8))}` : undefined}
                 >
                   <span className={cn(
-                    "inline-grid place-items-center rounded-full text-xs",
-                    today ? "h-5 min-w-5 px-1 accent-fill font-semibold" : dayHighlight === iso ? "h-5 min-w-5 px-1 font-semibold ring-1 ring-[var(--accent)] text-accentink" : "text-muted h-5 w-5"
+                    "inline-grid place-items-center rounded-full text-[11px] leading-none h-5 min-w-5 px-1",
+                    today ? "accent-fill font-semibold" : dayHighlight === iso ? "font-semibold ring-1 ring-[var(--accent)] text-accentink" : "text-muted"
                   )}>
                     {Number(iso.slice(8))}
                   </span>
-                  <div className="h-3.5 mt-0.5 flex items-end gap-[3px]">
-                    {dots.map((t) => (
-                      <span key={t} className="cal-dot" style={{ background: MOBILE_DOT_COLORS[t] }} />
+                  <div className="mt-0.5 calchip-stack">
+                    {chips.map((chip) => (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openMobileChip(chip, iso); }}
+                        disabled={chip.readonly}
+                        className={cn("calchip-mobile block w-full text-left", chip.readonly && "calchip-inert", chip.done && "calchip-done")}
+                        style={{ "--pill-source": chip.color } as React.CSSProperties}
+                      >
+                        <span className="calchip-name">{chip.name}</span>
+                        {chip.amount && <span className="calchip-amount">{chip.amount}</span>}
+                        {chip.sub && <span className="calchip-sub">{chip.sub}</span>}
+                      </button>
                     ))}
                   </div>
                 </div>

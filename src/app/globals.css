@@ -975,16 +975,38 @@ input[type="range"].zoom::-moz-range-track {
   /* keep content clear of the floating assistant + theme buttons */
   .app-shell .main { padding-bottom: 96px; }
 
-  /* Calendar month grid on phones uses a dedicated compact dot layout
-     (rendered as .cal-grid-mobile in the component). Cells are tall enough
-     for the date number + a row of dots with breathing room, and the grid
-     stretches toward the viewport so it fills the screen — while the 1fr
-     rows keep all six week rows visible without scrolling. */
+  /* Calendar month grid on phones: one labelled, untruncated chip per event.
+     Grid rows size to their tallest cell (auto rows), so a busy week grows and
+     an empty week stays thin — the page scrolls, which is fine on mobile. */
   .cal-grid-mobile {
-    grid-auto-rows: 1fr;
-    min-height: max(384px, calc(100dvh * 0.62));
+    grid-auto-rows: auto;
   }
-  .cal-cell-mobile { min-height: 64px; }
+  .cal-cell-mobile { min-height: 0; }
+
+  /* Mobile event chip: tinted background + 3px colored left bar from the same
+     --pill-source as the desktop pill. Nothing truncates — text wraps and the
+     cell grows to fit. Amount (payments) and platform/subtype (posts) are each
+     on their own line. Done items dim; inert (deal-level / optimistic) render
+     muted and non-interactive. */
+  .calchip-stack { display: grid; gap: 3px; min-height: 0; }
+  .calchip-mobile {
+    --pill-bg: color-mix(in srgb, var(--pill-source) 16%, var(--canvas));
+    --pill-bd: color-mix(in srgb, var(--pill-source) 38%, var(--canvas));
+    --pill-fg: color-mix(in srgb, var(--pill-source) 62%, var(--ink));
+    background: var(--pill-bg);
+    color: var(--pill-fg);
+    border: 1px solid var(--pill-bd);
+    border-left: 3px solid var(--pill-source);
+    border-radius: 6px;
+    line-height: 1.2;
+    padding: 2px 5px;
+    width: 100%; box-sizing: border-box; text-align: left;
+  }
+  .calchip-mobile .calchip-name { display: block; overflow-wrap: anywhere; word-break: break-word; }
+  .calchip-mobile .calchip-amount { display: block; font-family: var(--font-mono-mono), monospace; font-size: 11px; }
+  .calchip-mobile .calchip-sub { display: block; color: color-mix(in srgb, var(--pill-source) 70%, var(--ink-faint)); }
+  .calchip-inert { opacity: 0.45; cursor: default; }
+  .calchip-done { opacity: 0.55; text-decoration: line-through; }
   .cal-dot { width: 6px; height: 6px; border-radius: 999px; display: block; }
 
   /* Mobile day bottom sheet: slides up from the bottom. */
