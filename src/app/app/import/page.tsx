@@ -348,12 +348,18 @@ export default function ImportPage() {
       }
       const pm = p.payment;
       const pmHas = pm && (String(pm.amount ?? "").trim() !== "" || String(pm.status ?? "").trim() !== "" || String(pm.expected_date ?? "").trim() !== "");
-      if (pmHas) {
-        const date = pm.expected_date?.trim() ? pm.expected_date.slice(0, 10) : (p.due_date?.trim() ? p.due_date.slice(0, 10) : (p.content?.event_date ?? "").slice(0, 10) || null);
-        const amount = toNum(pm.amount) ?? p.value ?? 0;
-        const received = /paid|received/i.test(pm.status || "");
+      // A payment row is anchored by the AI's payment object OR the deal's own
+      // due_date (the pay-by/expected-money date). A row can carry a real value +
+      // due_date but an empty payment object (AI mapped the date to deal.due_date,
+      // not payment.expected_date); without this, those rows silently produced no
+      // payment row at all. due_date alone is enough to anchor one.
+      const dueDate = p.due_date?.trim() ? p.due_date.slice(0, 10) : null;
+      if (pmHas || dueDate) {
+        const date = pm?.expected_date?.trim() ? pm.expected_date.slice(0, 10) : (dueDate ?? ((p.content?.event_date ?? "").slice(0, 10) || null));
+        const amount = toNum(pm?.amount) ?? p.value ?? 0;
+        const received = /paid|received/i.test(pm?.status || "");
         const status = received ? "received" : "expected";
-        const payStatus = received ? "paid" : /invoiced/i.test(pm.status || "") ? "invoiced" : "not_invoiced";
+        const payStatus = received ? "paid" : /invoiced/i.test(pm?.status || "") ? "invoiced" : "not_invoiced";
         const existingId = date ? payByKey.get(`${dealId}|${date}|${amount}`) : null;
         if (date && existingId) { await supabase.from("payments").update({ status, pay_status: payStatus }).eq("id", existingId); }
         else if (date) { await supabase.from("payments").insert({ user_id: user.id, deal_id: dealId, amount, expected_date: date, status, pay_status: payStatus }); }
