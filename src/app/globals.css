@@ -1017,6 +1017,49 @@ input[type="range"].zoom::-moz-range-track {
     to { transform: translateY(var(--cal-drift, 0)); }
   }
   @keyframes cal-fade { from { opacity: 0; } to { opacity: 1; } }
+
+  /* Generic mobile bottom sheet (payment + post editor). Full width, pinned to
+     the bottom, 16px top radius, drag handle centered. Renders above everything
+     (z-95 scrim / z-96 panel: header is z-70, FAB z-60, side drawer z-80).
+     Height fits content but never exceeds 90dvh; body scrolls internally while
+     header/footer stay fixed. Footer clears the iOS home-indicator via
+     env(safe-area-inset-bottom). Slide is 200ms and driven by animation on
+     mount (open) and a .closing transform (close); both are skipped under
+     prefers-reduced-motion. */
+  .cal-mbsheet-scrim { position: fixed; inset: 0; z-index: 95; background: rgba(13, 15, 19, 0.4); animation: cal-fade 0.2s ease; }
+  .cal-mbsheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 96;
+    background: var(--card); box-shadow: 0 18px 48px rgba(13, 15, 19, 0.28);
+    border-radius: 16px 16px 0 0;
+    display: flex; flex-direction: column;
+    min-height: 0; max-height: 90dvh;
+    animation: cal-mbsheet-in 0.2s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  @keyframes cal-mbsheet-in {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .cal-mbsheet.closing { transform: translateY(100%); }
+  .cal-mbsheet .cal-mb-handle {
+    flex: none; display: flex; justify-content: center; padding: 9px 0 7px;
+    touch-action: none; cursor: grab;
+  }
+  .cal-mbsheet .cal-mb-handle::before {
+    content: ""; width: 42px; height: 5px; border-radius: 999px; background: var(--line2);
+  }
+  .cal-mbsheet .cal-mb-head {
+    flex: none; display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px 6px;
+  }
+  .cal-mbsheet .cal-mb-head h4 { font-family: var(--font-head), sans-serif; font-size: 17px; font-weight: 700; }
+  .cal-mbsheet .cal-mb-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .cal-mbsheet .cal-mb-footer {
+    flex: none; padding-top: 12px; padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+  .cal-mbsheet .cal-mb-field > span { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
+  .cal-mbsheet .cal-mb-field input,
+  .cal-mbsheet .cal-mb-field select,
+  .cal-mbsheet .cal-mb-field textarea { font-size: 16px; width: 100%; }
 }
 
 /* ------- Week strip (interactive) ------- */

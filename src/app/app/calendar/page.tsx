@@ -155,6 +155,9 @@ export default function CalendarPage() {
   const [sheetDay, setSheetDay] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const [selected, setSelected] = useState<{ itemId: string; type: "content" | "deliverable" | "payment" | "todo" | "note"; x: number; y: number; date: string } | null>(null);
+  // The tapped event row (chip) the mobile sheet was opened from, so focus can
+  // return to it on close.
+  const sheetTriggerRef = useRef<HTMLElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragType, setDragType] = useState<"content" | "deliverable" | "payment" | "todo" | "note" | null>(null);
@@ -460,8 +463,9 @@ export default function CalendarPage() {
       readonly: it.skeleton || it.readonly, // optimistic add / deal-level display: not tappable
     };
   });
-  const openMobileChip = (it: ReturnType<typeof mobileChips>[number], iso: string) => {
+  const openMobileChip = (it: ReturnType<typeof mobileChips>[number], iso: string, el?: HTMLElement | null) => {
     if (it.readonly) return;
+    sheetTriggerRef.current = el ?? null;
     setSelected({ itemId: it.id, type: it.type, x: 0, y: 0, date: iso });
   };
 
@@ -607,7 +611,7 @@ export default function CalendarPage() {
                       <button
                         key={chip.id}
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); openMobileChip(chip, iso); }}
+                        onClick={(e) => { e.stopPropagation(); openMobileChip(chip, iso, e.currentTarget as HTMLElement); }}
                         disabled={chip.readonly}
                         className={cn("cal-chip block w-full text-left", chip.readonly && "calchip-inert", chip.done && "calchip-done")}
                         style={{ "--pill-source": chip.color } as React.CSSProperties}
@@ -822,7 +826,14 @@ export default function CalendarPage() {
         </MiniModal>
       )}
 
-      {selected && selectedContent && (
+      {selected && selectedContent && (isMobile ? (
+        <PostEditorSheet
+          item={selectedContent}
+          deals={deals}
+          onClose={() => { setSelected(null); sheetTriggerRef.current?.focus?.(); sheetTriggerRef.current = null; }}
+          onSaved={() => { setSelected(null); sheetTriggerRef.current = null; load(); }}
+        />
+      ) : (
         <ContentDetailPopover
           item={selectedContent}
           deals={deals}
@@ -830,15 +841,21 @@ export default function CalendarPage() {
           onClose={() => setSelected(null)}
           onSaved={() => { setSelected(null); load(); }}
         />
-      )}
-      {selected && selectedPayment && (
+      ))}
+      {selected && selectedPayment && (isMobile ? (
+        <PaymentSheet
+          payment={selectedPayment}
+          onClose={() => { setSelected(null); sheetTriggerRef.current?.focus?.(); sheetTriggerRef.current = null; }}
+          onSaved={() => { setSelected(null); sheetTriggerRef.current = null; load(); }}
+        />
+      ) : (
         <PaymentDetailPopover
           payment={selectedPayment}
           position={{ x: selected.x, y: selected.y }}
           onClose={() => setSelected(null)}
           onSaved={() => { setSelected(null); load(); }}
         />
-      )}
+      ))}
       {selected && selectedTodo && (
         <TodoDetailPopover
           todo={selectedTodo}
@@ -1476,6 +1493,315 @@ function PaymentDetailPopover({ payment, position, onClose, onSaved }: {
         )}
       </div>
     </MiniModal>
+  );
+}
+
+/* Shared mobile bottom sheet: full width, anchored bottom, 16px top radius,
+ * drag handle centered. Renders above everything with a scrim; body does not
+ * scroll while open; dismiss via scrim tap, swipe down on handle, close button,
+ * or Escape. Height fits content to 90dvh with internal body scroll and a fixed
+ * footer that clears env(safe-area-inset-bottom). aria-modal with focus trapped
+ * inside and returned to the triggering element on close. Slides up/down 200ms,
+ * skipped under prefers-reduced-motion. */
+function MobileBottomSheet({
+  title, children, footer, onClose, returnFocusTo,
+  tall = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  onClose: () => void;
+  returnFocusTo?: HTMLElement | null;
+  tall?: boolean;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [closing, setClosing] = useState(false);
+  const drag = useRef<{ y: number; translate: number; hit: boolean } | null>(null);
+  const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const CLOSE_DURATION = reduced ? 0 : 200;
+
+  // Lock page scroll while the sheet is open; restore on close.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // Focus the panel on open; trap Tab and close on Escape.
+  useEffect(() => {
+    panelRef.current?.focus?.();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { requestClose(); return; }
+      if (e.key !== "Tab") return;
+      const el = panelRef.current;
+      if (!el) return;
+      const f = Array.from(el.querySelectorAll<HTMLElement>("button, input, select, textarea, a[href], [tabindex]:not([tabindex='-1'])")).filter((n) => !n.hasAttribute("disabled"));
+      if (!f.length) return;
+      const first = f[0], last = f[f.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === el)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const requestClose = () => {
+    if (closing) return;
+    if (reduced) { onClose(); return; }
+    setClosing(true);
+    window.setTimeout(() => { onClose(); }, CLOSE_DURATION);
+  };
+
+  const onScrim = () => requestClose();
+  const onHandleDown = (e: React.PointerEvent) => {
+    drag.current = { y: e.clientY, translate: 0, hit: true };
+    try { (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId); } catch { /* non-fatal */ }
+  };
+  const onHandleMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d || !d.hit) return;
+    d.translate = Math.max(0, e.clientY - d.y);
+    if (panelRef.current) panelRef.current.style.translate = `0 ${Math.min(d.translate, 240)}px`;
+  };
+  const onHandleUp = (e: React.PointerEvent) => {
+    const d = drag.current;
+    drag.current = null;
+    if (panelRef.current) panelRef.current.style.translate = "";
+    if (d && d.translate > 90) requestClose();
+  };
+  const onHandleCancel = () => {
+    drag.current = null;
+    if (panelRef.current) panelRef.current.style.translate = "";
+  };
+
+  return (
+    <>
+      <div className="cal-mbsheet-scrim" onClick={onScrim} aria-hidden />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
+        className={cn("cal-mbsheet", closing && "closing", tall && "cal-mbsheet-tall")}
+      >
+        <div
+          className="cal-mb-handle"
+          onPointerDown={onHandleDown} onPointerMove={onHandleMove}
+          onPointerUp={onHandleUp} onPointerCancel={onHandleCancel}
+        />
+        <div className="cal-mb-head">
+          <h4 id={`mbsheet-title-${title.replace(/\s+/g, "")}`} className="truncate">{title}</h4>
+          <button onClick={requestClose} aria-label="Close" className="p-1 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
+        </div>
+        <div className="cal-mb-body" style={{ height: tall ? undefined : undefined }}>
+          {children}
+        </div>
+        {footer && <div className="cal-mb-footer">{footer}</div>}
+      </div>
+    </>
+  );
+}
+
+/* Payment sheet: short, fits content. Brand title, amount (JetBrains Mono) with
+ * a fixed-color status badge, human "Due Thu, Oct 15" with year only when not
+ * the current year, and a full-width Mark received primary button. */
+function PaymentSheet({ payment, onClose, onSaved }: {
+  payment: Payment; onClose: () => void; onSaved: () => void;
+}) {
+  const supabase = createClient();
+  const [saving, setSaving] = useState(false);
+  const brand = payment.deal?.brand ?? "Payment";
+
+  const markReceived = async () => {
+    setSaving(true);
+    await supabase.from("payments").update({ status: "received", pay_status: "paid" }).eq("id", payment.id);
+    setSaving(false);
+    onSaved();
+  };
+
+  const fmtDue = () => {
+    const d = payment.expected_date;
+    if (!d) return "No due date set";
+    const date = new Date(d + "T00:00:00");
+    if (isNaN(date.getTime())) return d;
+    const dow = WEEKDAYS[date.getDay()];
+    const mon = MONTHS[date.getMonth()].slice(0, 3);
+    const day = date.getDate();
+    const year = date.getFullYear() === new Date().getFullYear() ? "" : `, ${date.getFullYear()}`;
+    return `Due ${dow}, ${mon} ${day}${year}`;
+  };
+
+  const received = payment.status === "received";
+  return (
+    <MobileBottomSheet
+      title={brand}
+      onClose={onClose}
+      footer={!received ? (
+        <Button onClick={markReceived} disabled={saving} className="w-full">
+          {saving ? <Spinner /> : <IconCheck size={16} />} Mark received
+        </Button>
+      ) : undefined}
+    >
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-[30px] leading-none font-bold font-mono">{formatMoney(payment.amount)}</span>
+        <span className={cn("pill", received ? "pill-paid" : "pill-due")}>{received ? "Received" : "Expected"}</span>
+      </div>
+      <p className="px-4 text-[14px] text-muted">{fmtDue()}</p>
+    </MobileBottomSheet>
+  );
+}
+
+/* Post editor sheet: tall (to 90dvh), single column full-width inputs with
+ * visible labels, prefilled from the opened event, 16px inputs (no iOS zoom).
+ * Expands to full height with the keyboard and keeps the footer above it via
+ * visualViewport. Delete lives as a quiet text link at the bottom of the body,
+ * above the footer; unsaved edits confirm before discarding. */
+function PostEditorSheet({ item, deals, onClose, onSaved }: {
+  item: Content; deals: Deal[]; onClose: () => void; onSaved: () => void;
+}) {
+  const supabase = createClient();
+  const [title, setTitle] = useState(item.title);
+  const [platform, setPlatform] = useState(item.platform ?? "");
+  const [postType, setPostType] = useState(item.post_type ?? "");
+  const [dealId, setDealId] = useState(item.linked_deal_id ?? "");
+  const [scheduledTime, setScheduledTime] = useState(item.scheduled_time ?? "");
+  const [caption, setCaption] = useState(item.caption ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [confirming, setConfirming] = useState<null | "discard" | "delete">(null);
+  const [viewH, setViewH] = useState<number | null>(null);
+
+  const markDirty = () => setDirty(true);
+  const changed = () =>
+    title !== item.title || platform !== (item.platform ?? "") || postType !== (item.post_type ?? "") ||
+    dealId !== (item.linked_deal_id ?? "") || scheduledTime !== (item.scheduled_time ?? "") || caption !== (item.caption ?? "");
+
+  // Grow to full height when the on-screen keyboard is up (visualViewport
+  // shrinks), and pin the footer above it. Only while a field has focus.
+  useEffect(() => {
+    const update = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const kbUp = vv.height < window.innerHeight;
+      setViewH(kbUp ? vv.height : null);
+    };
+    window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener?.("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener?.("resize", update);
+    };
+  }, []);
+
+  const save = async () => {
+    if (!title.trim()) { setError("Add a title."); return; }
+    setSaving(true); setError("");
+    const { error: err } = await supabase.from("content").update({
+      title: title.trim(), platform: platform || null, post_type: postType || null,
+      linked_deal_id: dealId || null, scheduled_time: scheduledTime || null, caption: caption || null,
+    }).eq("id", item.id);
+    setSaving(false);
+    if (err) { setError(err.message); return; }
+    onSaved();
+  };
+
+  const remove = async () => {
+    await supabase.from("content").delete().eq("id", item.id);
+    onSaved();
+  };
+
+  const requestClose = () => {
+    if (changed()) { setConfirming("discard"); return; }
+    onClose();
+  };
+
+  const sheetH = viewH ? { height: viewH } : undefined;
+
+  return (
+    <MobileBottomSheet
+      title="Post details"
+      tall
+      onClose={requestClose}
+      footer={(
+        <div className="flex items-center gap-3">
+          <Button variant="secondary" onClick={requestClose} className="flex-1">Cancel</Button>
+          <Button onClick={save} disabled={saving} className="flex-1">{saving ? <Spinner /> : <IconCheck size={16} />} Save</Button>
+        </div>
+      )}
+    >
+      {/* tall sheet fills the visual viewport when the keyboard is up */}
+      <div style={sheetH}>
+        <div className="space-y-3 px-4">
+          <label className="cal-mb-field block">
+            <span>Post name</span>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          </label>
+          <label className="cal-mb-field block">
+            <span>Deal</span>
+            <Select value={dealId} onChange={(e) => setDealId(e.target.value)}>
+              <option value="">No linked deal</option>
+              {deals.map((d) => <option key={d.id} value={d.id}>{d.brand}</option>)}
+            </Select>
+          </label>
+          <label className="cal-mb-field block">
+            <span>Platform</span>
+            <Select value={platform} onChange={(e) => { setPlatform(e.target.value); markDirty(); }}>
+              <option value="">Choose platform</option>
+              {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
+            </Select>
+          </label>
+          <label className="cal-mb-field block">
+            <span>Post type</span>
+            <Select value={postType} onChange={(e) => { setPostType(e.target.value); markDirty(); }}>
+              <option value="">Choose post type</option>
+              {POST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+            </Select>
+          </label>
+          <label className="cal-mb-field block">
+            <span>Time</span>
+            <Input type="time" value={scheduledTime} onChange={(e) => { setScheduledTime(e.target.value); markDirty(); }} />
+          </label>
+          <label className="cal-mb-field block">
+            <span>Caption / notes</span>
+            <Textarea value={caption} onChange={(e) => { setCaption(e.target.value); markDirty(); }} rows={3} placeholder="Optional caption or notes…" />
+          </label>
+          {error && <p className="text-sm text-bad" role="alert">{error}</p>}
+        </div>
+        {/* Delete: quiet text link below the form, above the footer */}
+        <div className="mt-4 px-4">
+          <button
+            type="button"
+            onClick={() => setConfirming("delete")}
+            className="text-bad text-[14px] underline-offset-2 cursor-pointer"
+          >Delete post</button>
+        </div>
+
+        {confirming === "discard" && (
+          <div className="mt-5 px-4 cal-mb-body-child rounded-xl border border-line bg-card2 p-4">
+            <p className="text-[15px] font-semibold">Discard unsaved changes?</p>
+            <p className="text-[13px] text-muted mt-1">Your edits to this post have not been saved.</p>
+            <div className="flex gap-3 mt-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setConfirming(null)}>Keep editing</Button>
+              <Button className="flex-1" onClick={onClose}>Discard</Button>
+            </div>
+          </div>
+        )}
+
+        {confirming === "delete" && (
+          <div className="mt-5 px-4 cal-mb-body-child rounded-xl border border-line bg-card2 p-4">
+            <p className="text-[15px] font-semibold">Delete this post?</p>
+            <p className="text-[13px] text-muted mt-1">This removes the post and its notes.</p>
+            <div className="flex gap-3 mt-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setConfirming(null)}>Cancel</Button>
+              <Button variant="danger" className="flex-1" onClick={remove}><IconDelete size={16} /> Delete</Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </MobileBottomSheet>
   );
 }
 
