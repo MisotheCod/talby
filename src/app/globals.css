@@ -975,23 +975,27 @@ input[type="range"].zoom::-moz-range-track {
   /* keep content clear of the floating assistant + theme buttons */
   .app-shell .main { padding-bottom: 96px; }
 
-  /* Calendar month grid on phones: one labelled, untruncated chip per event.
-     Grid rows size to their tallest cell (auto rows), so a busy week grows and
-     an empty week stays thin — the page scrolls, which is fine on mobile. */
-  .cal-grid-mobile {
-    grid-auto-rows: auto;
-  }
-  .cal-cell-mobile { min-height: 0; }
+  /* Mobile month (replacement layout): a per-week strip of thin type-colored
+     bars under date numbers, then a full-width, untruncated list of that week's
+     events. Every column is minmax(0,1fr) with min-width:0 on all children so no
+     content can push a track wider than its share (no 9-label header wrap, no
+     clipped last column, chips never escape their cell). Nothing truncates. */
+  .cal-week-wrap { width: 100%; }
+  .cal-week-header { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); min-width: 0; border-bottom: 1px solid var(--border); }
+  .cal-week-header .cal-week-dow { min-width: 0; padding: 2px 0; text-align: center; font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+  .cal-week { border-bottom: 1px solid var(--border); }
+  .cal-week-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; min-width: 0; }
+  .cal-week-strip .cal-week-slot { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 0 3px; }
+  .cal-week-strip .cal-week-slot .cal-week-daynum { min-width: 20px; height: 20px; display: inline-grid; place-items: center; border-radius: 999px; font-size: 12px; line-height: 1; color: var(--ink-soft); }
+  .cal-week-strip .cal-week-slot .cal-week-today { background: var(--accent); color: #fff; font-weight: 700; }
+  .cal-week-bars { display: flex; gap: 1.5px; min-width: 0; line-height: 1; }
+  .cal-week-bar { width: 4px; height: 9px; border-radius: 1.5px; display: block; flex: none; }
+  .cal-week-more { font-size: 8.5px; color: var(--ink-faint); line-height: 1; }
 
-  /* Mobile event chip: tinted background + 3px colored left bar from the same
-     --pill-source as the desktop pill. Nothing truncates — text wraps and the
-     cell grows to fit. Amount (payments) and platform/subtype (posts) are each
-     on their own line. Done items dim; inert (deal-level / optimistic) render
-     muted and non-interactive. */
-  .calchip-stack { display: grid; gap: 3px; min-height: 0; }
-  .calchip-mobile {
-    --pill-bg: color-mix(in srgb, var(--pill-source) 16%, var(--canvas));
-    --pill-bd: color-mix(in srgb, var(--pill-source) 38%, var(--canvas));
+  .cal-week-list { display: grid; gap: 3px; min-width: 0; padding: 2px; }
+  .cal-week-row {
+    --pill-bg: color-mix(in srgb, var(--pill-source) 15%, var(--canvas));
+    --pill-bd: color-mix(in srgb, var(--pill-source) 36%, var(--canvas));
     --pill-fg: color-mix(in srgb, var(--pill-source) 62%, var(--ink));
     background: var(--pill-bg);
     color: var(--pill-fg);
@@ -999,15 +1003,18 @@ input[type="range"].zoom::-moz-range-track {
     border-left: 3px solid var(--pill-source);
     border-radius: 6px;
     line-height: 1.2;
-    padding: 2px 5px;
+    padding: 5px 7px;
     width: 100%; box-sizing: border-box; text-align: left;
+    display: grid; grid-template-columns: auto 1fr; gap: 7px;
+    min-width: 0;
   }
-  .calchip-mobile .calchip-name { display: block; overflow-wrap: anywhere; word-break: break-word; }
-  .calchip-mobile .calchip-amount { display: block; font-family: var(--font-mono-mono), monospace; font-size: 11px; }
-  .calchip-mobile .calchip-sub { display: block; color: color-mix(in srgb, var(--pill-source) 70%, var(--ink-faint)); }
+  .cal-week-row .cal-week-daylabel { font-size: 10.5px; color: var(--ink-faint); white-space: nowrap; }
+  .cal-week-row .cal-week-rowbody { min-width: 0; }
+  .cal-week-rowbody .calchip-name { display: block; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+  .cal-week-rowbody .calchip-amount { display: block; font-family: var(--font-mono-mono), monospace; font-size: 11px; }
+  .cal-week-rowbody .calchip-sub { display: block; color: color-mix(in srgb, var(--pill-source) 70%, var(--ink-faint)); }
   .calchip-inert { opacity: 0.45; cursor: default; }
   .calchip-done { opacity: 0.55; text-decoration: line-through; }
-  .cal-dot { width: 6px; height: 6px; border-radius: 999px; display: block; }
 
   /* Mobile day bottom sheet: slides up from the bottom. */
   .cal-sheet { animation: cal-sheet-up 240ms cubic-bezier(0.2, 0.7, 0.3, 1); }
