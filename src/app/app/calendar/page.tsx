@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn, formatMoney } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
+import { Tiktok, Instagram, Youtube, Twitter, Facebook, Rss, Music, Link as IconParkLink } from "@icon-park/react";
 import { Button, Input, Select, Spinner, Textarea, Pill, Segmented } from "@/components/ui";
 
 type Content = {
@@ -448,8 +449,18 @@ export default function CalendarPage() {
   // platform/subtype line a post row needs. Tapping a row reuses the drawer/doc
   // open path (setSelected with the same prefixed id the desktop detail
   // resolvers expect), so mobile opens the identical surface desktop opens.
+  // Icon Park outline glyph per social platform, for post chips (12px icons in
+  // a row instead of an unreadable platform word — "Instagram" never fits a
+  // ~38px chip text column). Unmapped platforms fall back to a neutral link icon.
+  const PLATFORM_ICONS: Record<string, React.ComponentType<any>> = {
+    TikTok: Tiktok, Instagram, YouTube: Youtube, "YouTube Shorts": Youtube,
+    X: Twitter, Twitter: Twitter, Facebook, Rss, Blog: Rss, Newsletter: Rss,
+    Podcast: Music, Wechat: Twitter,
+  };
+  const platformIcon = (p: string) => PLATFORM_ICONS[p] ?? IconParkLink;
+
   const mobileChips = (iso: string) => deskItems(iso).map((it) => {
-    const sub = it.type === "deal" || it.type === "deliverable"
+    const platform = it.type === "deal" || it.type === "deliverable"
       ? (content.find((c) => c.id === it.nav.id)?.platform) || null
       : null;
     return {
@@ -457,7 +468,7 @@ export default function CalendarPage() {
       type: it.nav.type,  // content | deliverable | payment | todo | note (what the resolver checks)
       name: it.fullName,  // untruncated: legal suffix intact, wraps in the cell
       amount: it.amount,  // payments only
-      sub,                // posts only: platform (or post_type fallback)
+      platform,           // posts only: platform (rendered as an outline icon)
       color: it.color,
       done: it.done,
       readonly: it.skeleton || it.readonly, // optimistic add / deal-level display: not tappable
@@ -528,7 +539,7 @@ export default function CalendarPage() {
                 <span aria-hidden className="cal-arrow-div" />
                 <button onClick={nextMonth} aria-label="Next month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer focus:outline-none">›</button>
               </div>
-              <Button onClick={() => openDay()} className="h-9 px-2.5 text-[13px]"><IconPlus size={15} /> Add</Button>
+              <Button onClick={() => openDay()} aria-label="Add event" className="h-9 w-9 px-0 text-[13px]"><IconPlus size={18} /></Button>
             </div>
           </div>
         ) : (
@@ -608,7 +619,9 @@ export default function CalendarPage() {
                     {Number(iso.slice(8))}
                   </span>
                   <span className="cal-cell-chips">
-                    {chips.map((chip) => (
+                    {chips.map((chip) => {
+                      const PlatI = chip.platform ? platformIcon(chip.platform) : null;
+                      return (
                       <button
                         key={chip.id}
                         type="button"
@@ -619,9 +632,14 @@ export default function CalendarPage() {
                       >
                         <span className="calchip-name">{chip.name}</span>
                         {chip.amount && <span className="calchip-amount">{chip.amount}</span>}
-                        {chip.sub && <span className="calchip-sub">{chip.sub}</span>}
+                        {PlatI && (
+                          <span className="calchip-plats" aria-label={chip.platform ?? ""}>
+                            <PlatI size={14} />
+                          </span>
+                        )}
                       </button>
-                    ))}
+                      );
+                    })}
                   </span>
                 </div>
               );

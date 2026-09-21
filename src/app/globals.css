@@ -998,14 +998,14 @@ input[type="range"].zoom::-moz-range-track {
     border: 1px solid var(--pill-bd);
     border-left: 3px solid var(--pill-source);
     border-radius: 5px;
-    line-height: 1.15;
-    padding: 2px 4px;
+    line-height: 1.2;
+    padding: 4px 3px 4px 4px;
     width: 100%; box-sizing: border-box; text-align: left;
     min-width: 0;
   }
-  .cal-cell-mobile .cal-chip .calchip-name { display: block; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
-  .cal-cell-mobile .cal-chip .calchip-amount { display: block; font-family: var(--font-mono-mono), monospace; font-size: 10px; }
-  .cal-cell-mobile .cal-chip .calchip-sub { display: block; color: color-mix(in srgb, var(--pill-source) 70%, var(--ink-faint)); font-size: 10px; }
+  .cal-cell-mobile .cal-chip .calchip-name { display: block; min-width: 0; font-family: var(--font-inter), var(--font-head), sans-serif; font-size: 11px; font-weight: 500; line-height: 1.2; word-break: normal; overflow-wrap: break-word; }
+  .cal-cell-mobile .cal-chip .calchip-amount { display: block; font-family: var(--font-mono-mono), monospace; font-size: 11px; }
+  .cal-cell-mobile .cal-chip .calchip-plats { display: inline-flex; align-items: center; gap: 2px; color: color-mix(in srgb, var(--pill-source) 70%, var(--ink-faint)); }
   .calchip-inert { opacity: 0.45; cursor: default; }
   .calchip-done { opacity: 0.55; text-decoration: line-through; }
 
