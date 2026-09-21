@@ -465,25 +465,6 @@ export default function CalendarPage() {
     setSelected({ itemId: it.id, type: it.type, x: 0, y: 0, date: iso });
   };
 
-  // Group the flat cell list (leading nulls for the pre-month offset) into
-  // weeks of exactly 7, padding the final partial week so every strip column
-  // aligns with the 7-column weekday header — no content can push a track.
-  const weeks = useMemo(() => {
-    const out: (string | null)[][] = [];
-    for (let i = 0; i < cells.length; i += 7) {
-      const wk = cells.slice(i, i + 7);
-      while (wk.length < 7) wk.push(null);
-      out.push(wk);
-    }
-    return out;
-  }, [cells]);
-
-  // "Fri 18" day label for a week-list row.
-  const dayShortLabel = (iso: string) => {
-    const d = new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
-    return `${WEEKDAYS[d.getDay()]} ${d.getDate()}`;
-  };
-
   const sheetItems = sheetDay ? dayItems(sheetDay) : [];
   const sheetRow = (it: (typeof sheetItems)[number]): MobileSheetRow => {
     // Normalize to the three mobile labels now: POST / PAY / DUE.
@@ -604,59 +585,39 @@ export default function CalendarPage() {
             onAddDay={(iso) => { setDayHighlight(iso); openDay(iso); }}
           />
         ) : isMobile ? (
-          <div className="cal-week-wrap">
-            {weeks.map((week, wi) => {
-              const cellsIn = week.filter((iso) => iso !== null);
-              // All events across the week, in date order, already filter-aware
-              // (deskItems respects the filter tabs), so strip bars and list rows
-              // stay in sync with each other and with the filter.
-              const weekEvents = cellsIn.map((iso) => ({ iso, chips: mobileChips(iso) }));
-              const anyEvents = weekEvents.some((d) => d.chips.length > 0);
+          <div className="cal-cell-grid">
+            {cells.map((iso, idx) => {
+              if (iso === null) return <div key={`e${idx}`} className="cal-cell-mobile border-r border-b border-line" />;
+              const chips = mobileChips(iso);
+              const today = iso === toISO(new Date());
               return (
-                <div key={wi} className="cal-week">
-                  {/* Week strip: display only, not tappable. Date numbers with up
-                      to three thin type-colored bars under each; 4+ shows +N. */}
-                  <div className="cal-week-strip" aria-hidden>
-                    {week.map((iso, ci) => {
-                      if (iso === null) return <span key={`e${ci}`} className="cal-week-slot" />;
-                      const chips = mobileChips(iso);
-                      const today = iso === toISO(new Date());
-                      const bars = chips.slice(0, 3);
-                      const more = chips.length - 3;
-                      return (
-                        <span key={iso} className="cal-week-slot" data-day={iso}>
-                          <span className={cn("cal-week-daynum", today && "cal-week-today")}>{Number(iso.slice(8))}</span>
-                          <span className="cal-week-bars">
-                            {bars.map((b) => <span key={b.id} className="cal-week-bar" style={{ background: b.color }} />)}
-                            {more > 0 && <span className="cal-week-more">+{more}</span>}
-                          </span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                  {/* Week list: every event this week, full-width, untruncated.
-                      A week with no events renders the strip only. */}
-                  {anyEvents && (
-                    <div className="cal-week-list">
-                      {weekEvents.map(({ iso, chips }) => chips.map((chip) => (
-                        <button
-                          key={chip.id}
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); openMobileChip(chip, iso); }}
-                          disabled={chip.readonly}
-                          className={cn("cal-week-row block w-full text-left", chip.readonly && "calchip-inert", chip.done && "calchip-done")}
-                          style={{ "--pill-source": chip.color } as React.CSSProperties}
-                        >
-                          <span className="cal-week-daylabel">{dayShortLabel(iso)}</span>
-                          <span className="cal-week-rowbody">
-                            <span className="calchip-name">{chip.name}</span>
-                            {chip.amount && <span className="calchip-amount">{chip.amount}</span>}
-                            {chip.sub && <span className="calchip-sub">{chip.sub}</span>}
-                          </span>
-                        </button>
-                      )))}
-                    </div>
-                  )}
+                <div
+                  key={iso}
+                  data-day={iso}
+                  className={cn("cal-cell-mobile border-r border-b border-line", today && "cal-cell-today", dayHighlight === iso && "bg-subtle/60")}
+                >
+                  <span className={cn(
+                    "cal-cell-dnum",
+                    today ? "cal-cell-dnum-today" : ""
+                  )}>
+                    {Number(iso.slice(8))}
+                  </span>
+                  <span className="cal-cell-chips">
+                    {chips.map((chip) => (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openMobileChip(chip, iso); }}
+                        disabled={chip.readonly}
+                        className={cn("cal-chip block w-full text-left", chip.readonly && "calchip-inert", chip.done && "calchip-done")}
+                        style={{ "--pill-source": chip.color } as React.CSSProperties}
+                      >
+                        <span className="calchip-name">{chip.name}</span>
+                        {chip.amount && <span className="calchip-amount">{chip.amount}</span>}
+                        {chip.sub && <span className="calchip-sub">{chip.sub}</span>}
+                      </button>
+                    ))}
+                  </span>
                 </div>
               );
             })}
