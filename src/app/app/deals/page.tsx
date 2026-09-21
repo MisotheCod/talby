@@ -1154,7 +1154,13 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     ? (dealPayRollup(payments as unknown as { pay_status: string | null; expected_date: string | null }[]).status ?? "not_invoiced")
     : (deal.pay_rollup?.status ?? "not_invoiced");
   const setDealStatus = (val: string) => {
-    setPayments(payments.map((p) => ({ ...p, pay_status: val, status: val === "paid" ? "received" : p.status })));
+    if (payments.length) {
+      setPayments(payments.map((p) => ({ ...p, pay_status: val, status: val === "paid" ? "received" : p.status })));
+    } else {
+      // No payment row yet: create one carrying the status (amount from the deal),
+      // mirroring setPayByDate so a status change on a payment-less deal persists.
+      setPayments([{ id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, deal_id: deal.id, amount: deal.value ?? 0, expected_date: null, status: val === "paid" ? "received" : "expected", notes: null, invoice_state: null, pay_status: val }]);
+    }
   };
 
   // Pay by = the earliest payment's expected_date (single source of truth).
