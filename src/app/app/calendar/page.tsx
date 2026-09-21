@@ -523,9 +523,10 @@ export default function CalendarPage() {
                 getLabel={(v) => (v === "month" ? "Month" : "Agenda")}
               />
               <Button variant="secondary" onClick={goToday} className="h-9 px-2.5 text-[13px]">Today</Button>
-              <div className="flex items-center gap-0.5 border border-line rounded-lg overflow-hidden">
-                <button onClick={prevMonth} aria-label="Previous month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer">‹</button>
-                <button onClick={nextMonth} aria-label="Next month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer">›</button>
+              <div className="cal-month-nav flex items-center border border-line rounded-lg overflow-hidden">
+                <button onClick={prevMonth} aria-label="Previous month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer focus:outline-none">‹</button>
+                <span aria-hidden className="cal-arrow-div" />
+                <button onClick={nextMonth} aria-label="Next month" className="h-9 px-2.5 text-muted hover:text-foreground hover:bg-card2 cursor-pointer focus:outline-none">›</button>
               </div>
               <Button onClick={() => openDay()} className="h-9 px-2.5 text-[13px]"><IconPlus size={15} /> Add</Button>
             </div>
@@ -1590,7 +1591,9 @@ function MobileBottomSheet({
           className="cal-mb-handle"
           onPointerDown={onHandleDown} onPointerMove={onHandleMove}
           onPointerUp={onHandleUp} onPointerCancel={onHandleCancel}
-        />
+        >
+          <span className="cal-mb-grip" aria-hidden />
+        </div>
         <div className="cal-mb-head">
           <h4 id={`mbsheet-title-${title.replace(/\s+/g, "")}`} className="truncate">{title}</h4>
           <button onClick={requestClose} aria-label="Close" className="p-1 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
@@ -1644,11 +1647,11 @@ function PaymentSheet({ payment, onClose, onSaved }: {
         </Button>
       ) : undefined}
     >
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="flex items-center justify-between py-2">
         <span className="text-[30px] leading-none font-bold font-mono">{formatMoney(payment.amount)}</span>
         <span className={cn("pill", received ? "pill-paid" : "pill-due")}>{received ? "Received" : "Expected"}</span>
       </div>
-      <p className="px-4 text-[14px] text-muted">{fmtDue()}</p>
+      <p className="mt-1 text-[14px] text-muted">{fmtDue()}</p>
     </MobileBottomSheet>
   );
 }
@@ -1726,7 +1729,7 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
       tall
       onClose={requestClose}
       footer={(
-        <div className="flex items-center gap-3">
+        <div className="cal-mb-bottom">
           <Button variant="secondary" onClick={requestClose} className="flex-1">Cancel</Button>
           <Button onClick={save} disabled={saving} className="flex-1">{saving ? <Spinner /> : <IconCheck size={16} />} Save</Button>
         </div>
@@ -1734,7 +1737,7 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
     >
       {/* tall sheet fills the visual viewport when the keyboard is up */}
       <div style={sheetH}>
-        <div className="space-y-3 px-4">
+        <div className="space-y-3">
           <label className="cal-mb-field block">
             <span>Post name</span>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -1771,7 +1774,7 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
           {error && <p className="text-sm text-bad" role="alert">{error}</p>}
         </div>
         {/* Delete: quiet text link below the form, above the footer */}
-        <div className="mt-4 px-4">
+        <div className="mt-4">
           <button
             type="button"
             onClick={() => setConfirming("delete")}
@@ -1780,7 +1783,7 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
         </div>
 
         {confirming === "discard" && (
-          <div className="mt-5 px-4 cal-mb-body-child rounded-xl border border-line bg-card2 p-4">
+          <div className="mt-5 rounded-xl border border-line bg-card2 p-4">
             <p className="text-[15px] font-semibold">Discard unsaved changes?</p>
             <p className="text-[13px] text-muted mt-1">Your edits to this post have not been saved.</p>
             <div className="flex gap-3 mt-3">
@@ -1791,7 +1794,7 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
         )}
 
         {confirming === "delete" && (
-          <div className="mt-5 px-4 cal-mb-body-child rounded-xl border border-line bg-card2 p-4">
+          <div className="mt-5 rounded-xl border border-line bg-card2 p-4">
             <p className="text-[15px] font-semibold">Delete this post?</p>
             <p className="text-[13px] text-muted mt-1">This removes the post and its notes.</p>
             <div className="flex gap-3 mt-3">

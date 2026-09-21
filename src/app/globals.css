@@ -1040,26 +1040,35 @@ input[type="range"].zoom::-moz-range-track {
     to { transform: translateY(0); }
   }
   .cal-mbsheet.closing { transform: translateY(100%); }
+  .cal-mbsheet { outline: none; }
+  .cal-mbsheet:focus-visible { outline: none; }
   .cal-mbsheet .cal-mb-handle {
-    flex: none; display: flex; justify-content: center; padding: 9px 0 7px;
+    flex: none; display: flex; justify-content: center; align-items: center;
+    padding: 0; margin: 0; height: 12px;
     touch-action: none; cursor: grab;
   }
-  .cal-mbsheet .cal-mb-handle::before {
-    content: ""; width: 42px; height: 5px; border-radius: 999px; background: var(--line2);
+  .cal-mbsheet .cal-mb-handle .cal-mb-grip {
+    content: none; width: 36px; height: 4px; border-radius: 999px; background: var(--line); flex: none;
   }
   .cal-mbsheet .cal-mb-head {
     flex: none; display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 16px 6px;
+    padding: 6px 20px 2px;
   }
   .cal-mbsheet .cal-mb-head h4 { font-family: var(--font-head), sans-serif; font-size: 17px; font-weight: 700; }
-  .cal-mbsheet .cal-mb-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .cal-mbsheet .cal-mb-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 20px 4px; }
   .cal-mbsheet .cal-mb-footer {
-    flex: none; padding-top: 12px; padding-bottom: max(14px, env(safe-area-inset-bottom));
+    flex: none; padding: 14px 20px calc(16px + env(safe-area-inset-bottom));
   }
+  .cal-mbsheet .cal-mb-footer .cal-mb-bottom { display: flex; gap: 12px; }
   .cal-mbsheet .cal-mb-field > span { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
   .cal-mbsheet .cal-mb-field input,
   .cal-mbsheet .cal-mb-field select,
   .cal-mbsheet .cal-mb-field textarea { font-size: 16px; width: 100%; }
+
+  /* Mobile month prev/next: hairline divider in the border color, no focus ring
+     leaving a blue sliver between the two arrows. */
+  .cal-arrow-div { width: 1px; align-self: center; height: 12px; margin: 0 7px; flex: none; background: var(--line); }
+  .cal-month-nav button:focus-visible { outline: none; }
 }
 
 /* ------- Week strip (interactive) ------- */
