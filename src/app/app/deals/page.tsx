@@ -1166,7 +1166,14 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   // Pay by = the earliest payment's expected_date (single source of truth).
   // Editing it stages a change to that payment; with no payment row yet, one is
   // created. Committed on Save via the existing payments write path.
+  // The date input is UNCONTROLLED (defaultValue) so clicking the native spin
+  // arrows does not re-render the input and close the picker (a controlled
+  // value prop re-renders mid-edit, which Arc/WebKit read as "picker closed").
+  // External changes (Use invoice date) bump payByTick to remount the input so
+  // it picks up the new defaultValue; user arrow clicks never touch the tick.
   const payByDate = payments.map((p) => p.expected_date ?? "").filter((d) => d !== "").sort()[0] ?? "";
+  const [payByTick, setPayByTick] = useState(0);
+  const acceptPayBy = () => { onAcceptInvoiceDate(); setPayByTick(payByTick + 1); };
   const setPayByDate = (val: string) => {
     if (payments.length) {
       // Update the earliest-dated payment's expected_date.
@@ -1192,7 +1199,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           </select>
         </PRow>
         <PRow label="Pay by" onUndo={undoPayBy} dirty={payByDirty}>
-          <input type="date" value={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={`${inputCls} deal-date-input`} aria-label="Pay by date" />
+          <input key={`payby-${deal.id}-${payByTick}`} type="date" defaultValue={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={`${inputCls} deal-date-input`} aria-label="Pay by date" />
         </PRow>
         {invoiceReview && (
           <div className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-tint)] px-2.5 py-2 mt-1.5 mb-1.5 text-[12px]">
@@ -1200,7 +1207,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
               <>
                 <span className="text-ink block">The invoice says due {formatDate(invoiceReview.proposed)}. Current pay by is {invoiceReview.current ? formatDate(invoiceReview.current) : "not set"}.</span>
                 <div className="flex gap-2 mt-1.5">
-                  <button type="button" onClick={onAcceptInvoiceDate} className="px-2.5 h-7 rounded-md text-[12px] font-medium cursor-pointer bg-[var(--accent)] text-onaccent hover:brightness-95">Use invoice date</button>
+                  <button type="button" onClick={acceptPayBy} className="px-2.5 h-7 rounded-md text-[12px] font-medium cursor-pointer bg-[var(--accent)] text-onaccent hover:brightness-95">Use invoice date</button>
                   <button type="button" onClick={onKeepInvoiceDate} className="px-2.5 h-7 rounded-md text-[12px] font-medium cursor-pointer border border-line2 bg-card text-inksoft hover:text-ink">Keep current</button>
                 </div>
               </>
