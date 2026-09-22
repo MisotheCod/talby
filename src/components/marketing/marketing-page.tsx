@@ -382,7 +382,7 @@ export function MarketingPage() {
             <div className="dcard reveal">
               <div className="demo"><div className="ring" /><div style={{ fontSize: 13, fontWeight: 600 }}>4 of 5 free deals used<br /><span style={{ color: "var(--ink-2)", fontWeight: 500 }}>Growth looks good on you.</span></div></div>
               <h4>Honest free plan</h4>
-              <p>The whole app is free up to 5 active deals. Hit the cap and it means business is good. Twenty dollars a month removes it.</p>
+              <p>The whole app is free up to 5 active deals. Hit the cap and it means business is good. Nine dollars a month removes it.</p>
             </div>
             <div className="dcard reveal">
               <div className="demo"><div className="swrow">
