@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { TalbyLogo } from "@/components/marketing/talby-logo";
@@ -45,6 +45,7 @@ const IconSend = () => (
 
 export function MarketingPage() {
   const rootRef = useRef<HTMLDivElement>(null);
+  const [activeTab, setActiveTab] = useState<"deals" | "money" | "cal" | "import">("deals");
 
   useEffect(() => {
     const root = rootRef.current;
@@ -318,6 +319,64 @@ export function MarketingPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Product: real screens, tabbed — Deals / Money / Calendar / Import */}
+      <section className="feat-sec tabsec">
+        <div className="wrap">
+          <div className="shead reveal"><h2>Inside the command center.</h2><p>Real screens. Pick a part of the product and see it.</p></div>
+          <div className="tabwrap">
+            <div className="tablist" role="tablist" aria-label="Product screens">
+              {([["deals", "Deals"], ["money", "Money"], ["cal", "Calendar"], ["import", "Import"]] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  role="tab"
+                  aria-selected={activeTab === k}
+                  aria-controls={`tpan-${k}`}
+                  onClick={() => setActiveTab(k)}
+                  className={`tab-btn${activeTab === k ? " active" : ""}`}
+                >{label}</button>
+              ))}
+            </div>
+            <div className="tabpanes">
+              <div id="tpan-deals" role="tabpanel" aria-labelledby="Deals" className={`tabpane${activeTab === "deals" ? " active" : ""}`}>
+                <div className="tabimg"><img src="/product/deals.png" alt="Talby deals list: brand, status, payment, due dates, amount" loading="lazy" /></div>
+                <div className="tabcopy"><h3>The deal list.</h3><p>Brand, value, status, and both dates in one row. Filters do the sorting, not you.</p></div>
+              </div>
+              <div id="tpan-money" role="tabpanel" aria-labelledby="Money" className={`tabpane${activeTab === "money" ? " active" : ""}`}>
+                <div className="tabimg"><img src="/product/payments.png" alt="Talby payments: expected, overdue, and received money" loading="lazy" /></div>
+                <div className="tabcopy"><h3>The money view.</h3><p>What is expected, what is overdue, and what landed. Totals move the moment you mark a payment received.</p></div>
+              </div>
+              <div id="tpan-cal" role="tabpanel" aria-labelledby="Calendar" className={`tabpane${activeTab === "cal" ? " active" : ""}`}>
+                <div className="tabimg"><img src="/product/calendar.png" alt="Talby calendar: posts and deliverables by day" loading="lazy" /></div>
+                <div className="tabcopy"><h3>The calendar.</h3><p>Posts and deliverables on the day they happen. Repeats fill themselves in.</p></div>
+              </div>
+              <div id="tpan-import" role="tabpanel" aria-labelledby="Import" className={`tabpane${activeTab === "import" ? " active" : ""}`}>
+                <div className="tabimg"><img src="/product/overview.png" alt="Talby overview: booked, paid, and outstanding" loading="lazy" /></div>
+                <div className="tabcopy"><h3>Start from where you are.</h3><p>Drop in a spreadsheet and Talby reads the columns. Your deals arrive organized.</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Compare: why not a spreadsheet or Notion */}
+      <section className="feat-sec" id="compare">
+        <div className="wrap"><div className="tintwrap t-blue">
+          <div className="shead reveal"><h2>Why you outgrow a spreadsheet.</h2><p>Your tracking is only as good as the row you remembered to update.</p></div>
+          <div className="cmp" >
+            <table className="cmptable">
+              <thead><tr><th></th><th>Spreadsheet</th><th>Notion template</th><th className="cmphl">Talby</th></tr></thead>
+              <tbody>
+                <tr><td className="cmplab">Money follow-through</td><td>A column you scan</td><td>A column you maintain</td><td className="cmphl">Expected, overdue, received</td></tr>
+                <tr><td className="cmplab">Content and deals together</td><td>Different tabs or files</td><td>You build the link</td><td className="cmphl">One calendar, both worlds</td></tr>
+                <tr><td className="cmplab">Repeats</td><td>Typed over and over</td><td>You duplicate rows</td><td className="cmphl">Fill themselves in</td></tr>
+                <tr><td className="cmplab">Setup</td><td>Free, if you build it</td><td>Build first, then use it</td><td className="cmphl">Finished. Add a deal and go</td></tr>
+              </tbody>
+            </table>
+            <p className="cmpnote text-muted">A spreadsheet is honest: it works until you stop updating it. That is usually March.</p>
+          </div>
+        </div></div>
       </section>
 
       {/* Feature: Organized */}
