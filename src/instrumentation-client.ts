@@ -11,7 +11,15 @@ posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
   // clicks (autocapture is on by default).
   capture_pageview: true,
   capture_exceptions: true,
-  disable_session_recording: true, // trust: never record financial screens
+  // Session replay is enabled for CONVERSION research (landing + signup), but
+  // must never capture the financial app. The /app and /onboarding URL blocklist
+  // is enforced in PostHog project settings (server-side remote config) because
+  // the SDK's init options do not accept a urlBlocklist. Client-side we hard-mask
+  // all input values (signup email/password) as defense in depth.
+  disable_session_recording: false,
+  session_recording: {
+    maskAllInputs: true,
+  },
   debug: process.env.NODE_ENV === "development",
 });
 
