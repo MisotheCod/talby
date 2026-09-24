@@ -4,16 +4,16 @@ import { accentVars, parseHSL, DEFAULT_HSL, DEFAULT_MODE, type ThemeMode } from 
 import { MarketingPage } from "@/components/marketing/marketing-page";
 
 export const metadata: Metadata = {
-  title: "Talby: your favorite way to run brand deals",
+  title: "Talby · Every brand deal in one place",
   description:
-    "Talby is the command center for creators to organize brand deals, track what's owed and paid, and plan content. Talby drafts the awkward payment-follow-up emails for you to send.",
+    "Talby is the calm command center for creators. Track what you agreed to, when it is due, and what has actually landed.",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "Talby — organize your brand deals",
+    title: "Talby · Every brand deal in one place",
     description:
-      "Talby helps creators track brand deals and payments, plan content, and draft the awkward follow-up emails for you to send.",
+      "Track brand deals, payments and content in one calm command center.",
     url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/`,
-    images: [{ url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/og.png`, width: 1200, height: 630, alt: "Talby — organize your brand deals" }],
+    images: [{ url: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/og.png`, width: 1200, height: 630, alt: "Talby · Every brand deal in one place" }],
     type: "website",
   },
 };

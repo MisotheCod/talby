@@ -1,578 +1,739 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { TalbyLogo } from "@/components/marketing/talby-logo";
-import { GoUnlimitedButton } from "@/components/marketing/go-unlimited-button";
+import { FluentBotSparkle28Regular } from "@/components/fluent-icons";
 
-gsap.registerPlugin(ScrollTrigger);
+/* Marks (Talby + check) as inline symbols — keyed, reusable. */
+function Mark() {
+  return (
+    <svg width="26" height="22" viewBox="0 0 26 22" aria-hidden>
+      <path fill="#1f7ae0" d="M4.2 0.0h17.6a4.2 4.2 0 0 1 4.2 4.2v13.6a4.2 4.2 0 0 1-4.2 4.2H4.2A4.2 4.2 0 0 1 0 17.8V4.2A4.2 4.2 0 0 1 4.2 0ZM6 13.4l3 3 7-7-1.5-1.5-5.5 5.5-1.5-1.5L6 13.4Z" />
+    </svg>
+  );
+}
+function Ck() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7" /></svg>
+  );
+}
 
-/* Inline stroke icons matching the prototype's simple 2–2.4 stroke style */
-const IconDeals = () => (
-  <svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h10" /></svg>
-);
-const IconMoney = () => (
-  <svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>
-);
-const IconCalendar = () => (
-  <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-);
-const IconPayments = () => (
-  <svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" /></svg>
-);
-const IconOverview = () => (
-  <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
-);
-const IconOverviewNav = () => (
-  <svg viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h10" /></svg>
-);
-const IconStar = () => (
-  <svg viewBox="0 0 24 24"><path d="M12 2l2.2 6.9H21l-5.5 4.2 2.1 6.9L12 15l-5.6 4L8.5 13 3 8.9h6.8z" /></svg>
-);
-const IconBubble = () => (
-  <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 01-8 8H4l2-3a8 8 0 1115-5z" /></svg>
-);
-const IconCheck = () => (
-  <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" /></svg>
-);
-const IconChart = () => (
-  <svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" /></svg>
-);
-const IconSend = () => (
-  <svg viewBox="0 0 24 24"><path d="M4 20l16-8L4 4l3 8z" /></svg>
-);
+/* A tiny check-list row used in pricing + panels */
+function CheckLi({ children, up }: { children: React.ReactNode; up?: boolean }) {
+  return (
+    <li className={up ? "up" : ""}><Ck />{children}</li>
+  );
+}
 
 export function MarketingPage() {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [activeTab, setActiveTab] = useState<"deals" | "money" | "cal" | "import">("deals");
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (!reduce) {
-      const heroEl = root.querySelector<HTMLElement>(".hero");
-      const onMove = (e: MouseEvent) => {
-        const cx = e.clientX / window.innerWidth - 0.5;
-        const cy = e.clientY / window.innerHeight - 0.5;
-        gsap.utils.toArray<HTMLElement>(".orb").forEach((o, i) => {
-          const depth = ((i % 3) + 1) * 10;
-          gsap.to(o, { x: cx * depth, y: cy * depth * 0.5, duration: 0.8, ease: "power2.out", overwrite: "auto" });
-        });
-      };
-
-      const ctx = gsap.context(() => {
-        // ---- HERO intro ----
-        gsap.to("#heroH .w", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", stagger: 0.07, delay: 0.1, startAt: { opacity: 0, y: 30 } });
-        gsap.to("#heroP", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", delay: 0.6, startAt: { opacity: 0, y: 20 } });
-        gsap.to("#heroC", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out", delay: 0.75, startAt: { opacity: 0, y: 20 } });
-        gsap.to("#heroN", { opacity: 1, duration: 0.7, delay: 0.9, startAt: { opacity: 0 } });
-
-        // ---- floating symbols: pop in ----
-        gsap.to(".orb", { opacity: 1, scale: 1, duration: 0.8, ease: "back.out(1.8)", stagger: 0.08, delay: 0.5, startAt: { opacity: 0, scale: 0.4 } });
-
-        // ---- hero dashboard mock ----
-        gsap.to("#heromock", { opacity: 1, y: 0, scale: 1, duration: 1, ease: "power3.out", delay: 1.0, startAt: { opacity: 0, y: 60, scale: 0.97 } });
-        gsap.to(".hm-row", { opacity: 1, x: 0, duration: 0.55, ease: "power2.out", stagger: 0.09, delay: 1.5, startAt: { opacity: 0, x: -14 } });
-        gsap.utils.toArray<HTMLElement>(".hnum").forEach((el, i) => {
-          const n = +el.dataset.n!;
-          const o = { v: 0 };
-          gsap.to(o, { v: n, duration: 1.3, ease: "power2.out", delay: 1.4 + i * 0.15, onUpdate: () => { el.textContent = "$" + Math.round(o.v).toLocaleString(); } });
-        });
-        gsap.to("#hcap", { width: "80%", duration: 1, ease: "power2.out", delay: 1.7 });
-
-        // ---- mobile orb row: rise from behind the header, re-arms via matchMedia ----
-        const mm = gsap.matchMedia();
-        mm.add("(max-width: 900px)", () => {
-          const floats: gsap.core.Tween[] = [];
-          const rise = gsap.fromTo(
-            ".orb-m",
-            { opacity: 0, y: 70, scale: 0.5 },
-            {
-              opacity: 1, y: 0, scale: 1, duration: 0.75, ease: "back.out(1.7)", stagger: 0.1, delay: 0.9,
-              onComplete: () => {
-                gsap.utils.toArray<HTMLElement>(".orb-m").forEach((o, i) => {
-                  floats.push(gsap.to(o, { y: "-=8", duration: 2.2 + i * 0.3, ease: "sine.inOut", yoyo: true, repeat: -1 }));
-                });
-              },
-            },
-          );
-          return () => { rise.kill(); floats.forEach((t) => t.kill()); gsap.set(".orb-m", { clearProps: "all" }); };
-        });
-
-        // ---- orbs drift forever ----
-        gsap.utils.toArray<HTMLElement>(".orb").forEach((o, i) => {
-          gsap.to(o, { y: "+=14", rotation: "+=" + (i % 2 ? 6 : -6), duration: 2.6 + i * 0.35, ease: "sine.inOut", yoyo: true, repeat: -1 });
-        });
-
-        // ---- orbs mouse parallax ----
-        heroEl?.addEventListener("mousemove", onMove);
-
-        // ---- scroll reveals ----
-        // Intentionally disabled: revealing content via ScrollTrigger left it
-        // permanently invisible when the trigger didn't fire (reproduced on
-        // iPad iOS WebKit). Content is visible by default; we keep the property
-        // but never hide it from JS. The section panels below still animate up.
-        void gsap.utils.toArray<HTMLElement>(".reveal").length;
-
-        // ---- section panels rise (transform-only; never hides opacity) ----
-        gsap.utils.toArray<HTMLElement>(".tintwrap, .ctapanel").forEach((p) => {
-          gsap.from(p, { y: 60, scale: 0.965, duration: 1, ease: "power3.out", scrollTrigger: { trigger: p, start: "top 85%" } });
-        });
-
-        // ---- action cards batch (transform-only; never hides opacity) ----
-        ScrollTrigger.batch(".act", {
-          start: "top 88%",
-          onEnter: (b) => gsap.fromTo(b, { scale: 0.92, y: 26 }, { scale: 1, y: 0, duration: 0.7, ease: "back.out(1.6)", stagger: 0.09 }),
-        });
-
-        // ---- count-up money (trio) ----
-        gsap.utils.toArray<HTMLElement>(".cnt").forEach((el) => {
-          const n = +el.dataset.n!;
-          ScrollTrigger.create({
-            trigger: el, start: "top 85%", once: true,
-            onEnter: () => {
-              const o = { v: 0 };
-              gsap.to(o, { v: n, duration: 1.4, ease: "power2.out", onUpdate: () => { el.textContent = "$" + Math.round(o.v).toLocaleString(); } });
-            },
-          });
-        });
-
-        // ---- feature cards: parallax + tilt ----
-        gsap.utils.toArray<HTMLElement>(".tiltcard").forEach((card) => {
-          gsap.to(card, { y: -24, scrollTrigger: { trigger: card, start: "top bottom", end: "bottom top", scrub: 1.2 } });
-          card.addEventListener("mousemove", (e) => {
-            const r = card.getBoundingClientRect();
-            const rx = ((e.clientY - r.top) / r.height - 0.5) * -8;
-            const ry = ((e.clientX - r.left) / r.width - 0.5) * 8;
-            gsap.to(card, { rotationX: rx, rotationY: ry, transformPerspective: 800, duration: 0.4, ease: "power2.out" });
-          });
-          card.addEventListener("mouseleave", () => gsap.to(card, { rotationX: 0, rotationY: 0, duration: 0.6, ease: "power3.out" }));
-        });
-
-        // ---- action card tilt ----
-        gsap.utils.toArray<HTMLElement>(".act").forEach((card) => {
-          card.addEventListener("mousemove", (e) => {
-            const r = card.getBoundingClientRect();
-            gsap.to(card, { rotationX: ((e.clientY - r.top) / r.height - 0.5) * -7, rotationY: ((e.clientX - r.left) / r.width - 0.5) * 7, transformPerspective: 900, duration: 0.35 });
-          });
-          card.addEventListener("mouseleave", () => gsap.to(card, { rotationX: 0, rotationY: 0, duration: 0.5, ease: "power3.out" }));
-        });
-      }, root);
-
-      return () => {
-        heroEl?.removeEventListener("mousemove", onMove);
-        ctx.revert();
-      };
-    } else {
-      // ---- reduced motion: everything visible + static ----
-      root.querySelectorAll(".reveal,#heroP,#heroC,#heroN").forEach((el) => {
-        (el as HTMLElement).style.opacity = "1";
-        (el as HTMLElement).style.transform = "none";
-      });
-      root.querySelectorAll("#heroH .w").forEach((el) => ((el as HTMLElement).style.opacity = "1"));
-      root.querySelectorAll(".orb-m").forEach((el) => ((el as HTMLElement).style.opacity = "1"));
-      const hm = root.querySelector("#heromock") as HTMLElement | null;
-      if (hm) hm.style.opacity = "1";
-      root.querySelectorAll(".hm-row").forEach((el) => ((el as HTMLElement).style.opacity = "1"));
-      root.querySelectorAll(".hnum").forEach((el) => { const n = +(el as HTMLElement).dataset.n!; el.textContent = "$" + n.toLocaleString(); });
-      const hc = root.querySelector("#hcap") as HTMLElement | null;
-      if (hc) hc.style.width = "80%";
-      root.querySelectorAll(".cnt").forEach((el) => { const n = +(el as HTMLElement).dataset.n!; el.textContent = "$" + n.toLocaleString(); });
-    }
-  }, []);
-
   return (
-    <div className="mkt" ref={rootRef}>
-      {/* Nav */}
-      <nav>
-        <div className="nav-in">
-          <div className="brand"><TalbyLogo width={24} className="lmark" />Talby</div>
-          <div className="nlinks">
-            <a href="#features">Features</a><a href="#paid">Payments</a><a href="#details">Details</a><a href="#faq">FAQ</a>
-          </div>
-          <div className="nav-r">
-            <a href="/signup" className="btn btn-ghost" style={{ padding: "10px 8px" }}>Sign up</a>
-            <a href="/login" className="btn" style={{ background: "#fff", border: "1px solid var(--line-2)", color: "var(--ink)", fontWeight: 600 }}>Log in</a>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero */}
-      <header className="hero">
-        <div className="orbs">
-          <span className="orb o1"><span className="txt">$</span></span>
-          <span className="orb o2"><IconCalendar /></span>
-          <span className="orb o3"><IconSend /></span>
-          <span className="orb o4"><IconChart /></span>
-          <span className="orb o5"><IconStar /></span>
-          <span className="orb o6"><IconBubble /></span>
-          <span className="orb o7"><IconCheck /></span>
-        </div>
-        <div className="wrap">
-          <div className="orbs-m" id="orbsM">
-            <span className="orb-m om1"><span className="txt">$</span></span>
-            <span className="orb-m om2"><IconCalendar /></span>
-            <span className="orb-m om3"><IconSend /></span>
-            <span className="orb-m om4"><IconChart /></span>
-          </div>
-          <h1 id="heroH">
-            <span className="w">Organize</span> <span className="w">your</span><br />
-            <span className="w blue">brand</span> <span className="w blue">deals.</span>
-          </h1>
-          <p id="heroP">Talby is the calm command center for creators: organize brand deals, track what&rsquo;s owed and paid, and plan content in one place.</p>
-          <div className="hero-cta" id="heroC">
-            <a href="/signup" className="btn btn-3d btn-lg">Sign up free</a>
-            <a href="#features" className="btn btn-ghost btn-lg">See how it works</a>
-          </div>
-          <div className="hero-note" id="heroN">Free while you're getting started. No card, no setup.</div>
-
-          <div className="heromock" id="heromock">
-            <div className="hm-top">
-              <span className="hm-dot" style={{ background: "#f2705b" }} /><span className="hm-dot" style={{ background: "#f3b93c" }} /><span className="hm-dot" style={{ background: "#2f9e6f" }} />
-            </div>
-            <div className="hm-body">
-              <div className="hm-side">
-                <div className="hm-brand"><TalbyLogo width={17} className="lmark" />Talby</div>
-                <div className="hm-nav on"><IconOverview />Overview</div>
-                <div className="hm-nav"><IconOverviewNav />Deals</div>
-                <div className="hm-nav"><IconCalendar />Calendar</div>
-                <div className="hm-nav"><IconPayments />Payments</div>
-              </div>
-              <div className="hm-main">
-                <div className="hm-greet">Good evening, Creator</div>
-                <div className="hm-stats">
-                  <div className="hm-stat"><div className="l">Booked</div><div className="v hnum" data-n="8400">$0</div></div>
-                  <div className="hm-stat"><div className="l">Paid</div><div className="v hnum" data-n="5150" style={{ color: "var(--green)" }}>$0</div></div>
-                  <div className="hm-stat"><div className="l">Outstanding</div><div className="v hnum" data-n="3250" style={{ color: "var(--gold)" }}>$0</div></div>
-                  <div className="hm-stat cap"><div className="l">Deals</div><div className="v">4 / 5</div><div className="capbar"><i id="hcap" /></div></div>
-                </div>
-                <div className="hm-cols">
-                  <div className="hm-panel">
-                    <div className="hm-ph">Active deals</div>
-                    <div className="hm-row"><span className="hm-logo" style={{ background: "var(--gold)" }}>G</span><span className="n">Glow Ritual</span><span className="hm-pill" style={{ background: "var(--gold-t)", color: "var(--gold)" }}>Awaiting</span></div>
-                    <div className="hm-row"><span className="hm-logo" style={{ background: "var(--green)" }}>L</span><span className="n">Lumen Wellness</span><span className="hm-pill" style={{ background: "var(--green-t)", color: "var(--green)" }}>Paid</span></div>
-                    <div className="hm-row"><span className="hm-logo" style={{ background: "var(--coral)" }}>V</span><span className="n">Verde Tea Co.</span><span className="hm-pill" style={{ background: "var(--coral-t)", color: "var(--coral)" }}>Past due</span></div>
-                    <div className="hm-row"><span className="hm-logo" style={{ background: "var(--purple)" }}>B</span><span className="n">Bloom and Co.</span><span className="a">$2,650</span></div>
-                  </div>
-                  <div className="hm-panel">
-                    <div className="hm-ph">Payments</div>
-                    <div className="hm-row"><span className="hm-bar" style={{ background: "var(--coral)" }} /><span className="n">Verde Tea</span><span className="a">$1,450</span></div>
-                    <div className="hm-row"><span className="hm-bar" style={{ background: "var(--gold)" }} /><span className="n">Glow Ritual</span><span className="a">$1,800</span></div>
-                    <div className="hm-row"><span className="hm-bar" style={{ background: "var(--green)" }} /><span className="n">Lumen</span><span className="a">$2,500</span></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Action cards */}
-      <section className="actions" id="features">
-        <div className="wrap">
-          <div className="shead reveal"><h2>Run your deals in a whole new way.</h2></div>
-          <div className="acts">
-            <div className="act a-blue reveal"><div className="ic"><IconOverviewNav /></div><h3>Track</h3><p>Every deal in one clean list. Brand, value, status, due date.</p></div>
-            <div className="act a-green reveal"><div className="ic"><IconMoney /></div><h3>Get paid</h3><p>See what's expected, overdue, and landed, all in one place.</p></div>
-            <div className="act a-gold reveal"><div className="ic"><IconCalendar /></div><h3>Plan</h3><p>Content on a calendar, with repeats that fill themselves in.</p></div>
-            <div className="act a-purple reveal"><div className="ic"><IconStar /></div><h3>Capture</h3><p>Ideas from bucket to posted, before they slip away.</p></div>
-          </div>
-        </div>
-      </section>
-
-      {/* Trio */}
-      <section className="trio">
-        <div className="wrap">
-          <div className="tintwrap t-blue">
-            <div className="shead reveal"><h2>Deals, money, content. All in one place.</h2></div>
-            <div className="mocks">
-              <div className="mock reveal">
-                <div className="card">
-                  <div className="mrow"><span className="mdot" style={{ background: "var(--gold)" }}>G</span><span className="n">Glow Ritual</span><span className="spill sp-y">Awaiting</span></div>
-                  <div className="mrow"><span className="mdot" style={{ background: "var(--green)" }}>L</span><span className="n">Lumen Wellness</span><span className="spill sp-g">Paid</span></div>
-                  <div className="mrow"><span className="mdot" style={{ background: "var(--coral)" }}>V</span><span className="n">Verde Tea Co.</span><span className="spill sp-r">Past due</span></div>
-                  <div className="mrow"><span className="mdot" style={{ background: "var(--purple)" }}>B</span><span className="n">Bloom and Co.</span><span className="v">$2,650</span></div>
-                </div>
-                <h5>Deals</h5>
-              </div>
-              <div className="mock reveal">
-                <div className="card">
-                  <div className="mstat"><span>Booked</span><b>$8,400</b></div>
-                  <div className="mstat"><span>Paid</span><b style={{ color: "var(--green)" }} className="cnt" data-n="5150">$0</b></div>
-                  <div className="mstat" style={{ border: "none" }}><span>Outstanding</span><b style={{ color: "var(--gold)" }} className="cnt" data-n="3250">$0</b></div>
-                </div>
-                <h5>Money</h5>
-              </div>
-              <div className="mock reveal">
-                <div className="card">
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>August</div>
-                  <div className="cal7">
-                    <span className="cd">4</span><span className="cd on">5</span><span className="cd">6</span><span className="cd pay">7</span><span className="cd">8</span><span className="cd on">9</span><span className="cd">10</span>
-                    <span className="cd">11</span><span className="cd pay">12</span><span className="cd">13</span><span className="cd on">14</span><span className="cd">15</span><span className="cd">16</span><span className="cd">17</span>
-                  </div>
-                </div>
-                <h5>Calendar</h5>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Product: real screens, tabbed — Deals / Money / Calendar / Import */}
-      <section className="feat-sec tabsec">
-        <div className="wrap">
-          <div className="shead reveal"><h2>Inside the command center.</h2><p>Real screens. Pick a part of the product and see it.</p></div>
-          <div className="tabwrap">
-            <div className="tablist" role="tablist" aria-label="Product screens">
-              {([["deals", "Deals"], ["money", "Money"], ["cal", "Calendar"], ["import", "Import"]] as const).map(([k, label]) => (
-                <button
-                  key={k}
-                  role="tab"
-                  aria-selected={activeTab === k}
-                  aria-controls={`tpan-${k}`}
-                  onClick={() => setActiveTab(k)}
-                  className={`tab-btn${activeTab === k ? " active" : ""}`}
-                >{label}</button>
-              ))}
-            </div>
-            <div className="tabpanes">
-              <div id="tpan-deals" role="tabpanel" aria-labelledby="Deals" className={`tabpane${activeTab === "deals" ? " active" : ""}`}>
-                <div className="tabimg"><img src="/product/deals.png" alt="Talby deals list: brand, status, payment, due dates, amount" loading="lazy" /></div>
-                <div className="tabcopy"><h3>The deal list.</h3><p>Brand, value, status, and both dates in one row. Filters do the sorting, not you.</p></div>
-              </div>
-              <div id="tpan-money" role="tabpanel" aria-labelledby="Money" className={`tabpane${activeTab === "money" ? " active" : ""}`}>
-                <div className="tabimg"><img src="/product/payments.png" alt="Talby payments: expected, overdue, and received money" loading="lazy" /></div>
-                <div className="tabcopy"><h3>The money view.</h3><p>What is expected, what is overdue, and what landed. Totals move the moment you mark a payment received.</p></div>
-              </div>
-              <div id="tpan-cal" role="tabpanel" aria-labelledby="Calendar" className={`tabpane${activeTab === "cal" ? " active" : ""}`}>
-                <div className="tabimg"><img src="/product/calendar.png" alt="Talby calendar: posts and deliverables by day" loading="lazy" /></div>
-                <div className="tabcopy"><h3>The calendar.</h3><p>Posts and deliverables on the day they happen. Repeats fill themselves in.</p></div>
-              </div>
-              <div id="tpan-import" role="tabpanel" aria-labelledby="Import" className={`tabpane${activeTab === "import" ? " active" : ""}`}>
-                <div className="tabimg"><img src="/product/overview.png" alt="Talby overview: booked, paid, and outstanding" loading="lazy" /></div>
-                <div className="tabcopy"><h3>Start from where you are.</h3><p>Drop in a spreadsheet and Talby reads the columns. Your deals arrive organized.</p></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Compare: why not a spreadsheet or Notion */}
-      <section className="feat-sec" id="compare">
-        <div className="wrap"><div className="tintwrap t-blue">
-          <div className="shead reveal"><h2>Why you outgrow a spreadsheet.</h2><p>Your tracking is only as good as the row you remembered to update.</p></div>
-          <div className="cmp" >
-            <table className="cmptable">
-              <thead><tr><th></th><th>Spreadsheet</th><th>Notion template</th><th className="cmphl">Talby</th></tr></thead>
-              <tbody>
-                <tr><td className="cmplab">Money follow-through</td><td>A column you scan</td><td>A column you maintain</td><td className="cmphl">Expected, overdue, received</td></tr>
-                <tr><td className="cmplab">Content and deals together</td><td>Different tabs or files</td><td>You build the link</td><td className="cmphl">One calendar, both worlds</td></tr>
-                <tr><td className="cmplab">Repeats</td><td>Typed over and over</td><td>You duplicate rows</td><td className="cmphl">Fill themselves in</td></tr>
-                <tr><td className="cmplab">Setup</td><td>Free, if you build it</td><td>Build first, then use it</td><td className="cmphl">Finished. Add a deal and go</td></tr>
-              </tbody>
-            </table>
-            <p className="cmpnote text-muted">A spreadsheet is honest: it works until you stop updating it. That is usually March.</p>
-          </div>
-        </div></div>
-      </section>
-
-      {/* Feature: Organized */}
-      <section className="feat-sec">
-        <div className="wrap"><div className="tintwrap t-blue fgrid2">
-          <div className="fcopy reveal">
-            <span className="tag">Organized</span>
-            <h2>Every deal, readable at a glance.</h2>
-            <p>Tap any deal and the whole story slides open: value, status, checklist, notes, and its payments. No columns to configure, ever.</p>
-            <ul className="fl"><li>Clean deal list with filters</li><li>Tabbed detail drawer</li><li>Editable status inline</li></ul>
-          </div>
-          <div className="fmedia reveal"><div className="fcard tiltcard">
-            <h6>Glow Ritual <span>$1,800</span></h6>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--gold)" }} /><span className="nm">1 Reel + 2 Stories</span><span className="spill sp-y">Due Aug 12</span></div>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--blue)" }} /><span className="nm">Draft approved</span><span className="spill" style={{ background: "var(--blue-tint)", color: "var(--blue)" }}>Done</span></div>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--green)" }} /><span className="nm">Payment on delivery</span><span className="am">$1,800</span></div>
-          </div></div>
-        </div></div>
-      </section>
-
-      {/* Feature: Paid */}
-      <section className="feat-sec" id="paid">
-        <div className="wrap"><div className="tintwrap t-green fgrid2 flip">
-          <div className="fcopy reveal">
-            <span className="tag" style={{ color: "var(--green)" }}>Paid</span>
-            <h2>Know when the money lands.</h2>
-            <p>Most tools stop at "deal closed." Talby follows the money the whole way, expected to overdue to received, so nothing slips.</p>
-            <ul className="fl"><li>Payment timeline with due dates</li><li>Past-due flags you can't miss</li><li>Tap to mark received, totals update live</li></ul>
-          </div>
-          <div className="fmedia reveal"><div className="fcard tiltcard">
-            <h6>Payments <span>$3,250 expected</span></h6>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--coral)" }} /><span className="nm">Verde Tea Co.</span><span className="spill sp-r">Past due</span></div>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--gold)" }} /><span className="nm">Glow Ritual</span><span className="spill sp-y">Aug 12</span></div>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--green)" }} /><span className="nm">Lumen Wellness</span><span className="spill sp-g">Received</span></div>
-          </div></div>
-        </div></div>
-      </section>
-
-      {/* Feature: Planned */}
-      <section className="feat-sec">
-        <div className="wrap"><div className="tintwrap t-gold fgrid2">
-          <div className="fcopy reveal">
-            <span className="tag" style={{ color: "var(--gold)" }}>Planned</span>
-            <h2>Content that schedules itself.</h2>
-            <p>Set the posts you repeat, every week or every two, and your calendar fills itself in. Deliverables land on their due dates automatically.</p>
-            <ul className="fl"><li>Recurring posts that auto-populate</li><li>Drag to reschedule</li><li>Payments as chips on the calendar</li></ul>
-          </div>
-          <div className="fmedia reveal"><div className="fcard tiltcard">
-            <h6>This week <span>3 planned</span></h6>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--blue)" }} /><span className="nm">GRWM Reel</span><span className="spill" style={{ background: "var(--blue-tint)", color: "var(--blue)" }}>Repeats weekly</span></div>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--purple)" }} /><span className="nm">Newsletter</span><span className="spill" style={{ background: "var(--purple-t)", color: "var(--purple)" }}>Biweekly</span></div>
-            <div className="payrow"><span className="pbar" style={{ background: "var(--gold)" }} /><span className="nm">Glow Ritual deliverable</span><span className="spill sp-y">Aug 12</span></div>
-          </div></div>
-        </div></div>
-      </section>
-
-      {/* Details */}
-      <section className="details" id="details">
-        <div className="wrap">
-          <div className="shead reveal"><h2>Details that matter.</h2><p>We sweat the small stuff, so you don't have to.</p></div>
-          <div className="dgrid">
-            <div className="dcard reveal">
-              <div className="demo"><div className="ring" /><div style={{ fontSize: 13, fontWeight: 600 }}>4 of 5 free deals used<br /><span style={{ color: "var(--ink-2)", fontWeight: 500 }}>Growth looks good on you.</span></div></div>
-              <h4>Honest free plan</h4>
-              <p>The whole app is free up to 5 active deals. Hit the cap and it means business is good. Nine dollars a month removes it.</p>
-            </div>
-            <div className="dcard reveal">
-              <div className="demo"><div className="swrow">
-                <span className="swc" style={{ background: "#1f7ae0" }} /><span className="swc" style={{ background: "#8b6cf0" }} /><span className="swc" style={{ background: "#2f9e6f" }} /><span className="swc" style={{ background: "#f2705b" }} /><span className="swc" style={{ background: "#e0a32e" }} />
-              </div></div>
-              <h4>Customize</h4>
-              <p>Pick the accent color that matches your brand. Tap a preset, drag the hue, or slide the saturation, and watch the whole app re-tint live. Your headings and buttons follow automatically.</p>
-            </div>
-            <div className="dcard reveal">
-              <div className="demo"><span className="bigchip" style={{ background: "var(--blue-tint)", color: "var(--blue)" }}><span className="d" style={{ background: "var(--blue)" }} />Import from Notion or a spreadsheet</span></div>
-              <h4>Bring your deals with you</h4>
-              <p>Drop in a spreadsheet or connect Notion and Talby reads your columns for you. Your deals appear already organized.</p>
-            </div>
-            <div className="dcard reveal">
-              <div className="demo"><span className="bigchip" style={{ background: "var(--green-t)", color: "var(--green)" }}><span className="d" style={{ background: "var(--green)" }} />$1,500 received from Lumen</span></div>
-              <h4>Money you can feel</h4>
-              <p>Mark a payment received and watch your totals move. The satisfying part of the job, made actually satisfying.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ */}
-      <section className="faqsec" id="faq">
-        <div className="wrap">
-          <div className="shead reveal"><h2>Questions, answered.</h2></div>
-          <div className="faq reveal">
-            <details open><summary>Is this just another Notion template?<IconChev /></summary><p>No. Notion makes you build the system before you can use it. Talby is the finished thing. Sign up, add a deal, and it works. Nothing to configure, no template to buy.</p></details>
-            <details><summary>What makes it different from a deal tracker?<IconChev /></summary><p>Most trackers stop at deal status. Talby follows the money (expected, overdue, and received) and ties it to a content calendar, so the business side and posting side finally live together.</p></details>
-            <details><summary>Do you post to my social accounts?<IconChev /></summary><p>Not right now. Talby plans and organizes your content. It doesn't publish for you. It's your command center, not your scheduler.</p></details>
-            <details><summary>What happens when I hit 5 deals?<IconChev /></summary><p>Only active deals count. Anything you've wrapped and archived is free and unlimited. When you've got more than five going at once, go unlimited for $9 a month. That also unlocks the AI assistant and your income summary. Usually that means business is good.</p></details>
-            <details><summary>What is the AI assistant?<IconChev /></summary><p>Unlimited includes a built-in assistant that answers questions about your own deals, payments, contracts, and calendar. Ask how much you're owed, what a contract clause says, or whether a deal conflicts with your exclusivity. It answers only from your data.</p></details>
-            <details><summary>Is my data private?<IconChev /></summary><p>Yes. Everything you add is tied to your account and yours alone. Nobody else can see your deals, your money, or your numbers.</p></details>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section className="pricing" id="pricing">
-        <div className="wrap">
-          <div className="shead reveal">
-            <span className="tag">Pricing</span>
-            <h2>Free while you grow.</h2>
-            <p>The whole app is free up to 5 active deals. When business is good, go unlimited. $9 a month, cancel anytime.</p>
-          </div>
-          <div className="pricegrid">
-            {/* Free */}
-            <div className="pcard reveal">
-              <div className="phead">
-                <div className="pname">Free</div>
-                <div className="pamt">$0<span className="pper">/month</span></div>
-                <p>The full app, capped at 5 active deals.</p>
-              </div>
-              <div className="plabel">Included</div>
-              <ul className="pfeat">
-                <PLi>Unlimited archived deals</PLi>
-                <PLi>Payment timeline</PLi>
-                <PLi>Content calendar with recurring posts</PLi>
-                <PLi>Ideas, notes and to-dos</PLi>
-                <PLi>Custom theming</PLi>
-              </ul>
-              <a href="/signup" className="btn btn-3d btn-lg w-full" style={{ background: "var(--soft)", color: "var(--blue-deep)", boxShadow: "inset 0 0 0 1px var(--line-2)" }}>Start free</a>
-            </div>
-            {/* Unlimited */}
-            <div className="pcard pdark reveal">
-              <div className="phead">
-                <div className="pbadge">Most popular</div>
-              </div>
-              <div className="pname">Unlimited</div>
-              <div className="pamt">$9<small className="pper">/month</small></div>
-              <p>Everything in Free, minus the cap.</p>
-              <div className="plabel">Everything in Free, plus</div>
-              <ul className="pfeat">
-                <UnLi>Unlimited active deals</UnLi>
-                <UnLi>File and contract uploads</UnLi>
-                <UnLi>Talby AI assistant that answers about your deals, payments and contracts</UnLi>
-                <UnLi>Income summary — money received, gifted value, and a tax-ready export</UnLi>
-              </ul>
-              <GoUnlimitedButton />
-            </div>
-          </div>
-          <p className="pnote reveal">Hitting the cap means business is good. Archived and completed deals never count toward it.</p>
-        </div>
-      </section>
-
-      {/* End CTA */}
-      <section className="endcta">
-        <div className="wrap reveal">
-          <div className="ctapanel">
-            <h2>Run the business behind the content.</h2>
-            <p>Set up your command center in minutes. Free to start.</p>
-            <a href="/signup" className="btn btn-w3d btn-lg">Sign up free</a>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer>
-        <div className="wrap">
-          <div className="fgrid3">
-            <div style={{ maxWidth: 260 }}>
-              <div className="brand"><TalbyLogo width={24} className="lmark" />Talby</div>
-              <p style={{ fontSize: 13.5, color: "var(--ink-2)", marginTop: 10 }}>The command center for creators who are actually earning.</p>
-            </div>
-            <div style={{ display: "flex", gap: 60, flexWrap: "wrap" }}>
-              <div className="fcol"><h5>Product</h5><a href="#features">Features</a><a href="#paid">Payments</a><a href="#details">Details</a><a href="#faq">FAQ</a></div>
-              <div className="fcol"><h5>Company</h5><a href="#">About</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="mailto:info@talby.io">Contact</a></div>
-              <div className="fcol"><h5>Start</h5><a href="/signup">Sign up free</a><a href="/login">Log in</a></div>
-            </div>
-          </div>
-          <div className="fbot"><span>© 2026 Talby</span><span>Made for creators, not spreadsheets.</span></div>
-        </div>
-      </footer>
+    <div className="mkt">
+      <SiteNav />
+      <Hero />
+      <CompareSection />
+      <StorySection />
+      <AssistantSection />
+      <PricingSection />
+      <CloseSection />
+      <SiteFooter />
     </div>
   );
 }
 
-function IconChev() {
+/* ---------------- Nav ---------------- */
+const NAV_LINKS = [
+  { href: "#compare", label: "Why Talby" },
+  { href: "#story", label: "How it works" },
+  { href: "#pricing", label: "Pricing" },
+  { href: "/blog", label: "Blog" },
+];
+
+function SiteNav() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
-    <svg className="chev" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+    <div className="nav-shell">
+      <nav className="nav" aria-label="Main">
+        <a className="brand" href="/"><Mark /><b>Talby</b></a>
+        <div className="nav-links">
+          {NAV_LINKS.map((l) => <a key={l.href} href={l.href}>{l.label}</a>)}
+        </div>
+        <div className="nav-cta">
+          <a className="login" href="/login">Log in</a>
+          <a className="btn btn-p" href="/signup">Sign up free</a>
+          <button
+            type="button"
+            className="menu-btn"
+            id="menuBtn"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="mmenu"
+            onClick={() => setOpen((o) => !o)}
+          ><i></i><i></i><i></i></button>
+        </div>
+      </nav>
+      <div className="mmenu" id="mmenu" hidden={!open}>
+        {NAV_LINKS.map((l) => <a key={l.href} href={l.href} onClick={() => setOpen(false)}>{l.label}</a>)}
+        <a href="/login" className="mm-login" onClick={() => setOpen(false)}>Log in</a>
+      </div>
+    </div>
   );
 }
 
-/* Pricing feature row: check + text. Free card uses muted checks; Unlimited uses accent. */
-function PLi({ children }: { children: React.ReactNode }) {
+/* ---------------- Hero + static Overview rebuild ---------------- */
+function Hero() {
   return (
-    <li><span className="pmark pm-free"><IconCheck /></span>{children}</li>
+    <header className="hero">
+      <div className="col">
+        <h1>Every brand deal in one place.</h1>
+        <p className="lede"><span className="lg">Talby is the calm command center for creators. Track what you agreed to, when it is due, and what has actually landed.</span><span className="sm">Track what you agreed to, when it is due, and what has landed.</span></p>
+        <div className="hero-cta">
+          <a className="btn btn-p btn-lg" href="/signup">Sign up free</a>
+          <a className="btn btn-s btn-lg" href="#story">See how it works</a>
+        </div>
+        <p className="note">No card. No setup. Add a deal and go.</p>
+      </div>
+      <div className="hero-bg">
+        <div className="shot"><OverviewMock /></div>
+      </div>
+    </header>
   );
 }
-function UnLi({ children }: { children: React.ReactNode }) {
+
+function OverviewMock() {
   return (
-    <li><span className="pmark pm-un"><IconCheck /></span>{children}</li>
+    <div className="app" aria-label="The Talby overview page">
+      <div className="mbar"><span className="ham"><i></i><i></i><i></i></span><span className="bell"><BellIcon /><i>3</i></span><span className="avi">J</span></div>
+      <aside className="side">
+        <div className="who"><span className="avi">J</span><div><b>JunoBakes</b><span>@JunoBakes</span></div><span className="bell"><BellIcon /><i>3</i></span></div>
+        <div className="grp">Manage</div>
+        <div className="nav-i on"><HomeIcon />Overview</div>
+        <div className="nav-i"><BriefcaseIcon />Deals<span className="cnt">19</span></div>
+        <div className="nav-i"><CalendarIcon />Calendar</div>
+        <div className="nav-i"><DollarIcon />Payments</div>
+        <div className="grp">Create</div>
+        <div className="nav-i"><BulbIcon />Ideas</div>
+        <div className="nav-i"><TodoIcon />To-dos</div>
+        <div className="bot">
+          <div className="nav-i"><MoonIcon />Theme<span className="dotb"></span></div>
+          <div className="nav-i"><SettingsIcon />Settings<svg className="out" viewBox="0 0 24 24"><path d="M14 4h-4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M14 12h7M18 9l3 3-3 3"/></svg></div>
+        </div>
+      </aside>
+      <div className="main">
+        <div className="top">
+          <div><div className="greet">Good afternoon</div><div className="greet-s">You&apos;ve got $19,200 coming in, and 0 invoices worth chasing.</div></div>
+          <a className="btn btn-p" href="#">+ Add deal</a>
+        </div>
+        <div className="stats3">
+          <div className="card stat"><div className="stat-k">Booked</div><div className="stat-v">$106,250</div><div className="stat-m">across 19 active deals</div></div>
+          <div className="card stat"><div className="stat-k">Paid</div><div className="stat-v" style={{ color: "var(--green)" }}>$77,850</div><div className="stat-m">received, all time</div></div>
+          <div className="card stat"><div className="stat-k">Outstanding</div><div className="stat-v" style={{ color: "#C99A2E" }}>$19,200</div><div className="stat-m">3 payments expected</div></div>
+        </div>
+        <OverviewDealsList />
+        <div>
+          <div className="card wk">
+            <b>This week</b>
+            <div className="days">
+              <div className="d sel"><span>Sun</span><b>20</b></div>
+              <div className="d"><span>Mon</span><b>21</b></div>
+              <div className="d"><span>Tue</span><b>22</b><i></i></div>
+              <div className="d today"><span>Wed</span><b>23</b></div>
+              <div className="d"><span>Thu</span><b>24</b></div>
+              <div className="d"><span>Fri</span><b>25</b></div>
+              <div className="d"><span>Sat</span><b>26</b></div>
+            </div>
+            <p>Nothing scheduled for Sun 20. Enjoy the quiet.</p>
+          </div>
+          <div className="card pay" style={{ marginTop: 14 }}>
+            <div className="ph"><b>Payments</b><a href="#">View all</a></div>
+            <OverviewPayRow day="15" mon="Oct" name="Halcyon Skincare" sub="Not invoiced" amt="$5,500" />
+            <OverviewPayRow day="8" mon="Nov" name="Meadowlark Tea" sub="Not invoiced" amt="$3,900" />
+            <OverviewPayRow day="20" mon="Nov" name="Basewear Co." sub="Not invoiced" amt="$9,800" />
+          </div>
+        </div>
+      </div>
+      <span className="fab" aria-hidden><FluentBotSparkle28Regular width={40} height={40} /></span>
+    </div>
+  );
+}
+
+function OverviewDealsList() {
+  const rows = [
+    ["H", "Halcyon Skincare", "p-not", "Not invoiced", "$5,500"],
+    ["M", "Meadowlark Tea", null, "Negotiating", "$3,900"],
+    ["B", "Basewear Co.", null, "Negotiating", "$9,800"],
+    ["N", "Nova Nutrition", "p-paid", "Paid", "$1,450"],
+    ["L", "Lumen Beauty", "p-paid", "Paid", "$5,000"],
+    ["V", "Verde Wellness", "p-paid", "Paid", "$6,200"],
+    ["N", "Northbrook Athletic", null, "No invoice needed", "$20,000"],
+    ["K", "Kindred Foods", "p-paid", "Paid", "$2,900"],
+  ] as const;
+  return (
+    <div className="card">
+      <div className="dl-h"><b>Active deals</b><span className="srch"><SearchIcon />Search your deals</span><span className="seg"><span className="on">Active</span><span>Unpaid</span><span>Paid</span><span>All</span></span></div>
+      {rows.map(([lt, nm, pill, ps, amt], i) => (
+        <div className="drw" style={i === 0 ? { borderTop: 0 } : undefined} key={nm}>
+          <span className="lt">{lt}</span><span className="nm">{nm}</span>
+          <span className="pill" style={pill ? { background: "var(--green-b)", color: "var(--green)" } : { background: "var(--ctrl)", color: "var(--sec)" }}>{ps}</span>
+          <span className="mono">{amt}</span>
+        </div>
+      ))}
+      <div className="dl-f"><span>19 deals</span><span><em>Previous</em><em>Page 1 of 2</em><em>Next</em></span></div>
+    </div>
+  );
+}
+function OverviewPayRow({ day, mon, name, sub, amt }: { day: string; mon: string; name: string; sub: string; amt: string }) {
+  return (
+    <div className="prw"><span className="dt"><b>{day}</b><span>{mon}</span></span><span className="nm">{name}<span>{sub}</span></span><span className="rt"><span className="mono">{amt}</span><br /><span className="pill p-not">Expected</span></span></div>
+  );
+}
+
+/* Tiny icons for the mock */
+const ico = { width: 15, height: 15, stroke: "currentColor", fill: "none", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+const BellIcon = () => (<svg {...ico} viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>);
+const HomeIcon = () => (<svg {...ico} viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/></svg>);
+const BriefcaseIcon = () => (<svg {...ico} viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>);
+const CalendarIcon = () => (<svg {...ico} viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>);
+const DollarIcon = () => (<svg {...ico} viewBox="0 0 24 24"><path d="M12 2v20"/><path d="M17 6.5c0-1.9-2.2-3-5-3s-5 1.1-5 3 2.2 3 5 3 5 1.1 5 3-2.2 3-5 3-5-1.1-5-3"/></svg>);
+const BulbIcon = () => (<svg {...ico} viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0-3 11.2V17h6v-2.8A6 6 0 0 0 12 3Z"/><path d="M10 21h4"/></svg>);
+const TodoIcon = () => (<svg {...ico} viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="m3 6 1.5 1.5L7 5M3 12l1.5 1.5L7 11"/></svg>);
+const MoonIcon = () => (<svg {...ico} viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c-4 1-8-3-9-9Z"/></svg>);
+const SettingsIcon = () => (<svg {...ico} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>);
+const SearchIcon = () => (<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>);
+
+/* ---- Comparison ---- */
+const COMPARE_ROWS: [string, string, string, string, string][] = [
+  ["Getting a deal in", "Type it out", "Fill in the row", "Fill in the card", "Upload the contract"],
+  ["Where the contract lives", "Somewhere in email", "Somewhere in email", "Attached, if you remember", "On the deal"],
+  ["Post date and pay date together", "No", "Two columns you maintain", "If you build the view", "One calendar"],
+  ["Invoiced, paid or past due", "Whatever you last wrote", "A column you update", "A property you update", "Tracked per payment"],
+  ["What you made this year", "Add it up yourself", "A formula you wrote", "A rollup you built", "Always on the overview"],
+  ["Answers about your deals", "Scroll and search", "Scroll and search", "Scroll and search", "Ask the assistant"],
+];
+const TOOLS: [string, string][] = [
+  ["Notes app", "logo-notes-app.png"],
+  ["Spreadsheet", "logo-spreadsheet.png"],
+  ["Notion", "logo-notion.png"],
+];
+const COMPARE_NO: Record<number, number[]> = { 0: [], 1: [0, 1], 2: [0], 3: [0], 4: [0], 5: [0, 1, 2] };
+
+function CompareSection() {
+  const [show, setShow] = useState("Notes app");
+  return (
+    <section className="cmp" id="compare">
+      <div className="col">
+        <h2>You have probably tried these already.</h2>
+        <p><span className="lg">A notes app, a spreadsheet, a Notion board. They all hold the list. None of them know what a brand deal actually is.</span><span className="sm">They hold the list. None of them know what a brand deal is.</span></p>
+        <div className="cmp-pick" role="tablist" aria-label="Compare Talby with">
+          <span>Compare Talby with</span>
+          <div>{TOOLS.map(([t]) => <button key={t} type="button" className={show === t ? "on" : ""} onClick={() => setShow(t)}>{t}</button>)}</div>
+        </div>
+        <div className="cmpw">
+          <table className="cmpt" data-show={show}>
+            <thead><tr>
+              <th></th>
+              {TOOLS.map(([t, img], i) => <th key={t} data-t={t}><img src={`/${img}`} alt="" />{t}</th>)}
+              <th className="me" data-t="Talby"><span className="tl"><Mark /></span>Talby</th>
+            </tr></thead>
+            <tbody>
+              {COMPARE_ROWS.map((row, ri) => (
+                <tr key={ri}>
+                  <td>{row[0]}</td>
+                  {TOOLS.map(([t], ci) => (
+                    <td key={t} data-t={t} className={COMPARE_NO[ri]?.includes(ci) ? "no" : undefined}>{row[ci + 1]}</td>
+                  ))}
+                  <td data-t="Talby" className="me">{row[4]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default MarketingPage;
+/* ---- Story: one deal, four tabs + live demos ---- */
+const CONTRACT_FIELDS: [string, string][] = [
+  ["Brand", "Halcyon Skincare"],
+  ["Payment", "$5,500"],
+  ["Deliverable", "1 Reel, 3 Stories, 1 TikTok"],
+  ["Pay terms", "Net 60"],
+  ["Post date", "Oct 15, 2026"],
+  ["Exclusivity", "12 months, skincare"],
+];
+const CONTRACT_TIMING = [250, 350, 1150, 1300, 1650, 1800, 3250]; // drop.hot, pdf.in, pdf.gone, drop.shut, file.show, bar.fill, read
+
+function ContractDemo({ active }: { active?: boolean }) {
+  const reduce = useRef<boolean>(typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+  const [phase, setPhase] = useState<"idle" | "hot" | "placed" | "shut" | "done">("idle");
+  const [typed, setTyped] = useState<string[]>(Array(CONTRACT_FIELDS.length).fill(""));
+  const [row, setRow] = useState(-1);
+  const timers = useRef<number[]>([]);
+  const mounted = useRef(true);
+
+  const play = useCallback(() => {
+    timers.current.forEach(clearTimeout); timers.current = [];
+    if (mounted.current) { setPhase("idle"); setTyped(Array(CONTRACT_FIELDS.length).fill("")); setRow(-1); }
+    const later = (fn: () => void, ms: number) => { const id = window.setTimeout(() => { if (mounted.current) fn(); }, ms); timers.current.push(id); };
+    if (reduce.current) {
+      later(() => setPhase("done"), 0);
+      later(() => setTyped(CONTRACT_FIELDS.map(([, v]) => v)), 0);
+      later(() => setRow(CONTRACT_FIELDS.length), 0);
+      return;
+    }
+    later(() => setPhase("hot"), 250);
+    later(() => setPhase("placed"), 350);
+    later(() => setPhase("shut"), 1300);
+    later(() => setPhase("done"), 1650); // file shows + bar starts
+    let t = 3450;
+    CONTRACT_FIELDS.forEach(([, v], i) => {
+      later(() => { setRow(i); setTyped((prev) => { const n = [...prev]; n[i] = v; return n; }); }, t);
+      t += 420;
+    });
+    later(() => setRow(CONTRACT_FIELDS.length), t + 300);
+  }, []);
+
+  // autoplay when the panel becomes visible (scrolled into view OR the tab is
+  // activated, so clicking Contract above the fold still plays it)
+  useEffect(() => {
+    mounted.current = true;
+    if (active) { play(); return () => { mounted.current = false; timers.current.forEach(clearTimeout); }; }
+    const el = document.getElementById("contract-demo");
+    let obs: IntersectionObserver | null = null;
+    if (el && "IntersectionObserver" in window && !reduce.current) {
+      obs = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { play(); obs?.disconnect(); } }), { threshold: 0.4 });
+      obs.observe(el);
+    } else if (el) { play(); }
+    return () => { mounted.current = false; timers.current.forEach(clearTimeout); obs?.disconnect(); };
+  }, [play]);
+
+  return (
+    <div className="upl" id="contract-demo">
+      <div className={"drop" + (phase === "shut" || phase === "done" ? " shut" : "") + (phase === "hot" ? " hot" : "")}>
+        {phase === "idle" || phase === "hot" ? <div className={"pdf" + (phase === "hot" ? " in" : "")}><b>PDF</b><i></i><i></i><i></i></div> : null}
+        <span className="drop-t" style={{ opacity: phase === "idle" || phase === "hot" ? 1 : 0 }}>Drop your contract here</span>
+      </div>
+      <div className={"fileline" + (phase === "done" ? " show" : "")} id="file">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="fn">Halcyon_Agreement.pdf</div>
+          <div className="fm">{phase === "done" ? "Read in 4 seconds" : "Reading 14 pages"}</div>
+          <div className="prog"><i style={{ width: phase === "done" ? "100%" : "0%", transition: phase === "done" ? "width 1.4s cubic-bezier(.4,.1,.2,1)" : "none" }} /></div>
+        </div>
+        <span className={"tick" + (phase === "done" ? " show" : "")}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L20 7" /></svg></span>
+      </div>
+      <div className="fields">
+        {CONTRACT_FIELDS.map(([k, v], i) => (
+          <div className={"fld" + (phase === "done" ? " on done" : "")} key={k}>
+            <div className="k">{k}</div>
+            <div className="v">{phase === "done" ? v : <span className="skel" />}</div>
+          </div>
+        ))}
+      </div>
+      <div className="upl-foot">
+        <span className={"done-n" + (phase === "done" ? " show" : "")}>6 details filled in. Nothing typed.</span>
+        {row >= CONTRACT_FIELDS.length && <button className="replay" onClick={play}>Replay</button>}
+      </div>
+    </div>
+  );
+}
+
+const DEALS = [
+  { n: "Northbrook Athletic", s: "Invoiced", c: "p-inv", t: "Net 60", a: 12500, st: "active", d: "1 YouTube integration", pd: "Oct 2" },
+  { n: "Halcyon Skincare", s: "Not invoiced", c: "p-not", t: "Net 30", a: 5500, st: "active", d: "1 Reel, 3 Stories", pd: "Oct 15" },
+  { n: "Kindred Foods", s: "Paid", c: "p-paid", t: "Net 30", a: 2900, st: "paid", d: "2 TikToks", pd: "Sep 5" },
+  { n: "Petal and Pine", s: "Past due", c: "p-due", t: "Net 45", a: 1500, st: "active", d: "1 Reel", pd: "Sep 8" },
+  { n: "Lumen Beauty", s: "Paid", c: "p-paid", t: "Net 60", a: 5000, st: "paid", d: "1 Reel, 3 Stories", pd: "Sep 12" },
+  { n: "Verde Wellness", s: "Invoiced", c: "p-inv", t: "Net 30", a: 6200, st: "active", d: "2 TikToks, 1 Reel", pd: "Sep 18" },
+];
+const fmt = (n: number) => "$" + n.toLocaleString("en-US");
+
+function DealsDemo() {
+  const [f, setF] = useState<"active" | "paid" | "all">("active");
+  const [open, setOpen] = useState<number | null>(null);
+  const shown = DEALS.filter((d) => f === "all" || d.st === f);
+  const total = shown.reduce((s, d) => s + d.a, 0);
+  return (
+    <div className="ui">
+      <div className="ui-h">
+        <div className="fchips" role="group" aria-label="Filter deals">
+          {(["active", "paid", "all"] as const).map((x) => <button key={x} className={"fchip" + (f === x ? " on" : "")} data-f={x} onClick={() => setF(x)}>{x === "all" ? "All" : x[0].toUpperCase() + x.slice(1)}</button>)}
+        </div>
+        <span id="dcount" style={{ marginLeft: "auto", fontSize: 11, color: "var(--mut)" }}>{shown.length} deal{shown.length === 1 ? "" : "s"}</span>
+      </div>
+      <div id="dlist">
+        {shown.map((d, i) => (
+          <div key={d.n}>
+            <div className={"row drowx" + (open === i ? " open" : "")} data-i={i} data-st={d.st} tabIndex={0} role="button" aria-expanded={open === i} onClick={() => setOpen(open === i ? null : i)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(open === i ? null : i); } }}>
+              <span className="rn" style={{ width: 160 }}>{d.n}</span><span className={"pill " + d.c}>{d.s}</span>
+              <span style={{ fontSize: 12, color: "var(--sec)", marginLeft: 14 }}>{d.t}</span>
+              <span className="amt">{fmt(d.a)}</span><span className="chev" aria-hidden>›</span>
+            </div>
+            <div className={"row dmore" + (open === i ? " open" : "")} data-for={i}>
+              <div><b>Deliverable</b>{d.d}</div><div><b>Post date</b>{d.pd}</div><div><b>Pay terms</b>{d.t}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="row" style={{ background: "var(--page)", borderTop: "1px solid var(--line-s)" }}>
+        <span id="dtl" style={{ fontSize: 12, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--mut)" }}>{f === "active" ? "Total active" : f === "paid" ? "Total paid" : "Total booked"}</span>
+        <span className="amt" id="dtot" style={{ fontSize: 16, fontWeight: 600 }}>{fmt(total)}</span>
+      </div>
+    </div>
+  );
+}
+
+/* Calendar demo */ 
+const CAL_EVENTS: Record<number, [string, string][]> = {
+  5: [["post", "Kindred"]],
+  8: [["post", "Petal and Pine"]],
+  12: [["pay", "Lumen $4,800"]],
+  15: [["due", "Sprouts due"]],
+  18: [["pay", "HVR $1,000"]],
+  22: [["post", "Nova"]],
+  26: [["pay", "Panera $8,000"]],
+};
+const CAL_DAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const AGENDA_DONE = { 5: 5, 8: 8, 12: 12, 15: 15, 18: 18, 22: 22, 26: 26 };
+
+function CalendarDemo() {
+  const [days, setDays] = useState<Record<number, [string, string][]>>(CAL_EVENTS);
+  const [toast, setToast] = useState("");
+  const drag = useRef<{ el: HTMLElement; day: number; ox: number; oy: number } | null>(null);
+
+  const cells: number[] = [];
+  for (let d = 1; d <= 28; d++) cells.push(d);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    const el = e.currentTarget as HTMLElement; // this IS the .ev span
+    e.preventDefault();
+    const r = el.getBoundingClientRect();
+    const day = Number(el.closest("[data-day]")?.getAttribute("data-day"));
+    drag.current = { el, day, ox: e.clientX - r.left, oy: e.clientY - r.top };
+    el.classList.add("lifting");
+    try { el.setPointerCapture(e.pointerId); } catch {}
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    d.el.style.transform = `translate(${e.clientX - d.ox - d.el.getBoundingClientRect().left}px, ${e.clientY - d.oy}px) scale(1.04)`;
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = under?.closest?.("[data-day]") as HTMLElement | null;
+    document.querySelectorAll(".cal.drop-on").forEach((c) => c.classList.remove("drop-on"));
+    if (cell && cell.dataset.day && Number(cell.dataset.day) !== d.day) cell.classList.add("drop-on");
+  };
+  const onPointerUp = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    d.el.classList.remove("lifting");
+    d.el.style.transform = "";
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const cell = under?.closest?.("[data-day]") as HTMLElement | null;
+    document.querySelectorAll(".cal.drop-on").forEach((c) => c.classList.remove("drop-on"));
+    const targetDay = cell?.dataset.day ? Number(cell.dataset.day) : null;
+    if (targetDay && targetDay !== d.day) {
+      setDays((prev) => {
+        const src = prev[d.day] ?? [];
+        const evIdx = src.findIndex((x) => x[1] === d.el.textContent);
+        if (evIdx < 0) return prev;
+        const ev = src[evIdx];
+        const next = { ...prev };
+        next[d.day] = src.filter((_, i) => i !== evIdx);
+        next[targetDay] = [...(next[targetDay] ?? []), ev];
+        return next;
+      });
+      setToast(`Moved ${d.el.textContent} to September ${targetDay}.`);
+      window.setTimeout(() => setToast(""), 2600);
+    }
+  };
+
+  return (
+    <div className="ui" style={{ padding: 14 }}>
+      <div className="calhd" style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 12, flexWrap: "wrap" }}>
+        <span style={{ fontFamily: "var(--fh)", fontSize: 15, fontWeight: 500 }}>September 2026</span>
+        <span style={{ display: "flex", gap: 6, fontSize: 11, color: "var(--sec)", marginLeft: "auto" }}><i style={{ width: 7, height: 7, borderRadius: "50%", background: "#3C86D1", display: "block" }} />Post</span>
+        <span style={{ display: "flex", gap: 6, fontSize: 11, color: "var(--sec)" }}><i style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--green-d)", display: "block" }} />Payment</span>
+        <span style={{ display: "flex", gap: 6, fontSize: 11, color: "var(--sec)" }}><i style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--coral-d)", display: "block" }} />Due</span>
+      </div>
+      <div id="calgrid" style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", border: "1px solid var(--line-s)", borderRadius: 8, overflow: "hidden" }}>
+        {CAL_DAYS.map((d) => <div className="cal-h" key={d}>{d}</div>)}
+        {/* leading blanks (Sep 2026 starts Tue) */}
+        <div className="cal"></div><div className="cal"></div>
+        {cells.map((dd) => (
+          <div className="cal" data-day={dd} key={dd} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+            <b>{dd}</b>
+            {(days[dd] ?? []).map(([t, label], idx) => (
+              <span key={idx} className={"ev " + t + " drag e" + dd + "-" + idx} data-s={label.split(" ")[0]} onPointerDown={onPointerDown}>{label}</span>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="agenda" id="agenda">
+        {Object.entries(AGENDA_DONE).filter(([d]) => days[Number(d)]?.length).map(([d]) => (days[Number(d)] ?? []).map(([t, label], i) => (
+          <div className="ag" key={`${d}-${i}`}><span className="agd">Sep {d}</span><i className={"agi ag-" + t}></i><span>{label}</span></div>
+        )))}
+      </div>
+      <div className="toast" id="caltoast" aria-live="polite">{toast}</div>
+    </div>
+  );
+}
+
+/* Payments demo */
+function PaymentDemo() {
+  const [received, setReceived] = useState<boolean[]>([false, false, false]);
+  const R0 = 57700, E0 = 27000, RN0 = 23, EN0 = 8;
+  const amounts = [1000, 8000, 3400];
+  const R = R0 + amounts.reduce((s, a, i) => s + (received[i] ? a : 0), 0);
+  const E = E0 - amounts.reduce((s, a, i) => s + (received[i] ? a : 0), 0);
+  const RN = RN0 + received.filter(Boolean).length;
+  const EN = EN0 - received.filter(Boolean).length;
+  const rows = [["Sep 18", "Hidden Valley Ranch", "p-inv", "Invoiced", "$1,000", 0], ["Sep 26", "Panera", "p-inv", "Invoiced", "$8,000", 1], ["Aug 28", "Sable and Stone", "p-due", "Past due", "$3,400", 2]] as const;
+
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <div className="ui stat"><div className="stat-k">Received this year</div><div className="stat-v" id="recv" style={{ color: "var(--green)" }}>{fmt(R)}</div><div className="stat-m" id="recvn">{RN} payments</div></div>
+        <div className="ui stat"><div className="stat-k">Expected</div><div className="stat-v" id="expd" style={{ color: "var(--amber)" }}>{fmt(E)}</div><div className="stat-m" id="expdn">{EN} payments</div></div>
+      </div>
+      <div className="ui" id="plist">
+        <div className="ui-h"><span className="ui-t">Coming up</span></div>
+        {rows.map(([date, name, pc, ps, amt, i]) => (
+          <div className={"row prow" + (received[i] ? " flash" : "")} key={name} style={{ background: received[i] ? "var(--green-b)" : undefined, transition: "background .4s" }}>
+            <span className="num" style={{ fontSize: 12, color: date[0] === "S" && !received[i] ? "var(--red)" : "var(--sec)", width: 52 }}>{date}</span>
+            <span className="rn">{name}</span>
+            <span className={"pill " + (received[i] ? "p-paid pst" : pc + " pst")} style={{ marginLeft: 12 }}>{received[i] ? "Received" : ps}</span>
+            <span className="amt">{amt}</span>
+            {received[i] ? <span className="markbtn done">Received</span> : <button className="markbtn" onClick={() => setReceived((p) => p.map((x, j) => (j === i ? true : x)))}>Mark received</button>}
+          </div>
+        ))}
+      </div>
+      {received.some(Boolean) && <button className="reset" onClick={() => setReceived([false, false, false])}>Reset</button>}
+    </div>
+  );
+}
+
+/* Story tabs */
+const STORY_TABS = [
+  { id: "p1", label: "Contract", el: <ContractDemo active={true} />, kick: "Contract", h: "The contract shows up. Talby reads it.", p: "Drop in the signed PDF. Talby pulls out the brand, the rate, the deliverables, the post date and the payment terms, and puts each one where it belongs. You check the fields instead of retyping them.", chk: ["Brand, rate, deliverables and dates filled in for you", "Every field stays editable", "The PDF stays attached to the deal"] },
+  { id: "p2", label: "Deal", el: <DealsDemo />, kick: "Deal", h: "Now it is a deal, next to all your others.", p: "Brand, value, status and both dates on one line. No columns to set up. Filter by what is active or what is paid and the total at the bottom changes with you.", chk: ["One line per deal, nothing to configure", "Filter by Active, Paid or All", "The total follows the filter"] },
+  { id: "p3", label: "Calendar", el: <CalendarDemo />, kick: "Calendar", h: "Post dates and pay dates on the same calendar.", p: "The post goes out on one day. The invoice is due weeks later. Talby puts both on the same month view, next to every other deal, so a due date never arrives as a surprise from the brand.", chk: ["Posts and payments on one month view", "Every deal, not just this one", "Drag anything to a new day when plans change"] },
+  { id: "p4", label: "Payment", el: <PaymentDemo />, kick: "Payment", h: "The money lands, and your year adds up.", p: "Most trackers stop at deal closed. Talby carries the payment through expected, invoiced and received. Mark it received and the totals at the top move.", chk: ["Expected, invoiced, received, past due", "Past due stays red until it is paid", "Your year to date, always current"] },
+];
+
+function StorySection() {
+  const [active, setActive] = useState(0);
+  return (
+    <section className="story" id="story">
+      <div className="col">
+        <div className="story-h">
+          <h2>One deal, start to finish.</h2>
+          <p>Follow a single brand deal through Talby, from the day the contract shows up to the day the money does. Each screen is real. Try them.</p>
+        </div>
+        <div className="tabs" role="tablist" aria-label="Stages of a deal">
+          {STORY_TABS.map((t, i) => (
+            <button key={t.id} className="tab" role="tab" aria-selected={active === i} aria-controls={t.id} tabIndex={active === i ? 0 : -1} onClick={() => setActive(i)}>{t.label}</button>
+          ))}
+        </div>
+        {STORY_TABS.map((t, i) => (
+          <div className="panel" id={t.id} role="tabpanel" aria-labelledby={t.id} hidden={active !== i} key={t.id}>
+            <div className="pk"><span className="kick">{t.kick}</span><span className="live"><i></i>Live demo</span></div>
+            <h3>{t.h}</h3>
+            <p>{t.p}</p>
+            <div className="piece">{t.el}</div>
+            <ul className="chk">{t.chk.map((c) => <li key={c}>{c}</li>)}</ul>
+            <div className="pf"><span></span><a className="btn btn-p" href="#">Try it free</a></div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ---- Assistant demo ---- */
+const QA: [string, string][] = [
+  ["What did I agree to for exclusivity with Halcyon?", "<b>12 months in the skincare category</b>, starting from the October 15 post date. It is in section 4.2 of the Halcyon agreement. No other categories are restricted."],
+  ["How much have I made from skincare deals this year?", "<b>$18,400 received</b> across four skincare deals, with $5,500 from Halcyon still to come."],
+  ["Which invoices are past due right now?", "<b>None.</b> Three payments are expected: Halcyon on October 15, Meadowlark Tea on November 8 and Basewear on November 20. None have been invoiced yet."],
+];
+const ASK_LG = [
+  "What did I agree to for exclusivity with Halcyon?",
+  "How much have I made from skincare deals this year?",
+  "Which invoices are past due right now?",
+];
+const ASK_SM = ["Exclusivity with Halcyon?", "Skincare earnings this year?", "Invoices past due?"];
+
+type Msg = { kind: "me" | "ai"; text: string };
+
+function AssistantSection() {
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [typed, setTyped] = useState("");
+  const [activeQ, setActiveQ] = useState(-1);
+  const busyRef = useRef(false);
+  const timers = useRef<number[]>([]);
+  const started = useRef(false);
+  const reduceRef = useRef<boolean>(typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+  const [runningLoop, setRunningLoop] = useState(false);
+
+  const clearTimers = useCallback(() => { timers.current.forEach(clearTimeout); timers.current = []; busyRef.current = false; }, []);
+  const later = useCallback((fn: () => void, ms: number) => { const id = window.setTimeout(fn, ms); timers.current.push(id); }, []);
+
+  const run = useCallback((qi: number) => {
+    clearTimers();
+    setMsgs([]); setTyped(""); setActiveQ(qi); busyRef.current = true; setRunningLoop(true);
+    const [q, answer] = QA[qi];
+    const delay = reduceRef.current ? 0 : 18 + Math.random() * 26;
+    let k = 0;
+    const typeQ = () => {
+      if (k < q.length) { setTyped(q.slice(0, ++k)); later(typeQ, delay); return; }
+      later(() => {
+        setTyped("");
+        setMsgs((m) => [...m, { kind: "me", text: q }]);
+        const ai: Msg = { kind: "ai", text: "" };
+        setMsgs((m) => [...m, ai]);
+        later(() => {
+          const words = answer.split(" ");
+          let w = 0;
+          const stream = () => {
+            if (w < words.length) {
+              const text = words.slice(0, ++w).join(" ");
+              setMsgs((m) => m.map((x, i) => (i === m.length - 1 && x.kind === "ai" ? { ...x, text } : x)));
+              later(stream, 45);
+              return;
+            }
+            busyRef.current = false;
+          };
+          stream();
+        }, 900);
+      }, 350);
+    };
+    if (!reduceRef.current) typeQ();
+    else { setTyped(q); later(() => { setTyped(""); setMsgs([{ kind: "me", text: q }, { kind: "ai", text: answer }]); busyRef.current = false; }, 50); }
+  }, [clearTimers, later]);
+
+  const loop = useCallback(() => {
+    if (cycle.current >= QA.length) cycle.current = 0;
+    run(cycle.current++);
+    timers.current.push(window.setTimeout(loop, 9000));
+  }, [run]);
+
+  const cycle = useRef(0);
+
+  // autostart on first scroll into view
+  useEffect(() => {
+    const chat = document.getElementById("chat");
+    const start = () => { if (started.current) return; started.current = true; loop(); };
+    if (!chat) return;
+    if ("IntersectionObserver" in window) {
+      const o = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { start(); o.disconnect(); } }), { threshold: 0.1 });
+      o.observe(chat);
+      return () => { o.disconnect(); };
+    }
+    start();
+  }, [loop, run]);
+
+  const pick = (qi: number) => { if (busyRef.current) { clearTimers(); } run(qi); };
+
+  return (
+    <section className="also" id="assistant">
+      <div className="col">
+        <div>
+          <div className="ai-mark"><FluentBotSparkle28Regular width={64} height={64} /></div>
+          <h2>Ask Talby about your own deals.</h2>
+          <p><span className="lg">The assistant only knows what is in your account: your contracts, your dates, your numbers. Ask what a clause says or how much you made in the spring, and get an answer from your own paperwork, not the internet.</span><span className="sm">Answers come from your own contracts and numbers, not the internet.</span></p>
+          <div className="asks" id="asks">
+            {ASK_LG.map((q, i) => <button key={i} type="button" className={"ask" + (activeQ === i ? " on" : "")} data-q={i} onClick={() => pick(i)}>{q}</button>)}
+          </div>
+        </div>
+        <div className="chat" id="chat" aria-live="polite">
+          <div className="thread" id="thread">
+            {msgs.map((m, i) => m.kind === "me"
+              ? <div className="msg me" key={i}>{m.text}</div>
+              : <div className={"msg ai" + (m.text ? "" : " dots")} key={i}>{m.text ? <span dangerouslySetInnerHTML={{ __html: m.text }} /> : <><i></i><i></i><i></i></>}</div>)}
+          </div>
+          <div className="ask-bar"><span>{typed}</span><span className="caret"></span></div>
+        </div>
+        <div className="asks asks-m" aria-hidden="true">
+          {ASK_SM.map((q, i) => <button key={i} type="button" className={"ask" + (activeQ === i ? " on" : "")} data-q={i} onClick={() => pick(i)}>{q}</button>)}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---- Pricing ---- */
+function PricingSection() {
+  return (
+    <section className="price" id="pricing">
+      <div className="col">
+        <h2>Free for your first five deals.</h2>
+        <p><span className="lg">Everything above is on the free plan. Pay when you have more deals than that going at once.</span><span className="sm">Everything above is on the free plan.</span></p>
+        <div className="plans">
+          <div className="plan">
+            <h3>Free</h3>
+            <div className="cost">$0</div>
+            <div className="for">Up to 5 active deals</div>
+            <ul>
+              <li><Ck />Contract reading, deals, calendar and payments</li>
+              <li><Ck />Deal scanner for forwarded emails</li>
+              <li><Ck />Import from a spreadsheet or Notion</li>
+              <li className="up"><Ck />Talby assistant</li>
+              <li className="up"><Ck />Retainer and repeating deals</li>
+              <li className="up"><Ck />Year end income summary</li>
+            </ul>
+            <a className="btn btn-s" href="/signup">Sign up free</a>
+          </div>
+          <div className="plan">
+            <h3>Unlimited</h3>
+            <div className="cost">$9<small>a month</small></div>
+            <div className="for">As many deals as you can land</div>
+            <ul>
+              <li><Ck />Everything in Free, no deal cap</li>
+              <li><Ck />Talby assistant</li>
+              <li><Ck />Retainer and repeating deals</li>
+              <li><Ck />Year end income summary</li>
+            </ul>
+            <a className="btn btn-p" href="/signup?plan=unlimited">Start with Unlimited</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---- Close ---- */
+function CloseSection() {
+  return (
+    <section className="close">
+      <div className="col">
+        <h2>Add your first deal tonight.</h2>
+        <p>It takes about a minute, and you will know exactly what is due and what is owed by the time you are done.</p>
+        <a className="btn btn-p btn-lg" href="/signup">Sign up free</a>
+      </div>
+    </section>
+  );
+}
+
+/* ---- Footer ---- */
+function SiteFooter() {
+  return (
+    <footer>
+      <div className="col">
+        <a className="brand" href="/"><Mark /><b>Talby</b></a>
+        <a href="/blog">Blog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="mailto:hello@talby.io">hello@talby.io</a>
+        <span>www.talby.io</span><span>Aerolune LLC</span>
+      </div>
+    </footer>
   );
 }
