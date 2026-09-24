@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { TalbyLogo } from "@/components/marketing/talby-logo";
 import { FluentBotSparkle28Regular } from "@/components/fluent-icons";
 import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea, IconNotes, IconSettings } from "@/components/icons";
+import { GoUnlimitedButton } from "@/components/marketing/go-unlimited-button";
 
 /* Marks (Talby + check) as inline symbols — keyed, reusable. */
 function Mark({ width = 26 }: { width?: number } = {}) {
@@ -694,7 +695,7 @@ function PricingSection() {
               <li><Ck />Retainer and repeating deals</li>
               <li><Ck />Year end income summary</li>
             </ul>
-            <a className="btn btn-p" href="/signup?plan=unlimited">Start with Unlimited</a>
+            <GoUnlimitedButton label="Start with Unlimited" className="btn-p text-[15px]" />
           </div>
         </div>
       </div>

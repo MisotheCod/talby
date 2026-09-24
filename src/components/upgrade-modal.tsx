@@ -2,6 +2,7 @@
 
 import { IconClose, IconCrown, IconCheck } from "@/components/icons";
 import { Button } from "@/components/ui";
+import { startUnlimited } from "@/lib/start-unlimited";
 
 /**
  * Upgrade prompt shown when a free user hits the active-deal cap.
@@ -16,7 +17,7 @@ export function UpgradeModal({
 }) {
   const go = () => {
     onClose();
-    window.location.href = "/#pricing";
+    startUnlimited();
   };
 
   return (

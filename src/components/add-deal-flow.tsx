@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import posthog from "posthog-js";
 import { createClient } from "@/lib/supabase/client";
+import { startUnlimited } from "@/lib/start-unlimited";
 import { cn, formatMoney } from "@/lib/utils";
 import { paidPaymentGap } from "@/lib/pay-status";
 import { IconPlus, IconClose, IconRefresh } from "@/components/icons";
@@ -126,7 +127,7 @@ function InlineNewDeal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
         {atCap && (
           <div className="rounded-xl bg-accenttint p-4 text-sm mb-4">
             <div className="font-semibold accent-ink">You&apos;re at the free-plan limit</div>
-            <p className="text-inksoft mt-0.5">You have {activeDeals} active deals. <a href="/#pricing" className="accent-ink font-semibold underline underline-offset-2" onClick={onClose}>Go unlimited</a> to keep adding.</p>
+            <p className="text-inksoft mt-0.5">You have {activeDeals} active deals. <a href="#" onClick={(e) => { e.preventDefault(); onClose(); startUnlimited(); }} className="accent-ink font-semibold underline underline-offset-2">Go unlimited</a> to keep adding.</p>
           </div>
         )}
         {!atCap && (

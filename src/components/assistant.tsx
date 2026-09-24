@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { startUnlimited } from "@/lib/start-unlimited";
 import { cn } from "@/lib/utils";
 import { Button, Input, Spinner } from "@/components/ui";
 import { IconClose, IconSend } from "@/components/icons";
@@ -169,7 +170,7 @@ export function AssistantLauncher() {
                 <div className="rounded-xl border border-line p-4 space-y-2">
                   <p className="font-medium">The assistant is on the Unlimited plan.</p>
                   <p className="text-[13px] text-muted">Ask about your deals, payments, contracts, and calendar.</p>
-                  <Button size="sm" onClick={() => { window.location.href = "/#pricing"; }} className="w-full mt-1">Go unlimited</Button>
+                  <Button size="sm" onClick={() => { startUnlimited(); }} className="w-full mt-1">Go unlimited</Button>
                 </div>
               )}
             </div>

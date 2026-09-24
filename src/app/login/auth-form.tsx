@@ -46,6 +46,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         await supabase.from("profiles").update({ handler: handleClean }).eq("id", data.user.id);
       }
       if (data.user) { posthog.identify(data.user.id, { email }); posthog.capture("signup"); }
+      if (searchParams.get("plan") === "unlimited") {
+        // Came from a "Go unlimited" affordance — keep the flow going to checkout.
+        const { startUnlimited } = await import("@/lib/start-unlimited");
+        const ok = await startUnlimited();
+        if (!ok) router.push("/onboarding");
+        return;
+      }
       router.push("/onboarding");
       router.refresh();
     }

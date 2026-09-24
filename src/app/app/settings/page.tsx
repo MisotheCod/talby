@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { startUnlimited } from "@/lib/start-unlimited";
 import { ACCENT_PRESETS, HEADING_FONTS, applyAccent, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -183,7 +184,7 @@ export default function SettingsPage() {
 
   const startUpgrade = async () => {
     setSaving(false);
-    window.location.href = "/#pricing";
+    await startUnlimited();
   };
 
   const isOn = (p: (typeof ACCENT_PRESETS)[number]) =>

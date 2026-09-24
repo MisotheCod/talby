@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { startUnlimited } from "@/lib/start-unlimited";
 import { applyAccent, applyFont, applyMode, ACCENT_PRESETS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -290,7 +291,7 @@ function UpsellCard({ used, cap }: { used: number; cap: number }) {
     <div className="upsell">
       <div className="t">{used} of {cap} deals used</div>
       <div className="d">One more and you&apos;ll want unlimited. Good problem to have.</div>
-      <a href="/#pricing" className="btn3d full no-underline block text-center">Go unlimited</a>
+      <button type="button" onClick={() => { startUnlimited(); }} className="btn3d full no-underline block text-center w-full">Go unlimited</button>
     </div>
   );
 }
