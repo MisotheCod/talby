@@ -3,14 +3,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { TalbyLogo } from "@/components/marketing/talby-logo";
 import { FluentBotSparkle28Regular } from "@/components/fluent-icons";
+import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea, IconNotes, IconSettings } from "@/components/icons";
 
 /* Marks (Talby + check) as inline symbols — keyed, reusable. */
-function Mark() {
-  return (
-    <svg width="26" height="22" viewBox="0 0 26 22" aria-hidden>
-      <path fill="#1f7ae0" d="M4.2 0.0h17.6a4.2 4.2 0 0 1 4.2 4.2v13.6a4.2 4.2 0 0 1-4.2 4.2H4.2A4.2 4.2 0 0 1 0 17.8V4.2A4.2 4.2 0 0 1 4.2 0ZM6 13.4l3 3 7-7-1.5-1.5-5.5 5.5-1.5-1.5L6 13.4Z" />
-    </svg>
-  );
+function Mark({ width = 26 }: { width?: number } = {}) {
+  return <TalbyLogo width={width} />;
 }
 function Ck() {
   return (
@@ -113,16 +110,16 @@ function OverviewMock() {
       <aside className="side">
         <div className="who"><span className="avi">J</span><div><b>JunoBakes</b><span>@JunoBakes</span></div><span className="bell"><BellIcon /><i>3</i></span></div>
         <div className="grp">Manage</div>
-        <div className="nav-i on"><HomeIcon />Overview</div>
-        <div className="nav-i"><BriefcaseIcon />Deals<span className="cnt">19</span></div>
-        <div className="nav-i"><CalendarIcon />Calendar</div>
-        <div className="nav-i"><DollarIcon />Payments</div>
+        <div className="nav-i on"><IconHome size={15} />Overview</div>
+        <div className="nav-i"><IconBriefcase size={15} />Deals<span className="cnt">19</span></div>
+        <div className="nav-i"><IconCalendar size={15} />Calendar</div>
+        <div className="nav-i"><IconDollar size={15} />Payments</div>
         <div className="grp">Create</div>
-        <div className="nav-i"><BulbIcon />Ideas</div>
-        <div className="nav-i"><TodoIcon />To-dos</div>
+        <div className="nav-i"><IconIdea size={15} />Ideas</div>
+        <div className="nav-i"><IconNotes size={15} />To-dos</div>
         <div className="bot">
           <div className="nav-i"><MoonIcon />Theme<span className="dotb"></span></div>
-          <div className="nav-i"><SettingsIcon />Settings<svg className="out" viewBox="0 0 24 24"><path d="M14 4h-4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M14 12h7M18 9l3 3-3 3"/></svg></div>
+          <div className="nav-i"><IconSettings size={15} />Settings<svg className="out" viewBox="0 0 24 24"><path d="M14 4h-4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4"/><path d="M14 12h7M18 9l3 3-3 3"/></svg></div>
         </div>
       </aside>
       <div className="main">
@@ -154,11 +151,10 @@ function OverviewMock() {
             <div className="ph"><b>Payments</b><a href="#">View all</a></div>
             <OverviewPayRow day="15" mon="Oct" name="Halcyon Skincare" sub="Not invoiced" amt="$5,500" />
             <OverviewPayRow day="8" mon="Nov" name="Meadowlark Tea" sub="Not invoiced" amt="$3,900" />
-            <OverviewPayRow day="20" mon="Nov" name="Basewear Co." sub="Not invoiced" amt="$9,800" />
           </div>
         </div>
       </div>
-      <span className="fab" aria-hidden><FluentBotSparkle28Regular width={40} height={40} /></span>
+      <span className="fab" aria-hidden style={{ background: "conic-gradient(from 0deg, #1f7ae0, #5fa3ee, #1f7ae0)" }}><span className="fab-disk"><FluentBotSparkle28Regular width={22} height={22} /></span></span>
     </div>
   );
 }
@@ -170,9 +166,6 @@ function OverviewDealsList() {
     ["B", "Basewear Co.", null, "Negotiating", "$9,800"],
     ["N", "Nova Nutrition", "p-paid", "Paid", "$1,450"],
     ["L", "Lumen Beauty", "p-paid", "Paid", "$5,000"],
-    ["V", "Verde Wellness", "p-paid", "Paid", "$6,200"],
-    ["N", "Northbrook Athletic", null, "No invoice needed", "$20,000"],
-    ["K", "Kindred Foods", "p-paid", "Paid", "$2,900"],
   ] as const;
   return (
     <div className="card">
@@ -239,7 +232,7 @@ function CompareSection() {
             <thead><tr>
               <th></th>
               {TOOLS.map(([t, img], i) => <th key={t} data-t={t}><img src={`/${img}`} alt="" />{t}</th>)}
-              <th className="me" data-t="Talby"><span className="tl"><Mark /></span>Talby</th>
+              <th className="me" data-t="Talby"><span className="tl"><TalbyLogo width={26} color="#ffffff" /></span>Talby</th>
             </tr></thead>
             <tbody>
               {COMPARE_ROWS.map((row, ri) => (
@@ -646,7 +639,7 @@ function AssistantSection() {
     <section className="also" id="assistant">
       <div className="col">
         <div>
-          <div className="ai-mark"><FluentBotSparkle28Regular width={64} height={64} /></div>
+          <div className="ai-mark" style={{ borderRadius: "50%", background: "conic-gradient(from 0deg, #1f7ae0, #5fa3ee, #1f7ae0)" }}><span className="fab-disk" style={{ width: "72%", height: "72%", borderRadius: "50%", background: "#fff", display: "grid", placeItems: "center" }}><FluentBotSparkle28Regular width={36} height={36} /></span></div>
           <h2>Ask Talby about your own deals.</h2>
           <p><span className="lg">The assistant only knows what is in your account: your contracts, your dates, your numbers. Ask what a clause says or how much you made in the spring, and get an answer from your own paperwork, not the internet.</span><span className="sm">Answers come from your own contracts and numbers, not the internet.</span></p>
           <div className="asks" id="asks">

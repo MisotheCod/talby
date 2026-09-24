@@ -10,7 +10,17 @@ export function TalbyBrand({ href = "/", size = 24 }: { href?: string; size?: nu
   return (
     <Link href={href} className="flex items-center gap-2 no-underline">
       <TalbyLogo width={size} />
-      <span className="font-semibold text-lg tracking-tight" style={{ letterSpacing: "-0.03em" }}>Talby</span>
+      <span
+        className="inline-block"
+        style={{
+          fontFamily: "var(--font-lexend), 'Lexend', system-ui, sans-serif",
+          fontWeight: 600,
+          fontSize: 18,
+          letterSpacing: "-0.03em",
+        }}
+      >
+        Talby
+      </span>
     </Link>
   );
 }
