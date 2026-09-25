@@ -16,6 +16,25 @@ function Ck() {
   );
 }
 
+/**
+ * LiveDemo — renders its children only after hydration/mount.
+ *
+ * The interactive product demos (OverviewMock, the story tab demos) contain
+ * mock deal data (dollar amounts, fake brand names) that was previously
+ * shipped into the server-rendered HTML and picked up by search engines as
+ * page copy — Google showed "Good afternoon, you've got $19,200 coming in…"
+ * as Talby's SERP snippet. Rendering the demos only after mount keeps that
+ * mock data out of the initial HTML, so snippets draw from the real marketing
+ * copy, while human visitors still see the demos a split-second after first
+ * paint. Same pattern the AssistantSection already uses (populates on scroll).
+ */
+function LiveDemo({ children, minHeight = 0 }: { children: React.ReactNode; minHeight?: number }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return <div aria-hidden style={{ minHeight }} />;
+  return <>{children}</>;
+}
+
 /* A tiny check-list row used in pricing + panels */
 function CheckLi({ children, up }: { children: React.ReactNode; up?: boolean }) {
   return (
@@ -98,7 +117,7 @@ function Hero() {
         <p className="note">No card. No setup. Add a deal and go.</p>
       </div>
       <div className="hero-bg">
-        <div className="shot"><OverviewMock /></div>
+        <div className="shot"><LiveDemo minHeight={540}><OverviewMock /></LiveDemo></div>
       </div>
     </header>
   );
@@ -542,7 +561,7 @@ function StorySection() {
             <div className="pk"><span className="kick">{t.kick}</span><span className="live"><i></i>Live demo</span></div>
             <h3>{t.h}</h3>
             <p>{t.p}</p>
-            <div className="piece">{t.el}</div>
+            <div className="piece"><LiveDemo minHeight={400}>{t.el}</LiveDemo></div>
             <ul className="chk">{t.chk.map((c) => <li key={c}>{c}</li>)}</ul>
             <div className="pf"><span></span><a className="btn btn-p" href="#">Try it free</a></div>
           </div>
