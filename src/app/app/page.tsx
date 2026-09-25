@@ -407,7 +407,7 @@ function DealRow({ deal }: { deal: Deal }) {
     if (deal.status === "pipeline") return <span className="pill pill-pipe">Negotiating</span>;
     switch (r.status) {
       case "paid": return <span className="pill pill-paid">Paid</span>;
-      case "invoiced": return <span className="pill pill-due">Invoiced</span>;
+      case "invoiced": return <span className="pill pill-paid">Invoiced</span>;
       case "no_invoice_needed": return <span className="pill pill-pipe">No invoice needed</span>;
       default: return <span className="pill pill-due">Not invoiced</span>;
     }
