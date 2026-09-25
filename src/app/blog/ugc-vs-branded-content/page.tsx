@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { RelatedReading } from "@/components/marketing/related-reading";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const CANONICAL = `${SITE}/blog/ugc-vs-branded-content`;
@@ -39,7 +40,7 @@ export default function UGCvsBrandedContentPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "Article",
+                "@type": "BlogPosting",
                 headline: TITLE,
                 description: META,
                 author: { "@type": "Organization", name: "Talby", url: SITE },
@@ -185,6 +186,14 @@ export default function UGCvsBrandedContentPage() {
             <li><a href="https://www.launchpointhq.com/blog/pricing-guide" className="hover:underline" target="_blank" rel="noopener noreferrer">Launchpoint: UGC and influencer marketing pricing guide</a></li>
           </ol>
         </section>
+
+                <RelatedReading
+          links={[
+            { href: "/blog/build-a-creator-media-kit", title: "Building a creator media kit" },
+            { href: "/blog/how-to-price-sponsored-content", title: "How to price sponsored content" },
+            { href: "/blog/content-repurposing-for-creators", title: "Repurposing one piece of content everywhere" }
+          ]}
+        />
 
         <section className="mt-8 max-w-md mx-auto bg-card border border-line rounded-xl p-6 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Start for free</h2>

@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { RelatedReading } from "@/components/marketing/related-reading";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const CANONICAL = `${SITE}/blog/reporting-metrics-to-brands`;
 const TITLE = "The performance metrics that get you repeat brand deals";
 const META =
-  "What metrics to report after a campaign, why tracking them well earns repeat deals, and how proving your value becomes the difference between one-offs and partnerships.";
+  "What metrics to report after a sponsored campaign, why proving your numbers earns repeat deals, and how to gather it without the hassle.";
 
 export const dynamic = "force-static";
 
@@ -41,7 +42,7 @@ export default function ReportingMetricsToBrandsPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "Article",
+                "@type": "BlogPosting",
                 headline: TITLE,
                 description: META,
                 author: { "@type": "Organization", name: "Talby", url: SITE },
@@ -206,6 +207,14 @@ export default function ReportingMetricsToBrandsPage() {
             </li>
           </ol>
         </section>
+
+                <RelatedReading
+          links={[
+            { href: "/blog/getting-paid-on-time-creators", title: "How creators get paid on time" },
+            { href: "/blog/how-to-price-sponsored-content", title: "How to price sponsored content" },
+            { href: "/blog/build-a-creator-media-kit", title: "Building a creator media kit" }
+          ]}
+        />
 
         <section className="mt-8 max-w-md mx-auto bg-card border border-line rounded-xl p-6 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Start for free</h2>

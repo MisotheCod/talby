@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { RelatedReading } from "@/components/marketing/related-reading";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const CANONICAL = `${SITE}/blog/brand-deal-contract-clauses`;
@@ -39,7 +40,7 @@ export default function BrandDealContractClausesPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "Article",
+                "@type": "BlogPosting",
                 headline: TITLE,
                 description: META,
                 author: { "@type": "Organization", name: "Talby", url: SITE },
@@ -175,6 +176,14 @@ export default function BrandDealContractClausesPage() {
             <li>Neo Legal, <a href="https://neolegal.ae/insights/brand-deal-red-flags-creators" className="underline hover:no-underline" target="_blank" rel="noopener noreferrer">Brand Deal Red Flags: 12 Clauses That Hurt Creators</a></li>
           </ol>
         </section>
+
+                <RelatedReading
+          links={[
+            { href: "/blog/negotiating-with-brands", title: "How to negotiate brand deals the right way" },
+            { href: "/blog/getting-paid-on-time-creators", title: "How creators get paid on time" },
+            { href: "/blog/track-deliverables-across-platforms", title: "Tracking deliverables across platforms" }
+          ]}
+        />
 
         <section className="mt-8 max-w-md mx-auto bg-card border border-line rounded-xl p-6 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Start for free</h2>

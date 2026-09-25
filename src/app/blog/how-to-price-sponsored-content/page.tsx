@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { RelatedReading } from "@/components/marketing/related-reading";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const CANONICAL = `${SITE}/blog/how-to-price-sponsored-content`;
 const TITLE = "How to price sponsored content and find your rate as a creator";
 const META =
-  "Price sponsored content fairly: how to calculate your creator rate with CPM formulas, engagement multipliers, and platform benchmarks so brands and you both know what the work is worth.";
+  "How to price sponsored content: calculate your creator rate with CPM formulas, engagement multipliers, and platform benchmarks.";
 
 export const dynamic = "force-static";
 
@@ -39,7 +40,7 @@ export default function HowToPriceSponsoredContentPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "Article",
+                "@type": "BlogPosting",
                 headline: TITLE,
                 description: META,
                 author: { "@type": "Organization", name: "Talby", url: SITE },
@@ -209,6 +210,14 @@ export default function HowToPriceSponsoredContentPage() {
             </li>
           </ol>
         </section>
+
+                <RelatedReading
+          links={[
+            { href: "/blog/negotiating-with-brands", title: "How to negotiate brand deals the right way" },
+            { href: "/blog/ugc-vs-branded-content", title: "UGC vs branded content" },
+            { href: "/blog/how-to-pitch-brands", title: "Pitching brands as a smaller creator" }
+          ]}
+        />
 
         <section className="mt-8 max-w-md mx-auto bg-card border border-line rounded-xl p-6 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Start for free</h2>

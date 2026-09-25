@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { RelatedReading } from "@/components/marketing/related-reading";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const CANONICAL = `${SITE}/blog/content-repurposing-for-creators`;
@@ -39,7 +40,7 @@ export default function ContentRepurposingPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "Article",
+                "@type": "BlogPosting",
                 headline: TITLE,
                 description: META,
                 author: { "@type": "Organization", name: "Talby", url: SITE },
@@ -215,6 +216,14 @@ export default function ContentRepurposingPage() {
             </li>
           </ol>
         </section>
+
+                <RelatedReading
+          links={[
+            { href: "/blog/batching-content-as-a-creator", title: "How to batch content as a solo creator" },
+            { href: "/blog/ugc-vs-branded-content", title: "UGC vs branded content" },
+            { href: "/blog/content-calendar-for-creators", title: "Building a content calendar without burnout" }
+          ]}
+        />
 
         <section className="mt-8 max-w-md mx-auto bg-card border border-line rounded-xl p-6 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Start for free</h2>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { RelatedReading } from "@/components/marketing/related-reading";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const CANONICAL = `${SITE}/blog/batching-content-as-a-creator`;
@@ -39,7 +40,7 @@ export default function BatchContentPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "Article",
+                "@type": "BlogPosting",
                 headline: TITLE,
                 description: META,
                 author: { "@type": "Organization", name: "Talby", url: SITE },
@@ -204,6 +205,14 @@ export default function BatchContentPage() {
             <li><a href="https://rachelpedersen.com/the-batching-schedule-that-freed-up-20-hours-a-week-in-my-business" className="underline hover:no-underline" target="_blank" rel="noopener">Rachel Pedersen: The Batching Schedule That Freed Up 20 Hours a Week</a></li>
           </ol>
         </section>
+
+                <RelatedReading
+          links={[
+            { href: "/blog/content-repurposing-for-creators", title: "Repurposing one piece of content everywhere" },
+            { href: "/blog/content-calendar-for-creators", title: "Building a content calendar without burnout" },
+            { href: "/blog/track-deliverables-across-platforms", title: "Tracking deliverables across platforms" }
+          ]}
+        />
 
         <section className="mt-8 max-w-md mx-auto bg-card border border-line rounded-xl p-6 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Start for free</h2>

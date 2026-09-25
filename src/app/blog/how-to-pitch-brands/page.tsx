@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { RelatedReading } from "@/components/marketing/related-reading";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const CANONICAL = `${SITE}/blog/how-to-pitch-brands`;
 const TITLE = "How to pitch brands as a smaller creator and land your first sponsored deal";
 const META =
-  "How to pitch brands as a smaller creator: what you need ready, what not to waste time on, and the exact structures that get responses when your follower count is still growing.";
+  "How to pitch brands as a smaller creator: what to have ready before you email a single brand, what to skip, and a pitch structure that gets a reply.";
 
 export const dynamic = "force-static";
 
@@ -39,7 +40,7 @@ export default function HowToPitchBrandsPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "Article",
+                "@type": "BlogPosting",
                 headline: TITLE,
                 description: META,
                 author: { "@type": "Organization", name: "Talby", url: SITE },
@@ -251,6 +252,14 @@ export default function HowToPitchBrandsPage() {
             </li>
           </ol>
         </section>
+
+                <RelatedReading
+          links={[
+            { href: "/blog/how-to-price-sponsored-content", title: "How to price sponsored content" },
+            { href: "/blog/build-a-creator-media-kit", title: "Building a creator media kit" },
+            { href: "/blog/negotiating-with-brands", title: "How to negotiate brand deals the right way" }
+          ]}
+        />
 
         <section className="mt-8 max-w-md mx-auto bg-card border border-line rounded-xl p-6 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Start for free</h2>

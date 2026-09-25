@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { RelatedReading } from "@/components/marketing/related-reading";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 const CANONICAL = `${SITE}/blog/track-deliverables-across-platforms`;
 const TITLE = "How to track content deliverables across Instagram, TikTok, and YouTube";
 const META =
-  "Track content deliverables across Instagram, TikTok, and YouTube without missing a deadline: what to track, where the workflow breaks, and how to build a system that survives a busy week.";
+  "Track content deliverables across Instagram, TikTok, and YouTube without missing a deadline: what to track and how to keep it in one place.";
 
 export const dynamic = "force-static";
 
@@ -41,7 +42,7 @@ export default function TrackDeliverablesPage() {
             "@context": "https://schema.org",
             "@graph": [
               {
-                "@type": "Article",
+                "@type": "BlogPosting",
                 headline: TITLE,
                 description: META,
                 author: { "@type": "Organization", name: "Talby", url: SITE },
@@ -235,6 +236,14 @@ export default function TrackDeliverablesPage() {
             </li>
           </ol>
         </section>
+
+                <RelatedReading
+          links={[
+            { href: "/blog/content-calendar-for-creators", title: "Building a content calendar without burnout" },
+            { href: "/blog/content-repurposing-for-creators", title: "Repurposing one piece of content everywhere" },
+            { href: "/blog/batching-content-as-a-creator", title: "How to batch content as a solo creator" }
+          ]}
+        />
 
         <section className="mt-8 max-w-md mx-auto bg-card border border-line rounded-xl p-6 text-center">
           <h2 className="text-xl font-semibold tracking-tight">Start for free</h2>
