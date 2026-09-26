@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { TalbyBrand } from "@/components/marketing/talby-brand";
+import { DoNotSellControl } from "@/lib/privacy-optout";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -89,6 +90,25 @@ export default function PrivacyPage() {
             Settings &rarr; Account &rarr; Danger zone, or by contacting us. It&apos;s irreversible,
             and it cancels any active subscription.
           </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-semibold">Analytics</h2>
+          <p className="text-muted text-sm leading-relaxed">
+            We use PostHog to understand how the Talby site is used. It stores one anonymous analytics
+            cookie on your device and records page views and click paths on the marketing pages. It does not
+            record your payment details, deals, or anything else inside your account.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-semibold" id="do-not-sell">Your privacy choices</h2>
+          <p className="text-muted text-sm leading-relaxed">
+            You can opt out of analytics and data sharing for the Talby site at any time. This tells us not to
+            collect analytics from this device, and it removes the analytics cookie. You can turn it back on
+            here at any time.
+          </p>
+          <DoNotSellControl />
         </section>
 
         <section className="space-y-2">

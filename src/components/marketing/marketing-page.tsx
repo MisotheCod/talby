@@ -744,6 +744,7 @@ function SiteFooter() {
         <a href="/blog">Blog</a>
         <a href="/privacy">Privacy</a>
         <a href="/terms">Terms</a>
+        <a href="/privacy#do-not-sell">Do Not Sell or Share My Personal Information</a>
         <a href="mailto:hello@talby.io">hello@talby.io</a>
         <span>www.talby.io</span><span>Aerolune LLC</span>
       </div>
