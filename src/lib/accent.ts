@@ -10,12 +10,12 @@ export type HSL = { h: number; s: number; l: number };
 export type ThemeMode = "light" | "dark";
 export const DEFAULT_MODE: ThemeMode = "light";
 
-/** Heading-font choices (per the reference HTML). */
+/** Heading-font choices. Lexend is the only brand heading font; the
+ *  Space Grotesk / Bricolage / Fraunces options were leftover demo fonts
+ *  and were removed. fontCssVar falls back to Lexend for unknown names, so
+ *  any saved choice predating the removal renders as Lexend. */
 export const HEADING_FONTS = [
   { name: "Lexend", cssVar: "var(--font-lexend)" },
-  { name: "Space Grotesk", cssVar: "var(--font-space-grotesk)" },
-  { name: "Bricolage Grotesque", cssVar: "var(--font-bricolage)" },
-  { name: "Fraunces", cssVar: "var(--font-fraunces)" },
 ] as const;
 export const DEFAULT_HEAD_FONT = "Lexend";
 

@@ -222,7 +222,7 @@ export function ThemeControl({
               style={{ fontFamily: f.cssVar }}
               onClick={(e) => { e.stopPropagation(); pickFont(f.name); }}
             >
-              {f.name === "Bricolage Grotesque" ? "Bricolage" : f.name}
+              {f.name}
             </button>
           ))}
         </div>

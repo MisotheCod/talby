@@ -361,7 +361,7 @@ export default function SettingsPage() {
                     style={{ fontFamily: f.cssVar }}
                     onClick={() => previewFont(f.name)}
                   >
-                    {f.name === "Bricolage Grotesque" ? "Bricolage" : f.name}
+                    {f.name}
                   </button>
                 ))}
               </div>
