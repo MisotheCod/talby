@@ -30,8 +30,32 @@ function Ck() {
  */
 function LiveDemo({ children, minHeight = 0 }: { children: React.ReactNode; minHeight?: number }) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
-  if (!mounted) return <div aria-hidden style={{ minHeight }} />;
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    // Mount only when the placeholder nears the viewport (true lazy load), so
+    // the DOM- and CPU-heavy demos below the fold do not compete with first
+    // paint on an old phone. Falls back to immediate mount on a prerender
+    // snapshot or if IntersectionObserver is unavailable.
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") { setMounted(true); return; }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) { io.disconnect(); setMounted(true); }
+      },
+      { rootMargin: "300px 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  if (!mounted)
+    return (
+      <div
+        ref={ref}
+        aria-hidden
+        style={{ minHeight }}
+        data-live-demo-placeholder={minHeight}
+      />
+    );
   return <>{children}</>;
 }
 
@@ -285,7 +309,7 @@ const CONTRACT_FIELDS: [string, string][] = [
 const CONTRACT_TIMING = [250, 350, 1150, 1300, 1650, 1800, 3250]; // drop.hot, pdf.in, pdf.gone, drop.shut, file.show, bar.fill, read
 
 function ContractDemo({ active }: { active?: boolean }) {
-  const reduce = useRef<boolean>(typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+  const reduce = useRef<boolean>(typeof window !== "undefined" && (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false));
   const [phase, setPhase] = useState<"idle" | "hot" | "placed" | "shut" | "done">("idle");
   const [typed, setTyped] = useState<string[]>(Array(CONTRACT_FIELDS.length).fill(""));
   const [row, setRow] = useState(-1);
@@ -593,7 +617,7 @@ function AssistantSection() {
   const busyRef = useRef(false);
   const timers = useRef<number[]>([]);
   const started = useRef(false);
-  const reduceRef = useRef<boolean>(typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+  const reduceRef = useRef<boolean>(typeof window !== "undefined" && (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false));
   const [runningLoop, setRunningLoop] = useState(false);
 
   const clearTimers = useCallback(() => { timers.current.forEach(clearTimeout); timers.current = []; busyRef.current = false; }, []);

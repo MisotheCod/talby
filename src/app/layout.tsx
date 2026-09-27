@@ -47,6 +47,17 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
+  // iOS Safari auto-detects phone numbers, dates, email, and addresses in text
+  // and wraps them in <a href="tel:/mailto:"> links BEFORE React hydrates. On a
+  // money/copy-heavy homepage this rewrites the DOM out from under hydration,
+  // firing #418 ("server HTML didn't match the client") on 100+ iOS users —
+  // the exact pattern behind the TikTok in-app browser blowout. Disable it.
+  formatDetection: {
+    telephone: false,
+    date: false,
+    email: false,
+    address: false,
+  },
   title: {
     default: "Talby — Brand deals & money, in one calm place",
     template: "%s | Talby",
