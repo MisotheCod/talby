@@ -28,10 +28,11 @@ function Ck() {
  * copy, while human visitors still see the demos a split-second after first
  * paint. Same pattern the AssistantSection already uses (populates on scroll).
  */
-function LiveDemo({ children, minHeight = 0 }: { children: React.ReactNode; minHeight?: number }) {
-  const [mounted, setMounted] = useState(false);
+function LiveDemo({ children, minHeight = 0, always = false }: { children: React.ReactNode; minHeight?: number; always?: boolean }) {
+  const [mounted, setMounted] = useState(always);
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
+    if (always) { setMounted(true); return; }
     // Mount only when the placeholder nears the viewport (true lazy load), so
     // the DOM- and CPU-heavy demos below the fold do not compete with first
     // paint on an old phone. Falls back to immediate mount on a prerender
@@ -46,7 +47,7 @@ function LiveDemo({ children, minHeight = 0 }: { children: React.ReactNode; minH
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [always]);
   if (!mounted)
     return (
       <div
@@ -141,7 +142,7 @@ function Hero() {
         <p className="note">No card. No setup. Add a deal and go.</p>
       </div>
       <div className="hero-bg">
-        <div className="shot"><LiveDemo minHeight={540}><OverviewMock /></LiveDemo></div>
+        <div className="shot"><LiveDemo minHeight={540} always><OverviewMock /></LiveDemo></div>
       </div>
     </header>
   );
