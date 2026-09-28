@@ -18,8 +18,18 @@
 .auth-form-col {
   display: flex;
   flex-direction: column;
+  /* Desktop: the logo is positioned top-left (out of flow) so the form block
+     (heading → terms) centers in the full column height and lines up with the
+     blue panel's vertically centered content. */
+  position: relative;
 }
+/* Desktop logo: absolute in the top-left, so it does not push the form block
+   down. The mobile media query re-inserts it into the flow (logo at top, gap,
+   then form) per the phone layout. */
 .auth-top {
+  position: absolute;
+  top: 8px;
+  left: 4px;
   padding: 8px 4px 0;
 }
 .auth-brand {
@@ -41,10 +51,12 @@
 .auth-form-wrap {
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 4px 0 20px;
+  padding: 8px 0;
 }
+/* The whole form block (logo through terms) is centered vertically in the left
+   column so it lines up with the blue panel's content. */
 .auth-form-inner {
   width: 100%;
   max-width: 384px;
@@ -57,6 +69,9 @@
   margin: 0 0 6px;
   color: var(--ink, #0d0f13);
 }
+/* Desktop shows "Create your account"; mobile swaps to the brand line. */
+.auth-heading-desk { display: inline; }
+.auth-heading-mobile { display: none; }
 .auth-sub {
   font-size: 13.5px;
   color: var(--ink-soft, #5a6170);
@@ -332,8 +347,7 @@
   color: #2f9e6f;
 }
 
-/* Card: this week */
-.ac-week-label,
+/* Card: income */
 .ac-income-label {
   font-size: 10.5px;
   text-transform: uppercase;
@@ -342,55 +356,6 @@
   font-weight: 600;
   margin-bottom: 10px;
 }
-.ac-week {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-.ac-day {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-.ac-dw {
-  font-size: 10px;
-  color: #9aa1ae;
-  text-transform: uppercase;
-}
-.ac-day-today .ac-dw {
-  color: #1f7ae0;
-  font-weight: 700;
-}
-.ac-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-/* Dots carry inline background: colors are provided inline on the elements.
-   Today's highlight + pay chip use brand blue. */
-.ac-day-today .ac-dot {
-  box-shadow: 0 0 0 2px rgba(31, 122, 224, 0.25);
-}
-.ac-paychip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  background: #f0f6ff;
-  color: #1a6ac6;
-  font-size: 12.5px;
-  font-weight: 600;
-  border-radius: 20px;
-  padding: 5px 11px;
-}
-.ac-paydot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #1f7ae0;
-}
-
-/* Card: income */
 .ac-income-val {
   font-size: 24px;
   font-weight: 600;
@@ -410,7 +375,52 @@
   min-height: 8px;
 }
 
-/* --- Responsive: hide the panel below 900px --- */
+/* Card: This week — real app Overview card, anchored to the brand blue accent
+   (never a user theme color). Hardcoded content, no live dates, so the /signup
+   render is deterministic and cannot trigger hydration mismatches. */
+.auth-week-card {
+  width: 100%;
+}
+.auth-week-title {
+  font-family: var(--font-lexend), 'Lexend', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0d0f13;
+  margin-bottom: 12px;
+}
+/* The week/day/daylist classes come from the app's globals.css (shared). Their
+   colors ride CSS vars; here the auth card forces the default Talby blue so the
+   accent var (which may be a user theme color on /signup-after-login) is never
+   used as the selected-day tone. */
+.auth-week-card .day {
+  border-color: #d6e5fb;
+}
+.auth-week-card .day.today,
+.auth-week-card .day.sel {
+  border-color: #1f7ae0;
+  background: #e7f1fe;
+}
+.auth-week-card .day.today .dd,
+.auth-week-card .day.sel .dd {
+  color: #1a6ac6;
+}
+.auth-week-card .day .dots {
+  min-height: 6px;
+}
+/* PAY / DUE pills: app colors (due amber, late coral). */
+.auth-week-card .ditem .n {
+  font-family: var(--font-inter), 'Inter', sans-serif;
+}
+.auth-week-card .ditem .a {
+  font-family: var(--font-mono-mono), 'JetBrains Mono', monospace;
+}
+
+/* Mobile: "What Talby does" preview below the form. Hidden on desktop. */
+.auth-mobile-cards {
+  display: none;
+}
+
+/* --- Responsive: hide the panel below 900px; mobile-form layout --- */
 @media (max-width: 899px) {
   .auth-split {
     display: block;
@@ -418,10 +428,48 @@
   .auth-brand-col {
     display: none;
   }
+  .auth-form-col {
+    min-height: 100vh;
+    justify-content: flex-start;
+  }
+  /* Mobile: logo back in flow at the top (out of the absolute positioning),
+     then clear space, then the centered-form block. */
+  .auth-top {
+    position: static;
+  }
+  /* Logo stays top with normal padding; the form block is centered in the
+     space below it. The gap between the logo and the heading is the wrap's
+     top padding (≈56px). */
   .auth-form-wrap {
-    min-height: calc(100vh - 92px);
-    overflow-y: auto;
-    align-items: flex-start;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    /* Clear space between the logo and the heading (roughly 56px). */
+    padding-top: 56px;
+  }
+  .auth-heading-desk { display: none; }
+  .auth-heading-mobile { display: inline; }
+  .auth-mobile-cards {
+    display: block;
+    margin-top: 8px;
+  }
+  .auth-mobile-cards-label {
+    font-family: var(--font-lexend), 'Lexend', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft, #5a6170);
+    margin-bottom: 10px;
+  }
+  /* Show the two preview cards at a smaller size below the terms. */
+  .auth-mobile-cards .auth-panel-card {
+    font-size: 12.5px;
+    padding: 11px 13px;
+  }
+  .auth-mobile-cards .ac-v {
+    font-size: 12.5px;
+  }
+  .auth-mobile-cards .ac-income-val {
+    font-size: 21px;
   }
 }
 
