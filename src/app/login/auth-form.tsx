@@ -5,6 +5,7 @@ import posthog from "posthog-js";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { readLandingVariant } from "@/lib/landing-experiment";
 import { IconEye, IconEyeInvisible, IconCheck } from "@/components/icons";
 import { TalbyLogo } from "@/components/marketing/talby-logo";
 
@@ -46,6 +47,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         await supabase.from("profiles").update({ handler: handleClean }).eq("id", data.user.id);
       }
       if (data.user) { posthog.identify(data.user.id, { email }); posthog.capture("signup"); }
+      // Primary metric for the landing-test experiment. Attach the assigned
+      // variant so PostHog can segment signup_completed by arm. The server-side
+      // vid cookie (and the PostHog ph_phc cookie via the same-origin redirect)
+      // keep the distinct_id stable, so this attributes per visitor.
+      posthog.capture("signup_completed", { landing_variant: readLandingVariant() ?? "unknown" });
       if (searchParams.get("plan") === "unlimited") {
         // Came from a "Go unlimited" affordance — keep the flow going to checkout.
         const { startUnlimited } = await import("@/lib/start-unlimited");
@@ -71,6 +77,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         <div className="auth-form-wrap">
           <div className="auth-form-inner">
             <h1 className="auth-heading">{isLogin ? "Log in" : "Create your account"}</h1>
+            {!isLogin && (
+              <p className="auth-sub">Track every brand deal: contracts, post dates, and payments. Free for your first 5 deals, no card.</p>
+            )}
             <p className="auth-switch">
               {isLogin ? "New to Talby? " : "Already have an account? "}
               <Link href={isLogin ? "/signup" : "/login"} className="auth-switch-link">
@@ -109,9 +118,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               </label>
 
               <div className="auth-pw-wrap">
-                <div className="auth-label-row" style={{ visibility: isLogin ? "visible" : "hidden" }} aria-hidden={!isLogin}>
+                <div className="auth-label-row">
                   <span className="auth-label">Password</span>
-                  <Link href="/forgot-password" className="auth-forgot">Forgot your password?</Link>
+                  {isLogin && (
+                    <Link href="/forgot-password" className="auth-forgot">Forgot your password?</Link>
+                  )}
                 </div>
                 <div className="auth-pw-input">
                   <input
