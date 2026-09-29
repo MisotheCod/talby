@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, isPayOverdue, type PayStatus, type DealRollup } from "@/lib/pay-status";
-import { dealPostDates, nextPostDate, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
+import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
 import { DealInput, DealTextarea } from "@/components/deal-input";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail, IconUndo } from "@/components/icons";
@@ -35,6 +35,7 @@ type Deal = {
   pay_rollup?: DealRollup;     // derived pay status + "N of M paid" progress
   post_dates?: PostDate[];     // derived from linked content rows (single source)
   next_post_date?: string | null; // earliest upcoming post date (latest when all past)
+  post_cell?: ReturnType<typeof postDateCell>;
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
@@ -72,7 +73,7 @@ export default function DealsPage() {
     const [d, pays, content] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       user ? supabase.from("payments").select("expected_date, status, deal_id, invoice_state, pay_status").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
-      supabase.from("content").select("id, event_date, title, post_type, linked_deal_id").not("linked_deal_id", "is", null),
+      supabase.from("content").select("id, event_date, title, post_type, status, linked_deal_id").not("linked_deal_id", "is", null),
     ]);
     const deals = (d.data ?? []) as unknown as Deal[];
     // Post dates live in content rows (event_date + title=label + post_type=kind).
@@ -119,10 +120,10 @@ export default function DealsPage() {
       pay_rollup: dealPayRollup(dealPays.get(deal.id) ?? []),
       // Post dates are derived from linked content rows (single source of
       // truth). deals.post_date is a read-only legacy column (write-guarded)
-      // that phase two drops. post_dates = full sorted list; next_post_date =
-      // earliest upcoming (latest when all past so the column never empties).
+      // that phase two drops. post_dates = full sorted list; post_cell = the
+      // next-unposted date + posted progress for the column (see postDateCell).
       post_dates: dealPostDates(postsByDeal.get(deal.id)),
-      next_post_date: nextPostDate(postsByDeal.get(deal.id)),
+      post_cell: postDateCell(postsByDeal.get(deal.id)),
     })));
     setLoading(false);
   }, [supabase]);
@@ -393,16 +394,7 @@ export default function DealsPage() {
                     {paymentPill(d)}
                     {payProgressLine(d) && <span className="text-[10.5px] text-inksoft tabular-nums">{payProgressLine(d)}</span>}
                   </span>
-                  <span className={cn("d-post text-[12.5px] tabular-nums", d.next_post_date ? "text-inksoft" : "")}>
-                    {d.next_post_date ? (
-                      <span className="inline-flex items-center gap-1">
-                        {formatDate(d.next_post_date)}
-                        {d.post_dates && d.post_dates.length > 1 && (
-                          <span className="text-[10.5px] text-inksoft/70">+{d.post_dates.length - 1}</span>
-                        )}
-                      </span>
-                    ) : <NotSet />}
-                  </span>
+                  <PostDateCell deal={d} onChanged={onUpdated} />
                   <span className={cn("d-payby text-[12.5px] tabular-nums", payOverdue(d) ? "text-late font-medium" : "text-inksoft")}>
                     {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
                   </span>
@@ -1481,6 +1473,118 @@ function RowMenuButton({ open, onToggle, current, onArchive, onDelete }: {
         document.body
       )}
     </>
+  );
+}
+
+/* ---------------- Post date cell (column + hover/tap popover) ----------------
+   Shows the next-unposted date (red when that date is past), a muted progress
+   line for 2+ dates, and opens a popover listing every post on hover (desktop)
+   or tap (mobile). The popover also lets you mark a post as posted/delivered —
+   there is no other UI that sets content.status='published', so without it the
+   "All posted" state could never be reached. */
+function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
+  const supabase = createClient();
+  const cell = deal.post_cell;
+  const trgRef = useRef<HTMLDivElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number; up: boolean } | null>(null);
+  const stay = useRef(false);
+
+  // Position the portal'd popover when opened, based on the cell's rect.
+  useEffect(() => {
+    if (!open || !trgRef.current) return;
+    const r = trgRef.current.getBoundingClientRect();
+    const W = 240;
+    const rows = Math.max(1, (cell?.dates.length ?? 1));
+    const H = 34 + rows * 34 + 12;
+    const spaceBelow = window.innerHeight - r.bottom - 8;
+    const up = spaceBelow < H && r.top > H + 8;
+    const x = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
+    const y = up ? r.top - H - 4 : r.top - 2;
+    setPos({ x, y, up });
+  }, [open, cell?.dates.length]);
+
+  // Close on outside click / touch or Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent | TouchEvent) => {
+      const t = e.target as Node;
+      if (trgRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("touchstart", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const togglePosted = async (row: PostDate) => {
+    if (!row.id) return;
+    const next = row.posted ? "planned" : "published";
+    await supabase.from("content").update({ status: next }).eq("id", row.id);
+    setOpen(false);
+    onChanged();
+  };
+
+  const notSet = <span className="text-inksoft">—</span>;
+  const top = cell && cell.next ? cell.next : null;
+
+  return (
+    <div
+      ref={trgRef}
+      role="button"
+      aria-haspopup="dialog"
+      tabIndex={0}
+      onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
+      onMouseEnter={() => { stay.current = true; setOpen(true); }}
+      onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
+      className="d-post relative cursor-pointer select-none"
+    >
+      <span className={cn("inline-block leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
+        {top ? formatDate(top) : notSet}
+        {cell?.line2 && (
+          <span className={cn("absolute left-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap", cell.line2.kind === "all" ? "text-ok" : "text-inksoft/70")}>{cell.line2.text}</span>
+        )}
+      </span>
+      {open && pos && createPortal(
+        <div
+          ref={popRef}
+          role="dialog"
+          aria-label="Post dates"
+          className="fixed z-[96] w-64 bg-card border border-line2 rounded-xl shadow-pop py-2 fade-up text-sm"
+          style={{ left: pos.x, top: pos.y }}
+          onMouseEnter={() => { stay.current = true; setOpen(true); }}
+          onMouseLeave={() => { stay.current = false; setOpen(false); }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-inkfaint">{deal.brand} — posts</div>
+          {(cell?.dates ?? []).length === 0 && <div className="px-3 py-2 text-[12px] text-inksoft">No post dates.</div>}
+          {(cell?.dates ?? []).map((d) => (
+            <button
+              key={d.id ?? d.date}
+              type="button"
+              onClick={() => void togglePosted(d)}
+              title={d.posted ? "Mark as not posted" : "Mark as posted"}
+              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-card2 cursor-pointer text-left"
+            >
+              <span className="min-w-[70px] tabular-nums text-[12px] text-ink">{formatDate(d.date)}</span>
+              <span className="flex-1 min-w-0 truncate text-[12px] text-inksoft">{d.label || (d.kind || "Post")}</span>
+              <span className={cn("w-4 h-4 rounded-[5px] border flex-none flex items-center justify-center", d.posted ? "bg-ok text-onaccent border-transparent" : "border-line2 text-transparent")}>
+                <IconCheck size={12} />
+              </span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
   );
 }
 
