@@ -1,0 +1,50 @@
+{
+  "pool": [
+    {
+      "id": "ai_roasts_you",
+      "source_niche": "language learning (Pingo vs Duolingo)",
+      "proven": "500k/mo, 1B+ views",
+      "concept": "the AI reacts to the user's attempt in real time and roast/scores it. app demos itself as a funny memorable thing.",
+      "talby_adaptation": "creator reads out their own deal-clutter ('14 tabs, 3 spreadsheets') and the camera cuts to Talby 'scoring' it \u2014 booked, paid, outstanding all in one screen. app reacts to the mess.",
+      "needs_product_demo": true,
+      "uses": 1
+    },
+    {
+      "id": "expose_the_secret",
+      "source_niche": "finance/wealth content",
+      "proven": "consistent viral in fintech fiction",
+      "concept": "creator 'exposes' a quietly embarrassing truth about how the industry/side of the work actually runs that outsiders don't see.",
+      "talby_adaptation": "'here is what nobody tells you about brand deals: most creators do not know how much they have actually made this year. i checked. it was bad.' then reveal the dashboard as the receipt.",
+      "needs_product_demo": true,
+      "uses": 1
+    },
+    {
+      "id": "two_paths_future",
+      "source_niche": "life-coaching / manifestation trend",
+      "proven": "high-share either-or content",
+      "concept": "show two versions of the same person's future (the one who did the thing vs the one who didn't) as a split or pull-back reveal.",
+      "talby_adaptation": "'a year from now there are two versions of you. the one who knows exactly what every brand owes them, and the one still 'waiting on pay'. which are you becoming?' split-screen the clean dashboard vs the chaos.",
+      "needs_product_demo": true,
+      "uses": 1
+    },
+    {
+      "id": "average_is_madness",
+      "source_niche": "fitness 'how the sausage' content",
+      "proven": "shock-at-the-normal stats go viral",
+      "concept": "reveal an absurd-but-true baseline stat about how most people actually operate, framed as 'this is normal and it is insane'.",
+      "talby_adaptation": "'most creators have no idea what they are owed this year. that is not okay but it is normal. here is the fix in one screen.' big-number contrast hook.",
+      "needs_product_demo": true,
+      "uses": 0
+    },
+    {
+      "id": "voice_of_the_screen",
+      "source_niche": "screenwriting / POV trend",
+      "proven": "POV formats over-index on shares",
+      "concept": "give the app/UI a 'voice' that talks back to the user \u2014 the product becomes a character, not a tool.",
+      "talby_adaptation": "the Talby dashboard 'speaks' to the creator: 'you have 6 deals. one is 12 days overdue. want me to handle the chasing?' personified command center.",
+      "needs_product_demo": true,
+      "uses": 1
+    }
+  ],
+  "last_used": "2026-09-29"
+}

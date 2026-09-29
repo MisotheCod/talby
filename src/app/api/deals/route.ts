@@ -104,6 +104,26 @@ export async function POST(req: Request) {
   }
   inflight.set(idKey, created.id);
 
+  // Persist post dates as content rows (single source of truth). Post dates
+  // never go into deals.post_date — that column is read-only (write-guarded).
+  if (Array.isArray((body.payload ?? {}).post_dates) && !duplicate) {
+    try {
+      const rows = ((body.payload as Record<string, unknown>).post_dates as { date?: string; label?: string; kind?: string }[])
+        .filter((p) => p.date)
+        .sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0));
+      for (const p of rows) {
+        await supabase.from("content").insert({
+          user_id: user.id,
+          linked_deal_id: created.id,
+          event_date: p.date,
+          title: (p.label ?? "").trim() || null,
+          post_type: (p.kind ?? "").trim() || null,
+          status: "planned",
+        });
+      }
+    } catch { /* non-fatal: deal is saved; dates can be added in the drawer */ }
+  }
+
   // Ingest the extracted contract text for the assistant (server-side, non-fatal).
   // Skip on a duplicate — a retried submit already chunked+embedded it.
   if (body.text?.trim() && !duplicate) {

@@ -1,0 +1,77 @@
+{
+  "pool": [
+    {
+      "id": "product_demo",
+      "type": "video",
+      "name": "product demo",
+      "script": "creator shows the product, one clear benefit",
+      "caption_shape": "benefit + www.talby.io free to start",
+      "engagement": "low",
+      "uses": 2
+    },
+    {
+      "id": "strategic_question",
+      "type": "video",
+      "name": "ask a strategic question",
+      "script": "creator asks the audience a real either-or they're deciding: 'spreadsheet or notion for tracking brand deals? be honest.' then shows the product as their answer",
+      "caption_shape": "ends with a direct question to the audience",
+      "engagement": "high",
+      "uses": 1
+    },
+    {
+      "id": "split_audience",
+      "type": "video",
+      "name": "split the audience",
+      "script": "creator names two types of creator: 'there are two types of creators. the one who tracks every payment, and the one who is hoping. which one are you?' then shows the product",
+      "caption_shape": "'which one are you?' prompt",
+      "engagement": "high",
+      "uses": 1
+    },
+    {
+      "id": "fill_blank",
+      "type": "video",
+      "name": "fill in the blank",
+      "script": "creator starts a fill-in-the-blank: 'one thing outsiders get wrong about tracking brand deals is ____.' then shows the product as the correct completion",
+      "caption_shape": "ends with '____' to invite replies",
+      "engagement": "high",
+      "uses": 1
+    },
+    {
+      "id": "overrated",
+      "type": "video",
+      "name": "judge if it's overrated",
+      "script": "creator takes a stance: 'spreadsheet templates for brand deals are overrated.' then shows the product as the actual fix",
+      "caption_shape": "strong opinion invites agreement/arguments",
+      "engagement": "high",
+      "uses": 1
+    },
+    {
+      "id": "best_tip",
+      "type": "video",
+      "name": "ask for best tip",
+      "script": "creator asks: 'what is your go-to way to track brand deals? genuinely asking' then shows the product as their own answer",
+      "caption_shape": "'drop your tip' prompt",
+      "engagement": "high",
+      "uses": 1
+    },
+    {
+      "id": "two_fears",
+      "type": "video",
+      "name": "pit two fears",
+      "script": "creator pits two small fears: 'what is worse: losing track of a payment, or doing a brand deal for free?' then shows the product preventing both",
+      "caption_shape": "'which is worse?' either-or",
+      "engagement": "high",
+      "uses": 1
+    },
+    {
+      "id": "ugc_admin_day",
+      "type": "video",
+      "name": "mirror the ugc admin day",
+      "script": "creator walks through their ugc admin day like a 'spend a day with me': the cafe laptop moment, tabs of brand-deal chaos, 'which brand actually paid me?' then reveals talby as one screen (booked / paid / outstanding). TOOL-ONLY - no founder story, the product carries it.",
+      "caption_shape": "mirrors the day + the relief of one screen, then www.talby.io free to start",
+      "engagement": "medium",
+      "uses": 1
+    }
+  ],
+  "last_used": "2026-09-29"
+}

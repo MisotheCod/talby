@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck, IconUpload } from "@/components/icons";
+import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck, IconUpload, IconPlus } from "@/components/icons";
 import { Button, Input, Select, Textarea, Spinner } from "@/components/ui";
 
 /** Map the contract-extraction JSON onto DealFormValues. Used by DealForm, UploadModal. */
@@ -20,6 +20,12 @@ export function applyContractFields(f: Record<string, unknown>): DealFormValues 
     due_date: typeof f.due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f.due_date) ? f.due_date : init.due_date,
     rep_name: typeof f.rep_name === "string" ? f.rep_name : init.rep_name,
     rep_email: typeof f.rep_email === "string" ? f.rep_email : init.rep_email,
+    post_dates: Array.isArray(f.post_dates)
+      ? (f.post_dates as { date?: string; label?: string }[])
+          .filter((p) => typeof p.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.date))
+          .sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0))
+          .map((p) => ({ date: p.date!, label: typeof p.label === "string" ? p.label : "" }))
+      : init.post_dates,
     notes: typeof f.platforms === "string" && f.platforms ? `Platforms: ${f.platforms}` : init.notes,
   };
 }
@@ -30,6 +36,7 @@ export function contractAutoFields(f: Record<string, unknown>): (keyof DealFormV
   if (f.value_total != null) keys.push("value");
   if (typeof f.due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f.due_date)) keys.push("due_date");
   if (typeof f.exclusivity_days === "number") keys.push("exclusivity_days");
+  if (Array.isArray(f.post_dates) && f.post_dates.length) keys.push("post_dates");
   return keys;
 }
 
@@ -61,6 +68,7 @@ export type DealFormValues = {
   rep_email: string;
   links: { url: string; label?: string }[];
   notes: string;
+  post_dates: { date: string; label: string; kind?: string }[];
 };
 
 /** A field the extractor was uncertain about. Reason is plain-language, shown with its value. */
@@ -87,7 +95,7 @@ export function emptyDealForm(): DealFormValues {
   return {
     brand: "", deliverable: "", value: "", status: "pipeline",
     due_date: "", pay_terms: "", exclusivity_days: "", rep_name: "", rep_email: "",
-    links: [], notes: "",
+    links: [], notes: "", post_dates: [],
   };
 }
 
@@ -196,6 +204,9 @@ export function DealForm({
       rep_email: v.rep_email.trim() || null,
       links: v.links.filter((l) => l.url).map((l) => ({ url: l.url, label: l.label || l.url })),
       notes: v.notes.trim() || null,
+      // Post dates persist as content rows (server-side). Removed from any
+      // edit path — the drawer owns editing content rows directly.
+      post_dates: v.post_dates.filter((p) => p.date).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
       active: v.status !== "archived",
     };
 
@@ -229,7 +240,11 @@ export function DealForm({
       }
     } else {
       if (!dealId) { setError("Missing deal."); return; }
-      const { error } = await supabase.from("deals").update(payload).eq("id", dealId);
+      // Strip post_dates: they are not a deals column. Editing post dates is
+      // owned by the drawer (content rows), never the deal form's edit path.
+      const editPayload = { ...payload };
+      delete editPayload.post_dates;
+      const { error } = await supabase.from("deals").update(editPayload).eq("id", dealId);
       if (error) { setError(error.message); return; }
     }
     onSaved();
@@ -245,6 +260,7 @@ export function DealForm({
   const repSummary = [v.rep_name.trim(), v.rep_email.trim()].filter(Boolean).join(" · ");
   const termsSummary = [
     v.due_date ? `Due ${v.due_date}` : null,
+    v.post_dates.length ? `${v.post_dates.length} post date${v.post_dates.length > 1 ? "s" : ""}` : null,
     PAY_TERM_OPTIONS.find((o) => o.value === v.pay_terms)?.label && v.pay_terms ? PAY_TERM_OPTIONS.find((o) => o.value === v.pay_terms)!.label : null,
     v.exclusivity_days ? `${v.exclusivity_days} days exclusivity` : null,
   ].filter(Boolean).join(" · ");
@@ -328,7 +344,7 @@ export function DealForm({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium capitalize">{f.key.replace(/_/g, " ")}</span>
-                  <FlagEdit key={f.key} field={f.key} value={v[f.key]} onChange={(x: unknown) => set(f.key, x as never)} />
+                  <FlagEdit key={f.key} field={f.key} value={v[f.key] as string | { url: string; label?: string }[]} onChange={(x: unknown) => set(f.key, x as never)} />
                 </div>
                 <p className="text-[11px] text-inksoft mt-0.5">{f.reason}</p>
               </div>
@@ -370,6 +386,18 @@ export function DealForm({
       >
         <div className="grid grid-cols-2 gap-4">
           <Field label="Due date" spark={spark("due_date")}><Input type="date" value={v.due_date} onChange={(e) => set("due_date", e.target.value)} /></Field>
+        </div>
+        <div className="space-y-2 mt-2">
+          <div className="text-[11px] font-medium text-inksoft">Post dates<span className="text-inksoft/60"> — one per go-live date (optional)</span></div>
+          {v.post_dates.length === 0 && <div className="text-[11px] text-inksoft/50">No post dates yet. Add when you know the go-live dates.</div>}
+          {v.post_dates.map((p, i) => (
+            <div key={i} className="flex gap-2 items-center">
+              <Input type="date" value={p.date} onChange={(e) => { const n = [...v.post_dates]; n[i] = { ...n[i], date: e.target.value }; set("post_dates", n); }} aria-label={`Post date ${i + 1}`} />
+              <Input value={p.label} onChange={(e) => { const n = [...v.post_dates]; n[i] = { ...n[i], label: e.target.value }; set("post_dates", n); }} placeholder="Label (e.g. Story 2)" className="flex-1" aria-label={`Post date ${i + 1} label`} />
+              <button onClick={() => set("post_dates", v.post_dates.filter((_, j) => j !== i))} className="px-1.5 text-inksoft hover:text-late cursor-pointer" aria-label={`Remove post date ${i + 1}`}><IconDelete size={15} /></button>
+            </div>
+          ))}
+          <Button variant="secondary" size="sm" onClick={() => set("post_dates", [...v.post_dates, { date: "", label: "" }])}><IconPlus size={14} /> Add another date</Button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Pay terms" spark={spark("pay_terms")}>

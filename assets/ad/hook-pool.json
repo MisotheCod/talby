@@ -1,0 +1,85 @@
+{
+  "pool": [
+    {
+      "id": "spreadsheet_sign",
+      "angle": "direct callout",
+      "opening": "if you're running brand deals out of a spreadsheet this is your sign.",
+      "note": "PROVEN WINNER 26k views. Blunt, specific, no fluff. Lead with this one most often.",
+      "uses": 2
+    },
+    {
+      "id": "panic_numeric",
+      "angle": "numeric panic hook",
+      "opening": "i have six brand deals going right now and i could not tell you which ones have actually paid me.",
+      "note": "specific number beats vague. solid performer.",
+      "uses": 1
+    },
+    {
+      "id": "contract_upload",
+      "angle": "product hero moment",
+      "opening": "i used to read 14 pages of a contract just to find four things. now i upload it and talby fills in the deal.",
+      "note": "showcases the most impressive feature (contract auto-fill). USEWITH real contract-upload visual if possible.",
+      "uses": 1
+    },
+    {
+      "id": "forgot_year",
+      "angle": "self-discovery / curiosity",
+      "opening": "do you actually know what you've made this year? i didn't. turns out i was way off.",
+      "note": "curiosity gap + self-recognition. 9.5k views on prior version.",
+      "uses": 1
+    },
+    {
+      "id": "dead_spreadsheet",
+      "angle": "relatable confession",
+      "opening": "my spreadsheet stopped getting updated in march. that was my whole tracking system.",
+      "note": "confessional, easy for creators to recognize themselves.",
+      "uses": 1
+    },
+    {
+      "id": "ugc_admin_day",
+      "angle": "ugc admin mirror (pain-led, tool-only)",
+      "opening": "as a ugc admin the worst part is not the deals, it's the day at the cafe wondering which brand actually paid you.",
+      "note": "NEW angle targeting UGC admins specifically (they stack many small brand deals). Mirrors their daily grind: 'spend a day with me' cafe spreadsheet chaos -> one screen (booked/paid/outstanding). TOOL-ONLY, no founder story. Pairs with the ugc_admin post format. Part of rotation, NOT the rotation.",
+      "uses": 1,
+      "winner": true,
+      "winner_note": "2026-09-27 weekly: only hook that got real reach this week. Same creative sent 09-25: 55 views on YouTube Shorts vs 0 TikTok vs 1 IG. Thin (55 is small) but it is the ONLY non-zero signal in a cold-start sea of zeros. Leans into YouTube Shorts distribution."
+    },
+    {
+      "id": "owed_vs_list",
+      "angle": "counterintuitive truth",
+      "opening": "a bigger brand deal list isn't success. knowing what you're actually owed is.",
+      "note": "FRESH CANDIDATE. Category 3 counterintuitive truth (flips the 'more deals = success' assumption none of the existing pool touches). Triggers: transformation ('knowing what you're actually owed') + status. Reconverts the Forgotten-Truth/Receipt template into a blunt flip. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing.",
+      "uses": 1
+    },
+    {
+      "id": "stop_catching_later",
+      "angle": "harsh advice",
+      "opening": "stop saying you'll catch up on payments later. later is how creators lose thousands.",
+      "note": "FRESH CANDIDATE. Category 1 harsh advice ('stop X' pattern) - no existing pool entry uses this category. Triggers: time-bound ('later') + contrasting element (putting it off -> money lost). Uses the Callout template. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing alongside proven winners.",
+      "uses": 1
+    },
+    {
+      "id": "not_leaving_money_table",
+      "angle": "key insight",
+      "opening": "managing brand deals isn't about staying organized. it's about not leaving your money on the table.",
+      "note": "FRESH CANDIDATE. Category 4 key insight / big idea ('isn't about X, it's about Y') - no existing pool entry uses this category or structure. Triggers: transformation ('not leaving your money') + status (a real business knows what it's owed). Uses the Forgotten-Truth/Receipt dry-flip into a blunt inversion. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing alongside proven winners.",
+      "uses": 1
+    },
+    {
+      "id": "paid_is_second_job",
+      "angle": "quote / memorable line",
+      "opening": "you did the work. getting paid is a separate job nobody taught you.",
+      "note": "FRESH CANDIDATE. Category 5 quote/memorable line - no existing pool entry is a pure standalone quotable. Triggers: transformation ('separate job') + contrasting element (work vs getting paid). Uses the Callout/Forgotten-Truth blend flattened into one quotable line. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing.",
+      "uses": 1
+    },
+    {
+      "id": "everyone_talks_tracking",
+      "angle": "pain points (the unglamorous back-room work)",
+      "opening": "everyone talks about landing brand deals. nobody talks about tracking them.",
+      "note": "FRESH CANDIDATE. Category 2 pain points ('everyone talks about X, nobody talks about Y') - no existing pool entry uses this category or structure. Triggers: contrasting element (landing the deal vs the unglamorous chasing/tracking). Uses the Forgotten-Truth/Receipt tension flattened into one relational line. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing.",
+      "uses": 0
+    }
+  ],
+  "rotation": "round_robin",
+  "last_used": "2026-09-29"
+}

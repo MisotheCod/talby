@@ -1,0 +1,45 @@
+{
+  "note": "Slideshow CONTENT pool for the Talby cron. Each entry is a distinct pain -> transformation storyline. The cron picks the LOWEST-used concept per run (rotation kept in post-format-pool / a slideshow-usage tally), generates the two AI backgrounds to THAT concept's art direction, bakes the captions, delivers 2 images. Never reuse the same storyline twice in a row. Do NOT replicate the 'i f*ing hate tracking my brand deals on excel / never opening a spreadsheet again' post Cam already made.",
+  "pool": [
+    {
+      "id": "which_paid_me",
+      "angle": "num panic / payment confusion",
+      "pain_caption": "which of these brands actually paid me",
+      "transform_caption": "one screen. booked. paid. outstanding.",
+      "bg1_art": "young female creator at a cafe-laptop at night, phone buzzing with notifications, frazzled trying to tally several brand payments on a napkin and laptop, warm moody cafe light, photorealistic, vertical, no text, no watermark",
+      "bg2_art": "same female creator at a cozy desk, relaxed, laptop showing one clean blue finance dashboard card with three clear sections, relieved expression, warm golden light, photorealistic, vertical, no text, no watermark"
+    },
+    {
+      "id": "tabs_hell",
+      "angle": "tab clutter / deliverable tracking",
+      "pain_caption": "fourteen tabs open and none of them know my post dates",
+      "transform_caption": "every due date, one calendar",
+      "bg1_art": "young creator overwhelmed at a desk with a monitor showing dozens of crowded browser tabs, visible anxiety, cluttered desk with sticky notes everywhere, cool stressful light, photorealistic, vertical, no text, no watermark",
+      "bg2_art": "the same creator calm at the same desk, monitor now showing a clean single calendar view with colored blocks, tidy desk, warm light, photorealistic, vertical, no text, no watermark"
+    },
+    {
+      "id": "free_work",
+      "angle": "doing deals for free / missed pay",
+      "pain_caption": "i did a whole campaign and never got paid",
+      "transform_caption": "every deal tracked to the day it lands",
+      "bg1_art": "female creator at a desk looking shocked at a laptop, holding a phone showing a missed payment notification, disappointed posture, cool moody light, photorealistic, vertical, no text, no watermark",
+      "bg2_art": "the same creator at a tidy desk smiling with relief, laptop showing a clean dashboard with green received and blue expected payment rows, bright warm light, photorealistic, vertical, no text, no watermark"
+    },
+    {
+      "id": "tax_panic",
+      "angle": "year-end receipts chaos",
+      "pain_caption": "tax season and my income is in a dozen screenshots",
+      "transform_caption": "your whole year, one number",
+      "bg1_art": "young creator hunched over a desk covered in printouts, screenshots, and a calculator, stressed, late night lamp, receipts scattered, chaotic, cool light, photorealistic, vertical, no text, no watermark",
+      "bg2_art": "the same creator upright and calm at a clean desk, laptop showing one large clear year-to-date earnings total, tidied desk with plant, morning light, photorealistic, vertical, no text, no watermark"
+    },
+    {
+      "id": "relaunch_forgot",
+      "angle": "forgot a retainer / recurring pay",
+      "pain_caption": "my retainer ran for six months and i never billed it",
+      "transform_caption": "recurring deals, tracked automatically",
+      "bg1_art": "female creator at a home office desk with hand on head realizing something, laptop showing a calendar they forgot, regretful expression, dim lamp, photorealistic, vertical, no text, no watermark",
+      "bg2_art": "the same creator calm and productive at the desk, laptop showing a clean list of recurring monthly retainer deals with scheduled amounts, warm tidy light, photorealistic, vertical, no text, no watermark"
+    }
+  ]
+}

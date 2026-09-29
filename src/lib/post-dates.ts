@@ -16,6 +16,7 @@ export type ContentPost = {
   event_date: string;
   title: string | null;
   post_type: string | null;
+  linked_deal_id?: string | null;
 };
 
 /** Derive a deal's post dates from its content rows. NULL rows are skipped;

@@ -1,0 +1,140 @@
+{
+  "note": "Per-platform hashtag test pool. Each set is a coherent group tested on that platform. The daily cron ROTATES through lowest-uses per platform; the weekly cron attributes views to each set to learn which platform's hashtags actually drive reach. Tags are lowercase here; TikTok/IG keep them compact, YouTube can carry a couple more. Uses increments when the set is drafted on that platform.",
+  "last_used": "2026-09-29",
+  "tiktok": {
+    "pool": [
+      {
+        "id": "tik_creator_core",
+        "tags": [
+          "#creatorlife",
+          "#contentcreator",
+          "#branddeals",
+          "#uctips",
+          "#sponsoredcontent",
+          "#talby"
+        ],
+        "uses": 1
+      },
+      {
+        "id": "tik_pain_relatable",
+        "tags": [
+          "#branddealdiaries",
+          "#influencersgettingpaid",
+          "#gettingpaid",
+          "#creatorstruggles",
+          "#sponsorlatino",
+          "#earnyourbag"
+        ],
+        "uses": 2
+      },
+      {
+        "id": "tik_money_stats",
+        "tags": [
+          "#moneytok",
+          "#creatoreconomy",
+          "#howmuchcreatorsmake",
+          "#makingmoneyonline",
+          "#sidehustletok",
+          "#talby"
+        ],
+        "uses": 1
+      },
+      {
+        "id": "tik_niche_tools",
+        "tags": [
+          "#appsforcreators",
+          "#creatorapps",
+          "#influencereconomy",
+          "#uctools",
+          "#contentcreatortools",
+          "#paidvertisers"
+        ],
+        "uses": 1
+      }
+    ]
+  },
+  "instagram": {
+    "pool": [
+      {
+        "id": "ig_creator_edu",
+        "tags": [
+          "#creatortips",
+          "#contentcreators",
+          "#branddeals",
+          "#influencermarketing",
+          "#uctips",
+          "#creatorlife",
+          "#futureofcontent"
+        ],
+        "uses": 1
+      },
+      {
+        "id": "ig_pain_growth",
+        "tags": [
+          "#getpaidasacreator",
+          "#creatorincome",
+          "#makingcontent",
+          "#influencerlife",
+          "#growyourbrand",
+          "#contentcreationtip",
+          "#bloggertips"
+        ],
+        "uses": 2
+      },
+      {
+        "id": "ig_money_business",
+        "tags": [
+          "#creatoreconomy",
+          "#makeitmadepay",
+          "#creatorbusiness",
+          "#influencerbusiness",
+          "#brandcollab",
+          "#moneycreator",
+          "#sidehustle"
+        ],
+        "uses": 1
+      },
+      {
+        "id": "ig_tools_ops",
+        "tags": [
+          "#appsforcreators",
+          "#creatorapps",
+          "#uctools",
+          "#influencertool",
+          "#contentops",
+          "#branddealapp",
+          "#organizeyourlife"
+        ],
+        "uses": 1
+      }
+    ]
+  },
+  "youtube": {
+    "pool": [
+      {
+        "id": "yt_creator_howto",
+        "tags": [
+          "#creatortips",
+          "#behavioralcontent",
+          "#branddeals",
+          "#influencereconomy",
+          "#contentcreators",
+          "#uctips"
+        ],
+        "uses": 2
+      },
+      {
+        "id": "yt_money_insight",
+        "tags": [
+          "#creatoreconomy",
+          "#makeitmadepay",
+          "#influencerbusiness",
+          "#earningonline",
+          "#contentcreatorincome",
+          "#brandcollab"
+        ],
+        "uses": 3
+      }
+    ]
+  }
+}

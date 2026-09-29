@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, isPayOverdue, type PayStatus, type DealRollup } from "@/lib/pay-status";
+import { dealPostDates, nextPostDate, type PostDate, type ContentPost } from "@/lib/post-dates";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail, IconUndo } from "@/components/icons";
 import { Button, Input, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
@@ -31,13 +32,15 @@ type Deal = {
   pay_received?: boolean;      // any payment on the deal marked received
   all_invoiced?: boolean;      // every dated payment on the deal is invoiced
   pay_rollup?: DealRollup;     // derived pay status + "N of M paid" progress
+  post_dates?: PostDate[];     // derived from linked content rows (single source)
+  next_post_date?: string | null; // earliest upcoming post date (latest when all past)
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null; kind?: "contract" | "invoice" | "other" | null };
-type DraftField = "value" | "status" | "deliverable" | "deal_type" | "post_date" | "pay_terms" | "exclusivity_days" | "rep_name" | "rep_email" | "notes";
+type DraftField = "value" | "status" | "deliverable" | "deal_type" | "pay_terms" | "exclusivity_days" | "rep_name" | "rep_email" | "notes";
 type Draft = Record<DraftField, string>;
-const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "post_date", "pay_terms", "exclusivity_days", "rep_name", "rep_email", "notes"];
+const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "pay_terms", "exclusivity_days", "rep_name", "rep_email", "notes"];
 
 const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
 
@@ -65,11 +68,21 @@ export default function DealsPage() {
 
   const loadDeals = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    const [d, pays] = await Promise.all([
+    const [d, pays, content] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       user ? supabase.from("payments").select("expected_date, status, deal_id, invoice_state, pay_status").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
+      supabase.from("content").select("id, event_date, title, post_type, linked_deal_id").not("linked_deal_id", "is", null),
     ]);
     const deals = (d.data ?? []) as unknown as Deal[];
+    // Post dates live in content rows (event_date + title=label + post_type=kind).
+    // Group them by linked deal so each deal's dates + next date are derived.
+    const postsByDeal = new Map<string, ContentPost[]>();
+    for (const c of (content.data ?? []) as unknown as ContentPost[]) {
+      if (!c.linked_deal_id || !c.event_date) continue;
+      const arr = postsByDeal.get(c.linked_deal_id) ?? [];
+      arr.push(c);
+      postsByDeal.set(c.linked_deal_id, arr);
+    }
     // pay by = earliest payment expected_date; pay_received = any received;
     // all_invoiced = every dated payment is invoiced (or needs no invoice)
     const payByDeal = new Map<string, string>();
@@ -103,6 +116,12 @@ export default function DealsPage() {
       pay_received: receivedDeal.has(deal.id),
       all_invoiced: anyDatedDeal.has(deal.id) && invoicedOkDeal.has(deal.id),
       pay_rollup: dealPayRollup(dealPays.get(deal.id) ?? []),
+      // Post dates are derived from linked content rows (single source of
+      // truth). deals.post_date is a read-only legacy column (write-guarded)
+      // that phase two drops. post_dates = full sorted list; next_post_date =
+      // earliest upcoming (latest when all past so the column never empties).
+      post_dates: dealPostDates(postsByDeal.get(deal.id)),
+      next_post_date: nextPostDate(postsByDeal.get(deal.id)),
     })));
     setLoading(false);
   }, [supabase]);
@@ -187,13 +206,23 @@ export default function DealsPage() {
       user_id: user.id,
       brand: `${deal.brand}`,
       deliverable: deal.deliverable, value: deal.value, status: deal.status,
-      post_date: deal.post_date,
       pay_terms: deal.pay_terms, exclusivity_days: deal.exclusivity_days,
       rep_name: deal.rep_name, rep_email: deal.rep_email, deal_type: deal.deal_type,
       notes: deal.notes,
       active: deal.active,
+      // post_date is read-only now (content rows own it); copy its post-dates
+      // as fresh linked content rows on the copy.
     }).select("id").single();
-    if (data) { setSelectedId(null); celeb.fire(); loadDeals(); }
+    if (data) {
+      setSelectedId(null); celeb.fire(); loadDeals();
+      // Copy linked content rows (any dated post) to the new deal.
+      try {
+        const src = await supabase.from("content").select("id, event_date, title, post_type").eq("linked_deal_id", deal.id).not("event_date", "is", null);
+        for (const c of (src.data ?? []) as unknown as { event_date: string; title: string | null; post_type: string | null }[]) {
+          await supabase.from("content").insert({ user_id: user.id, linked_deal_id: data.id, event_date: c.event_date, title: c.title, post_type: c.post_type, status: "planned" });
+        }
+      } catch { /* non-fatal: the deal copy is fine, dates can be re-added */ }
+    }
   };
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" /></div>;
@@ -363,8 +392,15 @@ export default function DealsPage() {
                     {paymentPill(d)}
                     {payProgressLine(d) && <span className="text-[10.5px] text-inksoft tabular-nums">{payProgressLine(d)}</span>}
                   </span>
-                  <span className={cn("d-post text-[12.5px] tabular-nums", d.post_date && isPastDue(d.post_date) && d.status !== "archived" ? "text-late font-medium" : "text-inksoft")}>
-                    {d.post_date ? formatDate(d.post_date) : <NotSet />}
+                  <span className={cn("d-post text-[12.5px] tabular-nums", d.next_post_date ? "text-inksoft" : "")}>
+                    {d.next_post_date ? (
+                      <span className="inline-flex items-center gap-1">
+                        {formatDate(d.next_post_date)}
+                        {d.post_dates && d.post_dates.length > 1 && (
+                          <span className="text-[10.5px] text-inksoft/70">+{d.post_dates.length - 1}</span>
+                        )}
+                      </span>
+                    ) : <NotSet />}
                   </span>
                   <span className={cn("d-payby text-[12.5px] tabular-nums", payOverdue(d) ? "text-late font-medium" : "text-inksoft")}>
                     {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
@@ -624,6 +660,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const [payments, setPayments] = useState<Payment[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [files, setFiles] = useState<DealFile[]>([]);
+  const [postDates, setPostDates] = useState<PostDate[]>([]);   // staged list (content rows)
+  const [postDatesSaved, setPostDatesSaved] = useState<PostDate[]>([]);
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [menu, setMenu] = useState(false);
 
@@ -634,15 +672,19 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
         setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
       }
-      const [pay, cl, fl] = await Promise.all([
+      const [pay, cl, fl, content] = await Promise.all([
         supabase.from("payments").select("*").eq("deal_id", deal.id),
         supabase.from("deal_checklist").select("*").eq("deal_id", deal.id),
         supabase.from("deal_files").select("*").eq("deal_id", deal.id),
+        supabase.from("content").select("id, event_date, title, post_type").eq("linked_deal_id", deal.id).not("event_date", "is", null),
       ]);
       setPayments((pay.data ?? []) as unknown as Payment[]);
       setPaymentsSaved((pay.data ?? []) as unknown as Payment[]);
       setChecklist((cl.data ?? []) as unknown as ChecklistItem[]);
       setFiles((fl.data ?? []) as unknown as DealFile[]);
+      const posts = dealPostDates((content.data ?? []) as unknown as ContentPost[]);
+      setPostDates(posts);
+      setPostDatesSaved(posts.map((p) => ({ ...p })));
       setPaymentsBase(pmNorm(pay.data ?? []));
       setChecklistBase(clNorm(cl.data ?? []));
     })();
@@ -651,6 +693,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   // Normalizers shared by dirty detection, load-baseline, and post-save baseline.
   const clNorm = (xs: ChecklistItem[]) => JSON.stringify(xs.map((x) => `${x.id}|${x.done}|${x.title}`));
   const pmNorm = (xs: Payment[]) => JSON.stringify(xs.map((x) => `${x.id}|${x.pay_status ?? ""}|${x.status}|${x.amount}|${x.expected_date ?? ""}`));
+  const pdNorm = (xs: PostDate[]) => JSON.stringify(xs.map((x) => `${x.id ?? ""}|${x.date}|${x.label}|${x.kind ?? ""}`));
 
   const paid = (dealPayRollup(payments as unknown as { pay_status: string | null; expected_date: string | null }[])).status === "paid";
 
@@ -664,7 +707,6 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     status: d.status === "archived" ? "archived" : d.status === "pipeline" ? "pipeline" : "active",
     deliverable: d.deliverable ?? "",
     deal_type: d.deal_type ?? "",
-    post_date: d.post_date ?? "",
     pay_terms: d.pay_terms ?? "",
     exclusivity_days: d.exclusivity_days?.toString() ?? "",
     rep_name: d.rep_name ?? "",
@@ -695,7 +737,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
 
   const isDirty = (k: DraftField) => draft[k] !== saved[k];
   const dirtyList = FIELD_KEYS.filter(isDirty);
-  const collDirty = clNorm(checklist) !== checklistBase || pmNorm(payments) !== paymentsBase;
+  const postDatesDirty = pdNorm(postDates) !== pdNorm(postDatesSaved);
+  const collDirty = clNorm(checklist) !== checklistBase || pmNorm(payments) !== paymentsBase || postDatesDirty;
   const hasChanges = dirtyList.length > 0 || collDirty;
 
   // Uncontrolled-input refs. The drawer's editable text/number inputs write
@@ -732,10 +775,11 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       const el = (fieldRefs.current as Record<string, unknown>)[k] as { value?: string } | null;
       const val = el?.value ?? draft[k];
       if (k === "value" || k === "exclusivity_days") patch[k] = val ? Number(val) : null;
-      else if (k === "post_date") patch.post_date = val || null;
       // NOTE: due_date is no longer written here. Pay by is owned by the
       // payment's expected_date (single source of truth). deals.due_date is
       // left as-is until a later migration drops it.
+      // NOTE: post_date is NOT written here. Post dates live in content rows
+      // (see the reconcile below); deals.post_date is read-only and guarded.
       else patch[k] = val;
     }
     if (dirtyList.includes("status")) {
@@ -779,22 +823,42 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
           }
         }
       }
+    // --- Commit staged post-date (content row) changes ---
+      // Post dates are content rows linked to the deal. New entries (no id or
+      // "new-") insert; existing rows update in place (date/label/kind); rows
+      // removed from the staged list are deleted. deals.post_date is untouched.
+      const contentResp = await supabase.from("content").select("id").eq("linked_deal_id", deal.id);
+      const existingContentIds = new Set((contentResp.data ?? []).map((c) => c.id));
+      const keptContentRows = postDates.filter((p) => p.id && existingContentIds.has(p.id)).map((p) => p.id);
+      for (const cid of existingContentIds) if (!keptContentRows.includes(cid)) await supabase.from("content").delete().eq("id", cid);
+      for (const p of postDates) {
+        if (!p.date) continue;
+        if (p.id && existingContentIds.has(p.id)) {
+          await supabase.from("content").update({ event_date: p.date, title: p.label.trim() || null, post_type: (p.kind ?? "").trim() || null }).eq("id", p.id);
+        } else {
+          await supabase.from("content").insert({ user_id: user.id, linked_deal_id: deal.id, event_date: p.date, title: p.label.trim() || null, post_type: (p.kind ?? "").trim() || null, status: "planned" });
+        }
+      }
     } catch (e) {
-      setSaveError("Could not save checklist or payments.");
+      setSaveError("Could not save checklist, payments, or post dates.");
       return;
     }
     // Refetch the freshly-saved children so the drawer shows real DB rows/ids
     // (new-* staged ids are replaced) and baselines match persisted state.
     try {
-      const [clF, pmF] = await Promise.all([
+      const [clF, pmF, contentF] = await Promise.all([
         supabase.from("deal_checklist").select("*").eq("deal_id", deal.id),
         supabase.from("payments").select("*").eq("deal_id", deal.id),
+        supabase.from("content").select("id, event_date, title, post_type").eq("linked_deal_id", deal.id).not("event_date", "is", null),
       ]);
       setChecklist((clF.data ?? []) as unknown as ChecklistItem[]);
       setChecklistBase(clNorm(clF.data ?? []));
       setPayments((pmF.data ?? []) as unknown as Payment[]);
       setPaymentsSaved((pmF.data ?? []) as unknown as Payment[]);
       setPaymentsBase(pmNorm(pmF.data ?? []));
+      const posts = dealPostDates((contentF.data ?? []) as unknown as ContentPost[]);
+      setPostDates(posts);
+      setPostDatesSaved(posts.map((p) => ({ ...p })));
     } catch { /* non-fatal: next open refetches */ }
     setSaved({ ...draft });
     notifySaved();
@@ -998,7 +1062,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} />}
+          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} postDates={postDates} setPostDates={setPostDates} postDatesSaved={postDatesSaved} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} onUploadFile={uploadDealFile} />}
@@ -1046,9 +1110,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
    types, so a keystroke can never stall. onBlur (leaving a field, one action)
    syncs the value for dirty-marking/undo. The drawer's Save reads the refs
    directly. Nothing writes to the DB except Save. */
-function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved }: {
+function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved, postDates, setPostDates, postDatesSaved }: {
   deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[]; paymentsSaved: Payment[];
   draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
+  postDates: PostDate[]; setPostDates: (p: PostDate[]) => void; postDatesSaved: PostDate[];
   invoiceReview: { proposed: string | null; current: string | null } | null;
   onAcceptInvoiceDate: () => void; onKeepInvoiceDate: () => void;
   onUploadFile: (file: File, kind: DealFile["kind"]) => Promise<{ extractionBlocked: boolean }>;
@@ -1267,7 +1332,18 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="event">Event</option>
           </select>
         </Row>
-        <Row label="Post date" field="post_date"><input type="date" ref={bindRef("post_date")} defaultValue={draft.post_date} onBlur={() => onFieldBlur("post_date")} className={`${inputCls} deal-date-input`} aria-label="Post date" /></Row>
+        <PRow label="Post dates">
+          <div className="space-y-1.5">
+            {postDates.map((p, i) => (
+              <div key={p.id ?? `new-${i}`} className="flex items-center gap-1.5">
+                <input type="date" value={p.date} onChange={(e) => { const n = [...postDates]; n[i] = { ...n[i], date: e.target.value }; setPostDates(n); }} className={`${inputCls} deal-date-input flex-1`} aria-label={`Post date ${i + 1}`} />
+                <input value={p.label} onChange={(e) => { const n = [...postDates]; n[i] = { ...n[i], label: e.target.value }; setPostDates(n); }} className={cn(inputCls, "flex-1")} placeholder="Label (e.g. Story 2)" aria-label={`Post date ${i + 1} label`} />
+                <button type="button" onClick={() => setPostDates(postDates.filter((_, j) => j !== i))} aria-label={`Remove post date ${i + 1}`} title="Remove" className="shrink-0 text-inksoft hover:text-late cursor-pointer p-1"><IconDelete size={14} /></button>
+              </div>
+            ))}
+            <button type="button" onClick={() => setPostDates([...postDates, { date: "", label: "" }])} className="inline-flex items-center gap-1 text-[11.5px] text-accent font-medium hover:underline cursor-pointer"><IconPlus size={13} /> Add another date</button>
+          </div>
+        </PRow>
         <Row label="Exclusivity" field="exclusivity_days"><input ref={bindRef("exclusivity_days")} defaultValue={draft.exclusivity_days} onBlur={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
       </Section>
 
