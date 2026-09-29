@@ -81,11 +81,21 @@ export function DealInput({
       onChange={(e) => {
         setLocal(e.target.value);
         onChange?.(e.target.value);
+        // Date inputs commit on SELECTION (change), never on blur. The native
+        // picker is a separate focus surface: clicking its month arrows blurs
+        // the input, and a blur-commit would re-render the row and close the
+        // picker. Committing here means month navigation is a no-op (no value
+        // change ⇒ no change event), while picking a day or typing a date
+        // commits exactly once.
+        if (type === "date") onCommit?.(e.target.value);
       }}
       onBlur={() => {
         focused.current = false;
         prev.current = local;
-        onCommit?.(local);
+        // Text/number/email have pending typed text to flush on blur. Date
+        // inputs do not — committing here is what closes the native picker
+        // when focus moves into it (e.g. clicking a month arrow).
+        if (type !== "date") onCommit?.(local);
       }}
     />
   );
