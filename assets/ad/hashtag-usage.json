@@ -1,135 +1,175 @@
 {
-  "note": "Tracks which hashtag set was used on which draft, per platform, so the weekly cron can attribute Buffer post views back to the hashtag set and learn which tags drive reach per platform. The daily cron appends a row for every draft it creates. The weekly cron reads this to correlate views; it may leave rows (history) or trim to recent N.",
-  "entries": [
-    {
-      "date": "2026-09-25",
-      "platform": "tiktok",
-      "set_id": "tik_creator_core",
-      "tags": [
-        "#creatorlife",
-        "#contentcreator",
-        "#branddeals",
-        "#uctips",
-        "#sponsoredcontent",
-        "#talby"
-      ],
-      "buffer_post_id": "6ab683324be5473030b5e419"
-    },
-    {
-      "date": "2026-09-25",
-      "platform": "youtube",
-      "set_id": "yt_creator_howto",
-      "tags": [
-        "#creatortips",
-        "#behavioralcontent",
-        "#branddeals",
-        "#influencereconomy",
-        "#contentcreators",
-        "#uctips"
-      ],
-      "buffer_post_id": "6ab6833577257a20a0332ac0"
-    },
-    {
-      "date": "2026-09-25",
-      "platform": "instagram",
-      "set_id": "ig_creator_edu",
-      "tags": [
-        "#creatortips",
-        "#contentcreators",
-        "#branddeals",
-        "#influencermarketing",
-        "#uctips",
-        "#creatorlife",
-        "#futureofcontent"
-      ],
-      "buffer_post_id": "6ab683377f836b2e3d99112f"
-    },
-    {
-      "date": "2026-09-27",
-      "platform": "tiktok",
-      "set_id": "tik_money_stats",
-      "tags": [
-        "#moneytok",
-        "#creatoreconomy",
-        "#howmuchcreatorsmake",
-        "#makingmoneyonline",
-        "#sidehustletok",
-        "#talby"
-      ],
-      "buffer_post_id": "6ab9238543493a0ede9167b9"
-    },
-    {
-      "date": "2026-09-27",
-      "platform": "instagram",
-      "set_id": "ig_money_business",
-      "tags": [
-        "#creatoreconomy",
-        "#makeitmadepay",
-        "#creatorbusiness",
-        "#influencerbusiness",
-        "#brandcollab",
-        "#moneycreator",
-        "#sidehustle"
-      ],
-      "buffer_post_id": "6ab923b070ec211d1d1a95b1"
-    },
-    {
-      "date": "2026-09-28",
-      "platform": "tiktok",
-      "set_id": "tik_niche_tools",
-      "tags": [
-        "#appsforcreators",
-        "#creatorapps",
-        "#influencereconomy",
-        "#uctools",
-        "#contentcreatortools",
-        "#paidvertisers"
-      ],
-      "buffer_post_id": "6aba76c00e900257be86c4ae"
-    },
-    {
-      "date": "2026-09-28",
-      "platform": "instagram",
-      "set_id": "ig_tools_ops",
-      "tags": [
-        "#appsforcreators",
-        "#creatorapps",
-        "#uctools",
-        "#influencertool",
-        "#contentops",
-        "#branddealapp",
-        "#organizeyourlife"
-      ],
-      "buffer_post_id": "6aba76c132e0464e8609fe0a"
-    },
-    {
-      "date": "2026-09-29",
-      "platform": "tiktok",
-      "set_id": "tik_pain_relatable",
-      "tags": [
-        "#branddealdiaries",
-        "#influencersgettingpaid",
-        "#gettingpaid",
-        "#creatorstruggles",
-        "#sponsorlatino",
-        "#earnyourbag"
-      ],
-      "buffer_post_id": "6abbc5d26415ce4927b89742"
-    },
-    {
-      "date": "2026-09-29",
-      "platform": "instagram",
-      "set_id": "ig_pain_growth",
-      "tags": [
-        "#getpaidasacreator",
-        "#creatorincome",
-        "#makingcontent",
-        "#influencerlife",
-        "#growyourbrand",
-        "#contentcreationtip",
-        "#bloggertips"
-      ],
-      "buffer_post_id": "6abbc5d393a34fceecbf5596"
-    }
-  ]
+ "note": "Tracks which hashtag set was used on which draft, per platform, so the weekly cron can attribute Buffer post views back to the hashtag set and learn which tags drive reach per platform. The daily cron appends a row for every draft it creates. The weekly cron reads this to correlate views; it may leave rows (history) or trim to recent N.",
+ "entries": [
+  {
+   "date": "2026-09-25",
+   "platform": "tiktok",
+   "set_id": "tik_creator_core",
+   "tags": [
+    "#creatorlife",
+    "#contentcreator",
+    "#branddeals",
+    "#uctips",
+    "#sponsoredcontent",
+    "#talby"
+   ],
+   "buffer_post_id": "6ab683324be5473030b5e419"
+  },
+  {
+   "date": "2026-09-25",
+   "platform": "youtube",
+   "set_id": "yt_creator_howto",
+   "tags": [
+    "#creatortips",
+    "#behavioralcontent",
+    "#branddeals",
+    "#influencereconomy",
+    "#contentcreators",
+    "#uctips"
+   ],
+   "buffer_post_id": "6ab6833577257a20a0332ac0"
+  },
+  {
+   "date": "2026-09-25",
+   "platform": "instagram",
+   "set_id": "ig_creator_edu",
+   "tags": [
+    "#creatortips",
+    "#contentcreators",
+    "#branddeals",
+    "#influencermarketing",
+    "#uctips",
+    "#creatorlife",
+    "#futureofcontent"
+   ],
+   "buffer_post_id": "6ab683377f836b2e3d99112f"
+  },
+  {
+   "date": "2026-09-27",
+   "platform": "tiktok",
+   "set_id": "tik_money_stats",
+   "tags": [
+    "#moneytok",
+    "#creatoreconomy",
+    "#howmuchcreatorsmake",
+    "#makingmoneyonline",
+    "#sidehustletok",
+    "#talby"
+   ],
+   "buffer_post_id": "6ab9238543493a0ede9167b9"
+  },
+  {
+   "date": "2026-09-27",
+   "platform": "instagram",
+   "set_id": "ig_money_business",
+   "tags": [
+    "#creatoreconomy",
+    "#makeitmadepay",
+    "#creatorbusiness",
+    "#influencerbusiness",
+    "#brandcollab",
+    "#moneycreator",
+    "#sidehustle"
+   ],
+   "buffer_post_id": "6ab923b070ec211d1d1a95b1"
+  },
+  {
+   "date": "2026-09-28",
+   "platform": "tiktok",
+   "set_id": "tik_niche_tools",
+   "tags": [
+    "#appsforcreators",
+    "#creatorapps",
+    "#influencereconomy",
+    "#uctools",
+    "#contentcreatortools",
+    "#paidvertisers"
+   ],
+   "buffer_post_id": "6aba76c00e900257be86c4ae"
+  },
+  {
+   "date": "2026-09-28",
+   "platform": "instagram",
+   "set_id": "ig_tools_ops",
+   "tags": [
+    "#appsforcreators",
+    "#creatorapps",
+    "#uctools",
+    "#influencertool",
+    "#contentops",
+    "#branddealapp",
+    "#organizeyourlife"
+   ],
+   "buffer_post_id": "6aba76c132e0464e8609fe0a"
+  },
+  {
+   "date": "2026-09-29",
+   "platform": "tiktok",
+   "set_id": "tik_pain_relatable",
+   "tags": [
+    "#branddealdiaries",
+    "#influencersgettingpaid",
+    "#gettingpaid",
+    "#creatorstruggles",
+    "#sponsorlatino",
+    "#earnyourbag"
+   ],
+   "buffer_post_id": "6abbc5d26415ce4927b89742"
+  },
+  {
+   "date": "2026-09-29",
+   "platform": "instagram",
+   "set_id": "ig_pain_growth",
+   "tags": [
+    "#getpaidasacreator",
+    "#creatorincome",
+    "#makingcontent",
+    "#influencerlife",
+    "#growyourbrand",
+    "#contentcreationtip",
+    "#bloggertips"
+   ],
+   "buffer_post_id": "6abbc5d393a34fceecbf5596"
+  },
+  {
+   "date": "2026-09-29",
+   "platform": "tiktok",
+   "set_id": "creator_branddeal_video",
+   "tags": [
+    "#creatorlife",
+    "#branddeals",
+    "#ugc",
+    "#contentcreator",
+    "#sponsored"
+   ],
+   "buffer_post_id": "6abc33cabc79f721888a6669",
+   "type": "video"
+  },
+  {
+   "date": "2026-09-29",
+   "platform": "youtube",
+   "set_id": "creator_branddeal_video",
+   "tags": [
+    "#branddeals",
+    "#contentcreator",
+    "#ugc",
+    "#creator"
+   ],
+   "buffer_post_id": "6abc33cbd3050be9e376c80a",
+   "type": "video"
+  },
+  {
+   "date": "2026-09-29",
+   "platform": "instagram",
+   "set_id": "creator_branddeal_video",
+   "tags": [
+    "#creatorlife",
+    "#branddeals",
+    "#ugccreator",
+    "#contentcreator"
+   ],
+   "buffer_post_id": "6abc33cbd3050be9e376c828",
+   "type": "video"
+  }
+ ]
 }

@@ -3,8 +3,10 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { newPostDateRow, type PostDate } from "@/lib/post-dates";
+import { DealInput, DealTextarea } from "@/components/deal-input";
 import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck, IconUpload, IconPlus } from "@/components/icons";
-import { Button, Input, Select, Textarea, Spinner } from "@/components/ui";
+import { Button, Select, Spinner } from "@/components/ui";
 
 /** Map the contract-extraction JSON onto DealFormValues. Used by DealForm, UploadModal. */
 export function applyContractFields(f: Record<string, unknown>): DealFormValues {
@@ -24,7 +26,7 @@ export function applyContractFields(f: Record<string, unknown>): DealFormValues 
       ? (f.post_dates as { date?: string; label?: string }[])
           .filter((p) => typeof p.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.date))
           .sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0))
-          .map((p) => ({ date: p.date!, label: typeof p.label === "string" ? p.label : "" }))
+          .map((p) => newPostDateRow({ date: p.date!, label: typeof p.label === "string" ? p.label : "" }))
       : init.post_dates,
     notes: typeof f.platforms === "string" && f.platforms ? `Platforms: ${f.platforms}` : init.notes,
   };
@@ -68,7 +70,9 @@ export type DealFormValues = {
   rep_email: string;
   links: { url: string; label?: string }[];
   notes: string;
-  post_dates: { date: string; label: string; kind?: string }[];
+  // PostDate carries _rowKey (stable client key) for remount-safe rows; the
+  // payload strips it before sending.
+  post_dates: PostDate[];
 };
 
 /** A field the extractor was uncertain about. Reason is plain-language, shown with its value. */
@@ -206,7 +210,10 @@ export function DealForm({
       notes: v.notes.trim() || null,
       // Post dates persist as content rows (server-side). Removed from any
       // edit path — the drawer owns editing content rows directly.
-      post_dates: v.post_dates.filter((p) => p.date).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
+      post_dates: v.post_dates
+        .filter((p) => p.date)
+        .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+        .map((p) => ({ date: p.date, label: p.label, kind: p.kind ?? null })),
       active: v.status !== "archived",
     };
 
@@ -355,15 +362,15 @@ export function DealForm({
 
       {/* ---- Core: always visible ---- */}
       {mode === "create" && (
-        <Field label="Brand *" spark={spark("brand")}><Input value={v.brand} onChange={(e) => set("brand", e.target.value)} placeholder="e.g. Glossier" /></Field>
+        <Field label="Brand *" spark={spark("brand")}><DealInput value={v.brand} onCommit={(val) => set("brand", val)} placeholder="e.g. Glossier" /></Field>
       )}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Payment" spark={spark("value")}><Input type="number" value={v.value} onChange={(e) => set("value", e.target.value)} placeholder="1500" /></Field>
+        <Field label="Payment" spark={spark("value")}><DealInput type="number" value={v.value} onCommit={(val) => set("value", val)} placeholder="1500" /></Field>
         <Field label="Deal status"><Select value={v.status} onChange={(e) => set("status", e.target.value)}>
           {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select></Field>
       </div>
-      <Field label="Deliverable" spark={spark("deliverable")}><Input value={v.deliverable} onChange={(e) => set("deliverable", e.target.value)} placeholder="e.g. 2 IG posts + 1 story" /></Field>
+      <Field label="Deliverable" spark={spark("deliverable")}><DealInput value={v.deliverable} onCommit={(val) => set("deliverable", val)} placeholder="e.g. 2 IG posts + 1 story" /></Field>
 
       {/* Accordion sections */}
       <AccordionSection
@@ -373,8 +380,8 @@ export function DealForm({
         onToggle={() => toggle("rep")}
       >
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Rep name" spark={spark("rep_name")}><Input value={v.rep_name} onChange={(e) => set("rep_name", e.target.value)} placeholder="e.g. Sam Rivera" /></Field>
-          <Field label="Rep email" spark={spark("rep_email")}><Input type="email" value={v.rep_email} onChange={(e) => set("rep_email", e.target.value)} placeholder="sam@brand.com" /></Field>
+          <Field label="Rep name" spark={spark("rep_name")}><DealInput value={v.rep_name} onCommit={(val) => set("rep_name", val)} placeholder="e.g. Sam Rivera" /></Field>
+          <Field label="Rep email" spark={spark("rep_email")}><DealInput type="email" value={v.rep_email} onCommit={(val) => set("rep_email", val)} placeholder="sam@brand.com" /></Field>
         </div>
       </AccordionSection>
 
@@ -385,19 +392,19 @@ export function DealForm({
         onToggle={() => toggle("terms")}
       >
         <div className="grid grid-cols-2 gap-4">
-          <Field label="Due date" spark={spark("due_date")}><Input type="date" value={v.due_date} onChange={(e) => set("due_date", e.target.value)} /></Field>
+          <Field label="Due date" spark={spark("due_date")}><DealInput type="date" value={v.due_date} onCommit={(val) => set("due_date", val)} /></Field>
         </div>
         <div className="space-y-2 mt-2">
           <div className="text-[11px] font-medium text-inksoft">Post dates<span className="text-inksoft/60"> — one per go-live date (optional)</span></div>
           {v.post_dates.length === 0 && <div className="text-[11px] text-inksoft/50">No post dates yet. Add when you know the go-live dates.</div>}
-          {v.post_dates.map((p, i) => (
-            <div key={i} className="flex gap-2 items-center">
-              <Input type="date" value={p.date} onChange={(e) => { const n = [...v.post_dates]; n[i] = { ...n[i], date: e.target.value }; set("post_dates", n); }} aria-label={`Post date ${i + 1}`} />
-              <Input value={p.label} onChange={(e) => { const n = [...v.post_dates]; n[i] = { ...n[i], label: e.target.value }; set("post_dates", n); }} placeholder="Label (e.g. Story 2)" className="flex-1" aria-label={`Post date ${i + 1} label`} />
-              <button onClick={() => set("post_dates", v.post_dates.filter((_, j) => j !== i))} className="px-1.5 text-inksoft hover:text-late cursor-pointer" aria-label={`Remove post date ${i + 1}`}><IconDelete size={15} /></button>
+          {v.post_dates.map((p) => (
+            <div key={p._rowKey} className="flex gap-2 items-center">
+              <DealInput type="date" value={p.date} onCommit={(val) => set("post_dates", v.post_dates.map((x) => (x._rowKey === p._rowKey) ? { ...x, date: val } : x))} ariaLabel={`Post date`} />
+              <DealInput value={p.label} onCommit={(val) => set("post_dates", v.post_dates.map((x) => (x._rowKey === p._rowKey) ? { ...x, label: val } : x))} placeholder="Label (e.g. Story 2)" className="flex-1" ariaLabel="Post date label" />
+              <button onClick={() => set("post_dates", v.post_dates.filter((x) => x._rowKey !== p._rowKey))} className="px-1.5 text-inksoft hover:text-late cursor-pointer" aria-label="Remove post date"><IconDelete size={15} /></button>
             </div>
           ))}
-          <Button variant="secondary" size="sm" onClick={() => set("post_dates", [...v.post_dates, { date: "", label: "" }])}><IconPlus size={14} /> Add another date</Button>
+          <Button variant="secondary" size="sm" onClick={() => set("post_dates", [...v.post_dates, newPostDateRow()])}><IconPlus size={14} /> Add another date</Button>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Pay terms" spark={spark("pay_terms")}>
@@ -406,7 +413,7 @@ export function DealForm({
             </Select>
           </Field>
           <Field label="Exclusivity (days)" spark={spark("exclusivity_days")}>
-            <Input type="number" min={0} value={v.exclusivity_days} onChange={(e) => set("exclusivity_days", e.target.value)} placeholder="e.g. 60" />
+            <DealInput type="number" min={0} value={v.exclusivity_days} onCommit={(val) => set("exclusivity_days", val)} placeholder="e.g. 60" />
           </Field>
         </div>
       </AccordionSection>
@@ -418,13 +425,13 @@ export function DealForm({
         onToggle={() => toggle("notes")}
       >
         <Field label="Notes">
-          <Textarea value={v.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Any details…" />
+          <DealTextarea value={v.notes} onCommit={(val) => set("notes", val)} placeholder="Any details…" />
         </Field>
         <Field label="Links">
           <div className="space-y-2">
             {v.links.map((l, i) => (
-              <div key={i} className="flex gap-2">
-                <Input value={l.url} onChange={(e) => { const n = [...v.links]; n[i] = { ...n[i], url: e.target.value }; set("links", n); }} placeholder="https://…" />
+              <div key={"link-" + i} className="flex gap-2">
+                <DealInput value={l.url} onCommit={(val) => set("links", v.links.map((x, j) => (i === j) ? { ...x, url: val } : x))} className="flex-1" placeholder="https://…" />
                 <button onClick={() => set("links", v.links.filter((_, j) => j !== i))} className="px-2 text-inksoft hover:text-late cursor-pointer"><IconDelete size={16} /></button>
               </div>
             ))}
@@ -476,8 +483,8 @@ function Field({ label, hint, spark, children }: { label: string; hint?: string;
 /** Inline mini-editor for a flagged field, so the user can fix it right in the attention block. */
 function FlagEdit({ field, value, onChange }: { field: keyof DealFormValues; value: string | { url: string; label?: string }[]; onChange: (x: string) => void }) {
   if (typeof value !== "string") return null;
-  if (field === "due_date") return <Input type="date" value={value} onChange={(e) => onChange(e.target.value)} className="!h-7 !text-xs" />;
-  if (field === "exclusivity_days" || field === "value" ) return <Input type="number" value={value} onChange={(e) => onChange(e.target.value)} className="!h-7 !text-xs !w-28" />;
+  if (field === "due_date") return <DealInput type="date" value={value} onCommit={(v) => onChange(v)} className="!h-7 !text-xs" />;
+  if (field === "exclusivity_days" || field === "value" ) return <DealInput type="number" value={value} onCommit={(v) => onChange(v)} className="!h-7 !text-xs !w-28" />;
   if (field === "pay_terms") return (
     <Select value={value} onChange={(e) => onChange(e.target.value)}>
       {PAY_TERM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -488,7 +495,7 @@ function FlagEdit({ field, value, onChange }: { field: keyof DealFormValues; val
       {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </Select>
   );
-  return <Input value={value} onChange={(e) => onChange(e.target.value)} className="!h-7 !text-xs flex-1" />;
+  return <DealInput value={value} onCommit={(v) => onChange(v)} className="!h-7 !text-xs flex-1" />;
 }
 
 function AccordionSection({ label, summary, open, onToggle, children }: { label: string; summary: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {

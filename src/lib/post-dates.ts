@@ -9,7 +9,18 @@ export type PostDate = {
   date: string;       // YYYY-MM-DD
   label: string;      // free-form label, e.g. "Story 2" (stored in content.title)
   kind?: string;      // structured kind (Reel/Story/...) -> content.post_type
+  /** Stable client key for React rows, created once when the row is added.
+   *  NEVER derived from date/label/index — used as the map key so a keystroke
+   *  can't remount the row and drop focus. Not written to the DB. */
+  _rowKey?: string;
 };
+
+let _postRowSeq = 0;
+/** New unsaved post-date row with a stable per-row key. Optionally seeds fields. */
+export function newPostDateRow(seed?: Partial<PostDate>): PostDate {
+  _postRowSeq += 1;
+  return { date: "", label: "", _rowKey: `newpost-${_postRowSeq}`, ...seed };
+}
 
 export type ContentPost = {
   id: string;
@@ -26,7 +37,7 @@ export function dealPostDates(rows: ContentPost[] | null | undefined): PostDate[
   const out: PostDate[] = [];
   for (const r of rows) {
     if (!r.event_date) continue;
-    out.push({ id: r.id, date: r.event_date.slice(0, 10), label: (r.title || "").trim(), kind: r.post_type || undefined });
+    out.push({ id: r.id, date: r.event_date.slice(0, 10), label: (r.title || "").trim(), kind: r.post_type || undefined, _rowKey: r.id ? `saved-${r.id}` : undefined });
   }
   return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 }

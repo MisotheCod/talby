@@ -8,7 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, isPayOverdue, type PayStatus, type DealRollup } from "@/lib/pay-status";
-import { dealPostDates, nextPostDate, type PostDate, type ContentPost } from "@/lib/post-dates";
+import { dealPostDates, nextPostDate, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
+import { DealInput, DealTextarea } from "@/components/deal-input";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail, IconUndo } from "@/components/icons";
 import { Button, Input, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
@@ -1255,7 +1256,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   return (
     <div>
       <Section label="Payment">
-        <Row label="Value" field="value"><input ref={bindRef("value")} defaultValue={draft.value} onBlur={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
+        <Row label="Value" field="value"><DealInput inputRef={bindRef("value")} value={draft.value} onCommit={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
         <PRow label="Pay status" onUndo={undoPayStatus} dirty={payStatusDirty}>
           <select value={dealStatus} onChange={(e) => setDealStatus(e.target.value)} className={selectCls}>
             <option value="not_invoiced">Not invoiced</option>
@@ -1320,7 +1321,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="archived">Archived</option>
           </select>
         </Row>
-        <Row label="Deliverable" field="deliverable"><input ref={bindRef("deliverable")} defaultValue={draft.deliverable} onBlur={() => onFieldBlur("deliverable")} className={inputCls} placeholder="e.g. 1 YouTube integration" /></Row>
+        <Row label="Deliverable" field="deliverable"><DealInput inputRef={bindRef("deliverable")} value={draft.deliverable} onCommit={() => onFieldBlur("deliverable")} className={inputCls} placeholder="e.g. 1 YouTube integration" /></Row>
         <Row label="Deal type" field="deal_type">
           <select ref={bindRef("deal_type")} defaultValue={draft.deal_type} onBlur={() => onFieldBlur("deal_type")} className={selectCls}>
             <option value="">No set type</option>
@@ -1334,22 +1335,34 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
         </Row>
         <PRow label="Post dates">
           <div className="space-y-1.5">
-            {postDates.map((p, i) => (
-              <div key={p.id ?? `new-${i}`} className="flex items-center gap-1.5">
-                <input type="date" value={p.date} onChange={(e) => { const n = [...postDates]; n[i] = { ...n[i], date: e.target.value }; setPostDates(n); }} className={`${inputCls} deal-date-input flex-1`} aria-label={`Post date ${i + 1}`} />
-                <input value={p.label} onChange={(e) => { const n = [...postDates]; n[i] = { ...n[i], label: e.target.value }; setPostDates(n); }} className={cn(inputCls, "flex-1")} placeholder="Label (e.g. Story 2)" aria-label={`Post date ${i + 1} label`} />
-                <button type="button" onClick={() => setPostDates(postDates.filter((_, j) => j !== i))} aria-label={`Remove post date ${i + 1}`} title="Remove" className="shrink-0 text-inksoft hover:text-late cursor-pointer p-1"><IconDelete size={14} /></button>
+            {postDates.map((p) => (
+              <div key={p._rowKey ?? p.id ?? "row"} className="flex items-center gap-1.5">
+                <DealInput
+                  type="date"
+                  value={p.date}
+                  onCommit={(v) => setPostDates(postDates.map((x) => (x._rowKey ?? x.id) === (p._rowKey ?? p.id) ? { ...x, date: v } : x))}
+                  className={`${inputCls} deal-date-input flex-1`}
+                  ariaLabel={`Post date`}
+                />
+                <DealInput
+                  value={p.label}
+                  onCommit={(v) => setPostDates(postDates.map((x) => (x._rowKey ?? x.id) === (p._rowKey ?? p.id) ? { ...x, label: v } : x))}
+                  className={cn(inputCls, "flex-1")}
+                  placeholder="Label (e.g. Story 2)"
+                  ariaLabel="Post date label"
+                />
+                <button type="button" onClick={() => setPostDates(postDates.filter((x) => (x._rowKey ?? x.id) !== (p._rowKey ?? p.id)))} aria-label="Remove post date" title="Remove" className="shrink-0 text-inksoft hover:text-late cursor-pointer p-1"><IconDelete size={14} /></button>
               </div>
             ))}
-            <button type="button" onClick={() => setPostDates([...postDates, { date: "", label: "" }])} className="inline-flex items-center gap-1 text-[11.5px] text-accent font-medium hover:underline cursor-pointer"><IconPlus size={13} /> Add another date</button>
+            <button type="button" onClick={() => setPostDates([...postDates, newPostDateRow()])} className="inline-flex items-center gap-1 text-[11.5px] text-accent font-medium hover:underline cursor-pointer"><IconPlus size={13} /> Add another date</button>
           </div>
         </PRow>
-        <Row label="Exclusivity" field="exclusivity_days"><input ref={bindRef("exclusivity_days")} defaultValue={draft.exclusivity_days} onBlur={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
+        <Row label="Exclusivity" field="exclusivity_days"><DealInput inputRef={bindRef("exclusivity_days")} value={draft.exclusivity_days} onCommit={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
       </Section>
 
       <Section label="Rep contact">
-        <Row label="Name" field="rep_name"><input ref={bindRef("rep_name")} defaultValue={draft.rep_name} onBlur={() => onFieldBlur("rep_name")} className={inputCls} placeholder="Contact name" /></Row>
-        <Row label="Email" field="rep_email"><input ref={bindRef("rep_email")} defaultValue={draft.rep_email} onBlur={() => onFieldBlur("rep_email")} className={inputCls} placeholder="rep@brand.com" /></Row>
+        <Row label="Name" field="rep_name"><DealInput inputRef={bindRef("rep_name")} value={draft.rep_name} onCommit={() => onFieldBlur("rep_name")} className={inputCls} placeholder="Contact name" /></Row>
+        <Row label="Email" field="rep_email"><DealInput inputRef={bindRef("rep_email")} value={draft.rep_email} onCommit={() => onFieldBlur("rep_email")} className={inputCls} placeholder="rep@brand.com" /></Row>
       </Section>
     </div>
   );
@@ -1536,10 +1549,10 @@ function NotesTab({ draft, bindRef, onFieldBlur, undo, isDirty }: { draft: Draft
   const dirty = isDirty("notes");
   return (
     <div className="space-y-3">
-      <textarea
-        ref={bindRef("notes")}
-        defaultValue={draft.notes}
-        onBlur={() => onFieldBlur("notes")}
+      <DealTextarea
+        inputRef={bindRef("notes")}
+        value={draft.notes}
+        onCommit={() => onFieldBlur("notes")}
         placeholder="Anything worth remembering about this deal…"
         className={cn("w-full bg-card border border-line2 rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition resize-y min-h-[220px] font-sans", dirty && "border-[var(--accent)]")}
       />
