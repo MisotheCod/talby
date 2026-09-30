@@ -99,25 +99,10 @@ export async function updateSession(request: NextRequest) {
       path: "/",
     });
 
-    if (variant === "signup" && path === "/") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/signup";
-      const redirect = NextResponse.redirect(url);
-      // Copy the experiment cookies onto the redirect so they persist.
-      redirect.cookies.set(LANDING_VID_COOKIE, vid, {
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 60 * 24 * 365,
-        path: "/",
-      });
-      redirect.cookies.set(LANDING_VARIANT_COOKIE, variant, {
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 60 * 24 * 365,
-        path: "/",
-      });
-      return redirect;
-    }
+    // NOTE: the "signup" arm no longer redirects the homepage to /signup. The
+    // variant is still assigned + persisted above so signup_completed stays
+    // attributable to the experiment client-side, but the homepage always
+    // renders — a logo/footer link to "/" must land on the homepage.
   }
 
   return supabaseResponse;
