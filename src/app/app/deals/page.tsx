@@ -1499,9 +1499,10 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
     const rows = Math.max(1, (cell?.dates.length ?? 1));
     const H = 34 + rows * 34 + 12;
     const spaceBelow = window.innerHeight - r.bottom - 8;
+    // Prefer below the hovered cell; flip above only when there's no room.
     const up = spaceBelow < H && r.top > H + 8;
     const x = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
-    const y = up ? r.top - H - 4 : r.top - 2;
+    const y = up ? r.top - H - 4 : r.bottom + 4;
     setPos({ x, y, up });
   }, [open, cell?.dates.length]);
 
