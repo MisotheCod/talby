@@ -58,6 +58,73 @@ export function payStatusLabel(s: PayStatus): string {
   }
 }
 
+/** A payment row as the deals table needs it (mirrors ContentPost for posts). */
+export type PaymentRow = {
+  id: string;
+  amount: number | null;
+  status: string | null;          // lifecycle: expected / received
+  invoice_state: string | null;
+  pay_status: string | null;
+  expected_date: string | null;
+  notes?: string | null;
+};
+
+/**
+ * The info the Pay-by + Payment columns need, mirroring postDateCell for posts.
+ *   - Payment column pill = the NEXT UNPAID payment's status ("Paid" when every
+ *     payment is paid).
+ *   - Pay-by column = that same next-unpaid payment's date (red when past due);
+ *     when all paid, show the most recent payment's date.
+ *   - Second line for 2+ payments: "N of M paid" muted; "All paid" when done.
+ *   - Single-payment deals show exactly what they show today (no second line).
+ */
+export function paymentCell(
+  payments: (PaymentRow | PayStatusSource)[] | null | undefined,
+  today?: Date
+): {
+  next_payby: string | null;      // the date to show (next unpaid, else most recent)
+  next_status: PayStatus;         // pill status: next unpaid's, else "paid"
+  overdue: boolean;               // next unpaid's date is in the past
+  allPaid: boolean;
+  line2: { kind: "all" | "progress"; text: string } | null;
+  paidCount: number;
+  totalCount: number;
+  payments: PaymentRow[];         // sorted ascending by date for the popover
+} {
+  const rows = (payments ?? []).filter((p): p is PaymentRow =>
+    p && typeof p === "object" && "id" in p
+  );
+  if (!rows.length) {
+    return { next_payby: null, next_status: "not_invoiced", overdue: false, allPaid: false, line2: null, paidCount: 0, totalCount: 0, payments: [] };
+  }
+  const t = (today ?? new Date()).toISOString().slice(0, 10);
+  const sorted = [...rows].sort((a, b) =>
+    (a.expected_date ?? "9999").localeCompare(b.expected_date ?? "9999"));
+  const paidCount = sorted.filter((s) => norm(s.pay_status) === "paid").length;
+  const allPaid = paidCount === sorted.length;
+  const unpaid = sorted.filter((s) => norm(s.pay_status) !== "paid");
+
+  if (allPaid) {
+    // Most recent date; "All paid" second line only for 2+ (single stays as-is).
+    const mostRecent = (sorted[sorted.length - 1].expected_date ?? "").slice(0, 10);
+    return {
+      next_payby: mostRecent || null, next_status: "paid", overdue: false, allPaid: true,
+      line2: sorted.length >= 2 ? { kind: "all", text: "All paid" } : null,
+      paidCount, totalCount: sorted.length, payments: sorted,
+    };
+  }
+  const next = unpaid[0];
+  const date = (next.expected_date ?? "").slice(0, 10);
+  const status = norm(next.pay_status);
+  return {
+    next_payby: date || null, next_status: status,
+    overdue: date ? isPayOverdue(status, date, (s?: string | null) => !!s && s < t) : false,
+    allPaid: false,
+    line2: sorted.length >= 2 ? { kind: "progress", text: `${paidCount} of ${sorted.length} paid` } : null,
+    paidCount, totalCount: sorted.length, payments: sorted,
+  };
+}
+
 /**
  * Derived overdue flag. A deal's payment is overdue only when its pay-by date
  * has passed AND its pay status is not_invoiced or invoiced (money expected but

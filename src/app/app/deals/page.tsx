@@ -6,8 +6,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
-import { formatMoney, formatDate, cn, isPastDue } from "@/lib/utils";
-import { dealPayRollup, payStatusLabel, isPayOverdue, type PayStatus, type DealRollup } from "@/lib/pay-status";
+import { formatMoney, formatDate, cn } from "@/lib/utils";
+import { dealPayRollup, payStatusLabel, paymentCell, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
 import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
 import { DealInput, DealTextarea } from "@/components/deal-input";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
@@ -36,6 +36,7 @@ type Deal = {
   post_dates?: PostDate[];     // derived from linked content rows (single source)
   next_post_date?: string | null; // earliest upcoming post date (latest when all past)
   post_cell?: ReturnType<typeof postDateCell>;
+  pay_cell?: ReturnType<typeof paymentCell>;
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
@@ -72,7 +73,7 @@ export default function DealsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     const [d, pays, content] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
-      user ? supabase.from("payments").select("expected_date, status, deal_id, invoice_state, pay_status").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
+      user ? supabase.from("payments").select("id, expected_date, status, deal_id, invoice_state, pay_status, amount, notes").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
       supabase.from("content").select("id, event_date, title, post_type, status, linked_deal_id").not("linked_deal_id", "is", null),
     ]);
     const deals = (d.data ?? []) as unknown as Deal[];
@@ -94,7 +95,8 @@ export default function DealsPage() {
     // Rollup: collect each deal's payments (pay_status + date) to derive the
     // single deal-level status (Paid only when all paid, else earliest unpaid).
     const dealPays = new Map<string, { pay_status: string | null; expected_date: string | null }[]>();
-    for (const p of (pays.data ?? []) as { expected_date: string | null; status: string; deal_id: string | null; invoice_state: string | null; pay_status?: string | null }[]) {
+    const payRowsByDeal = new Map<string, PaymentRow[]>();
+    for (const p of (pays.data ?? []) as { expected_date: string | null; status: string; deal_id: string | null; invoice_state: string | null; pay_status?: string | null; amount?: number | null; notes?: string | null }[]) {
       if (!p.deal_id) continue;
       if (p.status === "received") receivedDeal.add(p.deal_id);
       if (p.expected_date) {
@@ -107,6 +109,9 @@ export default function DealsPage() {
       const arr = dealPays.get(p.deal_id) ?? [];
       arr.push({ pay_status: p.pay_status ?? null, expected_date: p.expected_date });
       dealPays.set(p.deal_id, arr);
+      const rows = payRowsByDeal.get(p.deal_id) ?? [];
+      rows.push({ id: (p as { id?: string }).id ?? "", amount: p.amount ?? null, status: p.status ?? null, invoice_state: p.invoice_state ?? null, pay_status: p.pay_status ?? null, expected_date: p.expected_date, notes: p.notes ?? null });
+      payRowsByDeal.set(p.deal_id, rows);
     }
     setDeals(deals.map((deal) => ({
       ...deal,
@@ -118,6 +123,9 @@ export default function DealsPage() {
       pay_received: receivedDeal.has(deal.id),
       all_invoiced: anyDatedDeal.has(deal.id) && invoicedOkDeal.has(deal.id),
       pay_rollup: dealPayRollup(dealPays.get(deal.id) ?? []),
+      // Payments mirror posts: pay_cell = next-unpaid status/date + paid progress
+      // for the column + popover (see paymentCell). Single-source from payments.
+      pay_cell: paymentCell(payRowsByDeal.get(deal.id)),
       // Post dates are derived from linked content rows (single source of
       // truth). deals.post_date is a read-only legacy column (write-guarded)
       // that phase two drops. post_dates = full sorted list; post_cell = the
@@ -392,12 +400,9 @@ export default function DealsPage() {
                   <span className="d-status"><DealStatusBadge status={d.status} active={d.active} /></span>
                   <span className="d-payment flex items-center gap-1">
                     {paymentPill(d)}
-                    {payProgressLine(d) && <span className="text-[10.5px] text-inksoft tabular-nums">{payProgressLine(d)}</span>}
                   </span>
                   <PostDateCell deal={d} onChanged={onUpdated} />
-                  <span className={cn("d-payby text-[12.5px] tabular-nums", payOverdue(d) ? "text-late font-medium" : "text-inksoft")}>
-                    {d.pay_by ? formatDate(d.pay_by) : <NotSet />}
-                  </span>
+                  <PayByCell deal={d} onChanged={onUpdated} />
                   <span className="d-amount money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
                   {/* Dedicated overflow-menu column: one button, its own grid area. The dropdown
                       itself renders in a portal to escape the table's overflow. */}
@@ -495,20 +500,6 @@ function paymentPill(d: Deal) {
   const r = d.pay_rollup ?? { status: "not_invoiced" as PayStatus, paidCount: 0, totalCount: 0 };
   const label = payStatusLabel(r.status);
   return <StatusPill size="sm" kind={PAYS_PILL_KIND[r.status]}>{label}</StatusPill>;
-}
-
-/** Deal-row convenience: derived overdue from the deal's rollup + pay-by date. */
-function payOverdue(d: Deal): boolean {
-  const status = (d.pay_rollup ?? { status: "not_invoiced" as PayStatus }).status;
-  return isPayOverdue(status, d.pay_by, isPastDue);
-}
-
-/** Progress line shown on the deal row when a deal has multiple payments:
- *  "3 of 12 paid". Null for single-payment / zero-payment deals. */
-function payProgressLine(d: Deal): string | null {
-  const r = d.pay_rollup;
-  if (!r || r.totalCount < 2) return null;
-  return `${r.paidCount} of ${r.totalCount} paid`;
 }
 
 /** "Not set" placeholder — a muted, legible empty rather than a dash or gap. */
@@ -1578,6 +1569,117 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
               <span className="min-w-[70px] tabular-nums text-[12px] text-ink">{formatDate(d.date)}</span>
               <span className="flex-1 min-w-0 truncate text-[12px] text-inksoft">{d.label || (d.kind || "Post")}</span>
               <span className={cn("w-4 h-4 rounded-[5px] border flex-none flex items-center justify-center", d.posted ? "bg-ok text-onaccent border-transparent" : "border-line2 text-transparent")}>
+                <IconCheck size={12} />
+              </span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Pay-by cell (column + hover/tap popover) ----------------
+   Mirrors PostDateCell for payments: shows the next-unpaid payment's date (red
+   when past due), a muted "N of M paid"/"All paid" second line for 2+ payments,
+   and opens a popover listing each payment (amount, due date, status) sorted by
+   date, with a control to mark it paid. Single-payment deals show only the date. */
+function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
+  const supabase = createClient();
+  const cell = deal.pay_cell;
+  const trgRef = useRef<HTMLDivElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number; up: boolean } | null>(null);
+  const stay = useRef(false);
+
+  useEffect(() => {
+    if (!open || !trgRef.current) return;
+    const r = trgRef.current.getBoundingClientRect();
+    const W = 260;
+    const rows = Math.max(1, (cell?.payments.length ?? 1));
+    const H = 34 + rows * 36 + 12;
+    const spaceBelow = window.innerHeight - r.bottom - 8;
+    // Prefer below the hovered cell; flip above only when there's no room.
+    const up = spaceBelow < H && r.top > H + 8;
+    const x = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
+    const y = up ? r.top - H - 4 : r.bottom + 4;
+    setPos({ x, y, up });
+  }, [open, cell?.payments.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent | TouchEvent) => {
+      const t = e.target as Node;
+      if (trgRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("touchstart", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const togglePaid = async (row: PaymentRow) => {
+    const next = row.pay_status === "paid" ? (row.invoice_state === "invoiced" ? "invoiced" : "not_invoiced") : "paid";
+    await supabase.from("payments").update({ pay_status: next }).eq("id", row.id);
+    setOpen(false);
+    onChanged();
+  };
+
+  const top = cell?.next_payby ? cell.next_payby : null;
+  const notSet = <span className="text-inksoft">—</span>;
+  const payStatusOf = (r: PaymentRow) => payStatusLabel((r.pay_status as PayStatus | null) === "paid" ? "paid" : r.pay_status === "invoiced" ? "invoiced" : r.pay_status === "no_invoice_needed" ? "no_invoice_needed" : "not_invoiced");
+
+  return (
+    <div
+      ref={trgRef}
+      role="button"
+      aria-haspopup="dialog"
+      tabIndex={0}
+      onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
+      onMouseEnter={() => { stay.current = true; setOpen(true); }}
+      onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
+      className="d-payby relative cursor-pointer select-none"
+    >
+      <span className={cn("inline-block leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
+        {top ? formatDate(top) : notSet}
+        {cell?.line2 && (
+          <span className={cn("absolute left-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap", cell.line2.kind === "all" ? "text-ok" : "text-inksoft/70")}>{cell.line2.text}</span>
+        )}
+      </span>
+      {open && pos && createPortal(
+        <div
+          ref={popRef}
+          role="dialog"
+          aria-label="Payments"
+          className="fixed z-[96] w-72 bg-card border border-line2 rounded-xl shadow-pop py-2 fade-up text-sm"
+          style={{ left: pos.x, top: pos.y }}
+          onMouseEnter={() => { stay.current = true; setOpen(true); }}
+          onMouseLeave={() => { stay.current = false; setOpen(false); }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-inkfaint">{deal.brand} — payments</div>
+          {(cell?.payments ?? []).length === 0 && <div className="px-3 py-2 text-[12px] text-inksoft">No payments yet.</div>}
+          {(cell?.payments ?? []).map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => void togglePaid(p)}
+              title={p.pay_status === "paid" ? "Mark as unpaid" : "Mark as paid"}
+              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-card2 cursor-pointer text-left"
+            >
+              <span className="w-12 flex-none text-right tabular-nums text-[12px] text-ink">{p.amount != null ? formatMoney(p.amount) : ""}</span>
+              <span className="text-[12px] text-inksoft tabular-nums">{p.expected_date ? formatDate(p.expected_date) : "Not set"}</span>
+              <span className="flex-none text-[11px] text-inksoft/80">{payStatusOf(p)}</span>
+              <span className={cn("w-4 h-4 rounded-[5px] border flex-none flex items-center justify-center", p.pay_status === "paid" ? "bg-ok text-onaccent border-transparent" : "border-line2 text-transparent")}>
                 <IconCheck size={12} />
               </span>
             </button>
