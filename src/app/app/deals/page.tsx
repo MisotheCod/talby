@@ -7,7 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
-import { dealPayRollup, payStatusLabel, paymentCell, paymentMismatch, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
+import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
 import { PaymentRowsEditor, type EditorPayment } from "@/components/payment-editor";
 import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
 import { DealInput, DealTextarea } from "@/components/deal-input";
@@ -499,7 +499,21 @@ const PAYS_PILL_KIND: Record<PayStatus, "paid" | "due" | "neutral" | "accent"> =
   no_invoice_needed: "neutral",
   not_invoiced: "due",
 };
+/** Single pay-status pill for the deal, derived from the NEXT UNPAID payment
+ *  through the canonical paymentStatusView (same label/kind as the Payments
+ *  page, including the "Overdue" override). One pill, no separate invoice
+ *  field. When every payment is paid the pill shows Paid. */
 function paymentPill(d: Deal) {
+  const c = d.pay_cell;
+  if (c && c.payments.length) {
+    // The canonical label for the deal: next unpaid payment when any remain,
+    // else the most recent (paid) row so "Overdue" surfaces like the Payments page.
+    const unpaid = c.payments.filter((p) => (p.pay_status ?? "not_invoiced") !== "paid");
+    const target = unpaid[0] ?? c.payments[c.payments.length - 1];
+    const v = paymentStatusView({ pay_status: target.pay_status ?? null, status: target.status ?? null, expected_date: target.expected_date ?? null, amount: target.amount ?? null });
+    const kind = v.pillKind === "late" ? "late" : v.pillKind === "paid" ? "paid" : v.pillKind === "neutral" ? "neutral" : "due";
+    return <StatusPill size="sm" kind={kind}>{v.label}</StatusPill>;
+  }
   const r = d.pay_rollup ?? { status: "not_invoiced" as PayStatus, paidCount: 0, totalCount: 0 };
   const label = payStatusLabel(r.status);
   return <StatusPill size="sm" kind={PAYS_PILL_KIND[r.status]}>{label}</StatusPill>;
@@ -1694,7 +1708,7 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
 
   const top = cell?.next_payby ? cell.next_payby : null;
   const notSet = <span className="text-inksoft">—</span>;
-  const payStatusOf = (r: PaymentRow) => payStatusLabel((r.pay_status as PayStatus | null) === "paid" ? "paid" : r.pay_status === "invoiced" ? "invoiced" : r.pay_status === "no_invoice_needed" ? "no_invoice_needed" : "not_invoiced");
+  const payStatusOf = (r: PaymentRow) => paymentStatusView({ pay_status: r.pay_status ?? null, status: r.status ?? null, expected_date: r.expected_date ?? null, amount: r.amount ?? null }).label;
 
   return (
     <div

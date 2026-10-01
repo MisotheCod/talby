@@ -5,7 +5,7 @@ import Link from "next/link";
 import gsap from "gsap";
 import { createClient } from "@/lib/supabase/client";
 import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
-import { dealPayRollup, type DealRollup, type PayStatus } from "@/lib/pay-status";
+import { dealPayRollup, paymentStatusView, type DealRollup, type PayStatus } from "@/lib/pay-status";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconPlus } from "@/components/icons";
 import { Pill, Segmented } from "@/components/ui";
@@ -20,6 +20,7 @@ type Deal = {
 type Payment = {
   id: string; deal_id: string | null; amount: number;
   expected_date: string | null; status: string; invoice_state: string | null;
+  pay_status?: string | null;
   deal?: { brand: string } | null;
 };
 type Content = {
@@ -218,12 +219,18 @@ export default function OverviewPage() {
   };
 
   // "This week" strip and the Payments card both read from the same `payments`
-  // data (correlation). The card shows expected/past-due payments soonest-first
-  // so the next money landing is at the top, matching what the week drives.
-  const timeline = pendingPayments
-    .filter((p) => p.expected_date)
-    .sort((a, b) => (a.expected_date ?? "").localeCompare(b.expected_date ?? ""))
-    .slice(0, 5);
+  // data. The card lists INDIVIDUAL payment rows (a deal with two payments shows
+  // both, each its own status) through the canonical paymentStatusView, sorted
+  // by date with received rows at the end — the same per-row listing the
+  // Payments page uses. Money landing soonest is at the top.
+  const timeline = [...payments]
+    .sort((a, b) => {
+      const aRecv = a.status === "received", bRecv = b.status === "received";
+      if (aRecv && !bRecv) return 1;
+      if (!aRecv && bRecv) return -1;
+      return (a.expected_date ?? "9999-99-99").localeCompare(b.expected_date ?? "9999-99-99");
+    })
+    .slice(0, 8);
 
   if (loading) return <OverviewSkeleton />;
 
@@ -432,16 +439,20 @@ function DealRow({ deal }: { deal: Deal }) {
 }
 
 function PayRow({ p }: { p: Payment }) {
-  const inv = (p.invoice_state ?? "not_invoiced");
-  const overdue = isPastDue(p.expected_date);
-  const pastDue = p.status !== "received" && overdue && inv === "invoiced";
-  const invOverdue = p.status !== "received" && overdue && inv !== "invoiced";
-  const kind = p.status === "received" ? "g" : overdue ? "r" : "c";
-  const label = p.status === "received" ? "Received" : pastDue ? "Past due" : invOverdue ? "Invoice overdue" : "Expected";
-  const pillKind = p.status === "received" ? "pill-paid" : overdue ? "pill-late" : "pill-due";
-  const barCls = p.status === "received" ? "g" : overdue ? "r" : "c";
+  // Canonical per-payment status — the same view the Payments page uses, so the
+  // card can never drift from it. Status comes from pay_status (not the legacy
+  // invoice_state field), overdue is derived from the date, and the label/pill
+  // match the Payments page exactly (including the "Overdue" override).
+  const v = paymentStatusView({
+    pay_status: p.pay_status ?? null,
+    status: p.status ?? null,
+    expected_date: p.expected_date ?? null,
+    amount: p.amount,
+  });
   const when = p.expected_date ? new Date(p.expected_date + "T00:00:00") : null;
-  const invLabel = inv === "invoiced" ? "Invoiced" : inv === "no_invoice_needed" ? "No invoice needed" : "Not invoiced";
+  const pillKind = v.pillKind === "paid" ? "pill-paid" : v.pillKind === "late" ? "pill-late" : "pill-due";
+  const barCls = p.status === "received" ? "g" : v.overdue ? "r" : "c";
+  const sub = p.status === "received" ? "Paid to checking" : v.status === "no_invoice_needed" ? "No invoice needed" : v.label;
   return (
     <div className="pay rowanim">
       <div className="when">
@@ -451,11 +462,11 @@ function PayRow({ p }: { p: Payment }) {
       <span className={cn("pbar", barCls)} aria-hidden />
       <div className="mid min-w-0">
         <div className="b truncate">{p.deal?.brand ?? "Payment"}</div>
-        <div className="s truncate">{p.status === "received" ? "Paid to checking" : invLabel}</div>
+        <div className="s truncate">{sub}</div>
       </div>
       <div className="text-right flex-none ml-2">
         <div className="amt">{formatMoney(p.amount)}</div>
-        <span className={cn("pill", pillKind)}>{label}</span>
+        <span className={cn("pill", pillKind)}>{v.label}</span>
       </div>
     </div>
   );

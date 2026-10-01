@@ -171,6 +171,59 @@ export function isPayOverdue(status: PayStatus, payBy?: string | null, isPastDue
 }
 
 /**
+ * THE canonical per-payment status view, matching the Payments page exactly
+ * (single source of truth). Every surface that shows a payment's status, due
+ * date or amount — Payments page, overview Payments card, deals table, deal
+ * drawer, This week, calendar, assistant — must derive from this ONE function so
+ * nothing can drift. "Overdue" is DERIVED (date passed + not paid), never stored.
+ *
+ *   - status          normalized pay_status (not_invoiced/invoiced/paid/no_invoice_needed)
+ *   - overdue         derived: date passed AND status is not_invoiced or invoiced
+ *   - label           the human label the Payments page uses, INCLUDING the
+ *                     "Overdue" override when the date has passed
+ *   - pillKind        maps to StatusPill kind: "paid"|"late"|"due"|"neutral"
+ *   - due             the pay-by date (expected_date) this status is about
+ *   - amount          the amount this status describes
+ */
+export type PaymentStatusView = {
+  status: PayStatus;
+  overdue: boolean;
+  label: string;
+  pillKind: "paid" | "late" | "due" | "neutral";
+  due: string | null;
+  amount: number | null;
+};
+
+/** Source contract for the canonical view — the minimal row it needs. */
+export type PaymentStatusSource = {
+  pay_status?: string | null;
+  status?: string | null;
+  expected_date?: string | null;
+  amount?: number | null;
+};
+
+/** Derive the canonical per-payment status view. Defaults pay_status to
+ *  not_invoiced and derives overdue (never stored). Label follows the Payments
+ *  page's exact switch, including the Overdue override for past-due money. */
+export function paymentStatusView(p: PaymentStatusSource): PaymentStatusView {
+  const ps = norm(p.pay_status ?? null);
+  const overdue = isPayOverdue(ps, p.expected_date ?? null);
+  let label: string;
+  let pillKind: "paid" | "late" | "due" | "neutral";
+  switch (ps) {
+    case "paid": label = "Paid"; pillKind = "paid"; break;
+    case "no_invoice_needed": label = "No invoice needed"; pillKind = "neutral"; break;
+    case "invoiced": label = overdue ? "Overdue" : "Invoiced"; pillKind = overdue ? "late" : "due"; break;
+    default: label = overdue ? "Overdue" : "Not invoiced"; pillKind = overdue ? "late" : "due"; break;
+  }
+  return {
+    status: ps, overdue, label, pillKind,
+    due: p.expected_date ?? null,
+    amount: p.amount ?? null,
+  };
+}
+
+/**
  * Conflicting source row? A row whose lifecycle says "paid" but whose payment
  * object carries NO amount, status, or date. The importer would create the deal
  * and leave it not_invoiced (there is no received payment to back a paid status),

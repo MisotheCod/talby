@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatMoney, isPastDue, cn } from "@/lib/utils";
+import { formatMoney, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
-import type { PayStatus } from "@/lib/pay-status";
+import { paymentStatusView } from "@/lib/pay-status";
 import { IconPlus, IconMore, IconCheck } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 import { IncomeSummary } from "./income-summary";
@@ -40,12 +40,13 @@ function fmtQuarter(key: string): string {
 }
 function fmtYear(iso: string): string { return iso.slice(0, 4); }
 
-function rowsStatus(p: Payment): "past_due" | "invoice_overdue" | "expected" | "received" {
-  if (p.status === "received") return "received";
-  if (!isPastDue(p.expected_date)) return "expected";
-  // "Past due" means the brand is late paying the amount expected. The payment
-  // is overdue regardless of invoice state (derived from the date).
-  return "past_due";
+function rowsStatus(p: Payment): "paid" | "overdue" | "expected" {
+  // Canonical per-payment view (paymentStatusView) drives this too, so the
+  // sort/group priority uses the exact same overdue derivation as the pill.
+  const v = paymentStatusView({ pay_status: p.pay_status ?? null, status: p.status ?? null, expected_date: p.expected_date ?? null, amount: p.amount });
+  if (p.status === "received") return "paid";
+  if (v.overdue) return "overdue";
+  return "expected";
 }
 
 /* Year-over-year line helper: given a numeric for this period and a
@@ -241,8 +242,8 @@ export default function PaymentsPage() {
       payments: groups[m].sort((a, b) => {
         // Past due first, then by date
         const sa = rowsStatus(a), sb = rowsStatus(b);
-        const aOverdue = sa === "past_due" || sa === "invoice_overdue";
-        const bOverdue = sb === "past_due" || sb === "invoice_overdue";
+        const aOverdue = sa === "overdue";
+        const bOverdue = sb === "overdue";
         if (aOverdue && !bOverdue) return -1;
         if (!aOverdue && bOverdue) return 1;
         return (a.expected_date || "").localeCompare(b.expected_date || "");
@@ -360,9 +361,8 @@ export default function PaymentsPage() {
                 <div className="card divide-y divide-line">
                   {group.payments.map((p) => {
                     const st = rowsStatus(p);
-                    const isRecv = st === "received";
-                    const isPast = st === "past_due";
-                    const isInvOverdue = st === "invoice_overdue";
+                    const isRecv = st === "paid";
+                    const isPast = st === "overdue";
                     const day = p.expected_date ? Number(p.expected_date.slice(8)) : null;
                     return (
                       <div key={p.id}>
@@ -372,7 +372,7 @@ export default function PaymentsPage() {
                              Line 2: status pills were built below, so the brand must not truncate. */
                           <div className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <span className={cn("w-7 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast || isInvOverdue ? "text-late" : "text-ink")}>
+                              <span className={cn("w-7 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>
                                 {day ?? "–"}
                               </span>
                               <span className={cn("flex-1 min-w-0 text-sm leading-snug", isRecv ? "text-muted" : "font-medium")}>
@@ -389,7 +389,7 @@ export default function PaymentsPage() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-3 px-5 py-3">
-                            <span className={cn("w-8 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast || isInvOverdue ? "text-late" : "text-ink")}>
+                            <span className={cn("w-8 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>
                               {day ?? "–"}
                             </span>
                             <span className={cn("flex-1 min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>
@@ -408,16 +408,12 @@ export default function PaymentsPage() {
                       return <span className="shrink-0">{renderStatusPill()}</span>;
                     }
                     function renderStatusPill() {
-                      const ps = (p.pay_status ?? "not_invoiced") as PayStatus;
-                      switch (ps) {
-                        case "paid": return <StatusPill size="sm" kind="paid">Paid</StatusPill>;
-                        case "invoiced": return isPastDue(p.expected_date)
-                          ? <StatusPill size="sm" kind="late">Overdue</StatusPill>
-                          : <StatusPill size="sm" kind="due">Invoiced</StatusPill>;
-                        case "no_invoice_needed": return <StatusPill size="sm" kind="neutral">No invoice needed</StatusPill>;
-                        default: return isPastDue(p.expected_date)
-                          ? <StatusPill size="sm" kind="late">Overdue</StatusPill>
-                          : <StatusPill size="sm" kind="due">Not invoiced</StatusPill>;
+                      const v = paymentStatusView({ pay_status: p.pay_status ?? null, status: p.status ?? null, expected_date: p.expected_date ?? null, amount: p.amount });
+                      switch (v.pillKind) {
+                        case "paid": return <StatusPill size="sm" kind="paid">{v.label}</StatusPill>;
+                        case "late": return <StatusPill size="sm" kind="late">{v.label}</StatusPill>;
+                        case "neutral": return <StatusPill size="sm" kind="neutral">{v.label}</StatusPill>;
+                        default: return <StatusPill size="sm" kind="due">{v.label}</StatusPill>;
                       }
                     }
                     function renderMenu() {
