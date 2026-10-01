@@ -7,7 +7,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
-import { dealPayRollup, payStatusLabel, paymentCell, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
+import { dealPayRollup, payStatusLabel, paymentCell, paymentMismatch, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
+import { PaymentRowsEditor, type EditorPayment } from "@/components/payment-editor";
 import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
 import { DealInput, DealTextarea } from "@/components/deal-input";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
@@ -26,6 +27,7 @@ type Deal = {
   links: { url: string; label?: string }[]; active: boolean;
   rep_name: string | null; rep_email: string | null;
   pay_terms: string | null; exclusivity_days: number | null;
+  revisions_included: string | null; revisions_used: number | null;
   deal_type?: string | null;
   created_at?: string;
   // Joined lookups for the six-column list:
@@ -38,12 +40,12 @@ type Deal = {
   post_cell?: ReturnType<typeof postDateCell>;
   pay_cell?: ReturnType<typeof paymentCell>;
 };
-type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null };
+type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null; bonus_confirmed?: boolean };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null; kind?: "contract" | "invoice" | "other" | null };
-type DraftField = "value" | "status" | "deliverable" | "deal_type" | "pay_terms" | "exclusivity_days" | "rep_name" | "rep_email" | "notes";
+type DraftField = "value" | "status" | "deliverable" | "deal_type" | "pay_terms" | "exclusivity_days" | "revisions_included" | "rep_name" | "rep_email" | "notes";
 type Draft = Record<DraftField, string>;
-const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "pay_terms", "exclusivity_days", "rep_name", "rep_email", "notes"];
+const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "pay_terms", "exclusivity_days", "revisions_included", "rep_name", "rep_email", "notes"];
 
 const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
 
@@ -217,6 +219,7 @@ export default function DealsPage() {
       brand: `${deal.brand}`,
       deliverable: deal.deliverable, value: deal.value, status: deal.status,
       pay_terms: deal.pay_terms, exclusivity_days: deal.exclusivity_days,
+      revisions_included: deal.revisions_included, revisions_used: deal.revisions_used,
       rep_name: deal.rep_name, rep_email: deal.rep_email, deal_type: deal.deal_type,
       notes: deal.notes,
       active: deal.active,
@@ -693,6 +696,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     deal_type: d.deal_type ?? "",
     pay_terms: d.pay_terms ?? "",
     exclusivity_days: d.exclusivity_days?.toString() ?? "",
+    revisions_included: d.revisions_included ?? "",
     rep_name: d.rep_name ?? "",
     rep_email: d.rep_email ?? "",
     notes: d.notes ?? "",
@@ -759,6 +763,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       const el = (fieldRefs.current as Record<string, unknown>)[k] as { value?: string } | null;
       const val = el?.value ?? draft[k];
       if (k === "value" || k === "exclusivity_days") patch[k] = val ? Number(val) : null;
+      else if (k === "revisions_included") patch[k] = val ? val.trim() : null;
       // NOTE: due_date is no longer written here. Pay by is owned by the
       // payment's expected_date (single source of truth). deals.due_date is
       // left as-is until a later migration drops it.
@@ -799,11 +804,11 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       const existingPmIds = new Set(existingPm.map((p) => p.id));
       for (const p of payments) {
         if (p.id.startsWith("new-")) {
-          await supabase.from("payments").insert({ user_id: user.id, deal_id: deal.id, amount: p.amount, expected_date: p.expected_date, status: p.status, notes: p.notes ?? null, invoice_state: p.invoice_state ?? null, pay_status: p.pay_status });
+          await supabase.from("payments").insert({ user_id: user.id, deal_id: deal.id, amount: p.amount, expected_date: p.expected_date, status: p.status, notes: p.notes ?? null, invoice_state: p.invoice_state ?? null, pay_status: p.pay_status ?? null, bonus_confirmed: p.bonus_confirmed !== false });
         } else if (existingPmIds.has(p.id)) {
-          const orig = (await supabase.from("payments").select("pay_status, status, amount, expected_date").eq("id", p.id).single()).data as { pay_status?: string | null; status?: string | null; amount?: number | null; expected_date?: string | null } | null;
-          if (orig && (orig.pay_status !== p.pay_status || orig.status !== p.status || (orig.expected_date ?? null) !== (p.expected_date ?? null))) {
-            await supabase.from("payments").update({ pay_status: p.pay_status, status: p.status, amount: p.amount, expected_date: p.expected_date }).eq("id", p.id);
+          const orig = (await supabase.from("payments").select("pay_status, status, amount, expected_date, bonus_confirmed").eq("id", p.id).single()).data as { pay_status?: string | null; status?: string | null; amount?: number | null; expected_date?: string | null; bonus_confirmed?: boolean | null } | null;
+          if (orig && (orig.pay_status !== p.pay_status || orig.status !== p.status || (orig.expected_date ?? null) !== (p.expected_date ?? null) || (orig.amount ?? null) !== (p.amount ?? null) || ((orig.bonus_confirmed ?? true) !== (p.bonus_confirmed !== false)))) {
+            await supabase.from("payments").update({ pay_status: p.pay_status ?? null, status: p.status, amount: p.amount, expected_date: p.expected_date, bonus_confirmed: p.bonus_confirmed !== false }).eq("id", p.id);
           }
         }
       }
@@ -902,6 +907,15 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     // Stage: mark every payment received and the deal active; commits on Save.
     setPayments(payments.map((p) => ({ ...p, status: "received", pay_status: "paid" })));
     setDraft((n) => ({ ...n, status: "active" }));
+  };
+
+  // "Update deal amount" from the amber guardrail — set Value to the confirmed
+  // payment total. Uses the explicit-save model: rewrite the bound Value input's
+  // DOM value and stage it (setField), so Save persists it. Never writes here.
+  const onEditDealAmount = (total: number) => {
+    const el = (fieldRefs.current as Record<string, unknown>)["value"] as { value?: string } | null;
+    if (el) el.value = String(total);
+    setField("value", String(total));
   };
 
   const doneCount = checklist.filter((c) => c.done).length;
@@ -1046,7 +1060,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} postDates={postDates} setPostDates={setPostDates} postDatesSaved={postDatesSaved} />}
+          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} postDates={postDates} setPostDates={setPostDates} postDatesSaved={postDatesSaved} onUpdated={onUpdated} onEditDealAmountStaged={onEditDealAmount} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} onUploadFile={uploadDealFile} />}
@@ -1094,7 +1108,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
    types, so a keystroke can never stall. onBlur (leaving a field, one action)
    syncs the value for dirty-marking/undo. The drawer's Save reads the refs
    directly. Nothing writes to the DB except Save. */
-function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved, postDates, setPostDates, postDatesSaved }: {
+function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved, postDates, setPostDates, postDatesSaved, onUpdated, onEditDealAmountStaged }: {
   deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[]; paymentsSaved: Payment[];
   draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
   postDates: PostDate[]; setPostDates: (p: PostDate[]) => void; postDatesSaved: PostDate[];
@@ -1103,7 +1117,31 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   onUploadFile: (file: File, kind: DealFile["kind"]) => Promise<{ extractionBlocked: boolean }>;
   onOpenFile: (f: DealFile) => Promise<void>;
   onRemoveFile: (f: DealFile) => Promise<void>;
+  onUpdated: () => void;
+  onEditDealAmountStaged: (total: number) => void;
 }) {
+  // ---- Revision counter (Log a revision / undo). Immediate persist, deal-level. ----
+  const [revisionBusy, setRevisionBusy] = useState(false);
+  const [revisionErr, setRevisionErr] = useState<string | null>(null);
+  const revisionsSet = !!deal.revisions_included;
+  const revisionLimit = deal.revisions_included === "Unlimited"
+    ? null
+    : (deal.revisions_included != null && Number.isFinite(Number(deal.revisions_included)) ? Number(deal.revisions_included) : null);
+  const revisionUsed = deal.revisions_used ?? 0;
+  const overLimit = revisionsSet && revisionLimit !== null && revisionLimit !== undefined && revisionUsed > revisionLimit;
+  const logRevision = async (delta: 1 | -1) => {
+    setRevisionBusy(true); setRevisionErr(null);
+    try {
+      const res = await fetch("/api/deals/revision", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealId: deal.id, action: delta > 0 ? "log" : "undo" }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setRevisionErr(data?.error || "Could not update revisions."); return; }
+      onUpdated(); // reload the deal so revisions_used reflects the change
+    } catch { setRevisionErr("Could not update revisions."); }
+    finally { setRevisionBusy(false); }
+  };
   // Payment-bound rows are independent controls, so each tracks its own dirty
   // state and its own undo. Pay status sketches pay_status/status; Pay by
   // sketches expected_date. Sharing one flag made them light up together and
@@ -1236,21 +1274,20 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
 
   // Invoice row: shows the attached invoice (kind=invoice) once uploaded.
 
-  return (
+      return (
     <div>
       <Section label="Payment">
         <Row label="Value" field="value"><DealInput inputRef={bindRef("value")} value={draft.value} onCommit={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
-        <PRow label="Pay status" onUndo={undoPayStatus} dirty={payStatusDirty}>
-          <select value={dealStatus} onChange={(e) => setDealStatus(e.target.value)} className={selectCls}>
-            <option value="not_invoiced">Not invoiced</option>
-            <option value="invoiced">Invoiced</option>
-            <option value="paid">Paid</option>
-            <option value="no_invoice_needed">No invoice needed</option>
-          </select>
-        </PRow>
-        <PRow label="Pay by" onUndo={undoPayBy} dirty={payByDirty}>
-          <input key={`payby-${deal.id}-${payByTick}`} type="date" defaultValue={payByDate} onChange={(e) => setPayByDate(e.target.value)} className={`${inputCls} deal-date-input`} aria-label="Pay by date" />
-        </PRow>
+        {/* One editor per payment row: amount / due date / status, delete with
+            confirm, Split & Bonus shortcuts, bonus Confirm, and the amber
+            guardrail when confirmed payments don't match the deal amount. */}
+        <PaymentRowsEditor
+                  payments={payments as unknown as EditorPayment[]}
+                  setPayments={(next) => setPayments(next as unknown as Payment[])}
+                  dealAmount={draft.value ? Number(draft.value) : (deal.value ?? null)}
+                  showGuardrail
+                  onEditDealAmount={(total) => { if (total != null) onEditDealAmountStaged(total); }}
+                />
         {invoiceReview && (
           <div className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-tint)] px-2.5 py-2 mt-1.5 mb-1.5 text-[12px]">
             {invoiceReview.proposed ? (
@@ -1341,6 +1378,28 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           </div>
         </PRow>
         <Row label="Exclusivity" field="exclusivity_days"><DealInput inputRef={bindRef("exclusivity_days")} value={draft.exclusivity_days} onCommit={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
+        <Row label="Revisions included" field="revisions_included"><DealInput inputRef={bindRef("revisions_included")} value={draft.revisions_included} onCommit={() => onFieldBlur("revisions_included")} className={inputCls} placeholder="Not set" inputMode="numeric" /></Row>
+        {revisionsSet && (
+          <PRow label="Revisions">
+            <div className="w-full space-y-1.5">
+              <div className={cn("flex items-center justify-between rounded-md border px-2.5 py-1.5 text-[12.5px]", overLimit ? "border-[var(--late)]/40 bg-[var(--late)]/5 text-[var(--late)]" : "border-line2 bg-card2 text-ink")}>
+                <span className="font-medium">
+                  {revisionLimit === null || revisionLimit === undefined
+                    ? `Revisions used: ${revisionUsed}`
+                    : `Revisions: ${revisionUsed} of ${revisionLimit} used`}
+                </span>
+                <span className="flex items-center gap-1.5 shrink-0">
+                  <button type="button" onClick={() => logRevision(1)} disabled={revisionBusy || !revisionsSet} className="px-2.5 h-7 rounded text-[11.5px] font-medium cursor-pointer bg-[var(--accent)] text-onaccent hover:brightness-95 disabled:opacity-50 whitespace-nowrap">Log a revision</button>
+                  <button type="button" onClick={() => logRevision(-1)} disabled={revisionBusy || revisionUsed === 0} className="px-2.5 h-7 rounded text-[11.5px] font-medium cursor-pointer border border-line2 bg-card text-inksoft hover:text-ink disabled:opacity-50 whitespace-nowrap" title="Undo last revision">Undo</button>
+                </span>
+              </div>
+              {overLimit && (
+                <p className="text-[11.5px] text-[var(--late)]">Extra rounds are not in the contract.</p>
+              )}
+              {revisionErr && <p className="text-[11px] text-[var(--late)]">{revisionErr}</p>}
+            </div>
+          </PRow>
+        )}
       </Section>
 
       <Section label="Rep contact">

@@ -58,6 +58,39 @@ export function payStatusLabel(s: PayStatus): string {
   }
 }
 
+/** Whether a payment row is a confirmed bonus (or not a bonus at all, i.e. it
+ *  counts toward Booked/Outstanding). NULL/absent = confirmed (not a bonus). */
+export function isConfirmed(p: { bonus_confirmed?: boolean | null }): boolean {
+  return p.bonus_confirmed !== false;
+}
+
+/**
+ * Amber guardrail: does the SUM of a deal's CONFIRMED payments differ from the
+ * deal amount? Unconfirmed bonus payments are excluded from the sum. Returns
+ * null when they match (or there are no confirmed payments), else a short
+ * human line like "Payments total $800. The deal is $500." and the numbers.
+ */
+export function paymentMismatch(
+  payments: { amount: number | null; bonus_confirmed?: boolean | null }[],
+  dealAmount: number | null
+): { confirmedTotal: number; dealAmount: number; note: string } | null {
+  const deal = dealAmount ?? 0;
+  const total = payments
+    .filter((p) => isConfirmed(p) && p.amount != null)
+    .reduce((s, p) => s + (p.amount ?? 0), 0);
+  if (Math.abs(total - deal) < 0.005) return null;
+  return {
+    confirmedTotal: total,
+    dealAmount: deal,
+    note: `Payments total $${formatAmt(total)}. The deal is $${formatAmt(deal)}.`,
+  };
+}
+
+function formatAmt(n: number): string {
+  const whole = Math.round(n * 100) / 100;
+  return Number.isInteger(whole) ? String(whole) : String(whole);
+}
+
 /** A payment row as the deals table needs it (mirrors ContentPost for posts). */
 export type PaymentRow = {
   id: string;

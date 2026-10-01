@@ -83,13 +83,14 @@ const SYSTEM = [
   "- value_total: the total compensation as a number (USD). Combine fees if multiple line items.",
   "- pay_terms: map payment timing to one of exactly: 'due_on_receipt','net_15','net_30','net_45','net_60','net_90','milestone'. If a Net term or due-on-receipt is stated, use it; if payment is split into installments/milestones, use 'milestone'; if nothing stated, null.",
   "- exclusivity_days: number of days of exclusivity (no competing brand posts), as an integer; if only dates are given, compute the approximate day count; if none, null.",
+  "- revisions_included: the number of revision rounds included in the contract, as a whole number string (e.g. '2'); if the contract says revisions are unlimited, set it to the string 'Unlimited'; if the number of included revisions is not stated, set it to null. NEVER invent a number.",
   "- due_date: the deadline for final deliverables in YYYY-MM-DD; null if unstated.",
   "- post_dates: a JSON array of EVERY scheduled post/publish/live date the contract mentions, each as {\"date\":\"YYYY-MM-DD\", \"label\":\"Reel\"|\"Story 2\"|...}. A deal for one Reel and three Stories usually has FOUR dates. Extract every distinct one the contract states; if it names a platform/deliverable alongside a date, put that in label (e.g. 'Reel' or 'Story 2'); if only dates are given, label is \"\". Empty array [] if no dates are stated. NEVER invent a date.",
   "- rep_name: the human representative's name; null if unknown.",
   "- rep_email: the representative's email; null if unknown.",
   "- platforms: comma-separated platforms (Instagram, TikTok, YouTube...); null if none.", "",
   "Respond with STRICT JSON only:",
-  '{"brand":..., "deliverable":..., "value_total":<number|null>, "pay_terms":..., "exclusivity_days":<int|null>, "due_date":..., "post_dates":[{"date":"YYYY-MM-DD","label":"Reel"}], "rep_name":..., "rep_email":..., "platforms":...}',
+  '{"brand":..., "deliverable":..., "value_total":<number|null>, "pay_terms":..., "exclusivity_days":<int|null>, "revisions_included":<string|null>, "due_date":..., "post_dates":[{"date":"YYYY-MM-DD","label":"Reel"}], "rep_name":..., "rep_email":..., "platforms":...}',
 ].join("\n");
 
 async function extractDealFields(text: string): Promise<Record<string, unknown>> {

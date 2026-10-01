@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { newPostDateRow, type PostDate } from "@/lib/post-dates";
-import { DealInput, DealTextarea } from "@/components/deal-input";
+import { DealInput, DealTextarea, inputFieldCls } from "@/components/deal-input";
 import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck, IconUpload, IconPlus } from "@/components/icons";
 import { Button, Select, Spinner } from "@/components/ui";
 
@@ -20,6 +20,7 @@ export function applyContractFields(f: Record<string, unknown>): DealFormValues 
     pay_terms: typeof f.pay_terms === "string" ? f.pay_terms : init.pay_terms,
     exclusivity_days: typeof f.exclusivity_days === "number" ? String(f.exclusivity_days) : typeof f.exclusivity_days === "string" ? f.exclusivity_days : init.exclusivity_days,
     due_date: typeof f.due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f.due_date) ? f.due_date : init.due_date,
+    revisions_included: typeof f.revisions_included === "string" ? f.revisions_included : init.revisions_included,
     rep_name: typeof f.rep_name === "string" ? f.rep_name : init.rep_name,
     rep_email: typeof f.rep_email === "string" ? f.rep_email : init.rep_email,
     post_dates: Array.isArray(f.post_dates)
@@ -38,6 +39,7 @@ export function contractAutoFields(f: Record<string, unknown>): (keyof DealFormV
   if (f.value_total != null) keys.push("value");
   if (typeof f.due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f.due_date)) keys.push("due_date");
   if (typeof f.exclusivity_days === "number") keys.push("exclusivity_days");
+  if (typeof f.revisions_included === "string" && f.revisions_included) keys.push("revisions_included");
   if (Array.isArray(f.post_dates) && f.post_dates.length) keys.push("post_dates");
   return keys;
 }
@@ -66,6 +68,7 @@ export type DealFormValues = {
   due_date: string;
   pay_terms: string;         // due_on_receipt / net_15 / net_30 ...
   exclusivity_days: string;
+  revisions_included: string; // whole number, "Unlimited", or "" = Not set
   rep_name: string;
   rep_email: string;
   links: { url: string; label?: string }[];
@@ -98,7 +101,7 @@ const DEAL_STATUSES = [
 export function emptyDealForm(): DealFormValues {
   return {
     brand: "", deliverable: "", value: "", status: "pipeline",
-    due_date: "", pay_terms: "", exclusivity_days: "", rep_name: "", rep_email: "",
+    due_date: "", pay_terms: "", exclusivity_days: "", revisions_included: "", rep_name: "", rep_email: "",
     links: [], notes: "", post_dates: [],
   };
 }
@@ -204,6 +207,7 @@ export function DealForm({
       due_date: v.due_date || null,
       pay_terms: v.pay_terms || null,
       exclusivity_days: v.exclusivity_days ? Number(v.exclusivity_days) : null,
+      revisions_included: v.revisions_included.trim() || null,
       rep_name: v.rep_name.trim() || null,
       rep_email: v.rep_email.trim() || null,
       links: v.links.filter((l) => l.url).map((l) => ({ url: l.url, label: l.label || l.url })),
@@ -270,6 +274,7 @@ export function DealForm({
     v.post_dates.length ? `${v.post_dates.length} post date${v.post_dates.length > 1 ? "s" : ""}` : null,
     PAY_TERM_OPTIONS.find((o) => o.value === v.pay_terms)?.label && v.pay_terms ? PAY_TERM_OPTIONS.find((o) => o.value === v.pay_terms)!.label : null,
     v.exclusivity_days ? `${v.exclusivity_days} days exclusivity` : null,
+    v.revisions_included ? `${v.revisions_included} revisions` : null,
   ].filter(Boolean).join(" · ");
   const notesSummary = [
     v.links.filter((l) => l.url).length ? `${v.links.filter((l) => l.url).length} link${v.links.filter((l) => l.url).length > 1 ? "s" : ""}` : null,
@@ -395,7 +400,7 @@ export function DealForm({
           <Field label="Due date" spark={spark("due_date")}><DealInput type="date" value={v.due_date} onCommit={(val) => set("due_date", val)} /></Field>
         </div>
         <div className="space-y-2 mt-2">
-          <div className="text-[11px] font-medium text-inksoft">Post dates<span className="text-inksoft/60"> — one per go-live date (optional)</span></div>
+          <div className="text-[11px] font-medium text-inksoft">Post dates<span className="text-inksoft/60">, one per go live date (optional)</span></div>
           {v.post_dates.length === 0 && <div className="text-[11px] text-inksoft/50">No post dates yet. Add when you know the go-live dates.</div>}
           {v.post_dates.map((p) => (
             <div key={p._rowKey} className="flex gap-2 items-center">
@@ -415,6 +420,10 @@ export function DealForm({
           <Field label="Exclusivity (days)" spark={spark("exclusivity_days")}>
             <DealInput type="number" min={0} value={v.exclusivity_days} onCommit={(val) => set("exclusivity_days", val)} placeholder="e.g. 60" />
           </Field>
+          <Field label="Revisions included" spark={spark("revisions_included")}>
+            <DealInput value={v.revisions_included} onCommit={(val) => set("revisions_included", val)} placeholder="Not set" />
+          </Field>
+          <div className="text-[11px] text-inksoft/70 self-end pb-1.5">Whole number, or type "Unlimited"</div>
         </div>
       </AccordionSection>
 
@@ -483,8 +492,8 @@ function Field({ label, hint, spark, children }: { label: string; hint?: string;
 /** Inline mini-editor for a flagged field, so the user can fix it right in the attention block. */
 function FlagEdit({ field, value, onChange }: { field: keyof DealFormValues; value: string | { url: string; label?: string }[]; onChange: (x: string) => void }) {
   if (typeof value !== "string") return null;
-  if (field === "due_date") return <DealInput type="date" value={value} onCommit={(v) => onChange(v)} className="!h-7 !text-xs" />;
-  if (field === "exclusivity_days" || field === "value" ) return <DealInput type="number" value={value} onCommit={(v) => onChange(v)} className="!h-7 !text-xs !w-28" />;
+  if (field === "due_date") return <DealInput type="date" value={value} onCommit={(v) => onChange(v)} className={`${inputFieldCls} !h-7 !text-xs`} />;
+  if (field === "exclusivity_days" || field === "value" ) return <DealInput type="number" value={value} onCommit={(v) => onChange(v)} className={`${inputFieldCls} !h-7 !text-xs !w-28`} />;
   if (field === "pay_terms") return (
     <Select value={value} onChange={(e) => onChange(e.target.value)}>
       {PAY_TERM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -495,7 +504,7 @@ function FlagEdit({ field, value, onChange }: { field: keyof DealFormValues; val
       {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </Select>
   );
-  return <DealInput value={value} onCommit={(v) => onChange(v)} className="!h-7 !text-xs flex-1" />;
+  return <DealInput value={value} onCommit={(v) => onChange(v)} className={`${inputFieldCls} !h-7 !text-xs flex-1`} />;
 }
 
 function AccordionSection({ label, summary, open, onToggle, children }: { label: string; summary: string; open: boolean; onToggle: () => void; children: React.ReactNode }) {

@@ -3,6 +3,18 @@
 import { useState, useRef, useEffect } from "react";
 
 /**
+ * Shared bordered input style for text, number, email, date, password and the
+ * form's textarea. Matches the `Input`/`Select` components in ui.tsx (1px
+ * border-line2, rounded-xl, h-10, focus ring in the accent, faint placeholder)
+ * so text fields and dropdowns read the same. The deal drawer's inline fields
+ * intentionally override this with their own borderless inputCls.
+ */
+export const inputFieldCls =
+  "w-full bg-card border border-line2 rounded-xl px-3.5 h-10 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
+export const textareaFieldCls =
+  "w-full bg-card border border-line2 rounded-xl px-3.5 py-2.5 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition resize-y min-h-[80px] font-sans";
+
+/**
  * THE shared text/date/number input for the deal modal and drawer.
  *
  * Why this exists: the previous post-date inputs were CONTROLLED (`value=` +
@@ -73,7 +85,7 @@ export function DealInput({
       placeholder={placeholder}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={className}
+      className={className === "" ? inputFieldCls : className}
       min={min}
       step={step}
       value={local}
@@ -138,7 +150,7 @@ export function DealTextarea({
       rows={rows}
       placeholder={placeholder}
       aria-label={ariaLabel}
-      className={className}
+      className={className === "" ? textareaFieldCls : className}
       value={local}
       onFocus={() => { focused.current = true; }}
       onChange={(e) => setLocal(e.target.value)}
