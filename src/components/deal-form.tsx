@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { newPostDateRow, type PostDate } from "@/lib/post-dates";
+import { generatePaymentsFromStructure } from "@/lib/pay-status";
 import { DealInput, DealTextarea, inputFieldCls } from "@/components/deal-input";
 import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck, IconUpload, IconPlus } from "@/components/icons";
 import { Button, Select, Spinner } from "@/components/ui";
@@ -12,6 +13,8 @@ import { Button, Select, Spinner } from "@/components/ui";
 export function applyContractFields(f: Record<string, unknown>): DealFormValues {
   const init = emptyDealForm();
   const val = f.value_total;
+  const st = (f.payment_structure ?? {}) as Record<string, unknown>;
+  const kind = typeof st.kind === "string" && ["once", "split", "parts", "monthly"].includes(st.kind) ? st.kind as DealFormValues["payment_structure"] : "once";
   return {
     ...init,
     brand: typeof f.brand === "string" ? f.brand : init.brand,
@@ -30,7 +33,25 @@ export function applyContractFields(f: Record<string, unknown>): DealFormValues 
           .map((p) => newPostDateRow({ date: p.date!, label: typeof p.label === "string" ? p.label : "" }))
       : init.post_dates,
     notes: typeof f.platforms === "string" && f.platforms ? `Platforms: ${f.platforms}` : init.notes,
+    // Release 1/2 structure (spec 5a)
+    payment_structure: kind,
+    structure_timing: typeof st.timing === "string" ? st.timing : "net_30",
+    structure_upfront_pct: typeof st.upfront_pct === "number" ? st.upfront_pct : 50,
+    structure_balance_timing: typeof st.balance_timing === "string" ? st.balance_timing : "net_30",
+    structure_months: typeof st.months === "number" ? st.months : 3,
+    structure_parts: Array.isArray(st.parts)
+      ? (st.parts as { name?: string; amount?: number | string; date?: string }[])
+          .map((p, i) => ({ _rowKey: newRowKey(), name: typeof p.name === "string" ? p.name : "", amount: typeof p.amount === "number" ? String(p.amount) : typeof p.amount === "string" ? p.amount : "", date: typeof p.date === "string" ? p.date : "" }))
+      : init.structure_parts,
+    // Extras (spec 5b)
+    extras: Array.isArray(f.extras)
+      ? (f.extras as { kind?: string; amount?: number | string; condition?: string; rate?: number | string; on?: string }[])
+          .map((e, i) => ({ _rowKey: newRowKey(), kind: e.kind === "commission" ? "commission" : "bonus", amount: typeof e.amount === "number" ? String(e.amount) : typeof e.amount === "string" ? e.amount : "", condition: typeof e.condition === "string" ? e.condition : "", rate: typeof e.rate === "number" ? String(e.rate) : typeof e.rate === "string" ? e.rate : "", on_text: typeof e.on === "string" ? e.on : "", earned: false }))
+      : init.extras,
   };
+}
+function newRowKey(): string {
+  return `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
 /** Which fields the extractor actually filled (for sparkle markers). */
@@ -41,6 +62,9 @@ export function contractAutoFields(f: Record<string, unknown>): (keyof DealFormV
   if (typeof f.exclusivity_days === "number") keys.push("exclusivity_days");
   if (typeof f.revisions_included === "string" && f.revisions_included) keys.push("revisions_included");
   if (Array.isArray(f.post_dates) && f.post_dates.length) keys.push("post_dates");
+  // Structure (5a) + extras (5b)
+  if (f.payment_structure && Object.keys(f.payment_structure as Record<string, unknown>).length) keys.push("payment_structure");
+  if (Array.isArray(f.extras) && f.extras.length) keys.push("extras");
   return keys;
 }
 
@@ -56,6 +80,10 @@ export function contractFlags(f: Record<string, unknown>): DealFlag[] {
   if (!f.deliverable) flags.push({ key: "deliverable", reason: "Couldn't read the deliverables. Add them so the deal is complete." });
   if (!f.due_date && f.rep_name) flags.push({ key: "due_date", reason: "No due date detected. Set one if the contract has a deadline." });
   if (!f.pay_terms) flags.push({ key: "pay_terms", reason: "No payment timing found. If the contract states terms, pick them." });
+  // Spec 5d: payment terms missing/unclear -> default to All at once / Net 30 and flag the Paid field.
+  if (!f.payment_structure || typeof f.payment_structure !== "object") {
+    flags.push({ key: "payment_structure", reason: "Payment terms were unclear, so this defaults to All at once, Net 30. Confirm how you actually get paid." });
+  }
   if ((f.value_total as number) === 0) flags.push({ key: "value", reason: "Amount read as $0, likely for a pro-bono or fee-gifted deal. Confirm it." });
   return flags;
 }
@@ -66,7 +94,7 @@ export type DealFormValues = {
   value: string;
   status: string;            // deal lifecycle: active / pipeline / archived
   due_date: string;
-  pay_terms: string;         // due_on_receipt / net_15 / net_30 ...
+  pay_terms: string;         // legacy, retired in the modal UI (kept for back-compat)
   exclusivity_days: string;
   revisions_included: string; // whole number, "Unlimited", or "" = Not set
   rep_name: string;
@@ -76,6 +104,17 @@ export type DealFormValues = {
   // PostDate carries _rowKey (stable client key) for remount-safe rows; the
   // payload strips it before sending.
   post_dates: PostDate[];
+  // Release 1/2: payment structure + extras (spec 4).
+  payment_structure: "once" | "split" | "parts" | "monthly";
+  structure_timing: string;        // once: when_posts|net_15|net_30|net_45|net_60
+  structure_upfront_pct: number;   // split: 25|30|40|50
+  structure_balance_timing: string;// split: when_posts|net_15|net_30|net_60
+  structure_months: number;        // monthly: 3|6|12
+  structure_parts: { _rowKey: string; name: string; amount: string; date: string }[];
+  extras: {
+    _rowKey: string; kind: "bonus" | "commission";
+    amount: string; condition: string; rate: string; on_text: string; earned: boolean;
+  }[];
 };
 
 /** A field the extractor was uncertain about. Reason is plain-language, shown with its value. */
@@ -103,6 +142,13 @@ export function emptyDealForm(): DealFormValues {
     brand: "", deliverable: "", value: "", status: "pipeline",
     due_date: "", pay_terms: "", exclusivity_days: "", revisions_included: "", rep_name: "", rep_email: "",
     links: [], notes: "", post_dates: [],
+    payment_structure: "once",
+    structure_timing: "net_30",
+    structure_upfront_pct: 50,
+    structure_balance_timing: "net_30",
+    structure_months: 3,
+    structure_parts: [],
+    extras: [],
   };
 }
 
@@ -125,6 +171,7 @@ export function DealForm({
   contractFile,
   autoFields = [],
   flagged = [],
+  paymentNote = null,
   onReplaceFile,
   uploadOnMount,
   onDraftSave,
@@ -142,6 +189,8 @@ export function DealForm({
   contractFile?: File | null;
   autoFields?: (keyof DealFormValues)[];
   flagged?: DealFlag[];
+  /** Exact sentence the contract reader used for payment terms (spec 5c). */
+  paymentNote?: string | null;
   onReplaceFile?: () => void;
   uploadOnMount?: boolean;
   /** When set (multi-upload queue row editor), submitting updates the draft instead of creating. */
@@ -169,10 +218,12 @@ export function DealForm({
 
   // Self-promotion: a contract chosen in the manual state extracts and flips this same
   // component into its review state (no second modal).
-  const [selfReview, setSelfReview] = useState<{ auto: string[]; flags: DealFlag[] } | null>(null);
+  const [selfReview, setSelfReview] = useState<{ auto: string[]; flags: DealFlag[]; paymentNote: string | null } | null>(null);
   const isReview = variant === "review" || (mode === "create" && !!selfReview);
   const effectiveAuto = selfReview ? selfReview.auto : autoFields;
   const effectiveFlags = selfReview ? selfReview.flags : flagged;
+  // The exact sentence the reader used for payment terms (spec 5c).
+  const effectivePaymentNote = selfReview ? selfReview.paymentNote : (typeof paymentNote === "string" ? paymentNote : null);
 
   const uploadContract = async (file: File) => {
     if (variant === "review") { setStagedFile(file); onReplaceFile?.(); return; }
@@ -187,7 +238,11 @@ export function DealForm({
       setStagedText(typeof data.text === "string" ? data.text : "");
       const per = applyContractFields(data.fields ?? {});
       setV(per);
-      setSelfReview({ auto: contractAutoFields(data.fields ?? {}), flags: contractFlags(data.fields ?? {}) });
+      setSelfReview({
+        auto: contractAutoFields(data.fields ?? {}),
+        flags: contractFlags(data.fields ?? {}),
+        paymentNote: typeof data.fields?.payment_note === "string" ? data.fields.payment_note : null,
+      });
     } catch {
       setError("Could not read the contract.");
     } finally {
@@ -219,6 +274,20 @@ export function DealForm({
         .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
         .map((p) => ({ date: p.date, label: p.label, kind: p.kind ?? null })),
       active: v.status !== "archived",
+      // Release 1/2: structure + extras (spec 4/5). The server generates the
+      // payment rows from this; parts carry their own name/amount/date.
+      payment_structure: v.payment_structure,
+      structure_timing: v.payment_structure === "once" ? (v.structure_timing || null) : null,
+      structure_upfront_pct: v.payment_structure === "split" ? v.structure_upfront_pct : null,
+      structure_balance_timing: v.payment_structure === "split" ? (v.structure_balance_timing || null) : null,
+      structure_months: v.payment_structure === "monthly" ? v.structure_months : null,
+      structure_parts: v.payment_structure === "parts"
+        ? v.structure_parts.filter((p) => p.amount || p.date).map((p) => ({ name: p.name || null, amount: p.amount ? Number(p.amount) : null, date: p.date || null }))
+        : [],
+      extras: v.extras.filter((e) => e.kind === "bonus" ? (e.amount || e.condition) : (e.rate || e.on_text)).map((e) => ({
+        kind: e.kind, amount: e.kind === "bonus" ? (e.amount ? Number(e.amount) : null) : null, condition: e.condition || null,
+        rate: e.kind === "commission" ? (e.rate ? Number(e.rate) : null) : null, on_text: e.on_text || null, earned: e.earned,
+      })),
     };
 
     const srcFile = contractFile || stagedFile;
@@ -269,10 +338,8 @@ export function DealForm({
 
   // ---- one-line summaries for collapsed sections ----
   const repSummary = [v.rep_name.trim(), v.rep_email.trim()].filter(Boolean).join(" · ");
-  const termsSummary = [
+  const detailsSummary = [
     v.due_date ? `Due ${v.due_date}` : null,
-    v.post_dates.length ? `${v.post_dates.length} post date${v.post_dates.length > 1 ? "s" : ""}` : null,
-    PAY_TERM_OPTIONS.find((o) => o.value === v.pay_terms)?.label && v.pay_terms ? PAY_TERM_OPTIONS.find((o) => o.value === v.pay_terms)!.label : null,
     v.exclusivity_days ? `${v.exclusivity_days} days exclusivity` : null,
     v.revisions_included ? `${v.revisions_included} revisions` : null,
   ].filter(Boolean).join(" · ");
@@ -299,7 +366,14 @@ export function DealForm({
     <div className="space-y-4">
       {/* Review intro subtitle */}
       {isReview && (
-        <p className="text-xs italic text-inksoft -mt-1">Pulled from your contract. Check the flagged fields.</p>
+        <>
+          <p className="text-xs italic text-inksoft -mt-1">Pulled from your contract. Check the flagged fields.</p>
+          {effectivePaymentNote && (
+            <p className="text-xs text-ink rounded-lg border border-[var(--line2)] bg-[var(--soft)] px-3 py-2 -mt-1">
+              <span className="font-medium">From your contract:</span> “{effectivePaymentNote}”
+            </p>
+          )}
+        </>
       )}
 
       {/* Contract upload: full-width dropzone (manual/create), file strip (review) */}
@@ -370,12 +444,79 @@ export function DealForm({
         <Field label="Brand *" spark={spark("brand")}><DealInput value={v.brand} onCommit={(val) => set("brand", val)} placeholder="e.g. Glossier" /></Field>
       )}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Payment" spark={spark("value")}><DealInput type="number" value={v.value} onCommit={(val) => set("value", val)} placeholder="1500" /></Field>
+        <Field label="Deal amount" spark={spark("value")}><DealInput type="number" inputMode="decimal" value={v.value} onCommit={(val) => set("value", val)} placeholder="1500" /></Field>
         <Field label="Deal status"><Select value={v.status} onChange={(e) => set("status", e.target.value)}>
           {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select></Field>
       </div>
-      <Field label="Deliverable" spark={spark("deliverable")}><DealInput value={v.deliverable} onCommit={(val) => set("deliverable", val)} placeholder="e.g. 2 IG posts + 1 story" /></Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Deliverable" spark={spark("deliverable")}><DealInput value={v.deliverable} onCommit={(val) => set("deliverable", val)} placeholder="e.g. 2 IG posts + 1 story" /></Field>
+        <Field label="Post date"><DealInput type="date" value={v.post_dates[0]?.date ?? ""} onCommit={(val) => set("post_dates", val ? [newPostDateRow({ date: val }), ...v.post_dates.slice(1)].slice(0, Math.max(1, v.post_dates.length)) : v.post_dates)} /></Field>
+      </div>
+
+      {/* ---- Paid: structure + companion (spec 4b) ---- */}
+      <Field label="Paid">
+        <Select value={v.payment_structure} onChange={(e) => set("payment_structure", e.target.value as DealFormValues["payment_structure"])}>
+          <option value="once">All at once</option>
+          <option value="split">Upfront + balance</option>
+          <option value="parts">In parts</option>
+          <option value="monthly">Monthly</option>
+        </Select>
+      </Field>
+      {v.payment_structure === "once" && (
+        <Field label="When">
+          <Select value={v.structure_timing} onChange={(e) => set("structure_timing", e.target.value)}>
+            {STRUCTURE_NET.map(([val, lab]) => <option key={val} value={val}>{lab}</option>)}
+          </Select>
+        </Field>
+      )}
+      {v.payment_structure === "split" && (
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Upfront"><Select value={String(v.structure_upfront_pct)} onChange={(e) => set("structure_upfront_pct", Number(e.target.value))}>{[25, 30, 40, 50].map((n) => <option key={n} value={n}>{n}% upfront</option>)}</Select></Field>
+          <Field label="Balance"><Select value={v.structure_balance_timing} onChange={(e) => set("structure_balance_timing", e.target.value)}>{STRUCTURE_NET.map(([val, lab]) => <option key={val} value={val}>{lab}</option>)}</Select></Field>
+        </div>
+      )}
+      {v.payment_structure === "monthly" && (
+        <Field label="For"><Select value={String(v.structure_months)} onChange={(e) => set("structure_months", Number(e.target.value))}>{[3, 6, 12].map((n) => <option key={n} value={n}>{n} months</option>)}</Select></Field>
+      )}
+      {v.payment_structure === "parts" && (
+        <div className="space-y-2">
+          <div className="text-[11px] font-medium text-inksoft">Parts<span className="text-inksoft/60">, one row per payment</span></div>
+          {(v.structure_parts.length === 0 ? [{ _rowKey: "p1", name: "1 of 2", amount: "", date: "" }] : v.structure_parts).map((p) => (
+            <div key={p._rowKey} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+              <DealInput value={p.name} onCommit={(val) => set("structure_parts", v.structure_parts.map((x) => x._rowKey === p._rowKey ? { ...x, name: val } : x))} placeholder="Name" ariaLabel="Part name" />
+              <DealInput type="number" inputMode="decimal" value={p.amount} onCommit={(val) => set("structure_parts", v.structure_parts.map((x) => x._rowKey === p._rowKey ? { ...x, amount: val } : x))} placeholder="Amount" ariaLabel="Part amount" />
+              <DealInput type="date" value={p.date} onCommit={(val) => set("structure_parts", v.structure_parts.map((x) => x._rowKey === p._rowKey ? { ...x, date: val } : x))} ariaLabel="Part date" />
+              <button type="button" onClick={() => set("structure_parts", v.structure_parts.filter((x) => x._rowKey !== p._rowKey))} className="px-1.5 text-inksoft hover:text-late cursor-pointer" aria-label="Remove part"><IconDelete size={15} /></button>
+            </div>
+          ))}
+          <Button variant="secondary" size="sm" onClick={() => set("structure_parts", [...v.structure_parts, { _rowKey: newRowKey(), name: `${v.structure_parts.length + 1} of ${v.structure_parts.length + 1}`, amount: "", date: "" }])}><IconPlus size={14} /> Add a part</Button>
+          {(() => {
+            const sum = v.structure_parts.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+            const deal = Number(v.value) || 0;
+            return Math.abs(sum - deal) > 0.005 ? <p className="text-[11.5px] text-late">The parts add up to ${sum.toLocaleString()}. The deal is ${deal.toLocaleString()}.</p> : null;
+          })()}
+        </div>
+      )}
+
+      {/* Payment preview (spec 4c) */}
+      <PaymentPreview v={v} />
+
+      {/* Extras (spec 4d), same form as the drawer */}
+      <Field label="Extras">
+        <div className="space-y-2">
+          {v.extras.map((e) => (
+            <div key={e._rowKey} className="flex items-center gap-2">
+              <span className="text-xs capitalize shrink-0">{e.kind}</span>
+              <span className="flex-1 min-w-0 truncate text-xs text-inksoft">
+                {e.kind === "bonus" ? (e.amount ? `$${Number(e.amount).toLocaleString()}` : "") + (e.condition ? ` · ${e.condition}` : "") : (e.rate ? `${e.rate}%` : "") + (e.on_text ? ` · on ${e.on_text}` : "")}
+              </span>
+              <button type="button" onClick={() => set("extras", v.extras.filter((x) => x._rowKey !== e._rowKey))} className="px-1 text-inksoft hover:text-late cursor-pointer" aria-label="Remove extra"><IconDelete size={14} /></button>
+            </div>
+          ))}
+          <AddExtraButton onAdd={(e) => set("extras", [...v.extras, e])} />
+        </div>
+      </Field>
 
       {/* Accordion sections */}
       <AccordionSection
@@ -391,32 +532,13 @@ export function DealForm({
       </AccordionSection>
 
       <AccordionSection
-        label="Terms"
-        summary={termsSummary || "Payment, due date, pay terms"}
+        label="Details"
+        summary={detailsSummary || "Due date, exclusivity, revisions"}
         open={!!openSections.terms}
         onToggle={() => toggle("terms")}
       >
         <div className="grid grid-cols-2 gap-4">
           <Field label="Due date" spark={spark("due_date")}><DealInput type="date" value={v.due_date} onCommit={(val) => set("due_date", val)} /></Field>
-        </div>
-        <div className="space-y-2 mt-2">
-          <div className="text-[11px] font-medium text-inksoft">Post dates<span className="text-inksoft/60">, one per go live date (optional)</span></div>
-          {v.post_dates.length === 0 && <div className="text-[11px] text-inksoft/50">No post dates yet. Add when you know the go-live dates.</div>}
-          {v.post_dates.map((p) => (
-            <div key={p._rowKey} className="flex gap-2 items-center">
-              <DealInput type="date" value={p.date} onCommit={(val) => set("post_dates", v.post_dates.map((x) => (x._rowKey === p._rowKey) ? { ...x, date: val } : x))} ariaLabel={`Post date`} />
-              <DealInput value={p.label} onCommit={(val) => set("post_dates", v.post_dates.map((x) => (x._rowKey === p._rowKey) ? { ...x, label: val } : x))} placeholder="Label (e.g. Story 2)" className="flex-1" ariaLabel="Post date label" />
-              <button onClick={() => set("post_dates", v.post_dates.filter((x) => x._rowKey !== p._rowKey))} className="px-1.5 text-inksoft hover:text-late cursor-pointer" aria-label="Remove post date"><IconDelete size={15} /></button>
-            </div>
-          ))}
-          <Button variant="secondary" size="sm" onClick={() => set("post_dates", [...v.post_dates, newPostDateRow()])}><IconPlus size={14} /> Add another date</Button>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Pay terms" spark={spark("pay_terms")}>
-            <Select value={v.pay_terms} onChange={(e) => set("pay_terms", e.target.value)}>
-              {PAY_TERM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </Select>
-          </Field>
           <Field label="Exclusivity (days)" spark={spark("exclusivity_days")}>
             <DealInput type="number" min={0} value={v.exclusivity_days} onCommit={(val) => set("exclusivity_days", val)} placeholder="e.g. 60" />
           </Field>
@@ -486,6 +608,98 @@ function Field({ label, hint, spark, children }: { label: string; hint?: string;
       </span>
       {children}
     </label>
+  );
+}
+
+/** Standard payment label from a structure (mirrors pay-status, spec 1c). */
+const STRUCTURE_NET: [string, string][] = [
+  ["when_posts", "When it posts"],
+  ["net_15", "Net 15"],
+  ["net_30", "Net 30"],
+  ["net_45", "Net 45"],
+  ["net_60", "Net 60"],
+];
+
+/** Standard payment label from a structure (mirrors pay-status, spec 1c). */
+function structureRowLabel(kind: DealFormValues["payment_structure"], index0: number, total: number): string {
+  if (kind === "monthly") return `Month ${index0 + 1} of ${total}`;
+  if (total <= 1) return "Full payment";
+  return `${index0 + 1} of ${total}`;
+}
+
+/** Plain preview list of the payments that will be created (spec 4c).
+ *  Uses the SAME generator the create API uses, so the preview shows exactly
+ *  the rows that will be inserted. */
+function PaymentPreview({ v }: { v: DealFormValues }) {
+  const deal = Number(v.value) || 0;
+  const rows = generatePaymentsFromStructure({
+    structureKind: v.payment_structure,
+    amount: deal || null,
+    structure_timing: v.structure_timing || null,
+    structure_upfront_pct: v.structure_upfront_pct,
+    structure_balance_timing: v.structure_balance_timing || null,
+    structure_months: v.structure_months,
+    post_date: v.post_dates[0]?.date || null,
+    parts: v.structure_parts.map((p) => ({ name: p.name, amount: p.amount ? Number(p.amount) : null, date: p.date || null })),
+  });
+  const labels = rows.map((_, i) => structureRowLabel(v.payment_structure, i, rows.length));
+  return <Rows rows={rows.map((r, i) => ({ label: r.notes || labels[i], due: r.expected_date ? `Due ${friendlyDate(r.expected_date)}` : "No due date", amount: r.amount ?? 0 }))} />;
+}
+function friendlyDate(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function Rows({ rows }: { rows: { label: string; due: string; amount: number }[] }) {
+  return (
+    <div className="rounded-lg border border-line bg-card2/50 px-3 py-2 space-y-1">
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          <span className="flex-1 min-w-0 truncate text-ink font-medium">{r.label}</span>
+          <span className="text-inksoft shrink-0">{r.due}</span>
+          <span className="money tabular-nums shrink-0 text-ink">{r.amount ? `$${r.amount.toLocaleString()}` : "—"}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type ExtraDraft = DealFormValues["extras"][number];
+/** "+ Add bonus or commission": small inline form (same as the drawer). */
+function AddExtraButton({ onAdd }: { onAdd: (e: ExtraDraft) => void }) {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<"bonus" | "commission">("bonus");
+  const [amount, setAmount] = useState("");
+  const [cond, setCond] = useState("");
+  const [rate, setRate] = useState("");
+  const [on, setOn] = useState("");
+  if (!open) {
+    return <Button variant="secondary" size="sm" onClick={() => setOpen(true)}><IconPlus size={14} /> Add bonus or commission</Button>;
+  }
+  return (
+    <div className="rounded-lg border border-line2 bg-card2/40 px-2.5 py-2 space-y-2">
+      <Select value={kind} onChange={(e) => setKind(e.target.value as "bonus" | "commission")} aria-label="Extra type">
+        <option value="bonus">Bonus</option>
+        <option value="commission">Commission</option>
+      </Select>
+      {kind === "bonus" ? (
+        <>
+          <DealInput type="number" inputMode="decimal" value={amount} onCommit={setAmount} placeholder="Amount" ariaLabel="Bonus amount" />
+          <DealInput value={cond} onCommit={setCond} placeholder="Condition, e.g. the Reel passes 100K views" ariaLabel="Bonus condition" />
+        </>
+      ) : (
+        <>
+          <DealInput type="number" inputMode="decimal" value={rate} onCommit={setRate} placeholder="Rate (%)" ariaLabel="Commission rate" />
+          <DealInput value={on} onCommit={setOn} placeholder="On what, e.g. sales with code CAMBO10" ariaLabel="Commission applies to" />
+        </>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+        <Button size="sm" disabled={kind === "bonus" ? !amount : !rate} onClick={() => {
+          onAdd({ _rowKey: newRowKey(), kind, amount, condition: cond, rate, on_text: on, earned: false });
+          setOpen(false); setAmount(""); setCond(""); setRate(""); setOn("");
+        }}>Add</Button>
+      </div>
+    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { generatePaymentsFromStructure } from "@/lib/pay-status";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,6 +38,12 @@ export async function POST(req: Request) {
   if (!brand) return NextResponse.json({ error: "brand is required" }, { status: 400 });
   const idKey = `${user.id}:${key || "nokey"}`;
 
+  // Structure + extras are NOT deals columns — strip them before the insert so
+  // the deal row itself carries only its own fields. They persist separately.
+  const { structure_parts: _sp, extras: _ex, ...dealPayload } = (body.payload ?? {}) as Record<string, unknown>;
+  const structureParts = (body.payload?.["structure_parts"] ?? []) as { name?: string | null; amount?: number | null; date?: string | null }[];
+  const extras = (body.payload?.["extras"] ?? []) as { kind?: string; amount?: number | null; condition?: string | null; rate?: number | null; on_text?: string | null; earned?: boolean }[];
+
   // 1) In-process short-circuit BEFORE doing any work.
   const existingInProc = inflight.get(idKey);
   if (key && existingInProc && existingInProc !== "pending") {
@@ -61,7 +68,7 @@ export async function POST(req: Request) {
   const basePayload: Record<string, unknown> = {
     user_id: user.id,
     brand,
-    ...(body.payload ?? {}),
+    ...dealPayload,
   };
 
   let created: { id: string } | null = null;
@@ -122,6 +129,47 @@ export async function POST(req: Request) {
         });
       }
     } catch { /* non-fatal: deal is saved; dates can be added in the drawer */ }
+  }
+
+  // Generate the deal's payment rows from its structure (spec 1b: every deal has
+  // at least one payment) — same generator the modal preview uses (spec 4c).
+  if (!duplicate) {
+    try {
+      const rows = generatePaymentsFromStructure({
+        structureKind: ((dealPayload["payment_structure"] ?? "once") as "once" | "split" | "parts" | "monthly"),
+        amount: typeof dealPayload["value"] === "number" ? dealPayload["value"] : null,
+        structure_timing: (dealPayload["structure_timing"] as string | null) ?? null,
+        structure_upfront_pct: (dealPayload["structure_upfront_pct"] as number | null) ?? null,
+        structure_balance_timing: (dealPayload["structure_balance_timing"] as string | null) ?? null,
+        structure_months: (dealPayload["structure_months"] as number | null) ?? null,
+        parts: structureParts,
+      });
+      for (const r of rows) {
+        await supabase.from("payments").insert({
+          user_id: user.id, deal_id: created.id,
+          amount: r.amount ?? 0, expected_date: r.expected_date, notes: r.notes || null,
+          status: "expected", pay_status: "not_invoiced", bonus_confirmed: true,
+        });
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // Persist extras (release 1): bonuses/commissions on the deal, separate from
+  // the tracked payment rows (earned when the user marks them).
+  if (!duplicate && extras.length) {
+    try {
+      for (const e of extras) {
+        if (e.kind !== "bonus" && e.kind !== "commission") continue;
+        await supabase.from("deal_extras").insert({
+          user_id: user.id, deal_id: created.id, kind: e.kind,
+          amount: e.kind === "bonus" ? (e.amount ?? null) : null,
+          condition: e.kind === "bonus" ? (e.condition || null) : null,
+          rate: e.kind === "commission" ? (e.rate ?? null) : null,
+          on_text: e.kind === "commission" ? (e.on_text || null) : null,
+          earned: e.earned === true,
+        });
+      }
+    } catch { /* non-fatal */ }
   }
 
   // Ingest the extracted contract text for the assistant (server-side, non-fatal).

@@ -224,6 +224,56 @@ export function paymentStatusView(p: PaymentStatusSource): PaymentStatusView {
 }
 
 /**
+ * Generate the payment ROWS a structure produces (spec 1b/4c), shared by the
+ * new-deal modal preview and the create API so they never disagree.
+ * Returns [{ amount, expected_date|null, notes|null }]. For monthly only the
+ * method is deterministic (equal split); parts carry their own amounts/dates.
+ * Post date drives "when it posts" and Net timing for once/split (post + N days).
+ */
+export function generatePaymentsFromStructure(s: {
+  structureKind: PaymentStructureKind | null;
+  amount: number | null;
+  structure_timing?: string | null;
+  structure_upfront_pct?: number | null;
+  structure_balance_timing?: string | null;
+  structure_months?: number | null;
+  post_date?: string | null;
+  parts?: { name?: string | null; amount?: number | null; date?: string | null }[];
+}): { amount: number | null; expected_date: string | null; notes: string | null }[] {
+  const amt = s.amount ?? 0;
+  const post = s.post_date || null;
+  const timingDate = (netKey: string | null | undefined): string | null => {
+    const days = netKey ? NET_DAYS[netKey] : undefined;
+    if (netKey === "when_posts") return post;
+    if (days !== undefined && post) {
+      const d = new Date(post + "T00:00:00");
+      d.setDate(d.getDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    return null;
+  };
+  switch (s.structureKind) {
+    case "split": {
+      const up = Math.round((amt * (s.structure_upfront_pct ?? 50)) / 100);
+      return [
+        { amount: up, expected_date: null, notes: null },                       // upfront
+        { amount: amt - up, expected_date: timingDate(s.structure_balance_timing ?? "net_30"), notes: null }, // balance
+      ];
+    }
+    case "monthly": {
+      const m = Math.max(1, s.structure_months ?? 3);
+      const per = Math.round(amt / m);
+      return Array.from({ length: m }, () => ({ amount: per, expected_date: null, notes: null }));
+    }
+    case "parts":
+      return (s.parts ?? []).map((p) => ({ amount: p.amount ?? null, expected_date: p.date || null, notes: p.name?.trim() || null }));
+    case "once":
+    default:
+      return [{ amount: amt, expected_date: timingDate(s.structure_timing ?? "net_30"), notes: null }];
+  }
+}
+
+/**
  * Conflicting source row? A row whose lifecycle says "paid" but whose payment
  * object carries NO amount, status, or date. The importer would create the deal
  * and leave it not_invoiced (there is no received payment to back a paid status),

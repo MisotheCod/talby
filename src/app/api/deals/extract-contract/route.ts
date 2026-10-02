@@ -88,9 +88,13 @@ const SYSTEM = [
   "- post_dates: a JSON array of EVERY scheduled post/publish/live date the contract mentions, each as {\"date\":\"YYYY-MM-DD\", \"label\":\"Reel\"|\"Story 2\"|...}. A deal for one Reel and three Stories usually has FOUR dates. Extract every distinct one the contract states; if it names a platform/deliverable alongside a date, put that in label (e.g. 'Reel' or 'Story 2'); if only dates are given, label is \"\". Empty array [] if no dates are stated. NEVER invent a date.",
   "- rep_name: the human representative's name; null if unknown.",
   "- rep_email: the representative's email; null if unknown.",
-  "- platforms: comma-separated platforms (Instagram, TikTok, YouTube...); null if none.", "",
+  "- platforms: comma-separated platforms (Instagram, TikTok, YouTube...); null if none.",
+  "- payment_structure: the way the deal is paid, as {\"kind\":\"once\"|\"split\"|\"parts\"|\"monthly\", ...details}else null when a single all-at-once payment (the default). Detail fields by kind:\n     once:  {\"kind\":\"once\", \"timing\":\"when_posts\"|\"net_15\"|\"net_30\"|\"net_45\"|\"net_60\"}\n     split: {\"kind\":\"split\", \"upfront_pct\":<25|30|40|50>, \"balance_timing\":\"when_posts\"|\"net_15\"|\"net_30\"|\"net_60\"}\n     parts: {\"kind\":\"parts\", \"parts\":[{\"name\":\"Milestone 1\",\"amount\":<number>,\"date\":\"YYYY-MM-DD\"|null,\"trigger\":\"signing\"|\"approval\"|\"posting\"|\"campaign end\"|null}]}\n     monthly: {\"kind\":\"monthly\", \"months\":<3|6|12>, \"start_date\":\"YYYY-MM-DD\"|null}\n     Capture the exact timing and each part's amount/date/trigger. If none of these is clearly stated, set payment_structure to null (NOT 'once' with a guess); the deal form defaults to All at once / Net 30 and flags the Paid field for review.",
+  "- extras: a JSON array of any bonuses or commissions the contract mentions: a bonus is {\"kind\":\"bonus\",\"amount\":<number>,\"condition\":\"the Reel passes 100K views\"}; a commission is {\"kind\":\"commission\",\"rate\":<number percent>,\"on\":\"sales with code CAMBO10\"}. Empty array [] when none stated.",
+  "- payment_note: the EXACT sentence in the contract the payment terms came from, verbatim (e.g. 'Payment of $4,800 will be made net 30 after posting.'); null when no payment terms are stated.",
+  "",
   "Respond with STRICT JSON only:",
-  '{"brand":..., "deliverable":..., "value_total":<number|null>, "pay_terms":..., "exclusivity_days":<int|null>, "revisions_included":<string|null>, "due_date":..., "post_dates":[{"date":"YYYY-MM-DD","label":"Reel"}], "rep_name":..., "rep_email":..., "platforms":...}',
+  '{"brand":..., "deliverable":..., "value_total":<number|null>, "pay_terms":..., "exclusivity_days":<int|null>, "revisions_included":<string|null>, "due_date":..., "post_dates":[{"date":"YYYY-MM-DD","label":"Reel"}], "rep_name":..., "rep_email":..., "platforms":..., "payment_structure":{...}|null, "extras":[...], "payment_note":...}',
 ].join("\n");
 
 async function extractDealFields(text: string): Promise<Record<string, unknown>> {

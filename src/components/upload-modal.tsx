@@ -13,7 +13,7 @@ import {
 } from "@/components/deal-form";
 import { useCelebration } from "@/components/confetti";
 
-type ContractDraft = DealFormValues & { __name?: string; __auto?: (keyof DealFormValues)[]; __flags?: DealFlag[]; __file?: File; __text?: string; __key?: string };
+type ContractDraft = DealFormValues & { __name?: string; __auto?: (keyof DealFormValues)[]; __flags?: DealFlag[]; __file?: File; __text?: string; __key?: string; __paymentNote?: string | null };
 
 /**
  * Unified Upload modal. Opens with ONLY a dropzone (never auto-opens the native
@@ -88,6 +88,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
           __name: f.name, __file: f, __text: typeof data.text === "string" ? data.text : undefined,
           __auto: contractAutoFields(fields),
           __flags: contractFlags(fields),
+          __paymentNote: typeof fields.payment_note === "string" ? fields.payment_note : null,
         });
       } catch {
         firstErr = firstErr || "Could not reach the contract parser for one or more files.";
@@ -239,6 +240,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
             contractFile={single.__file}
             autoFields={single.__auto}
             flagged={single.__flags}
+            paymentNote={single.__paymentNote}
             onReplaceFile={() => setPhase("pick")}
             onSaved={onCreated}
             onCancel={onClose}
@@ -257,6 +259,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
             contractFile={drafts[editingIndex]?.__file}
             autoFields={drafts[editingIndex]?.__auto}
             flagged={drafts[editingIndex]?.__flags}
+            paymentNote={drafts[editingIndex]?.__paymentNote}
             onDraftSave={(v) => { setDraft(editingIndex, v); setEditingIndex(null); setPhase("multi"); }}
             onSaved={() => { setEditingIndex(null); setPhase("multi"); }}
             onCancel={() => { setEditingIndex(null); setPhase("multi"); }}
