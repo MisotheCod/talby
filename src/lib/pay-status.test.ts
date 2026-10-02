@@ -125,3 +125,70 @@ test("overview card label equals Payments page label for every input shape", () 
     assert.equal(v.label, expected, `pay_status=${pay_status} date=${date}`);
   }
 });
+/* Release 1: structure + extras shared function tests */
+
+import { dealPaymentView, paymentStructureLabel, paymentHeaderSummary, structureKindLabel, timingLabel, NET_DAYS } from "./pay-status.ts";
+
+test("paymentStructureLabel once -> Full payment", () => {
+  assert.equal(paymentStructureLabel("once", 0, 1), "Full payment");
+});
+test("paymentStructureLabel split -> 1 of 2 / 2 of 2", () => {
+  assert.equal(paymentStructureLabel("split", 0, 2), "1 of 2");
+  assert.equal(paymentStructureLabel("split", 1, 2), "2 of 2");
+});
+test("paymentStructureLabel parts -> 1 of N...", () => {
+  assert.equal(paymentStructureLabel("parts", 2, 3), "3 of 3");
+});
+test("paymentStructureLabel monthly -> Month 3 of 6", () => {
+  assert.equal(paymentStructureLabel("monthly", 2, 6), "Month 3 of 6");
+});
+test("dealPaymentView next-due + overdue + totals (all accounts agree)", () => {
+  const v = dealPaymentView({
+    structureKind: "split",
+    payments: [
+      { id: "a", amount: 50, pay_status: "not_invoiced", status: "expected", expected_date: "2026-09-01" },
+      { id: "b", amount: 50, pay_status: "not_invoiced", status: "expected", expected_date: "2026-10-06" },
+    ],
+    extras: [],
+    dealStatus: "active",
+  });
+  // next due = earliest unpaid (Sep 1), overdue (past)
+  assert.equal(v.labels.length, 2);
+  assert.equal(v.labels[0], "1 of 2");
+  assert.equal(v.labels[1], "2 of 2");
+  assert.equal(v.nextDueDate, "2026-09-01");
+  assert.equal(v.overdue, true);
+  assert.equal(v.expectedTotal, 100);
+  assert.equal(v.outstandingTotal, 100);
+});
+test("pipeline deals excluded from totals but still have labels", () => {
+  const v = dealPaymentView({
+    structureKind: "once",
+    payments: [{ id: "a", amount: 12000, pay_status: "not_invoiced", status: "expected", expected_date: null }],
+    extras: [],
+    dealStatus: "pipeline",
+  });
+  assert.equal(v.expectedTotal, 0);   // pipeline money not due yet
+  assert.equal(v.active, false);
+  assert.equal(v.labels[0], "Full payment");
+});
+test("unearned bonus not in deal total; earned bonus adds amount", () => {
+  const un = dealPaymentView({ structureKind: "once", payments: [], extras: [{ id: "x", kind: "bonus", amount: 1000, condition: "Reel 100K", rate: null, on_text: null, earned: false }], dealStatus: "active" });
+  assert.equal(un.unearnedExtrasTotal, 1000);  // "up to $1,000 more"
+  assert.equal(un.expectedTotal, 0);
+  const earned = dealPaymentView({ structureKind: "once", payments: [], extras: [{ id: "x", kind: "bonus", amount: 1000, condition: "Reel 100K", rate: null, on_text: null, earned: true }], dealStatus: "active" });
+  assert.equal(earned.earnedBonusTotal, 1000);
+});
+test("structure label helpers", () => {
+  assert.equal(structureKindLabel("once"), "All at once");
+  assert.equal(structureKindLabel("split"), "Upfront + balance");
+  assert.equal(structureKindLabel(null), "Not set");
+  assert.equal(timingLabel("net_30"), "Net 30");
+  assert.equal(timingLabel("when_posts"), "When it posts");
+  assert.equal(NET_DAYS.net_60, 60);
+});
+test("paymentHeaderSummary for split + parts + monthly", () => {
+  assert.equal(paymentHeaderSummary({ amount: 4800, structureKind: "split", extras: [], payments: [{ id: "a", amount: 2400, pay_status: "paid", status: "received", expected_date: null }] }), "$4800, upfront + balance");
+  assert.equal(paymentHeaderSummary({ amount: 1300, structureKind: "parts", extras: [], payments: [{ id: "a", amount: 500, pay_status: "paid", status: "received", expected_date: null }, { id: "b", amount: 800, pay_status: "not_invoiced", status: "expected", expected_date: null }] }), "$1300, 2 parts");
+  assert.equal(paymentHeaderSummary({ amount: 1800, structureKind: "monthly", structureMonths: 6, extras: [], payments: [{ id: "a", amount: 300, pay_status: "not_invoiced", status: "expected", expected_date: null }] }), "$1800, 6 months");
+});

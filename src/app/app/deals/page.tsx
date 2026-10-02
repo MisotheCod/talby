@@ -7,8 +7,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
-import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
-import { PaymentRowsEditor, type EditorPayment } from "@/components/payment-editor";
+import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, dealPaymentView, type DealExtra, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
+import { type EditorPayment } from "@/components/payment-editor";
+import { DealPaymentSection } from "@/components/deal-payment-section";
 import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
 import { DealInput, DealTextarea } from "@/components/deal-input";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
@@ -39,6 +40,15 @@ type Deal = {
   next_post_date?: string | null; // earliest upcoming post date (latest when all past)
   post_cell?: ReturnType<typeof postDateCell>;
   pay_cell?: ReturnType<typeof paymentCell>;
+  // Release 1: structure + extras
+  payment_structure?: "once" | "split" | "parts" | "monthly" | null;
+  structure_timing?: string | null;
+  structure_timing_set_date?: string | null;
+  structure_upfront_pct?: number | null;
+  structure_balance_timing?: string | null;
+  structure_months?: number | null;
+  structure_start_date?: string | null;
+  extras?: DealExtra[];
 };
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null; bonus_confirmed?: boolean };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
@@ -46,6 +56,17 @@ type DealFile = { id: string; deal_id: string; name: string; path: string; size_
 type DraftField = "value" | "status" | "deliverable" | "deal_type" | "pay_terms" | "exclusivity_days" | "revisions_included" | "rep_name" | "rep_email" | "notes";
 type Draft = Record<DraftField, string>;
 const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "pay_terms", "exclusivity_days", "revisions_included", "rep_name", "rep_email", "notes"];
+/** Structure fields live on `deals` (not Draft) — they are staged + saved as a
+ *  group so structure changes regenerate unpaid payments on Save. */
+type StructureStage = {
+  payment_structure: "once" | "split" | "parts" | "monthly" | null;
+  structure_timing: string | null;
+  structure_timing_set_date: string | null;
+  structure_upfront_pct: number | null;
+  structure_balance_timing: string | null;
+  structure_months: number | null;
+  structure_start_date: string | null;
+};
 
 const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
 
@@ -673,14 +694,17 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
         setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
       }
-      const [pay, cl, fl, content] = await Promise.all([
+      const [pay, cl, fl, content, ex] = await Promise.all([
         supabase.from("payments").select("*").eq("deal_id", deal.id),
         supabase.from("deal_checklist").select("*").eq("deal_id", deal.id),
         supabase.from("deal_files").select("*").eq("deal_id", deal.id),
         supabase.from("content").select("id, event_date, title, post_type").eq("linked_deal_id", deal.id).not("event_date", "is", null),
+        supabase.from("deal_extras").select("*").eq("deal_id", deal.id),
       ]);
       setPayments((pay.data ?? []) as unknown as Payment[]);
       setPaymentsSaved((pay.data ?? []) as unknown as Payment[]);
+      setExtras((ex.data ?? []) as unknown as DealExtra[]);
+      setExtrasSaved((ex.data ?? []) as unknown as DealExtra[]);
       setChecklist((cl.data ?? []) as unknown as ChecklistItem[]);
       setFiles((fl.data ?? []) as unknown as DealFile[]);
       const posts = dealPostDates((content.data ?? []) as unknown as ContentPost[]);
@@ -726,6 +750,21 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   // Snapshot of the loaded/saved payments array, so the payment-bound rows
   // (Pay status, Pay by) can offer an undo that reverts the staged change.
   const [paymentsSaved, setPaymentsSaved] = useState<Payment[]>([]);
+  // Release 1: staged structure + extras (saved as a group on Save).
+  const toStructure = (d: Deal): StructureStage => ({
+    payment_structure: d.payment_structure ?? null,
+    structure_timing: d.structure_timing ?? null,
+    structure_timing_set_date: d.structure_timing_set_date ?? null,
+    structure_upfront_pct: d.structure_upfront_pct ?? null,
+    structure_balance_timing: d.structure_balance_timing ?? null,
+    structure_months: d.structure_months ?? null,
+    structure_start_date: d.structure_start_date ?? null,
+  });
+  const [struct, setStruct] = useState<StructureStage>(() => toStructure(deal));
+  const [structSaved, setStructSaved] = useState<StructureStage>(() => toStructure(deal));
+  const structDirty = JSON.stringify(struct) !== JSON.stringify(structSaved);
+  const [extras, setExtras] = useState<DealExtra[]>(deal.extras ?? []);
+  const [extrasSaved, setExtrasSaved] = useState<DealExtra[]>(deal.extras ?? []);
 
   // Re-init staging when a different deal is opened (component isn't keyed).
   const draftDealRef = useRef(deal.id);
@@ -824,6 +863,31 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
           if (orig && (orig.pay_status !== p.pay_status || orig.status !== p.status || (orig.expected_date ?? null) !== (p.expected_date ?? null) || (orig.amount ?? null) !== (p.amount ?? null) || ((orig.bonus_confirmed ?? true) !== (p.bonus_confirmed !== false)))) {
             await supabase.from("payments").update({ pay_status: p.pay_status ?? null, status: p.status, amount: p.amount, expected_date: p.expected_date, bonus_confirmed: p.bonus_confirmed !== false }).eq("id", p.id);
           }
+        }
+      }
+      // --- Commit structure (release 1) ---
+      if (structDirty) {
+        const sp: Record<string, unknown> = {};
+        for (const k of Object.keys(struct) as (keyof StructureStage)[]) {
+          const v = struct[k];
+          if (k === "structure_upfront_pct" || k === "structure_months") sp[k] = v ?? null;
+          else sp[k] = v ?? null;
+        }
+        await supabase.from("deals").update(sp).eq("id", deal.id);
+      }
+      // --- Commit extras (release 1): additive reconcile ---
+      const exResp = await supabase.from("deal_extras").select("id").eq("deal_id", deal.id);
+      const existingEx = new Set((exResp.data ?? []).map((e) => e.id));
+      const keptEx = extras.filter((e) => existingEx.has(e.id)).map((e) => e.id);
+      for (const eid of existingEx) if (!keptEx.includes(eid)) await supabase.from("deal_extras").delete().eq("id", eid);
+      for (const e of extras) {
+        if (existingEx.has(e.id)) {
+          const orig = (await supabase.from("deal_extras").select("amount, condition, rate, on_text, earned").eq("id", e.id).single()).data;
+          if (orig && (orig.amount !== e.amount || orig.condition !== e.condition || orig.rate !== e.rate || orig.on_text !== e.on_text || orig.earned !== e.earned)) {
+            await supabase.from("deal_extras").update({ amount: e.amount, condition: e.condition, rate: e.rate, on_text: e.on_text, earned: e.earned }).eq("id", e.id);
+          }
+        } else {
+          await supabase.from("deal_extras").insert({ user_id: user.id, deal_id: deal.id, kind: e.kind, amount: e.amount, condition: e.condition, rate: e.rate, on_text: e.on_text, earned: e.earned });
         }
       }
     // --- Commit staged post-date (content row) changes ---
@@ -1074,7 +1138,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} postDates={postDates} setPostDates={setPostDates} postDatesSaved={postDatesSaved} onUpdated={onUpdated} onEditDealAmountStaged={onEditDealAmount} />}
+          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} postDates={postDates} setPostDates={setPostDates} postDatesSaved={postDatesSaved} onUpdated={onUpdated} onEditDealAmountStaged={onEditDealAmount} struct={struct} setStruct={setStruct} extras={extras} setExtras={setExtras} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} onUploadFile={uploadDealFile} />}
@@ -1122,7 +1186,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
    types, so a keystroke can never stall. onBlur (leaving a field, one action)
    syncs the value for dirty-marking/undo. The drawer's Save reads the refs
    directly. Nothing writes to the DB except Save. */
-function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved, postDates, setPostDates, postDatesSaved, onUpdated, onEditDealAmountStaged }: {
+function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved, postDates, setPostDates, postDatesSaved, onUpdated, onEditDealAmountStaged, struct, setStruct, extras, setExtras }: {
   deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[]; paymentsSaved: Payment[];
   draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
   postDates: PostDate[]; setPostDates: (p: PostDate[]) => void; postDatesSaved: PostDate[];
@@ -1133,7 +1197,12 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   onRemoveFile: (f: DealFile) => Promise<void>;
   onUpdated: () => void;
   onEditDealAmountStaged: (total: number) => void;
+  struct: StructureStage; setStruct: (s: StructureStage) => void;
+  extras: DealExtra[]; setExtras: (e: DealExtra[]) => void;
 }) {
+  // Release 1: three-accordion layout. Only one section open at a time;
+  // Payment open by default; tapping an open header closes it.
+  const [openAcc, setOpenAcc] = useState<"payment" | "deal" | "rep" | null>("payment");
   // ---- Revision counter (Log a revision / undo). Immediate persist, deal-level. ----
   const [revisionBusy, setRevisionBusy] = useState(false);
   const [revisionErr, setRevisionErr] = useState<string | null>(null);
@@ -1187,12 +1256,23 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   // Not an error — the file attached fine; it just says reading it is on
   // Unlimited.
   const [invoiceExtractionBlocked, setInvoiceExtractionBlocked] = useState(false);
-  const Section = ({ label, children }: { label: string; children?: React.ReactNode }) => (
-    <div className="mt-5 first:mt-0">
-      <div className="text-[10.5px] font-semibold uppercase tracking-wide text-inkfaint mb-1">{label}</div>
-      {children}
-    </div>
-  );
+  // Release 1: accordion section. Header shows a short summary on the right
+  // when collapsed (spec 3a). Only one open; tapping an open header closes it.
+  const Acc = ({ id, title, summary, children }: { id: "payment" | "deal" | "rep"; title: string; summary: string; children: React.ReactNode }) => {
+    const open = openAcc === id;
+    return (
+      <div className="border-b border-line last:border-b-0">
+        <button type="button" onClick={() => setOpenAcc(open ? null : id)} aria-expanded={open} className="w-full flex items-center justify-between gap-2 py-2.5 text-left cursor-pointer">
+          <span className="text-[13px] font-semibold text-ink">{title}</span>
+          <span className="flex items-center gap-1.5 min-w-0">
+            {!open && summary && <span className="truncate text-[11.5px] text-inksoft">{summary}</span>}
+            <span className={cn("text-inksoft transition-transform", open && "rotate-180")}><IconDown size={14} /></span>
+          </span>
+        </button>
+        {open && <div className="pb-3">{children}</div>}
+      </div>
+    );
+  };
   // Row shows an accent border + undo arrow when the field is dirty.
   const Row = ({ label, field, children }: { label: string; field: DraftField; children: React.ReactNode }) => {
     const dirty = isDirty(field);
@@ -1265,50 +1345,36 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     }
   };
 
-  // Pay by = the earliest payment's expected_date (single source of truth).
-  // Editing it stages a change to that payment; with no payment row yet, one is
-  // created. Committed on Save via the existing payments write path.
-  // The date input is UNCONTROLLED (defaultValue) so clicking the native spin
-  // arrows does not re-render the input and close the picker (a controlled
-  // value prop re-renders mid-edit, which Arc/WebKit read as "picker closed").
-  // External changes (Use invoice date) bump payByTick to remount the input so
-  // it picks up the new defaultValue; user arrow clicks never touch the tick.
-  const payByDate = payments.map((p) => p.expected_date ?? "").filter((d) => d !== "").sort()[0] ?? "";
-  const [payByTick, setPayByTick] = useState(0);
-  const acceptPayBy = () => { onAcceptInvoiceDate(); setPayByTick(payByTick + 1); };
-  const setPayByDate = (val: string) => {
-    if (payments.length) {
-      // Update the earliest-dated payment's expected_date.
-      setPayments(payments.map((p) => ({ ...p, expected_date: (p.expected_date ?? "") <= (payByDate || "9999-99-99") ? (val || null) : p.expected_date })));
-    } else {
-      // No payment row yet: create one carrying the date (amount from the deal).
-      setPayments([{ id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, deal_id: deal.id, amount: deal.value ?? 0, expected_date: val || null, status: "expected", notes: null, invoice_state: null, pay_status: dealStatus }]);
-    }
-  };
+  // Pay by became the payment rows' due dates (single source of truth),
+  // edited inline in the Payment section via DealPaymentSection.
 
   // Invoice row: shows the attached invoice (kind=invoice) once uploaded.
 
       return (
     <div>
-      <Section label="Payment">
-        <Row label="Value" field="value"><DealInput inputRef={bindRef("value")} value={draft.value} onCommit={() => onFieldBlur("value")} className={`${inputCls} money`} inputMode="decimal" placeholder="$0" /></Row>
-        {/* One editor per payment row: amount / due date / status, delete with
-            confirm, Split & Bonus shortcuts, bonus Confirm, and the amber
-            guardrail when confirmed payments don't match the deal amount. */}
-        <PaymentRowsEditor
-                  payments={payments as unknown as EditorPayment[]}
-                  setPayments={(next) => setPayments(next as unknown as Payment[])}
-                  dealAmount={draft.value ? Number(draft.value) : (deal.value ?? null)}
-                  showGuardrail
-                  onEditDealAmount={(total) => { if (total != null) onEditDealAmountStaged(total); }}
-                />
+      <Acc id="payment" title="Payment"
+        summary={(() => {
+          const s = headerSummary(struct, deal.value != null ? Number(deal.value) : (Number(draft.value) || null));
+          return s;
+        })()}>
+        <DealPaymentSection
+          value={draft.value}
+          onValueCommit={() => onFieldBlur("value")}
+          struct={struct}
+          setStruct={setStruct}
+          payments={payments as unknown as EditorPayment[]}
+          setPayments={(next) => setPayments(next as unknown as Payment[])}
+          extras={extras}
+          setExtras={setExtras}
+          dealStatus={deal.status ?? draft.status ?? null}
+        />
         {invoiceReview && (
-          <div className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-tint)] px-2.5 py-2 mt-1.5 mb-1.5 text-[12px]">
+          <div className="rounded-lg border border-[var(--accent)]/30 bg-[var(--accent-tint)] px-2.5 py-2 mt-3 mb-1 text-[12px]">
             {invoiceReview.proposed ? (
               <>
                 <span className="text-ink block">The invoice says due {formatDate(invoiceReview.proposed)}. Current pay by is {invoiceReview.current ? formatDate(invoiceReview.current) : "not set"}.</span>
                 <div className="flex gap-2 mt-1.5">
-                  <button type="button" onClick={acceptPayBy} className="px-2.5 h-7 rounded-md text-[12px] font-medium cursor-pointer bg-[var(--accent)] text-onaccent hover:brightness-95">Use invoice date</button>
+                  <button type="button" onClick={onAcceptInvoiceDate} className="px-2.5 h-7 rounded-md text-[12px] font-medium cursor-pointer bg-[var(--accent)] text-onaccent hover:brightness-95">Use invoice date</button>
                   <button type="button" onClick={onKeepInvoiceDate} className="px-2.5 h-7 rounded-md text-[12px] font-medium cursor-pointer border border-line2 bg-card text-inksoft hover:text-ink">Keep current</button>
                 </div>
               </>
@@ -1317,18 +1383,6 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             )}
           </div>
         )}
-        <Row label="Pay terms" field="pay_terms">
-          <select ref={bindRef("pay_terms")} defaultValue={draft.pay_terms} onBlur={() => onFieldBlur("pay_terms")} className={selectCls}>
-            <option value="">No set terms</option>
-            <option value="due_on_receipt">Due on receipt</option>
-            <option value="net_15">Net 15</option>
-            <option value="net_30">Net 30</option>
-            <option value="net_45">Net 45</option>
-            <option value="net_60">Net 60</option>
-            <option value="net_90">Net 90</option>
-            <option value="milestone">Milestone-based</option>
-          </select>
-        </Row>
         <PRow label="Invoice">
           <InvoiceRow
             files={files}
@@ -1345,9 +1399,14 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             Invoice attached. Reading it and filling in the pay by date is on <a href="/#pricing" onClick={(e) => { setInvoiceExtractionBlocked(false); }} className="accent-ink font-semibold underline underline-offset-2 hover:opacity-80">Unlimited</a>.
           </div>
         )}
-      </Section>
+      </Acc>
 
-      <Section label="Deal">
+      <Acc id="deal" title="Deal"
+        summary={(() => {
+          const st = dragStatusLabel(draft.status ?? deal.status ?? null);
+          const pd = postDates.length ? `, posts ${postDates[0].date ? formatDate(postDates[0].date) : "soon"}` : "";
+          return `${st}${pd}`;
+        })()}>
         <Row label="Deal status" field="status">
           <select ref={bindRef("status")} defaultValue={draft.status} onBlur={() => onFieldBlur("status")} className={selectCls}>
             <option value="active">Active</option>
@@ -1392,7 +1451,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           </div>
         </PRow>
         <Row label="Exclusivity" field="exclusivity_days"><DealInput inputRef={bindRef("exclusivity_days")} value={draft.exclusivity_days} onCommit={() => onFieldBlur("exclusivity_days")} className={inputCls} inputMode="numeric" placeholder="Days" /></Row>
-        <Row label="Revisions included" field="revisions_included"><DealInput inputRef={bindRef("revisions_included")} value={draft.revisions_included} onCommit={() => onFieldBlur("revisions_included")} className={inputCls} placeholder="Not set" inputMode="numeric" /></Row>
+        <Row label="Revisions" field="revisions_included"><DealInput inputRef={bindRef("revisions_included")} value={draft.revisions_included} onCommit={() => onFieldBlur("revisions_included")} className={inputCls} placeholder="Not set" inputMode="numeric" /></Row>
         {revisionsSet && (
           <PRow label="Revisions">
             <div className="w-full space-y-1.5">
@@ -1414,14 +1473,42 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             </div>
           </PRow>
         )}
-      </Section>
+      </Acc>
 
-      <Section label="Rep contact">
+      <Acc id="rep" title="Rep contact"
+        summary={(() => {
+          const n = draft.rep_name?.trim() || deal.rep_name?.trim();
+          return n || "";
+        })()}>
         <Row label="Name" field="rep_name"><DealInput inputRef={bindRef("rep_name")} value={draft.rep_name} onCommit={() => onFieldBlur("rep_name")} className={inputCls} placeholder="Contact name" /></Row>
         <Row label="Email" field="rep_email"><DealInput inputRef={bindRef("rep_email")} value={draft.rep_email} onCommit={() => onFieldBlur("rep_email")} className={inputCls} placeholder="rep@brand.com" /></Row>
-      </Section>
+      </Acc>
     </div>
   );
+}
+
+/** Deals-table status label for a Deal accordion summary. */
+function dragStatusLabel(s: string | null): string {
+  if (s === "pipeline") return "Negotiating";
+  if (s === "archived") return "Archived";
+  return "Active";
+}
+
+/** Payment accordion collapsed summary, e.g. "$4,800, upfront + balance". */
+function headerSummary(struct: StructureStage, amount: number | null): string {
+  const kind = struct.payment_structure;
+  if (!kind) return amount != null ? fmtMoney2(amount) : "Not set";
+  const base = amount != null ? fmtMoney2(amount) : "";
+  let suffix = "";
+  if (kind === "split") suffix = "upfront + balance";
+  else if (kind === "parts") suffix = "in parts";
+  else if (kind === "monthly") suffix = `${struct.structure_months ?? ""} months`;
+  else if (kind === "once") suffix = "all at once";
+  return [base, suffix].filter(Boolean).join(", ") || "Not set";
+}
+function fmtMoney2(n: number): string {
+  const whole = Math.round(n * 100) / 100;
+  return Number.isInteger(whole) ? `$${whole}` : `$${whole.toFixed(2)}`;
 }
 
 /** Invoice action row: upload from the Payment section. No file -> "Add

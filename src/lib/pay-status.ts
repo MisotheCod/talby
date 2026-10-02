@@ -243,3 +243,170 @@ export function paidPaymentGap(r: {
   if (hasAmount || hasStatus || hasDate) return null;
   return "Source marks this deal paid, but there is no payment amount, status, or date to back it. Talby will create the deal as Not invoiced with no payment record. Add the missing payment details or change the status before importing.";
 }
+
+/* ============================= RELEASE 1 =============================
+ * Payment structures + extras (shared single source).
+ * See supabase/migrations/000040_payment_structures.sql.
+ * ==================================================================== */
+
+export type PaymentStructureKind = "once" | "split" | "parts" | "monthly";
+
+/** A deal's stored structure shape (fields are null unless the kind uses them). */
+export type DealStructure = {
+  kind: PaymentStructureKind | null;
+  timing?: string | null;              // once: 'when_posts'|'net_15'|'net_30'|'net_45'|'net_60'
+  timing_set_date?: string | null;     // once: when timing = a set date
+  upfront_pct?: number | null;         // split: 25|30|40|50
+  balance_timing?: string | null;      // split: 'when_posts'|'net_15'|'net_30'|'net_60'
+  months?: number | null;              // monthly: 3|6|12
+  start_date?: string | null;          // monthly
+};
+
+/** A bonus or commission on a deal — separate from guaranteed payments. */
+export type DealExtra = {
+  id: string;
+  kind: "bonus" | "commission";
+  amount: number | null;
+  condition: string | null;
+  rate: number | null;
+  on_text: string | null;
+  earned: boolean;
+};
+
+/** Pay terms timing -> Net-days map (mirrors the retired pay_terms set). */
+export const NET_DAYS: Record<string, number> = {
+  due_on_receipt: 0, net_15: 15, net_30: 30, net_45: 45, net_60: 60, net_90: 90,
+};
+
+/** Human label for a structure kind. */
+export function structureKindLabel(k: PaymentStructureKind | null | undefined): string {
+  switch (k) {
+    case "once": return "All at once";
+    case "split": return "Upfront + balance";
+    case "parts": return "In parts";
+    case "monthly": return "Monthly";
+    default: return "Not set";
+  }
+}
+
+/** Human label for a structure timing value. */
+export function timingLabel(t: string | null | undefined): string {
+  if (!t) return "";
+  if (t === "when_posts") return "When it posts";
+  if (t === "due_on_receipt") return "Due on receipt";
+  const nd = NET_DAYS[t];
+  return nd !== undefined ? `Net ${nd}` : t;
+}
+
+/**
+ * The standard payment LABEL (spec 1c) from the structure + a payment's index.
+ *   once      -> "Full payment"
+ *   split     -> "1 of 2", "2 of 2", ... (first = upfront, second = balance)
+ *   parts     -> "1 of N", "2 of N", ...
+ *   monthly   -> "Month X of N"
+ * Earned extras use "Bonus" / "Commission" (never passed here).
+ */
+export function paymentStructureLabel(kind: PaymentStructureKind | null | undefined, index0: number, total: number): string {
+  if (kind === "monthly") return `Month ${index0 + 1} of ${total}`;
+  if (kind === "once" && total <= 1) return "Full payment";
+  if (total <= 1) return "Full payment";
+  return `${index0 + 1} of ${total}`;
+}
+
+/** A payment row as the structure/shared code needs it. */
+type StructPay = {
+  id: string;
+  amount: number | null;
+  pay_status: string | null;
+  status: string | null;
+  expected_date: string | null;
+  notes?: string | null;
+};
+
+/**
+ * Compute the canonical labels + the NEXT DUE date + totals for a deal
+ * (spec 1f shared function). Given the structure, each payment row (the first
+ * index0 is upfront for split), and the deal's extras:
+ *  - labels: standard label per row
+ *  - nextDueDate: due date of the next UNPAID payment (null if all paid / none)
+ *  - expectedTotal / outstandingTotal: sum of unpaid CONFIRMED payments, with
+ *    PIPELINE/negotiating deals excluded (their money isn't due yet)
+ *  - earnedExtrasTotal: sum of earned bonuses + logged commission payouts
+ *    (these are NOT in expected/outstanding)
+ * This is the ONE function every screen calls so they cannot disagree.
+ */
+export function dealPaymentView(args: {
+  structureKind: PaymentStructureKind | null;
+  payments: StructPay[];
+  extras: DealExtra[];
+  dealStatus: string | null;        // 'active' | 'pipeline' | 'archived' | ...
+}) {
+  const active = args.dealStatus !== "pipeline" && args.dealStatus !== "archived";
+  const rows = args.payments;
+  const sorted = [...rows];
+
+  // Next due: first unpaid payment by date (for split, rows come upfront-first).
+  const unpaid = sorted
+    .filter((p) => norm(p.pay_status) !== "paid")
+    .sort((a, b) => (a.expected_date ?? "9999-99-99").localeCompare(b.expected_date ?? "9999-99-99"));
+  const nextUnpaid = unpaid[0];
+
+  const paidCount = sorted.filter((p) => norm(p.pay_status) === "paid").length;
+
+  // Labels use the structure; monthly/split/parts index from the payment's
+  // position in the deal's own intended sort (rows already ordered).
+  const labels = sorted.map((p, i) =>
+    // earned-extras become their own tracked payments labeled Bonus/Commission;
+    // a plain money row gets the structure label.
+    (p.notes === "Bonus" || p.notes === "Commission")
+      ? (p.notes as "Bonus" | "Commission")
+      : paymentStructureLabel(args.structureKind, i, sorted.length)
+  );
+
+  // Totals: only CONFIRMED payments; exclude pipeline/negotiating deals.
+  const countIn = active ? sorted : sorted.filter((p) => p.status === "received");
+  const expectedTotal = countIn.filter((p) => norm(p.pay_status) !== "paid").reduce((s, p) => s + (p.amount ?? 0), 0);
+  const receivedTotal = countIn.filter((p) => norm(p.pay_status) === "paid").reduce((s, p) => s + (p.amount ?? 0), 0);
+  const outstandingTotal = expectedTotal;  // money owed but not yet in
+
+  // Extras: unearned bonuses/commission are NOT counted; earned bonus adds its
+  // amount to the deal total; commission logs its payouts as paid payments.
+  const unearnedExtras = args.extras.filter((e) => !e.earned).reduce((s, e) => s + (e.kind === "bonus" ? (e.amount ?? 0) : 0), 0);
+  const earnedBonusTotal = args.extras.filter((e) => e.kind === "bonus" && e.earned).reduce((s, e) => s + (e.amount ?? 0), 0);
+  const commissionPct = args.extras.filter((e) => e.kind === "commission").reduce((s, e) => s + (e.rate ?? 0), 0);
+
+  return {
+    labels,
+    nextUnpaid,
+    nextDueDate: nextUnpaid?.expected_date ?? null,
+    overdue: nextUnpaid ? isPayOverdue(norm(nextUnpaid.pay_status), nextUnpaid.expected_date) : false,
+    paidCount,
+    totalCount: sorted.length,
+    expectedTotal: Math.round(expectedTotal * 100) / 100,
+    receivedTotal: Math.round(receivedTotal * 100) / 100,
+    outstandingTotal: Math.round(outstandingTotal * 100) / 100,
+    unearnedExtrasTotal: Math.round(unearnedExtras * 100) / 100,   // "up to $X more"
+    earnedBonusTotal: Math.round(earnedBonusTotal * 100) / 100,
+    commissionPct,
+    active,
+  };
+}
+
+/** Short summary line for a collapsed Payment accordion header, e.g.
+ *  "$4,800, upfront + balance" (spec 3a). */
+export function paymentHeaderSummary(args: { amount: number | null; structureKind: PaymentStructureKind | null; structureMonths?: number | null; extras: DealExtra[]; payments: StructPay[] }): string {
+  const amt = args.amount;
+  const kind = args.structureKind;
+  const parts: string[] = [];
+  if (kind === "split") parts.push("upfront + balance");
+  else if (kind === "parts") parts.push(`${args.payments.length} parts`);
+  else if (kind === "monthly") parts.push(`${args.structureMonths ?? args.payments.length} months`);
+  const base = amt != null ? `$${fmtInt(amt)}` : "";
+  if (base && parts.length) return `${base}, ${parts.join(", ")}`;
+  if (base) return base;
+  return parts.join(", ") || "Not set";
+}
+function fmtInt(n: number): string {
+  const r = Math.round(n * 100) / 100;
+  return Number.isInteger(r) ? String(r) : String(r);
+}

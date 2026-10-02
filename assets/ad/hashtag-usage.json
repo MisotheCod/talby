@@ -170,6 +170,83 @@
    ],
    "buffer_post_id": "6abc33cbd3050be9e376c828",
    "type": "video"
+  },
+  {
+   "date": "2026-09-30",
+   "platform": "tiktok",
+   "set_id": "tik_money_stats",
+   "tags": [
+    "#moneytok",
+    "#creatoreconomy",
+    "#howmuchcreatorsmake",
+    "#makingmoneyonline",
+    "#sidehustletok",
+    "#talby"
+   ],
+   "buffer_post_id": "6abd1ff5c607d865c4e4066c",
+   "type": "slideshow"
+  },
+  {
+   "date": "2026-09-30",
+   "platform": "instagram",
+   "set_id": "ig_money_business",
+   "tags": [
+    "#creatoreconomy",
+    "#makeitmadepay",
+    "#creatorbusiness",
+    "#influencerbusiness",
+    "#brandcollab",
+    "#moneycreator",
+    "#sidehustle"
+   ],
+   "buffer_post_id": "6abd1ff5eac524d09151c907",
+   "type": "slideshow"
+  },
+  {
+   "date": "2026-10-01",
+   "platform": "tiktok",
+   "set_id": "tik_creator_core",
+   "tags": [
+    "#creatorlife",
+    "#contentcreator",
+    "#branddeals",
+    "#uctips",
+    "#sponsoredcontent",
+    "#talby"
+   ],
+   "buffer_post_id": "6abe766f538af61e3e187b97",
+   "type": "video"
+  },
+  {
+   "date": "2026-10-01",
+   "platform": "youtube",
+   "set_id": "yt_creator_howto",
+   "tags": [
+    "#creatortips",
+    "#behavioralcontent",
+    "#branddeals",
+    "#influencereconomy",
+    "#contentcreators",
+    "#uctips"
+   ],
+   "buffer_post_id": "6abe7671c4ee1d4d09e12289",
+   "type": "video"
+  },
+  {
+   "date": "2026-10-01",
+   "platform": "instagram",
+   "set_id": "ig_creator_edu",
+   "tags": [
+    "#creatortips",
+    "#contentcreators",
+    "#branddeals",
+    "#influencermarketing",
+    "#uctips",
+    "#creatorlife",
+    "#futureofcontent"
+   ],
+   "buffer_post_id": "6abe7673538af61e3e187bd7",
+   "type": "video"
   }
  ]
 }

@@ -1,75 +1,74 @@
 # Talby Educational Carousel
-# Topic: track brand deals without a spreadsheet
-# 8 slides, 9:16. Calm voice, no emoji, no em dash, short sentences.
+# Topic: how to rate a brand deal
+# 8 slides, 9:16. Calm voice, no emoji, no em dash, no hype words, short sentences.
 
 SLIDES = [
     {
-        "headline": "if you're running brand deals out of a spreadsheet this is your sign.",
+        "headline": "a brand offered you $200 for a post. is that a good deal?",
         "body": [
-            "the spreadsheet dies every time.",
-            "it stops updating, then you guess.",
-            "you are not disorganized. it is the wrong tool.",
+            "your gut says no. the fear says yes.",
+            "so you pick by mood, not by math.",
+            "you need a number, not a guess.",
         ],
     },
     {
-        "headline": "the old way: a row per deal, and hope.",
+        "headline": "the mistake: pricing deals by how they feel.",
         "body": [
-            "you paste the brand, the fee, the date into a row.",
-            "there is no room for the contract, the invoice, the deliverable.",
-            "so the sheet goes stale and you check your bank instead.",
-            "that is when money slips through.",
+            "too low because you want the brand.",
+            "too high because you hate the work.",
+            "feelings change. the deal does not.",
+            "a number holds still. use one.",
         ],
     },
     {
-        "headline": "step 1. one record per deal, not a row.",
+        "headline": "step 1. put a price on your time.",
         "body": [
-            "give every deal a single record.",
-            "it holds the brand, the fee, and the deliverable together.",
-            "one place to look. nothing scattered across tabs.",
-            "this is the foundation.",
+            "concept, shoot, edit, post, reply.",
+            "count every hour, honestly.",
+            "give yourself a rate you believe.",
+            "a $200 post that cost 6 hours is $33 an hour.",
         ],
     },
     {
-        "headline": "step 2. write down what you get paid, before you deliver.",
+        "headline": "step 2. put a price on your reach.",
         "body": [
-            "the amount and the terms go in first.",
-            "at signing, not after the work is done.",
-            "you won't have to reconstruct it later.",
-            "future you says thanks.",
+            "an engaged 10k beats a dead 100k.",
+            "use real views from recent posts.",
+            "use your engagement rate, not your follower count.",
+            "brands pay for reach. so should you.",
         ],
     },
     {
-        "headline": "step 3. track the money as three numbers.",
+        "headline": "step 3. add what they get to use.",
         "body": [
-            "booked: what is agreed.",
-            "paid: what has arrived.",
-            "outstanding: what is owed to you.",
-            "three numbers. that is the whole system.",
+            "can they run it as an ad?",
+            "can they repost it? own it for a year?",
+            "each extra right is you selling more. price it in.",
+            "a one-time post is not them owning your face.",
         ],
     },
     {
-        "headline": "step 4. check the status once a week.",
+        "headline": "step 4. the one-line math.",
         "body": [
-            "five minutes, every friday.",
-            "any deal past its date sits in outstanding.",
-            "you follow up on what is owed. you do not guess.",
-            "the system only works if you look at it.",
+            "time worth plus reach worth plus usage worth.",
+            "that sum is your fee.",
+            "offer under it, you say no without guilt.",
+            "offer over it, you take it without doubt.",
         ],
     },
     {
-        "headline": "\"how much have i actually made?\"",
+        "headline": "now \"is this offer good?\" answers itself.",
         "body": [
-            "the answer is one glance, not an hour in the sheet.",
-            "booked, paid, outstanding add up in seconds.",
-            "you know what you earned this year.",
-            "that is the whole point.",
+            "one calculation, one clear yes or no.",
+            "you stop guessing and start negotiating.",
+            "your rate card does the arguing for you.",
         ],
     },
     {
-        "headline": "talby does this in one screen.",
+        "headline": "talby keeps the deal and the money in one place.",
         "body": [
-            "your deals, contracts, and money in one place.",
-            "booked, paid, outstanding, always up to date.",
+            "the offer, the terms, what you got paid.",
+            "you rate a deal and track what actually arrived.",
             "free to start.",
         ],
         "bridge": True,

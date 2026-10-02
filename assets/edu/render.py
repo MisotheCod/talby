@@ -49,7 +49,7 @@ def render_text_slide(idx, s):
     draw_bg(d)
     # top tag
     f_tag = font(30)
-    tag = "TALBY  /\u00a0tracking without a spreadsheet"
+    tag = "TALBY  /\u00a0how to rate a brand deal"
     d.text((56, 60), tag, font=f_tag, fill=DIM)
     # slide marker
     marker = f"{idx+1} / {len(SLIDES)}"
@@ -104,7 +104,7 @@ def render_text_slide(idx, s):
     return img
 
 def main():
-    marker = "talby_edu" + "_" + "spreadsheet"
+    marker = "talby_edu" + "_" + "ratedeal"
     paths = []
     for i, s in enumerate(SLIDES):
         img = render_text_slide(i, s)

@@ -48,38 +48,52 @@
       "id": "owed_vs_list",
       "angle": "counterintuitive truth",
       "opening": "a bigger brand deal list isn't success. knowing what you're actually owed is.",
-      "note": "FRESH CANDIDATE. Category 3 counterintuitive truth (flips the 'more deals = success' assumption none of the existing pool touches). Triggers: transformation ('knowing what you're actually owed') + status. Reconverts the Forgotten-Truth/Receipt template into a blunt flip. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing.",
+      "note": "FRESH CANDIDATE. Category 3 counterintuitive truth (flips the 'more deals = success' assumption none of the existing pool touches). Triggers: transformation ('knowing what you're actually owed') + status. Reconverts the Forgotten-Truth/Receipt template into a blunt flip. Distinct opening, never duplicates an existing line.",
       "uses": 1
     },
     {
       "id": "stop_catching_later",
       "angle": "harsh advice",
       "opening": "stop saying you'll catch up on payments later. later is how creators lose thousands.",
-      "note": "FRESH CANDIDATE. Category 1 harsh advice ('stop X' pattern) - no existing pool entry uses this category. Triggers: time-bound ('later') + contrasting element (putting it off -> money lost). Uses the Callout template. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing alongside proven winners.",
+      "note": "Category 1 harsh advice ('stop X' pattern). Triggers: time-bound ('later') + contrasting element. Uses the Callout template. Distinct opening.",
       "uses": 1
     },
     {
       "id": "not_leaving_money_table",
       "angle": "key insight",
       "opening": "managing brand deals isn't about staying organized. it's about not leaving your money on the table.",
-      "note": "FRESH CANDIDATE. Category 4 key insight / big idea ('isn't about X, it's about Y') - no existing pool entry uses this category or structure. Triggers: transformation ('not leaving your money') + status (a real business knows what it's owed). Uses the Forgotten-Truth/Receipt dry-flip into a blunt inversion. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing alongside proven winners.",
+      "note": "Category 4 key insight / big idea ('isn't about X, it's about Y'). Triggers: transformation + status. Distinct opening.",
       "uses": 1
     },
     {
       "id": "paid_is_second_job",
       "angle": "quote / memorable line",
       "opening": "you did the work. getting paid is a separate job nobody taught you.",
-      "note": "FRESH CANDIDATE. Category 5 quote/memorable line - no existing pool entry is a pure standalone quotable. Triggers: transformation ('separate job') + contrasting element (work vs getting paid). Uses the Callout/Forgotten-Truth blend flattened into one quotable line. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing.",
+      "note": "Category 5 quote/memorable line. Triggers: transformation + contrasting element. Distinct opening.",
       "uses": 1
     },
     {
       "id": "everyone_talks_tracking",
       "angle": "pain points (the unglamorous back-room work)",
       "opening": "everyone talks about landing brand deals. nobody talks about tracking them.",
-      "note": "FRESH CANDIDATE. Category 2 pain points ('everyone talks about X, nobody talks about Y') - no existing pool entry uses this category or structure. Triggers: contrasting element (landing the deal vs the unglamorous chasing/tracking). Uses the Forgotten-Truth/Receipt tension flattened into one relational line. Distinct opening, never duplicates an existing line. uses:0 so rotation gives it equal airing.",
+      "note": "Category 2 pain points ('everyone talks about X, nobody talks about Y'). Triggers: contrasting element (landing the deal vs the unglamorous chasing/tracking). Distinct opening.",
+      "uses": 1
+    },
+    {
+      "id": "stop_forgetting_deliverables",
+      "angle": "harsh advice (deliverables / missed deadlines)",
+      "opening": "stop telling brands you'll post on time. you forgot the last deadline yourself.",
+      "note": "INJECTED 2026-09-30. Category 1 harsh advice but a DIFFERENT topic than stop_catching_later (which is about payments): this hits the deliverables/deadline pain no existing pool entry touches. Triggers: time-bound (deadline) + contrasting element (promise vs the missed date). New angle, distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1
+    },
+    {
+      "id": "never_wrote_down_pay",
+      "angle": "harsh advice (payment-date discipline)",
+      "opening": "there's a reason you're always waiting on money. you never wrote down when it was supposed to land.",
+      "note": "INJECTED 2026-10-01. Category 1 harsh advice on a topic no pool entry touches: writing down the payment DATE as its own discipline. Distinct from stop_catching_later (that's 'catching up later', this is 'never logged when it should arrive'). Triggers: time-bound ('when it was supposed to land') + contrasting element. Reuses the Forgotten-Truth beat (you can't say when it was due). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
       "uses": 0
     }
   ],
   "rotation": "round_robin",
-  "last_used": "2026-09-29"
+  "last_used": "2026-10-01"
 }

@@ -34,7 +34,7 @@
       "script": "creator starts a fill-in-the-blank: 'one thing outsiders get wrong about tracking brand deals is ____.' then shows the product as the correct completion",
       "caption_shape": "ends with '____' to invite replies",
       "engagement": "high",
-      "uses": 1
+      "uses": 2
     },
     {
       "id": "overrated",
@@ -61,7 +61,7 @@
       "script": "creator pits two small fears: 'what is worse: losing track of a payment, or doing a brand deal for free?' then shows the product preventing both",
       "caption_shape": "'which is worse?' either-or",
       "engagement": "high",
-      "uses": 1
+      "uses": 2
     },
     {
       "id": "ugc_admin_day",
@@ -73,5 +73,5 @@
       "uses": 1
     }
   ],
-  "last_used": "2026-09-29"
+  "last_used": "2026-10-01"
 }
