@@ -363,7 +363,7 @@ export function DealForm({
   const dirty = mode === "edit" && norm(v) !== norm(initial);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Review intro subtitle */}
       {isReview && (
         <>
@@ -444,7 +444,7 @@ export function DealForm({
         <Field label="Brand *" spark={spark("brand")}><DealInput value={v.brand} onCommit={(val) => set("brand", val)} placeholder="e.g. Glossier" /></Field>
       )}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Deal amount" spark={spark("value")}><DealInput type="number" inputMode="decimal" value={v.value} onCommit={(val) => set("value", val)} placeholder="1500" /></Field>
+        <Field label="Deal amount" spark={spark("value")}><DealInput type="number" inputMode="decimal" value={v.value} onCommit={(val) => set("value", val)} placeholder="$1,500" /></Field>
         <Field label="Deal status"><Select value={v.status} onChange={(e) => set("status", e.target.value)}>
           {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select></Field>

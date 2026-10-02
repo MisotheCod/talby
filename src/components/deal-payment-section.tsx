@@ -58,11 +58,15 @@ const PAYS = [
 ] as const;
 
 // Bordered input matching the New deal modal's fields: 1px line2 border,
-// 8px radius, 40px (h-10). NOT the drawer's old borderless inline style.
+// 8px radius, 44px (h-11) tall. NOT the drawer's old borderless inline style.
 export const drawerFieldCls =
-  "w-full bg-card border border-line2 rounded-lg px-3 h-10 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
+  "w-full bg-card border border-line2 rounded-lg px-3 h-11 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
+// Selects get the same field look plus our custom chevron arrow (native hidden).
+const selectFieldCls = `${drawerFieldCls} cursor-pointer chevron-select`;
 
-const rowCls = "grid grid-cols-[120px_1fr] gap-3 items-center min-h-[56px] py-1 border-b border-line last:border-b-0";
+const rowCls = "grid grid-cols-[120px_1fr] gap-4 items-center min-h-[56px] py-3 border-b border-line last:border-b-0";
+// Payment/extras rows: taller rhythm so their pill + due + amount breathe.
+const payRowCls = "grid grid-cols-[120px_1fr] gap-4 items-center min-h-[64px] py-3 border-b border-line last:border-b-0";
 const labelCls = "text-[12.5px] font-medium text-ink";
 
 function statusPill(p: EditorPayment) {
@@ -178,7 +182,7 @@ export function DealPaymentSection({
       {/* Paid dropdown + companion */}
       <div className={rowCls}>
         <span className={labelCls}>Paid</span>
-        <select value={kind ?? "once"} onChange={(e) => setStruct({ ...struct, payment_structure: e.target.value as PaymentStructureKind })} className={`${drawerFieldCls} cursor-pointer`} aria-label="How you get paid">
+        <select value={kind ?? "once"} onChange={(e) => setStruct({ ...struct, payment_structure: e.target.value as PaymentStructureKind })} className={`${selectFieldCls}`} aria-label="How you get paid">
           {KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
         </select>
       </div>
@@ -186,7 +190,7 @@ export function DealPaymentSection({
       {kind === "split" && (
         <div className={rowCls}>
           <span className={labelCls}>Upfront</span>
-          <select value={String(struct.structure_upfront_pct ?? 50)} onChange={(e) => setStruct({ ...struct, structure_upfront_pct: Number(e.target.value) })} className={`${drawerFieldCls} cursor-pointer`} aria-label="Upfront percent">
+          <select value={String(struct.structure_upfront_pct ?? 50)} onChange={(e) => setStruct({ ...struct, structure_upfront_pct: Number(e.target.value) })} className={`${selectFieldCls}`} aria-label="Upfront percent">
             {[25, 30, 40, 50].map((n) => <option key={n} value={n}>{n}% upfront</option>)}
           </select>
         </div>
@@ -194,7 +198,7 @@ export function DealPaymentSection({
       {kind === "monthly" && (
         <div className={rowCls}>
           <span className={labelCls}>For</span>
-          <select value={String(struct.structure_months ?? 3)} onChange={(e) => setStruct({ ...struct, structure_months: Number(e.target.value) })} className={`${drawerFieldCls} cursor-pointer`} aria-label="Months">
+          <select value={String(struct.structure_months ?? 3)} onChange={(e) => setStruct({ ...struct, structure_months: Number(e.target.value) })} className={`${selectFieldCls}`} aria-label="Months">
             {[3, 6, 12].map((n) => <option key={n} value={n}>{n} months</option>)}
           </select>
         </div>
@@ -218,9 +222,9 @@ export function DealPaymentSection({
             const { pill } = statusPill(p);
             return (
               <div key={p.id} className={cn("divide-y divide-line", isOpen && "bg-card2/40")}>
-                <div className={rowCls}>
+                <div className={payRowCls}>
                   <span className={cn(labelCls, "truncate")}>{label}</span>
-                  <button type="button" onClick={() => setOpenRow(isOpen ? null : p.id)} className="w-full flex items-center gap-3 text-left cursor-pointer min-h-[56px]">
+                  <button type="button" onClick={() => setOpenRow(isOpen ? null : p.id)} className="w-full flex items-center gap-3 text-left cursor-pointer min-h-[64px]">
                     <span className={cn("flex-1 min-w-0 text-[13px] tabular-nums", overdueView(p).view.overdue ? "text-late font-medium" : "text-ink")}>{dueTxt}</span>
                     <span className="shrink-0 money text-[13px] font-medium tabular-nums">{p.amount != null ? fmtMoney(p.amount) : "—"}</span>
                     {pill}
@@ -237,7 +241,7 @@ export function DealPaymentSection({
                     <span className={labelCls}>Due</span>
                     <DealInput type="date" value={p.expected_date ?? ""} onCommit={(v) => patchPay(p.id, (x) => ({ ...x, expected_date: v || null }))} className={`${drawerFieldCls} deal-date-input`} placeholder="Due date" ariaLabel="Due date" />
                     <span className={labelCls}>Status</span>
-                    <select value={p.pay_status ?? "not_invoiced"} onChange={(e) => patchPay(p.id, (x) => ({ ...x, pay_status: e.target.value, status: e.target.value === "paid" ? "received" : "expected" }))} className={`${drawerFieldCls} cursor-pointer`} aria-label="Status">
+                    <select value={p.pay_status ?? "not_invoiced"} onChange={(e) => patchPay(p.id, (x) => ({ ...x, pay_status: e.target.value, status: e.target.value === "paid" ? "received" : "expected" }))} className={`${selectFieldCls}`} aria-label="Status">
                       {PAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                     <span />
@@ -275,7 +279,7 @@ export function DealPaymentSection({
           ? `Bonus${e.amount != null ? ` · ${fmtMoney(e.amount)}` : ""}${e.condition ? ` · ${e.condition}` : ""}`
           : `Commission${e.rate != null ? ` · ${e.rate}%` : ""}${e.on_text ? ` · ${e.on_text}` : ""}`;
         return (
-          <div key={e.id} className={cn(rowCls, "border-b border-dashed border-line")}>
+          <div key={e.id} className={cn(payRowCls, "border-b border-dashed border-line")}>
             <span className={cn(labelCls, "truncate")}>{e.kind === "bonus" ? "Bonus" : "Commission"}</span>
             <div className="flex items-center gap-3 min-w-0">
               <span className="flex-1 min-w-0 text-[12.5px] text-ink truncate">{extraLabel}</span>
@@ -293,7 +297,7 @@ export function DealPaymentSection({
         <div className="space-y-0 divide-y divide-line pt-4">
           <div className={rowCls}>
             <span className={labelCls}>Type</span>
-            <select value={exType} onChange={(e) => setExType(e.target.value as "bonus" | "commission")} className={`${drawerFieldCls} cursor-pointer`} aria-label="Extra type">
+            <select value={exType} onChange={(e) => setExType(e.target.value as "bonus" | "commission")} className={`${selectFieldCls}`} aria-label="Extra type">
               <option value="bonus">Bonus</option>
               <option value="commission">Commission</option>
             </select>
@@ -345,7 +349,7 @@ export function DealPaymentSection({
       <>
         <div className={rowCls}>
           <span className={labelCls}>When</span>
-          <select value={struct.structure_timing ?? "net_30"} onChange={(e) => setStruct({ ...struct, structure_timing: e.target.value })} className={`${drawerFieldCls} cursor-pointer`} aria-label="Timing">
+          <select value={struct.structure_timing ?? "net_30"} onChange={(e) => setStruct({ ...struct, structure_timing: e.target.value })} className={`${selectFieldCls}`} aria-label="Timing">
             {[...NET_OPTS, ["set_date", "On a set date"] as const, ["due_on_receipt", "Due on receipt"] as const].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>

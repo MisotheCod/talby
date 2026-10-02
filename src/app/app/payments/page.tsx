@@ -450,10 +450,10 @@ export default function PaymentsPage() {
                     function renderStatusPill() {
                       const v = paymentStatusView({ pay_status: p.pay_status ?? null, status: p.status ?? null, expected_date: p.expected_date ?? null, amount: p.amount });
                       switch (v.pillKind) {
-                        case "paid": return <StatusPill size="sm" kind="paid">{v.label}</StatusPill>;
-                        case "late": return <StatusPill size="sm" kind="late">{v.label}</StatusPill>;
-                        case "neutral": return <StatusPill size="sm" kind="neutral">{v.label}</StatusPill>;
-                        default: return <StatusPill size="sm" kind="due">{v.label}</StatusPill>;
+                        case "paid": return <StatusPill kind="paid">{v.label}</StatusPill>;
+                        case "late": return <StatusPill kind="late">{v.label}</StatusPill>;
+                        case "neutral": return <StatusPill kind="neutral">{v.label}</StatusPill>;
+                        default: return <StatusPill kind="due">{v.label}</StatusPill>;
                       }
                     }
                     function renderMenu() {
@@ -548,7 +548,7 @@ function ExtrasSection({ extras }: { extras: ExtraRow[] }) {
                       <td className="py-2 pr-3 font-medium text-ink truncate max-w-40">{e.deal?.brand ?? "—"}</td>
                       <td className="py-2 pr-3 capitalize text-inksoft">{e.kind}</td>
                       <td className="py-2 pr-3 text-inksoft">{e.kind === "bonus" ? (e.condition ?? "—") : (e.rate != null ? `${e.rate}% on ${e.on_text ?? "sales"}` : "—")}</td>
-                      <td className="py-2 pr-3">{e.earned ? <StatusPill size="sm" kind="paid">Earned</StatusPill> : <StatusPill size="sm" kind="neutral">Not earned</StatusPill>}</td>
+                      <td className="py-2 pr-3">{e.earned ? <StatusPill kind="paid">Earned</StatusPill> : <StatusPill kind="neutral">Not earned</StatusPill>}</td>
                       <td className="py-2 text-right money tabular-nums">{e.kind === "bonus" && e.amount != null ? formatMoney(e.amount) : (e.rate != null ? `${e.rate}%` : "—")}</td>
                     </tr>
                   ))}

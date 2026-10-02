@@ -72,7 +72,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "w-full bg-card border border-line2 rounded-xl px-3 h-10 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 cursor-pointer font-sans",
+        "w-full bg-card border border-line2 rounded-xl px-3 h-10 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 cursor-pointer font-sans chevron-select",
         className
       )}
       {...props}

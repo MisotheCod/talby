@@ -416,7 +416,7 @@ export default function DealsPage() {
                   onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(d.id); }}
                   role="button"
                   tabIndex={0}
-                  className={cn("w-full grid gap-3 items-center px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
+                  className={cn("w-full grid gap-3 items-start px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
                 >
                   <span className="d-brand flex items-center gap-3 min-w-0">
                     <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">
@@ -424,16 +424,16 @@ export default function DealsPage() {
                     </span>
                     <span className="d-brand-name text-[15px] font-semibold truncate">{d.brand}</span>
                   </span>
-                  <span className="d-status"><DealStatusBadge status={d.status} active={d.active} /></span>
-                  <span className="d-payment flex items-center gap-1">
+                  <span className="d-status flex h-10 items-center"><DealStatusBadge status={d.status} active={d.active} /></span>
+                  <span className="d-payment flex h-10 items-center gap-1">
                     {paymentPill(d)}
                   </span>
                   <PostDateCell deal={d} onChanged={onUpdated} />
                   <PayByCell deal={d} onChanged={onUpdated} />
-                  <span className="d-amount relative text-right">
-                  <span className="money text-sm font-medium tabular-nums">{formatMoney(d.value)}</span>
+                  <span className="d-amount flex flex-col items-end">
+                  <span className="inline-flex h-10 items-center"><span className="money text-sm font-medium leading-snug tabular-nums">{formatMoney(d.value)}</span></span>
                   {(d.payment_structure === "monthly" || (d.extras?.length ?? 0) > 0) && (
-                    <span className="block absolute left-0 right-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap text-inksoft/70 text-right">
+                    <span className="mt-1 text-[10px] tabular-nums leading-none whitespace-nowrap text-inksoft/70">
                       {d.payment_structure === "monthly" && d.structure_months && d.value != null
                         ? `${formatMoney(d.value / d.structure_months)} a month`
                         : (d.extras ?? []).map((e) => e.kind === "bonus" ? `+ ${formatMoney(e.amount ?? 0)} bonus` : `+ ${e.rate ?? 0}% commission`).join(", ")}
@@ -539,17 +539,15 @@ const PAYS_PILL_KIND: Record<PayStatus, "paid" | "due" | "neutral" | "accent"> =
 function paymentPill(d: Deal) {
   const c = d.pay_cell;
   if (c && c.payments.length) {
-    // The canonical label for the deal: next unpaid payment when any remain,
-    // else the most recent (paid) row so "Overdue" surfaces like the Payments page.
     const unpaid = c.payments.filter((p) => (p.pay_status ?? "not_invoiced") !== "paid");
     const target = unpaid[0] ?? c.payments[c.payments.length - 1];
     const v = paymentStatusView({ pay_status: target.pay_status ?? null, status: target.status ?? null, expected_date: target.expected_date ?? null, amount: target.amount ?? null });
     const kind = v.pillKind === "late" ? "late" : v.pillKind === "paid" ? "paid" : v.pillKind === "neutral" ? "neutral" : "due";
-    return <StatusPill size="sm" kind={kind}>{v.label}</StatusPill>;
+    return <StatusPill kind={kind}>{v.label}</StatusPill>;
   }
   const r = d.pay_rollup ?? { status: "not_invoiced" as PayStatus, paidCount: 0, totalCount: 0 };
   const label = payStatusLabel(r.status);
-  return <StatusPill size="sm" kind={PAYS_PILL_KIND[r.status]}>{label}</StatusPill>;
+  return <StatusPill kind={PAYS_PILL_KIND[r.status]}>{label}</StatusPill>;
 }
 
 /** "Not set" placeholder — a muted, legible empty rather than a dash or gap. */
@@ -1206,15 +1204,15 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   const Acc = ({ id, title, summary, children }: { id: "payment" | "deal" | "rep"; title: string; summary: string; children: React.ReactNode }) => {
     const open = openAcc === id;
     return (
-      <div className="border-b border-line last:border-b-0">
-        <button type="button" onClick={() => setOpenAcc(open ? null : id)} aria-expanded={open} className="w-full flex items-center justify-between gap-2 py-2.5 text-left cursor-pointer">
+      <div className="rounded-xl border border-line2 bg-card overflow-hidden">
+        <button type="button" onClick={() => setOpenAcc(open ? null : id)} aria-expanded={open} className="w-full flex items-center justify-between gap-2 px-5 py-3 text-left cursor-pointer">
           <span className="text-[13px] font-semibold text-ink">{title}</span>
           <span className="flex items-center gap-1.5 min-w-0">
             {!open && summary && <span className="truncate text-[11.5px] text-inksoft">{summary}</span>}
             <span className={cn("text-inksoft transition-transform", open && "rotate-180")}><IconDown size={14} /></span>
           </span>
         </button>
-        {open && <div className="pt-2 pb-5">{children}</div>}
+        {open && <div className="px-5 pt-2 pb-6">{children}</div>}
       </div>
     );
   };
@@ -1222,7 +1220,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   const Row = ({ label, field, children }: { label: string; field: DraftField; children: React.ReactNode }) => {
     const dirty = isDirty(field);
     return (
-      <div className={cn("flex items-center gap-3 min-h-[56px] py-1 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
+      <div className={cn("flex items-center gap-4 min-h-[56px] py-3 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
         <span className="w-[120px] flex-none text-[12.5px] font-medium text-ink">{label}</span>
         <div className="flex-1 min-w-0">{children}</div>
         {/* Reserved, fixed-width trailing slot so the row never reflows when the
@@ -1248,7 +1246,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   // when dirty, an optional undo reverts the staged payment change to the
   // snapshot taken at load/save.
   const PRow = ({ label, children, onUndo, dirty }: { label: string; children: React.ReactNode; onUndo?: () => void; dirty?: boolean }) => (
-    <div className={cn("flex items-center gap-3 min-h-[56px] py-1 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
+    <div className={cn("flex items-center gap-4 min-h-[56px] py-3 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
       <span className="w-[120px] flex-none text-[12.5px] font-medium text-ink">{label}</span>
       <div className="flex-1 min-w-0">{children}</div>
       <span className="w-7 flex-none flex items-center justify-center">
@@ -1269,8 +1267,8 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
       </span>
     </div>
   );
-  const inputCls = "w-full bg-card border border-line2 rounded-lg px-3 h-10 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
-  const selectCls = `${inputCls} cursor-pointer`;
+  const inputCls = "w-full bg-card border border-line2 rounded-lg px-3 h-11 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
+  const selectCls = `${inputCls} cursor-pointer chevron-select`;
 
   // Deal-level pay status: single control that sets the deal's payment status.
   // Derived from the LIVE staged payments (not the passed-in deal.pay_rollup
@@ -1296,7 +1294,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   // Invoice row: shows the attached invoice (kind=invoice) once uploaded.
 
       return (
-    <div>
+    <div className="space-y-4">
       <Acc id="payment" title="Payment"
         summary={(() => {
           const s = headerSummary(struct, deal.value != null ? Number(deal.value) : (Number(draft.value) || null));
@@ -1632,7 +1630,7 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
 
   return (
     <div className="d-post relative select-none">
-      <span className={cn("inline-block leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
+      <span className={cn("inline-flex h-10 items-center leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
         {top ? formatDate(top) : notSet}
       </span>
       {showCount && (
@@ -1645,7 +1643,7 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
           onMouseEnter={() => { stay.current = true; setOpen(true); }}
           onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
-          className={cn("block text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
+          className={cn("block mt-1 text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
         >{cell!.line2!.text}</span>
       )}
       {open && pos && createPortal(
@@ -1740,7 +1738,7 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
 
   return (
     <div className="d-payby relative select-none">
-      <span className={cn("inline-block leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
+      <span className={cn("inline-flex h-10 items-center leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
         {top ? formatDate(top) : notSet}
       </span>
       {showCount && (
@@ -1753,7 +1751,7 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
           onMouseEnter={() => { stay.current = true; setOpen(true); }}
           onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
-          className={cn("block text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
+          className={cn("block mt-1 text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
         >{cell!.line2!.text}</span>
       )}
       {open && pos && createPortal(
