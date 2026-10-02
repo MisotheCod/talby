@@ -23,7 +23,8 @@ import {
   type PaymentStructureKind, type DealExtra,
 } from "@/lib/pay-status";
 import { DealInput } from "@/components/deal-input";
-import { IconPlus, IconDown } from "@/components/icons";
+import { Select } from "@/components/select";
+import { IconPlus } from "@/components/icons";
 
 type EditorPayment = {
   id: string;
@@ -65,25 +66,35 @@ const PAYS = [
 export const drawerFieldCls =
   "w-full bg-card border border-line2 rounded-lg px-2.5 h-9 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans whitespace-nowrap overflow-hidden text-ellipsis";
 
-/** A select styled as a drawer field, with our chevron icon overlaid at the
- *  right (14px from the edge, 40px right padding) and the native arrow hidden. */
-export const Sel = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(function Sel({ className, children, ...props }, ref) {
+/** Drawer-styled select — delegates to the ONE shared custom dropdown (see
+ *  @/components/select) so every select in the app is the same popper list.
+ *  Keeps the drawer's explicit-save contract: `ref` receives a live { value }
+ *  accessor (bind via bindRef) that Save reads and undo writes. */
+export function Sel({ className, children, value, defaultValue, onChange, onBlur, ref, ...props }: {
+  className?: string;
+  value?: string;
+  defaultValue?: string;
+  onChange?: (e: { target: { value: string } }) => void;
+  onBlur?: () => void;
+  ref?: (el: { value: string }) => void;
+  ["aria-label"]?: string;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="relative flex-1 min-w-0">
-      <select
-        ref={ref}
-        className={cn(
-          "w-full bg-card border border-line2 rounded-lg px-2.5 h-9 text-sm text-ink appearance-none focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans whitespace-nowrap overflow-hidden text-ellipsis pr-[40px]",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </select>
-      <IconDown size={14} className="pointer-events-none absolute right-[14px] top-1/2 -translate-y-1/2 text-inksoft shrink-0" />
-    </div>
+    <Select
+      className={cn("!h-9 !px-2.5", className)}
+      value={value}
+      defaultValue={defaultValue}
+      onChange={onChange}
+      onBlur={onBlur}
+      ref={ref}
+      {...props}
+    >
+      {children}
+    </Select>
   );
-});
+}
 
 const rowCls = "grid grid-cols-[100px_1fr] gap-3 items-center min-h-[56px] py-3 border-b border-line last:border-b-0";
 const labelCls = "text-[12.5px] font-medium text-ink truncate whitespace-nowrap";
@@ -113,7 +124,7 @@ function MoneyInput({ value, onCommit, placeholder, ariaLabel }: { value: string
       inputMode="decimal"
       aria-label={ariaLabel}
       placeholder={placeholder}
-      className={`${drawerFieldCls} money`}
+      className={`${drawerFieldCls}`}
       value={focused ? local.current : text}
       onFocus={() => { setFocused(true); }}
       onChange={(e) => { local.current = e.target.value; setText(e.target.value); }}
@@ -191,7 +202,7 @@ export function DealPaymentSection({
   const removeExtra = (id: string) => setExtras(extras.filter((e) => e.id !== id));
   const markEarned = (id: string) => setExtras(extras.map((e) => (e.id === id ? { ...e, earned: true } : e)));
 
-  const groupHead = (t: string) => <div className="text-[11px] font-semibold uppercase tracking-wide text-inksoft whitespace-nowrap mt-1">{t}</div>;
+  const groupHead = (t: string) => <div className="text-[11px] font-semibold uppercase tracking-wide text-inksoft whitespace-nowrap mt-6">{t}</div>;
 
   return (
     <div className="space-y-0">
@@ -241,7 +252,7 @@ export function DealPaymentSection({
 
       {/* ===== b. Schedule ===== */}
       {groupHead("Schedule")}
-      <div className="mt-1 rounded-[10px] border border-line bg-card">
+      <div className="mt-2.5 rounded-[10px] border border-line bg-card">
         {payments.length === 0 ? (
           <div className="px-3.5 py-3 text-[12.5px] text-inksoft whitespace-nowrap">No payments yet.</div>
         ) : (
@@ -309,7 +320,7 @@ export function DealPaymentSection({
       {/* ===== c. Extras ===== */}
       {groupHead("Extras")}
       {extras.length > 0 && (
-        <div className="mt-1 rounded-[10px] border border-dashed border-line bg-card">
+        <div className="mt-2.5 rounded-[10px] border border-dashed border-line bg-card">
           <div className="divide-y divide-line">
             {extras.map((e) => {
               const isOpen = openExtra === e.id;
@@ -350,7 +361,7 @@ export function DealPaymentSection({
 
       {/* Add bonus or commission (also shown when there are no extras) */}
       {adding ? (
-        <div className="rounded-[10px] border border-line bg-card mt-1 space-y-0 divide-y divide-line">
+        <div className="rounded-[10px] border border-line bg-card mt-2.5 px-3.5 space-y-0">
           <div className={rowCls}>
             <span className={labelCls}>Type</span>
             <Sel value={exType} onChange={(e) => setExType(e.target.value as "bonus" | "commission")} aria-label="Extra type">
@@ -384,7 +395,7 @@ export function DealPaymentSection({
               </div>
             </>
           )}
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="flex items-center justify-end gap-2 pt-4">
             <button type="button" onClick={() => setAdding(false)} className="px-3 h-9 rounded-lg text-[12.5px] text-inksoft hover:text-ink cursor-pointer whitespace-nowrap">Cancel</button>
             <button type="button" onClick={addExtra} disabled={exType === "bonus" ? !exAmt : !exRate} className="px-3.5 h-9 rounded-lg text-[12.5px] font-medium bg-[var(--accent)] text-onaccent hover:brightness-95 cursor-pointer disabled:opacity-50">Add</button>
           </div>

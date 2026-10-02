@@ -64,23 +64,8 @@ export function Textarea({
   );
 }
 
-export function Select({
-  className,
-  children,
-  ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <select
-      className={cn(
-        "w-full bg-card border border-line2 rounded-xl px-3 h-10 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 cursor-pointer font-sans chevron-select",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </select>
-  );
-}
+export { Select } from "@/components/select";
+export type { Select as SelectProps } from "@/components/select";
 
 /** Reusable tinted pill — one source color, tinted bg + same-hue text + subtle
  *  same-hue border, all derived via color-mix from a single token. Supply a

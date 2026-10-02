@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { isConfirmed, paymentMismatch } from "@/lib/pay-status";
 import { DealInput } from "@/components/deal-input";
+import { Select } from "@/components/select";
 import { IconPlus, IconDelete, IconCheck } from "@/components/icons";
 
 /** A staged payment row the editor manages (not yet necessarily persisted). */
@@ -148,9 +149,9 @@ export function PaymentRowsEditor({
               className={cn(inputCls, "deal-date-input w-36")}
               ariaLabel="Payment due date"
             />
-            <select value={p.pay_status ?? "not_invoiced"} onChange={(e) => patch(p.id, (x) => ({ ...x, pay_status: e.target.value }))} className={cn(inputCls, "cursor-pointer w-40")} aria-label="Payment status">
+            <Select value={p.pay_status ?? "not_invoiced"} onChange={(e) => patch(p.id, (x) => ({ ...x, pay_status: e.target.value }))} className={cn("w-40", inputCls)} aria-label="Payment status">
               {PAYS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            </Select>
             {unconfirmed && (
               <button
                 type="button"

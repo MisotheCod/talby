@@ -1043,7 +1043,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   }, [supabase]);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[85] bg-black/20" onClick={requestClose} role="presentation">
       <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
         {/* Header: logo, brand, amount + due, ⋯ menu, close */}
@@ -1126,7 +1126,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1354,7 +1355,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           return `${st}${pd}`;
         })()}>
         <Row label="Deal status" field="status">
-          <Sel ref={bindRef("status")} defaultValue={draft.status} onBlur={() => onFieldBlur("status")}>
+          <Sel ref={bindRef("status") as unknown as (el: { value: string }) => void} defaultValue={draft.status} onBlur={() => onFieldBlur("status")}>
             <option value="active">Active</option>
             <option value="pipeline">Negotiating</option>
             <option value="archived">Archived</option>
@@ -1362,7 +1363,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
         </Row>
         <Row label="Deliverable" field="deliverable"><DealInput inputRef={bindRef("deliverable")} value={draft.deliverable} onCommit={() => onFieldBlur("deliverable")} className={inputCls} placeholder="e.g. 1 YouTube integration" /></Row>
         <Row label="Deal type" field="deal_type">
-          <Sel ref={bindRef("deal_type")} defaultValue={draft.deal_type} onBlur={() => onFieldBlur("deal_type")}>
+          <Sel ref={bindRef("deal_type") as unknown as (el: { value: string }) => void} defaultValue={draft.deal_type} onBlur={() => onFieldBlur("deal_type")}>
             <option value="">No set type</option>
             <option value="paid_partnership">Paid Partnership</option>
             <option value="ugc">UGC</option>
