@@ -1214,7 +1214,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <span className={cn("text-inksoft transition-transform", open && "rotate-180")}><IconDown size={14} /></span>
           </span>
         </button>
-        {open && <div className="pb-3">{children}</div>}
+        {open && <div className="pt-2 pb-5">{children}</div>}
       </div>
     );
   };
@@ -1222,8 +1222,8 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   const Row = ({ label, field, children }: { label: string; field: DraftField; children: React.ReactNode }) => {
     const dirty = isDirty(field);
     return (
-      <div className={cn("flex items-center gap-2 py-1.5 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
-        <span className="w-[92px] flex-none text-[12px] text-inksoft">{label}</span>
+      <div className={cn("flex items-center gap-3 min-h-[56px] py-1 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
+        <span className="w-[120px] flex-none text-[12.5px] font-medium text-ink">{label}</span>
         <div className="flex-1 min-w-0">{children}</div>
         {/* Reserved, fixed-width trailing slot so the row never reflows when the
             undo button appears. The button toggles opacity, not mount. */}
@@ -1248,8 +1248,8 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   // when dirty, an optional undo reverts the staged payment change to the
   // snapshot taken at load/save.
   const PRow = ({ label, children, onUndo, dirty }: { label: string; children: React.ReactNode; onUndo?: () => void; dirty?: boolean }) => (
-    <div className={cn("flex items-center gap-2 py-1.5 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
-      <span className="w-[92px] flex-none text-[12px] text-inksoft">{label}</span>
+    <div className={cn("flex items-center gap-3 min-h-[56px] py-1 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
+      <span className="w-[120px] flex-none text-[12.5px] font-medium text-ink">{label}</span>
       <div className="flex-1 min-w-0">{children}</div>
       <span className="w-7 flex-none flex items-center justify-center">
         {onUndo && (
@@ -1269,7 +1269,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
       </span>
     </div>
   );
-  const inputCls = "w-full bg-transparent border border-transparent rounded-lg px-2 py-1.5 text-[13.5px] text-ink hover:bg-card2 focus:bg-card focus:border-[var(--accent)] focus:shadow-[0_0_0_3px_var(--accent-tint)] outline-none transition";
+  const inputCls = "w-full bg-card border border-line2 rounded-lg px-3 h-10 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
   const selectCls = `${inputCls} cursor-pointer`;
 
   // Deal-level pay status: single control that sets the deal's payment status.
@@ -1328,6 +1328,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             )}
           </div>
         )}
+        <div className="mt-4 border-t border-line">
         <PRow label="Invoice">
           <InvoiceRow
             files={files}
@@ -1344,6 +1345,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             Invoice attached. Reading it and filling in the pay by date is on <a href="/#pricing" onClick={(e) => { setInvoiceExtractionBlocked(false); }} className="accent-ink font-semibold underline underline-offset-2 hover:opacity-80">Unlimited</a>.
           </div>
         )}
+        </div>
       </Acc>
 
       <Acc id="deal" title="Deal"
@@ -1423,7 +1425,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
       <Acc id="rep" title="Rep contact"
         summary={(() => {
           const n = draft.rep_name?.trim() || deal.rep_name?.trim();
-          return n || "";
+          return n || "Not added";
         })()}>
         <Row label="Name" field="rep_name"><DealInput inputRef={bindRef("rep_name")} value={draft.rep_name} onCommit={() => onFieldBlur("rep_name")} className={inputCls} placeholder="Contact name" /></Row>
         <Row label="Email" field="rep_email"><DealInput inputRef={bindRef("rep_email")} value={draft.rep_email} onCommit={() => onFieldBlur("rep_email")} className={inputCls} placeholder="rep@brand.com" /></Row>
@@ -1439,11 +1441,11 @@ function dragStatusLabel(s: string | null): string {
   return "Active";
 }
 
-/** Payment accordion collapsed summary, e.g. "$4,800, upfront + balance". */
+/** Payment accordion collapsed summary, e.g. "$10,500, all at once". */
 function headerSummary(struct: StructureStage, amount: number | null): string {
   const kind = struct.payment_structure;
-  if (!kind) return amount != null ? fmtMoney2(amount) : "Not set";
-  const base = amount != null ? fmtMoney2(amount) : "";
+  if (!kind) return amount != null ? fmtMoneyComma(amount) : "Not set";
+  const base = amount != null ? fmtMoneyComma(amount) : "";
   let suffix = "";
   if (kind === "split") suffix = "upfront + balance";
   else if (kind === "parts") suffix = "in parts";
@@ -1451,9 +1453,8 @@ function headerSummary(struct: StructureStage, amount: number | null): string {
   else if (kind === "once") suffix = "all at once";
   return [base, suffix].filter(Boolean).join(", ") || "Not set";
 }
-function fmtMoney2(n: number): string {
-  const whole = Math.round(n * 100) / 100;
-  return Number.isInteger(whole) ? `$${whole}` : `$${whole.toFixed(2)}`;
+function fmtMoneyComma(n: number): string {
+  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 /** Invoice action row: upload from the Payment section. No file -> "Add
@@ -1572,34 +1573,36 @@ function RowMenuButton({ open, onToggle, current, onArchive, onDelete }: {
   );
 }
 
-/* ---------------- Post date cell (column + hover/tap popover) ----------------
-   Shows the next-unposted date (red when that date is past), a muted progress
-   line for 2+ dates, and opens a popover listing every post on hover (desktop)
-   or tap (mobile). The popover also lets you mark a post as posted/delivered —
-   there is no other UI that sets content.status='published', so without it the
-   "All posted" state could never be reached. */
+/* ---------------- Post date cell (column + hover card) ----------------
+   Shows the next-unposted date (red when past), plus a dotted-underline count
+   line ("0 of 2 posted") ONLY when a deal has more than one post. The count
+   line is the sole hover/tap trigger for a READ ONLY card listing each post.
+   Single-post deals show just the date (no card). All changes happen in the
+   deal drawer. */
 function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
-  const supabase = createClient();
   const cell = deal.post_cell;
-  const trgRef = useRef<HTMLDivElement | null>(null);
+  const trgRef = useRef<HTMLSpanElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ x: number; y: number; up: boolean } | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const stay = useRef(false);
 
-  // Position the portal'd popover when opened, based on the cell's rect.
+  // Count line is the ONLY trigger, and only when there is more than one post.
+  const showCount = !!cell?.line2 && (cell?.totalCount ?? 0) > 1;
+
+  // Position the portal'd popover below-left of the hovered COUNT text, 8px gap,
+  // anchored to its left edge; flip above only when there's no room below.
   useEffect(() => {
     if (!open || !trgRef.current) return;
     const r = trgRef.current.getBoundingClientRect();
     const W = 240;
     const rows = Math.max(1, (cell?.dates.length ?? 1));
-    const H = 34 + rows * 34 + 12;
+    const H = 34 + rows * 34 + 16;
     const spaceBelow = window.innerHeight - r.bottom - 8;
-    // Prefer below the hovered cell; flip above only when there's no room.
     const up = spaceBelow < H && r.top > H + 8;
-    const x = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
-    const y = up ? r.top - H - 4 : r.bottom + 4;
-    setPos({ x, y, up });
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
+    const top = up ? r.top - H - 8 : r.bottom + 8;
+    setPos({ x: left, y: top });
   }, [open, cell?.dates.length]);
 
   // Close on outside click / touch or Escape.
@@ -1621,40 +1624,30 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
     };
   }, [open]);
 
-  const togglePosted = async (row: PostDate) => {
-    if (!row.id) return;
-    const next = row.posted ? "planned" : "published";
-    await supabase.from("content").update({ status: next }).eq("id", row.id);
-    setOpen(false);
-    onChanged();
-  };
-
-  // Note: hover card is READ ONLY (spec 6b). Posted state is edited in the
-  // deal drawer's Post dates, not from this popover.
+  // Hover card is READ ONLY (spec 6b). Posted state is edited in the deal
+  // drawer's Post dates, not from this popover.
 
   const notSet = <span className="text-inksoft">—</span>;
   const top = cell && cell.next ? cell.next : null;
 
-  const line2El = cell?.line2 ? (
-    <span className={cn("absolute left-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2", cell.line2.kind === "all" ? "text-ok" : "text-inksoft/70")}>{cell.line2.text}</span>
-  ) : null;
-
   return (
-    <div
-      ref={trgRef}
-      role="button"
-      aria-haspopup="dialog"
-      tabIndex={0}
-      onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
-      onMouseEnter={() => { stay.current = true; setOpen(true); }}
-      onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
-      className="d-post relative cursor-pointer select-none"
-    >
+    <div className="d-post relative select-none">
       <span className={cn("inline-block leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
         {top ? formatDate(top) : notSet}
-        {line2El}
       </span>
+      {showCount && (
+        <span
+          ref={trgRef}
+          role="button"
+          aria-haspopup="dialog"
+          tabIndex={0}
+          onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
+          onMouseEnter={() => { stay.current = true; setOpen(true); }}
+          onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
+          className={cn("block text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
+        >{cell!.line2!.text}</span>
+      )}
       {open && pos && createPortal(
         <div
           ref={popRef}
@@ -1683,32 +1676,36 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
   );
 }
 
-/* ---------------- Pay-by cell (column + hover/tap popover) ----------------
-   Mirrors PostDateCell for payments: shows the next-unpaid payment's date (red
-   when past due), a muted "N of M paid"/"All paid" second line for 2+ payments,
-   and opens a popover listing each payment (amount, due date, status) sorted by
-   date, with a control to mark it paid. Single-payment deals show only the date. */
+/* ---------------- Pay-by cell (column + hover card) ----------------
+   Mirrors PostDateCell: shows the next-unpaid payment's date (red when past
+   due), plus a dotted-underline count line ("0 of 2 paid" / "Month 3 of 6")
+   ONLY when a deal has more than one payment. The count line is the sole
+   hover/tap trigger for a READ ONLY card listing each payment (amount, due,
+   status via the shared function). Single-payment deals show just the date. */
 function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
-  const supabase = createClient();
   const cell = deal.pay_cell;
-  const trgRef = useRef<HTMLDivElement | null>(null);
+  const trgRef = useRef<HTMLSpanElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ x: number; y: number; up: boolean } | null>(null);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const stay = useRef(false);
 
+  // Count line is the ONLY trigger, and only when there is more than one payment.
+  const showCount = !!cell?.line2 && (cell?.totalCount ?? 0) > 1;
+
+  // Position the portal'd popover below-left of the hovered COUNT text, 8px gap,
+  // anchored to its left edge; flip above only when there's no room below.
   useEffect(() => {
     if (!open || !trgRef.current) return;
     const r = trgRef.current.getBoundingClientRect();
-    const W = 260;
+    const W = 272;
     const rows = Math.max(1, (cell?.payments.length ?? 1));
-    const H = 34 + rows * 36 + 12;
+    const H = 34 + rows * 36 + 16;
     const spaceBelow = window.innerHeight - r.bottom - 8;
-    // Prefer below the hovered cell; flip above only when there's no room.
     const up = spaceBelow < H && r.top > H + 8;
-    const x = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
-    const y = up ? r.top - H - 4 : r.bottom + 4;
-    setPos({ x, y, up });
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8));
+    const top = up ? r.top - H - 8 : r.bottom + 8;
+    setPos({ x: left, y: top });
   }, [open, cell?.payments.length]);
 
   useEffect(() => {
@@ -1729,35 +1726,36 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
     };
   }, [open]);
 
-  const togglePaid = async (row: PaymentRow) => {
-    const next = row.pay_status === "paid" ? (row.invoice_state === "invoiced" ? "invoiced" : "not_invoiced") : "paid";
-    await supabase.from("payments").update({ pay_status: next }).eq("id", row.id);
-    setOpen(false);
-    onChanged();
-  };
+  // Hover card is READ ONLY (spec 6b). Payment state is edited in the deal
+  // drawer, not from this popover. Status pill uses the shared function so the
+  // drawer and table can never disagree (Overdue matches the Payments page).
 
   const top = cell?.next_payby ? cell.next_payby : null;
   const notSet = <span className="text-inksoft">—</span>;
-  const payStatusOf = (r: PaymentRow) => paymentStatusView({ pay_status: r.pay_status ?? null, status: r.status ?? null, expected_date: r.expected_date ?? null, amount: r.amount ?? null }).label;
+  const payViewOf = (r: PaymentRow) => paymentStatusView({ pay_status: r.pay_status ?? null, status: r.status ?? null, expected_date: r.expected_date ?? null, amount: r.amount ?? null });
+  const pillOf = (r: PaymentRow) => {
+    const v = payViewOf(r);
+    return <StatusPill size="sm" kind={v.pillKind === "late" ? "late" : v.pillKind === "paid" ? "paid" : v.pillKind === "neutral" ? "neutral" : "due"}>{v.label}</StatusPill>;
+  };
 
   return (
-    <div
-      ref={trgRef}
-      role="button"
-      aria-haspopup="dialog"
-      tabIndex={0}
-      onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
-      onMouseEnter={() => { stay.current = true; setOpen(true); }}
-      onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
-      className="d-payby relative cursor-pointer select-none"
-    >
+    <div className="d-payby relative select-none">
       <span className={cn("inline-block leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
         {top ? formatDate(top) : notSet}
-        {cell?.line2 && (
-          <span className={cn("absolute left-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2", cell.line2.kind === "all" ? "text-ok" : "text-inksoft/70")}>{cell.line2.text}</span>
-        )}
       </span>
+      {showCount && (
+        <span
+          ref={trgRef}
+          role="button"
+          aria-haspopup="dialog"
+          tabIndex={0}
+          onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
+          onMouseEnter={() => { stay.current = true; setOpen(true); }}
+          onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
+          className={cn("block text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
+        >{cell!.line2!.text}</span>
+      )}
       {open && pos && createPortal(
         <div
           ref={popRef}
@@ -1776,7 +1774,7 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
               <span className="w-12 flex-none text-right tabular-nums text-[12px] text-ink">{p.amount != null ? formatMoney(p.amount) : ""}</span>
               <span className="text-[12px] text-inksoft tabular-nums">{p.expected_date ? formatDate(p.expected_date) : "Not set"}</span>
               <span className="flex-1" />
-              <StatusPill size="sm" kind={p.pay_status === "paid" ? "paid" : p.pay_status === "invoiced" ? "due" : "neutral"}>{payStatusOf(p)}</StatusPill>
+              {pillOf(p)}
             </div>
           ))}
           <div className="px-3 pt-2 pb-0.5 text-[11.5px] text-inksoft border-t border-line mt-1.5">Open the deal to make changes.</div>
