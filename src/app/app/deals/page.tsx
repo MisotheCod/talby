@@ -82,7 +82,7 @@ export default function DealsPage() {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
   const celeb = useCelebration();
-  const [view, setView] = useState<"list" | "board">("list");
+  const [view] = useState<"list">("list");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"newest" | "brand" | "value_high" | "value_low" | "pay_by">("newest");
   const [page, setPage] = useState(1);
@@ -94,12 +94,20 @@ export default function DealsPage() {
 
   const loadDeals = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    const [d, pays, content] = await Promise.all([
+    const [d, pays, content, ex] = await Promise.all([
       supabase.from("deals").select("*").order("created_at", { ascending: false }),
       user ? supabase.from("payments").select("id, expected_date, status, deal_id, invoice_state, pay_status, amount, notes").eq("user_id", user.id).order("expected_date", { ascending: true }) : { data: [] },
       supabase.from("content").select("id, event_date, title, post_type, status, linked_deal_id").not("linked_deal_id", "is", null),
+      user ? supabase.from("deal_extras").select("id, deal_id, kind, amount, condition, rate, on_text, earned") : { data: [] },
     ]);
     const deals = (d.data ?? []) as unknown as Deal[];
+    const extrasRows = (ex.data ?? []) as unknown as { id: string; deal_id: string; kind: "bonus" | "commission"; amount: number | null; condition: string | null; rate: number | null; on_text: string | null; earned: boolean }[];
+    const extrasByDeal = new Map<string, DealExtra[]>();
+    for (const e of extrasRows) {
+      const arr = extrasByDeal.get(e.deal_id) ?? [];
+      arr.push({ id: e.id, kind: e.kind, amount: e.amount, condition: e.condition, rate: e.rate, on_text: e.on_text, earned: e.earned });
+      extrasByDeal.set(e.deal_id, arr);
+    }
     // Post dates live in content rows (event_date + title=label + post_type=kind).
     // Group them by linked deal so each deal's dates + next date are derived.
     const postsByDeal = new Map<string, ContentPost[]>();
@@ -138,6 +146,7 @@ export default function DealsPage() {
     }
     setDeals(deals.map((deal) => ({
       ...deal,
+      extras: extrasByDeal.get(deal.id) ?? [],
       // post_date is a stored, editable column now — it is NOT derived from
       // content anymore. The Deals table, the drawer, and the calendar must all
       // read deals.post_date (the same field) so editing one surface is seen
@@ -330,10 +339,6 @@ export default function DealsPage() {
             <option value="value_low">Value: low</option>
             <option value="pay_by">Pay by date</option>
           </Select>
-          <div className="flex items-center gap-1 p-1 rounded-xl border border-line2 bg-card">
-            <button onClick={() => setView("list")} aria-label="List view" className={cn("h-9 px-2.5 rounded-lg grid place-items-center cursor-pointer text-inksoft", view === "list" && "bg-card2 text-ink border border-line")}><IconList size={17} /></button>
-            <button onClick={() => setView("board")} aria-label="Board view" className={cn("h-9 px-2.5 rounded-lg grid place-items-center cursor-pointer text-inksoft", view === "board" && "bg-card2 text-ink border border-line")}><IconGrid size={17} /></button>
-          </div>
         </div>
       </div>
 
@@ -388,8 +393,6 @@ export default function DealsPage() {
           <p className="text-sm text-inksoft">No deals match this filter.</p>
           <Button variant="secondary" onClick={() => setFilter("All")}>View all deals</Button>
         </div>
-      ) : view === "board" ? (
-        <DealBoard deals={visible} onOpen={(id) => setSelectedId(id)} onChanged={onUpdated} />
       ) : (
         <>
           <div className="panel overflow-hidden">
@@ -427,7 +430,16 @@ export default function DealsPage() {
                   </span>
                   <PostDateCell deal={d} onChanged={onUpdated} />
                   <PayByCell deal={d} onChanged={onUpdated} />
-                  <span className="d-amount money text-sm font-medium tabular-nums text-right">{formatMoney(d.value)}</span>
+                  <span className="d-amount relative text-right">
+                  <span className="money text-sm font-medium tabular-nums">{formatMoney(d.value)}</span>
+                  {(d.payment_structure === "monthly" || (d.extras?.length ?? 0) > 0) && (
+                    <span className="block absolute left-0 right-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap text-inksoft/70 text-right">
+                      {d.payment_structure === "monthly" && d.structure_months && d.value != null
+                        ? `${formatMoney(d.value / d.structure_months)} a month`
+                        : (d.extras ?? []).map((e) => e.kind === "bonus" ? `+ ${formatMoney(e.amount ?? 0)} bonus` : `+ ${e.rate ?? 0}% commission`).join(", ")}
+                    </span>
+                  )}
+                </span>
                   {/* Dedicated overflow-menu column: one button, its own grid area. The dropdown
                       itself renders in a portal to escape the table's overflow. */}
                   <span className="d-menu relative">
@@ -549,73 +561,6 @@ function NotSet() {
 function filterLabel(filter: (typeof FILTERS)[number]): string {
   if (filter === "Active" || filter === "All") return "booked";
   return filter.toLowerCase();
-}
-
-/* ---------------- Deal Board (kanban) ---------------- */
-const BOARD_COLS: { id: string; label: string; match: (d: Deal) => boolean }[] = [
-  { id: "pipeline", label: "Negotiating", match: (d) => d.status === "pipeline" },
-  { id: "active", label: "Active", match: (d) => d.active && d.status !== "pipeline" && d.status !== "archived" && (d.pay_rollup?.status ?? "not_invoiced") !== "paid" },
-  { id: "paid", label: "Paid", match: (d) => (d.pay_rollup?.status ?? "not_invoiced") === "paid" },
-  { id: "archived", label: "Archived", match: (d) => d.status === "archived" },
-];
-
-function DealBoard({ deals, onOpen, onChanged }: { deals: Deal[]; onOpen: (id: string) => void; onChanged: () => void }) {
-  const supabase = createClient();
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overCol, setOverCol] = useState<string | null>(null);
-
-  const moveTo = async (col: string) => {
-    if (!dragId) return;
-    const target = BOARD_COLS.find((c) => c.id === col);
-    if (target) {
-      const patch: Record<string, unknown> = {};
-      if (col === "pipeline") { patch.status = "pipeline"; patch.active = false; }
-      else if (col === "archived") { patch.status = "archived"; patch.active = false; }
-      else if (col === "paid") { patch.status = "active"; patch.active = true; }
-      else { patch.status = "active"; patch.active = true; }
-      await supabase.from("deals").update(patch).eq("id", dragId);
-      onChanged();
-    }
-    setDragId(null); setOverCol(null);
-  };
-
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {BOARD_COLS.map((col) => (
-        <div
-          key={col.id}
-          onDragOver={(e) => { e.preventDefault(); setOverCol(col.id); }}
-          onDragLeave={() => setOverCol((c) => (c === col.id ? null : c))}
-          onDrop={() => moveTo(col.id)}
-          className={cn("panel p-3 flex flex-col gap-2 min-h-[140px]", overCol === col.id && "ring-2 ring-[var(--accent)]/40")}
-        >
-          <div className="flex items-center justify-between px-1">
-            <span className="text-sm font-semibold">{col.label}</span>
-            <span className="text-xs text-inksoft">{deals.filter(col.match).length}</span>
-          </div>
-          {deals.filter(col.match).length === 0 && <p className="text-xs text-inkfaint px-1 py-4 text-center">Drop a deal here.</p>}
-          {deals.filter(col.match).map((d) => (
-            <div
-              key={d.id}
-              draggable
-              onDragStart={() => setDragId(d.id)}
-              onDragEnd={() => { setDragId(null); setOverCol(null); }}
-              className={cn("border border-line rounded-lg p-3 bg-card cursor-grab active:cursor-grabbing", dragId === d.id && "opacity-40")}
-            >
-              <button onClick={() => onOpen(d.id)} className="block w-full text-left cursor-pointer">
-                <div className="text-sm font-semibold truncate">{d.brand}</div>
-                <div className="text-xs text-inkfaint mt-0.5 truncate">{d.deliverable || "No deliverable"}</div>
-              </button>
-              <div className="flex items-center justify-between mt-2">
-                <span className="money text-sm font-medium">{formatMoney(d.value)}</span>
-                <span className="flex items-center gap-1.5"><DealStatusBadge status={d.status} active={d.active} />{paymentPill(d)}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
 }
 
 /* ---------------- New Deal Modal ---------------- */
@@ -1684,8 +1629,15 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
     onChanged();
   };
 
+  // Note: hover card is READ ONLY (spec 6b). Posted state is edited in the
+  // deal drawer's Post dates, not from this popover.
+
   const notSet = <span className="text-inksoft">—</span>;
   const top = cell && cell.next ? cell.next : null;
+
+  const line2El = cell?.line2 ? (
+    <span className={cn("absolute left-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2", cell.line2.kind === "all" ? "text-ok" : "text-inksoft/70")}>{cell.line2.text}</span>
+  ) : null;
 
   return (
     <div
@@ -1701,9 +1653,7 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
     >
       <span className={cn("inline-block leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
         {top ? formatDate(top) : notSet}
-        {cell?.line2 && (
-          <span className={cn("absolute left-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap", cell.line2.kind === "all" ? "text-ok" : "text-inksoft/70")}>{cell.line2.text}</span>
-        )}
+        {line2El}
       </span>
       {open && pos && createPortal(
         <div
@@ -1719,20 +1669,13 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
           <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-inkfaint">{deal.brand} — posts</div>
           {(cell?.dates ?? []).length === 0 && <div className="px-3 py-2 text-[12px] text-inksoft">No post dates.</div>}
           {(cell?.dates ?? []).map((d) => (
-            <button
-              key={d.id ?? d.date}
-              type="button"
-              onClick={() => void togglePosted(d)}
-              title={d.posted ? "Mark as not posted" : "Mark as posted"}
-              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-card2 cursor-pointer text-left"
-            >
+            <div key={d.id ?? d.date} className="flex items-center gap-2 px-3 py-1.5 text-left">
               <span className="min-w-[70px] tabular-nums text-[12px] text-ink">{formatDate(d.date)}</span>
               <span className="flex-1 min-w-0 truncate text-[12px] text-inksoft">{d.label || (d.kind || "Post")}</span>
-              <span className={cn("w-4 h-4 rounded-[5px] border flex-none flex items-center justify-center", d.posted ? "bg-ok text-onaccent border-transparent" : "border-line2 text-transparent")}>
-                <IconCheck size={12} />
-              </span>
-            </button>
+              <StatusPill size="sm" kind={d.posted ? "paid" : "neutral"}>{d.posted ? "Posted" : "Not posted"}</StatusPill>
+            </div>
           ))}
+          <div className="px-3 pt-2 pb-0.5 text-[11.5px] text-inksoft border-t border-line mt-1.5">Open the deal to make changes.</div>
         </div>,
         document.body
       )}
@@ -1812,7 +1755,7 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
       <span className={cn("inline-block leading-none text-[12.5px] tabular-nums whitespace-nowrap", top && cell?.overdue ? "text-late font-medium" : "text-inksoft")}>
         {top ? formatDate(top) : notSet}
         {cell?.line2 && (
-          <span className={cn("absolute left-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap", cell.line2.kind === "all" ? "text-ok" : "text-inksoft/70")}>{cell.line2.text}</span>
+          <span className={cn("absolute left-0 top-[22px] text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2", cell.line2.kind === "all" ? "text-ok" : "text-inksoft/70")}>{cell.line2.text}</span>
         )}
       </span>
       {open && pos && createPortal(
@@ -1829,21 +1772,14 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
           <div className="px-3 pt-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wide text-inkfaint">{deal.brand} — payments</div>
           {(cell?.payments ?? []).length === 0 && <div className="px-3 py-2 text-[12px] text-inksoft">No payments yet.</div>}
           {(cell?.payments ?? []).map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => void togglePaid(p)}
-              title={p.pay_status === "paid" ? "Mark as unpaid" : "Mark as paid"}
-              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-card2 cursor-pointer text-left"
-            >
+            <div key={p.id} className="flex items-center gap-2 px-3 py-1.5 text-left">
               <span className="w-12 flex-none text-right tabular-nums text-[12px] text-ink">{p.amount != null ? formatMoney(p.amount) : ""}</span>
               <span className="text-[12px] text-inksoft tabular-nums">{p.expected_date ? formatDate(p.expected_date) : "Not set"}</span>
-              <span className="flex-none text-[11px] text-inksoft/80">{payStatusOf(p)}</span>
-              <span className={cn("w-4 h-4 rounded-[5px] border flex-none flex items-center justify-center", p.pay_status === "paid" ? "bg-ok text-onaccent border-transparent" : "border-line2 text-transparent")}>
-                <IconCheck size={12} />
-              </span>
-            </button>
+              <span className="flex-1" />
+              <StatusPill size="sm" kind={p.pay_status === "paid" ? "paid" : p.pay_status === "invoiced" ? "due" : "neutral"}>{payStatusOf(p)}</StatusPill>
+            </div>
           ))}
+          <div className="px-3 pt-2 pb-0.5 text-[11.5px] text-inksoft border-t border-line mt-1.5">Open the deal to make changes.</div>
         </div>,
         document.body
       )}
