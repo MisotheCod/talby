@@ -1040,7 +1040,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
 
   return (
     <div className="fixed inset-0 z-[85] bg-black/20" onClick={requestClose} role="presentation">
-      <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
+      <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card2 border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
         {/* Header: logo, brand, amount + due, ⋯ menu, close */}
         <header className="px-5 py-4 border-b border-line">
           <div className="flex items-center gap-3">
@@ -1205,14 +1205,19 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     const open = openAcc === id;
     return (
       <div className="rounded-xl border border-line2 bg-card overflow-hidden">
-        <button type="button" onClick={() => setOpenAcc(open ? null : id)} aria-expanded={open} className="w-full flex items-center justify-between gap-2 px-5 py-3 text-left cursor-pointer">
-          <span className="text-[13px] font-semibold text-ink">{title}</span>
+        <button type="button" onClick={() => setOpenAcc(open ? null : id)} aria-expanded={open} className="w-full flex min-h-[56px] h-14 items-center justify-between gap-2 px-5 bg-card2 text-left cursor-pointer">
+          <span className="text-[13.5px] font-semibold text-ink">{title}</span>
           <span className="flex items-center gap-1.5 min-w-0">
             {!open && summary && <span className="truncate text-[11.5px] text-inksoft">{summary}</span>}
-            <span className={cn("text-inksoft transition-transform", open && "rotate-180")}><IconDown size={14} /></span>
+            <span className={cn("text-inksoft transition-transform shrink-0", open && "rotate-180")}><IconDown size={14} /></span>
           </span>
         </button>
-        {open && <div className="px-5 pt-2 pb-6">{children}</div>}
+        {open && (
+          <>
+            <div className="h-px bg-line" />
+            <div className="px-5 pt-2 pb-6">{children}</div>
+          </>
+        )}
       </div>
     );
   };
@@ -1220,24 +1225,20 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   const Row = ({ label, field, children }: { label: string; field: DraftField; children: React.ReactNode }) => {
     const dirty = isDirty(field);
     return (
-      <div className={cn("flex items-center gap-4 min-h-[56px] py-3 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
+      <div className={cn("relative flex items-center gap-4 min-h-[56px] py-3 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
         <span className="w-[120px] flex-none text-[12.5px] font-medium text-ink">{label}</span>
-        <div className="flex-1 min-w-0">{children}</div>
-        {/* Reserved, fixed-width trailing slot so the row never reflows when the
-            undo button appears. The button toggles opacity, not mount. */}
-        <span className="w-7 flex-none flex items-center justify-center">
+        <div className="flex-1 min-w-0 w-full">{children}</div>
+        {/* Undo overlay, only when dirty, so it never reserves width and inputs
+            always stretch to the card's right padding. */}
+        {dirty && (
           <button
             onClick={() => undo(field)}
             aria-label={`Revert ${label}`}
             title="Revert change"
-            tabIndex={dirty ? 0 : -1}
-            aria-hidden={!dirty}
-            className={cn(
-              "p-1 rounded-md text-inksoft hover:text-ink hover:bg-card2 cursor-pointer transition-opacity",
-              dirty ? "opacity-100" : "opacity-0 pointer-events-none"
-            )}
+            tabIndex={0}
+            className="absolute right-0 top-1/2 -translate-y-1/2 p-1 rounded-md text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"
           ><IconUndo size={16} /></button>
-        </span>
+        )}
       </div>
     );
   };
@@ -1246,28 +1247,22 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   // when dirty, an optional undo reverts the staged payment change to the
   // snapshot taken at load/save.
   const PRow = ({ label, children, onUndo, dirty }: { label: string; children: React.ReactNode; onUndo?: () => void; dirty?: boolean }) => (
-    <div className={cn("flex items-center gap-4 min-h-[56px] py-3 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
+    <div className={cn("relative flex items-center gap-4 min-h-[56px] py-3 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
       <span className="w-[120px] flex-none text-[12.5px] font-medium text-ink">{label}</span>
-      <div className="flex-1 min-w-0">{children}</div>
-      <span className="w-7 flex-none flex items-center justify-center">
-        {onUndo && (
-          <button
-            type="button"
-            onClick={onUndo}
-            aria-label={`Revert ${label}`}
-            title="Revert change"
-            tabIndex={dirty ? 0 : -1}
-            aria-hidden={!dirty}
-            className={cn(
-              "p-1 rounded-md text-inksoft hover:text-ink hover:bg-card2 cursor-pointer transition-opacity",
-              dirty ? "opacity-100" : "opacity-0 pointer-events-none"
-            )}
-          ><IconUndo size={16} /></button>
-        )}
-      </span>
+      <div className="flex-1 min-w-0 w-full">{children}</div>
+      {dirty && onUndo && (
+        <button
+          type="button"
+          onClick={onUndo}
+          aria-label={`Revert ${label}`}
+          title="Revert change"
+          tabIndex={0}
+          className="absolute right-0 top-1/2 -translate-y-1/2 p-1 rounded-md text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"
+        ><IconUndo size={16} /></button>
+      )}
     </div>
   );
-  const inputCls = "w-full bg-card border border-line2 rounded-lg px-3 h-11 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
+  const inputCls = "w-full bg-card border border-line2 rounded-lg px-2.5 h-9 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
   const selectCls = `${inputCls} cursor-pointer chevron-select`;
 
   // Deal-level pay status: single control that sets the deal's payment status.

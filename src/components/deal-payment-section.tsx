@@ -20,7 +20,7 @@ import {
   type PaymentStructureKind, type DealExtra,
 } from "@/lib/pay-status";
 import { DealInput } from "@/components/deal-input";
-import { IconPlus, IconDelete } from "@/components/icons";
+import { IconPlus } from "@/components/icons";
 
 type EditorPayment = {
   id: string;
@@ -57,10 +57,10 @@ const PAYS = [
   ["no_invoice_needed", "No invoice needed"],
 ] as const;
 
-// Bordered input matching the New deal modal's fields: 1px line2 border,
-// 8px radius, 44px (h-11) tall. NOT the drawer's old borderless inline style.
+// Drawer input/select base: 1px line2 border, 8px radius, 36px (h-9) tall,
+// 14px (text-sm) text, 10px horizontal padding.
 export const drawerFieldCls =
-  "w-full bg-card border border-line2 rounded-lg px-3 h-11 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
+  "w-full bg-card border border-line2 rounded-lg px-2.5 h-9 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
 // Selects get the same field look plus our custom chevron arrow (native hidden).
 const selectFieldCls = `${drawerFieldCls} cursor-pointer chevron-select`;
 
@@ -128,6 +128,7 @@ export function DealPaymentSection({
   dealStatus: string | null;
 }) {
   const [openRow, setOpenRow] = useState<string | null>(null);
+  const [openExtra, setOpenExtra] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [exType, setExType] = useState<"bonus" | "commission">("bonus");
   const [exAmt, setExAmt] = useState("");
@@ -273,20 +274,38 @@ export function DealPaymentSection({
         </div>
       )}
 
-      {/* Extras */}
+      {/* Extras — one row per bonus/commission, matching the payment-row rhythm:
+        label ("Bonus"/"Commission") with the condition below it in smaller gray
+        text on the left; amount + earned pill on the right. Tapping opens the
+        row to reveal "Mark as earned" and "Remove", like a payment's edit state. */}
       {extras.map((e) => {
-        const extraLabel = e.kind === "bonus"
-          ? `Bonus${e.amount != null ? ` · ${fmtMoney(e.amount)}` : ""}${e.condition ? ` · ${e.condition}` : ""}`
-          : `Commission${e.rate != null ? ` · ${e.rate}%` : ""}${e.on_text ? ` · ${e.on_text}` : ""}`;
+        const isOpen = openExtra === e.id;
+        const head = e.kind === "bonus" ? "Bonus" : "Commission";
+        const line2 = e.kind === "bonus"
+          ? (e.condition ? `If ${e.condition}` : null)
+          : (e.on_text ? `On ${e.on_text}` : (e.rate != null ? `${e.rate}%` : null));
+        const amountLabel = e.kind === "bonus"
+          ? (e.amount != null ? fmtMoney(e.amount) : "")
+          : (e.rate != null ? `${e.rate}%` : "");
         return (
-          <div key={e.id} className={cn(payRowCls, "border-b border-dashed border-line")}>
-            <span className={cn(labelCls, "truncate")}>{e.kind === "bonus" ? "Bonus" : "Commission"}</span>
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="flex-1 min-w-0 text-[12.5px] text-ink truncate">{extraLabel}</span>
-              {e.earned ? <span className="pill pill-paid shrink-0">Earned</span> : <span className="pill pill-pipe shrink-0">Not earned</span>}
-              <button type="button" onClick={() => markEarned(e.id)} className="text-[12px] text-accent hover:underline cursor-pointer shrink-0">Mark as earned</button>
-              <button type="button" onClick={() => removeExtra(e.id)} aria-label="Remove extra" className="shrink-0 p-1 text-inksoft hover:text-late cursor-pointer"><IconDelete size={14} /></button>
+          <div key={e.id} className={cn("divide-y divide-line", isOpen && "bg-card2/40")}>
+            <div className={payRowCls}>
+              <span className={cn(labelCls, "truncate")}>{head}</span>
+              <button type="button" onClick={() => setOpenExtra(isOpen ? null : e.id)} className="w-full flex items-center gap-2 justify-end text-left cursor-pointer min-h-[64px]">
+                <span className="flex-1 min-w-0 text-[12.5px] text-inksoft truncate">{line2}</span>
+                <span className="shrink-0 money text-[13px] font-medium tabular-nums">{amountLabel}</span>
+                {e.earned ? <span className="pill pill-paid shrink-0">Earned</span> : <span className="pill pill-pipe shrink-0">Not earned</span>}
+              </button>
             </div>
+            {isOpen && (
+              <div className="grid grid-cols-[120px_1fr] gap-4 items-center py-2">
+                <span />
+                <div className="flex items-center gap-2 justify-end">
+                  <button type="button" onClick={() => markEarned(e.id)} className="text-[12.5px] text-accent hover:underline cursor-pointer">Mark as earned</button>
+                  <button type="button" onClick={() => { removeExtra(e.id); setOpenExtra(null); }} className="text-[12.5px] text-late hover:underline cursor-pointer">Remove</button>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
