@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
-import { paymentStatusView } from "@/lib/pay-status";
-import { IconPlus, IconMore, IconCheck } from "@/components/icons";
+import { paymentStatusView, paymentStructureLabel } from "@/lib/pay-status";
+import { IconPlus, IconMore, IconCheck, IconDown } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 import { IncomeSummary } from "./income-summary";
 
@@ -20,6 +20,12 @@ type Payment = {
 type Deal = {
   id: string; brand: string; value: number | null; deal_type: string | null;
   created_at: string; active: boolean; status: string; deliverable: string | null;
+  payment_structure?: "once" | "split" | "parts" | "monthly" | null;
+};
+type ExtraRow = {
+  id: string; kind: "bonus" | "commission"; amount: number | null;
+  condition: string | null; rate: number | null; on_text: string | null;
+  earned: boolean; deal?: { brand: string } | null;
 };
 type Range = "month" | "quarter" | "year" | "all";
 const RANGES: Range[] = ["month", "quarter", "year", "all"];
@@ -64,9 +70,10 @@ export default function PaymentsPage() {
   const supabase = createClient();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [extras, setExtras] = useState<ExtraRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [listFilter, setListFilter] = useState<"All" | "Expected" | "Received" | "Not invoiced">("All");
+  const [listFilter, setListFilter] = useState<string>("Upcoming");
   const [view, setView] = useState<"Payments" | "Income summary">("Payments");
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [range, setRange] = useState<Range>("month");
@@ -91,12 +98,14 @@ export default function PaymentsPage() {
       const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
       setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
     }
-    const [p, d] = await Promise.all([
+    const [p, d, x] = await Promise.all([
       supabase.from("payments").select("*, deal:deals(brand, deliverable)").order("expected_date", { ascending: true }),
-      supabase.from("deals").select("id, brand, value, deal_type, created_at, active, status, deliverable").order("created_at", { ascending: true }),
+      supabase.from("deals").select("id, brand, value, deal_type, created_at, active, status, deliverable, payment_structure, structure_months").order("created_at", { ascending: true }),
+      supabase.from("deal_extras").select("*, deal:deals(brand)").order("created_at", { ascending: true }),
     ]);
     setPayments((p.data ?? []) as unknown as Payment[]);
     setDeals((d.data ?? []) as unknown as Deal[]);
+    setExtras((x.data ?? []) as unknown as ExtraRow[]);
     setLoading(false);
   }, [supabase]);
 
@@ -117,6 +126,30 @@ export default function PaymentsPage() {
 
   const expectedTotal = pending.reduce((s, p) => s + p.amount, 0);
   const expectedCount = pending.length;
+  const overdueCount = pending.filter((p) => rowsStatus(p) === "overdue").length;
+  const receivedTotal = received.reduce((s, p) => s + p.amount, 0);
+
+  /* Standard payment labels (spec 7d): a payment's label comes from its
+     deal's structure + its position among that deal's payments, ordered by due
+     date (upfront first for split). Built once from the loaded payments. */
+  const paymentLabels = useMemo(() => {
+    const byDeal: Record<string, Payment[]> = {};
+    for (const p of payments) {
+      const did = p.deal_id ?? "none";
+      if (!byDeal[did]) byDeal[did] = [];
+      byDeal[did].push(p);
+    }
+    const out: Record<string, string> = {};
+    for (const did in byDeal) {
+      const rows = byDeal[did].sort((a, b) => (a.expected_date ?? "").localeCompare(b.expected_date ?? ""));
+      const deal = deals.find((dv) => dv.id === did);
+      const kind = deal?.payment_structure ?? null;
+      rows.forEach((p, i) => {
+        out[p.id] = paymentStructureLabel(kind, i, rows.length);
+      });
+    }
+    return out;
+  }, [payments, deals]);
 
   const activeDeals = deals.filter((d) => d.active && d.status !== "archived" && d.brand?.trim());
   const dealValues = activeDeals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
@@ -210,48 +243,53 @@ export default function PaymentsPage() {
     return { busy: busyMonth, pitch: pitchMonth };
   }, [showTakeaway, dealsByMonth]);
 
-  /* ---------- coming up list ---------- */
+  /* ---------- coming up list (spec 7e/f) ---------- */
+  // Upcoming: every unpaid, oldest first (overdue on top). Overdue: only
+  // overdue. Received: paid, newest first. All: everything in date order.
   const listItems = (() => {
     const base = listFilter === "All" ? payments
-      : listFilter === "Expected" ? pending
+      : listFilter === "Upcoming" ? pending
       : listFilter === "Received" ? received
-      : payments.filter((p) => (p.pay_status ?? "not_invoiced") === "not_invoiced");
-    // Payments with NO expected date don't fit a month bucket — surface them in
-    // their own "Upcoming" group so they're never hidden.
-    const undated = base.filter((p) => !p.expected_date);
-    // Group the dated ones by month (expected_date)
+      : pending.filter((p) => rowsStatus(p) === "overdue");
+    const monthOf = (p: Payment) => (p.expected_date || "").slice(0, 7);
     const groups: Record<string, Payment[]> = {};
     for (const p of base) {
-      const m = (p.expected_date || "").slice(0, 7);
+      const m = monthOf(p);
       if (!m) continue;
       if (!groups[m]) groups[m] = [];
       groups[m].push(p);
     }
-    // Sort months most-recent-first for received, upcoming-first for expected
-    const months = Object.keys(groups).sort((a, b) => {
-      if (listFilter === "Received") return b.localeCompare(a);
-      // For All/Expected: expected first, then received at end
-      const aRecv = groups[a].every((p) => p.status === "received");
-      const bRecv = groups[b].every((p) => p.status === "received");
-      if (aRecv && !bRecv) return 1; if (!aRecv && bRecv) return -1;
-      return a.localeCompare(b);
-    });
+    // Months ALWAYS in date order (ascending). For Received we sort descending
+    // within the list but the grouping itself stays chronological.
+    const months = Object.keys(groups).sort((a, b) => a.localeCompare(b));
     const output = months.map((m) => ({
       month: m,
       label: fmtMonth(m),
       payments: groups[m].sort((a, b) => {
-        // Past due first, then by date
-        const sa = rowsStatus(a), sb = rowsStatus(b);
-        const aOverdue = sa === "overdue";
-        const bOverdue = sb === "overdue";
-        if (aOverdue && !bOverdue) return -1;
-        if (!aOverdue && bOverdue) return 1;
+        const ao = rowsStatus(a) === "overdue";
+        const bo = rowsStatus(b) === "overdue";
+        if (listFilter === "Received") return (b.expected_date || "").localeCompare(a.expected_date || "");
+        if (ao && !bo) return -1;
+        if (!ao && bo) return 1;
         return (a.expected_date || "").localeCompare(b.expected_date || "");
       }),
     }));
-    if (undated.length) output.unshift({ month: "upcoming", label: "Upcoming", payments: undated });
+    // Undated payments: surface in the Upcoming/All lists; below the dated groups.
+    const undated = base.filter((p) => !p.expected_date);
+    if (undated.length && (listFilter === "Upcoming" || listFilter === "All")) {
+      output.push({ month: "upcoming", label: "No due date", payments: undated });
+    }
     return output;
   })();
+
+  const listTitle = listFilter === "Overdue" ? "Overdue"
+    : listFilter === "Received" ? "Received"
+    : listFilter === "All" ? "All payments"
+    : "Coming up";
+  const listFooter = listFilter === "Received" ? `Total received ${formatMoney(receivedTotal)}`
+    : listFilter === "Overdue" || listFilter === "All" ? ""
+    : `Total expected ${formatMoney(expectedTotal)}`;
+  const listTotal = listFilter === "Received" ? receivedTotal : (listFilter === "All" ? null : expectedTotal);
 
   /* ---------- actions ---------- */
   const markReceived = async (id: string) => {
@@ -299,7 +337,7 @@ export default function PaymentsPage() {
         <StatCard label="Earned this year" value={formatMoney(receivedYtdTotal)} color="text-ok"
           trend={trendLine(receivedYtdTotal, receivedLastYtdTotal)} />
         <StatCard label="Expected" value={formatMoney(expectedTotal)} color="text-warn"
-          trend={`${expectedCount} payment${expectedCount === 1 ? "" : "s"}`} />
+          trend={`${expectedCount} payment${expectedCount === 1 ? "" : "s"}${overdueCount ? `, ${overdueCount} overdue` : ""}`} />
         <StatCard label="Avg deal value" value={avgDealValue ? formatMoney(avgDealValue) : "–"} color="text-ink"
           trend={priorAvg ? trendLine(avgDealValue || 0, priorAvg) : null} />
         <StatCard label="Best month" value={bestMonthName || "–"} color="text-ink"
@@ -343,18 +381,25 @@ export default function PaymentsPage() {
         </div>
       </div>
 
-      {/* === 4. Coming up list === */}
+      {/* === 4. Coming up list (spec 7c/e/g) === */}
       <div>
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-          <h2 className="font-semibold text-[15px]">Coming up</h2>
+          <h2 className="font-semibold text-[15px]">{listTitle}</h2>
           <div className="flex gap-1.5">
-            <Segmented options={(["All", "Expected", "Received", "Not invoiced"] as const)} value={listFilter} onChange={setListFilter} />
+            <Segmented options={(["Upcoming", "Overdue", "Received", "All"] as const)} value={listFilter} onChange={setListFilter} />
           </div>
         </div>
         {listItems.length === 0 ? (
-          <p className="text-sm text-muted text-center py-10">No payments yet.</p>
+          listFilter === "Overdue" ? <p className="text-sm text-muted text-center py-10">Nothing is overdue.</p>
+          : <p className="text-sm text-muted text-center py-10">No payments yet.</p>
         ) : (
-          <div className="space-y-6 pb-16 sm:pb-0">
+          <div className="space-y-6 pb-2 sm:pb-0">
+            {/* column header (not mobile) */}
+            {!isMobile && (
+              <div className="grid items-center gap-3 px-5 text-[11px] font-semibold uppercase tracking-wider text-muted" style={{ gridTemplateColumns: "3rem 1fr 6rem 1fr 1fr 1.5rem" }}>
+                <span>Date</span><span>Brand</span><span>Amount</span><span>Payment</span><span>Status</span><span />
+              </div>
+            )}
             {listItems.map((group) => (
               <div key={group.month}>
                 <div className={cn("text-xs font-semibold uppercase tracking-wider text-muted mb-2", isMobile ? "pl-4" : "")}>{group.label}</div>
@@ -364,12 +409,11 @@ export default function PaymentsPage() {
                     const isRecv = st === "paid";
                     const isPast = st === "overdue";
                     const day = p.expected_date ? Number(p.expected_date.slice(8)) : null;
+                    const payLabel = paymentLabels[p.id] ?? "Full payment";
                     return (
                       <div key={p.id}>
                         {isMobile ? (
-                          /* --- Mobile: stacked block ---
-                             Line 1: day · brand (full, no truncation) · menu · amount (bold mono, right)
-                             Line 2: status pills were built below, so the brand must not truncate. */
+                          /* --- Mobile: stacked block --- */
                           <div className="px-4 py-3">
                             <div className="flex items-center gap-2">
                               <span className={cn("w-7 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>
@@ -384,22 +428,18 @@ export default function PaymentsPage() {
                               {!isRecv && <div className="relative shrink-0">{(renderMenu())}</div>}
                             </div>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1.5 pl-9">
+                              <span className="text-[11px] text-inksoft w-full sm:w-auto">{payLabel}</span>
                               {renderStatusPills()}
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-3 px-5 py-3">
-                            <span className={cn("w-8 shrink-0 text-sm font-semibold tabular-nums text-center", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>
-                              {day ?? "–"}
-                            </span>
-                            <span className={cn("flex-1 min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>
-                              {p.deal?.brand ?? "Payment"}
-                            </span>
+                          <div className="grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: "3rem 1fr 6rem 1fr 1fr 1.5rem" }}>
+                            <span className={cn("text-sm font-semibold tabular-nums", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>{day ?? "–"}</span>
+                            <span className={cn("min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>{p.deal?.brand ?? "Payment"}</span>
+                            <span className={cn("money text-sm font-semibold tabular-nums", isRecv ? "text-ok" : "text-ink")}>{formatMoney(p.amount)}</span>
+                            <span className="text-xs text-inksoft">{payLabel}</span>
                             {renderStatusPills()}
-                            <span className={cn("shrink-0 text-sm font-semibold tabular-nums w-20 text-right", isRecv ? "text-ok" : "text-ink")}>
-                              {formatMoney(p.amount)}
-                            </span>
-                            {!isRecv && <div className="relative shrink-0">{(renderMenu())}</div>}
+                            {!isRecv && <div className="relative">{ (renderMenu()) }</div>}
                           </div>
                         )}
                       </div>
@@ -442,7 +482,16 @@ export default function PaymentsPage() {
             ))}
           </div>
         )}
+        {listFooter && listFilter !== "All" && (
+          <div className="mt-3 flex items-center justify-end gap-2 px-5 py-3 rounded-lg border border-line bg-card2/50 text-sm font-semibold">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Total</span>
+            <span className="money tabular-nums">{formatMoney(listTotal ?? 0)}</span>
+          </div>
+        )}
       </div>
+
+      {/* === 5. Extras (spec 7g): collapsed by default === */}
+      <ExtrasSection extras={extras} />
 
       {showAdd && (
         <AddPaymentModal deals={deals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
@@ -454,6 +503,64 @@ export default function PaymentsPage() {
 }
 
 /* ---------- sub-components ---------- */
+
+/** Extras section (spec 7g): collapsed to one line by default; opens to a
+ *  small table: Brand, Type, Paid if, Status, Amount. Unearned extras are not
+ *  counted in Expected until earned, so the collapsed line says so and shows
+ *  "up to $X more" for the unearned bonus total. */
+function ExtrasSection({ extras }: { extras: ExtraRow[] }) {
+  const [open, setOpen] = useState(false);
+  const bonuses = extras.filter((e) => e.kind === "bonus");
+  const commissions = extras.filter((e) => e.kind === "commission");
+  const unearnedBonusTotal = bonuses.filter((e) => !e.earned).reduce((s, e) => s + (e.amount ?? 0), 0);
+  if (extras.length === 0) return null;
+  const summary =
+    `${bonuses.length} bonus${bonuses.length === 1 ? "" : "s"} and ${commissions.length} commission${commissions.length === 1 ? "" : "s"}. Not counted in Expected until earned.`;
+  const more = unearnedBonusTotal > 0 ? formatMoney(unearnedBonusTotal) : null;
+  return (
+    <div className="card overflow-hidden">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="w-full flex items-center justify-between gap-2 px-5 py-3 text-left cursor-pointer">
+        <span className="text-sm font-semibold">Extras</span>
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="text-[11.5px] text-muted truncate">{summary}{more ? ` up to ${more} more` : ""}</span>
+          <span className={cn("text-muted transition-transform shrink-0", open && "rotate-180")}><IconDown size={14} /></span>
+        </span>
+      </button>
+      {open && (
+        <div className="px-5 pb-3">
+          {extras.length === 0 ? (
+            <p className="text-sm text-muted py-3">No bonuses or commissions yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+                    <th className="text-left py-1.5 pr-3">Brand</th>
+                    <th className="text-left py-1.5 pr-3">Type</th>
+                    <th className="text-left py-1.5 pr-3">Paid if</th>
+                    <th className="text-left py-1.5 pr-3">Status</th>
+                    <th className="text-right py-1.5">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {extras.map((e) => (
+                    <tr key={e.id}>
+                      <td className="py-2 pr-3 font-medium text-ink truncate max-w-40">{e.deal?.brand ?? "—"}</td>
+                      <td className="py-2 pr-3 capitalize text-inksoft">{e.kind}</td>
+                      <td className="py-2 pr-3 text-inksoft">{e.kind === "bonus" ? (e.condition ?? "—") : (e.rate != null ? `${e.rate}% on ${e.on_text ?? "sales"}` : "—")}</td>
+                      <td className="py-2 pr-3">{e.earned ? <StatusPill size="sm" kind="paid">Earned</StatusPill> : <StatusPill size="sm" kind="neutral">Not earned</StatusPill>}</td>
+                      <td className="py-2 text-right money tabular-nums">{e.kind === "bonus" && e.amount != null ? formatMoney(e.amount) : (e.rate != null ? `${e.rate}%` : "—")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({ label, value, color, trend }: { label: string; value: string; color: string; trend: string | null }) {
   return (
