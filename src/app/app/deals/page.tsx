@@ -9,7 +9,7 @@ import { startUnlimited } from "@/lib/start-unlimited";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, dealPaymentView, type DealExtra, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
 import { type EditorPayment } from "@/components/payment-editor";
-import { DealPaymentSection } from "@/components/deal-payment-section";
+import { DealPaymentSection, Sel } from "@/components/deal-payment-section";
 import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
 import { DealInput, DealTextarea } from "@/components/deal-input";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
@@ -430,10 +430,10 @@ export default function DealsPage() {
                   </span>
                   <PostDateCell deal={d} onChanged={onUpdated} />
                   <PayByCell deal={d} onChanged={onUpdated} />
-                  <span className="d-amount flex flex-col items-end">
+                  <span className="d-amount relative flex flex-col items-end">
                   <span className="inline-flex h-10 items-center"><span className="money text-sm font-medium leading-snug tabular-nums">{formatMoney(d.value)}</span></span>
                   {(d.payment_structure === "monthly" || (d.extras?.length ?? 0) > 0) && (
-                    <span className="mt-1 text-[10px] tabular-nums leading-none whitespace-nowrap text-inksoft/70">
+                    <span className="absolute right-0 top-[30px] text-[10px] tabular-nums leading-none whitespace-nowrap text-inksoft/70">
                       {d.payment_structure === "monthly" && d.structure_months && d.value != null
                         ? `${formatMoney(d.value / d.structure_months)} a month`
                         : (d.extras ?? []).map((e) => e.kind === "bonus" ? `+ ${formatMoney(e.amount ?? 0)} bonus` : `+ ${e.rate ?? 0}% commission`).join(", ")}
@@ -664,6 +664,11 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const pdNorm = (xs: PostDate[]) => JSON.stringify(xs.map((x) => `${x.id ?? ""}|${x.date}|${x.label}|${x.kind ?? ""}`));
 
   const paid = (dealPayRollup(payments as unknown as { pay_status: string | null; expected_date: string | null }[])).status === "paid";
+  // "Mark as paid" appears only when the deal has exactly one unpaid payment
+  // (a single-payment deal that isn't paid yet). Multi-payment deals (split,
+  // parts, monthly) and fully-paid deals hide it.
+  const unpaidCount = payments.filter((p) => (p.pay_status ?? "not_invoiced") !== "paid").length;
+  const showMarkPaid = unpaidCount === 1;
 
   // ---------- Explicit-save editing model ----------
   // All editable detail fields + notes stage into `draft` locally. Nothing
@@ -1040,7 +1045,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
 
   return (
     <div className="fixed inset-0 z-[85] bg-black/20" onClick={requestClose} role="presentation">
-      <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card2 border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
+      <div className="absolute right-0 top-0 bottom-0 w-full max-w-md bg-card border-l border-line shadow-pop drawer-in flex flex-col" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} role="dialog" aria-modal="true">
         {/* Header: logo, brand, amount + due, ⋯ menu, close */}
         <header className="px-5 py-4 border-b border-line">
           <div className="flex items-center gap-3">
@@ -1080,7 +1085,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4 bg-card2">
           {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} postDates={postDates} setPostDates={setPostDates} postDatesSaved={postDatesSaved} onUpdated={onUpdated} onEditDealAmountStaged={onEditDealAmount} struct={struct} setStruct={setStruct} extras={extras} setExtras={setExtras} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
@@ -1093,13 +1098,15 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
           </div>
         )}
 
-        {/* Footer: Save changes (primary) + Mark as paid (secondary). Both always
-            present, fixed height, expected position. Save is disabled + dimmed
-            when clean or in flight; a write never fires twice. */}
-        <div className="border-t border-line px-4 py-3 bg-card2/40 flex-none flex items-center gap-3">
-          <Button variant="secondary" size="lg" onClick={paid ? undefined : markAllPaid} disabled={paid} className="flex-1 min-w-[120px]">
-            {<IconCheck size={16} />} {paid ? "Paid" : "Mark as paid"}
-          </Button>
+        {/* Footer: Save changes (primary). "Mark as paid" appears only when the
+            deal has exactly one unpaid payment (single-payment, not yet paid);
+            hidden on multi-payment deals (split/parts/monthly) and when paid. */}
+        <div className="border-t border-line px-4 py-3 bg-card flex-none flex items-center gap-3">
+          {showMarkPaid && (
+            <Button variant="secondary" size="lg" onClick={markAllPaid} disabled={paid} className="flex-1 min-w-[120px]">
+              <IconCheck size={16} /> Mark as paid
+            </Button>
+          )}
           <Button size="lg" onClick={save} disabled={!hasChanges || saving} className={cn("flex-1 min-w-[120px]", !hasChanges && "opacity-50")}>
             {saving ? <Spinner /> : <IconCheck size={16} />} {saving ? "Saving…" : "Save changes"}
           </Button>
@@ -1226,7 +1233,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     const dirty = isDirty(field);
     return (
       <div className={cn("relative flex items-center gap-4 min-h-[56px] py-3 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
-        <span className="w-[120px] flex-none text-[12.5px] font-medium text-ink">{label}</span>
+        <span className="w-[100px] flex-none text-[12.5px] font-medium text-ink truncate whitespace-nowrap">{label}</span>
         <div className="flex-1 min-w-0 w-full">{children}</div>
         {/* Undo overlay, only when dirty, so it never reserves width and inputs
             always stretch to the card's right padding. */}
@@ -1248,7 +1255,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
   // snapshot taken at load/save.
   const PRow = ({ label, children, onUndo, dirty }: { label: string; children: React.ReactNode; onUndo?: () => void; dirty?: boolean }) => (
     <div className={cn("relative flex items-center gap-4 min-h-[56px] py-3 border-b border-line last:border-b-0", dirty && "bg-[var(--accent-tint)]")}>
-      <span className="w-[120px] flex-none text-[12.5px] font-medium text-ink">{label}</span>
+      <span className="w-[100px] flex-none text-[12.5px] font-medium text-ink truncate whitespace-nowrap">{label}</span>
       <div className="flex-1 min-w-0 w-full">{children}</div>
       {dirty && onUndo && (
         <button
@@ -1263,7 +1270,6 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
     </div>
   );
   const inputCls = "w-full bg-card border border-line2 rounded-lg px-2.5 h-9 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
-  const selectCls = `${inputCls} cursor-pointer chevron-select`;
 
   // Deal-level pay status: single control that sets the deal's payment status.
   // Derived from the LIVE staged payments (not the passed-in deal.pay_rollup
@@ -1348,15 +1354,15 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           return `${st}${pd}`;
         })()}>
         <Row label="Deal status" field="status">
-          <select ref={bindRef("status")} defaultValue={draft.status} onBlur={() => onFieldBlur("status")} className={selectCls}>
+          <Sel ref={bindRef("status")} defaultValue={draft.status} onBlur={() => onFieldBlur("status")}>
             <option value="active">Active</option>
             <option value="pipeline">Negotiating</option>
             <option value="archived">Archived</option>
-          </select>
+          </Sel>
         </Row>
         <Row label="Deliverable" field="deliverable"><DealInput inputRef={bindRef("deliverable")} value={draft.deliverable} onCommit={() => onFieldBlur("deliverable")} className={inputCls} placeholder="e.g. 1 YouTube integration" /></Row>
         <Row label="Deal type" field="deal_type">
-          <select ref={bindRef("deal_type")} defaultValue={draft.deal_type} onBlur={() => onFieldBlur("deal_type")} className={selectCls}>
+          <Sel ref={bindRef("deal_type")} defaultValue={draft.deal_type} onBlur={() => onFieldBlur("deal_type")}>
             <option value="">No set type</option>
             <option value="paid_partnership">Paid Partnership</option>
             <option value="ugc">UGC</option>
@@ -1364,7 +1370,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
             <option value="affiliate">Affiliate</option>
             <option value="ambassador">Ambassador</option>
             <option value="event">Event</option>
-          </select>
+          </Sel>
         </Row>
         <PRow label="Post dates">
           <div className="space-y-1.5">
@@ -1638,7 +1644,7 @@ function PostDateCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
           onMouseEnter={() => { stay.current = true; setOpen(true); }}
           onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
-          className={cn("block mt-1 text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
+          className={cn("absolute left-0 top-[30px] text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
         >{cell!.line2!.text}</span>
       )}
       {open && pos && createPortal(
@@ -1746,7 +1752,7 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); setOpen(!open); } }}
           onMouseEnter={() => { stay.current = true; setOpen(true); }}
           onMouseLeave={() => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); }}
-          className={cn("block mt-1 text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
+          className={cn("absolute left-0 top-[30px] text-[10px] tabular-nums leading-none whitespace-nowrap underline decoration-dotted underline-offset-2 cursor-pointer", cell!.line2!.kind === "all" ? "text-ok" : "text-inksoft/70")}
         >{cell!.line2!.text}</span>
       )}
       {open && pos && createPortal(

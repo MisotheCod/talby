@@ -1,17 +1,20 @@
 "use client";
 
-// Deal drawer Payment section (spec 3b + revision round):
-//  - Amount: money with commas when not focused, raw while typing
-//  - Paid dropdown (once / split / parts / monthly) + one companion row
-//  - payment rows: standard label, due, amount, status pill; tapping opens
-//    labeled Due(date) + Status(select) stacked full-width, Done right-aligned
-//  - parts: + Add a part (16px gap), Remove when >2, adds-up-to note
-//  - extras rows: dashed "Not earned" pill, Mark as earned / Remove
-//  - + Add bonus or commission: flat labeled rows (Type / Amount or Rate /
-//    Paid if or On), Cancel + Add right aligned, Add enabled once an amount is in
-// Layout: every row a 2-col grid — label 120px, value fills, min 56px, 1px
-// divider. Status pill via the shared function (overdue derived), never stored.
-// Persistence is the drawer's job; this component only stages state.
+// Deal drawer Payment card, split into groups (per spec):
+//   a. Settings: Amount, Paid, and Upfront or For (or When) as normal field rows
+//   b. Schedule: gray heading, then the payments in a bordered list of two-line
+//      rows (line 1: label + amount; line 2: due + status pill), 4px between
+//      lines, 12px vertical padding, divider between rows, none after last.
+//      Tapping a row opens its edit state (due date + status).
+//   c. Extras: gray heading, then bonuses/commission in their own dashed list
+//      (line 1: "Bonus"/"Commission" + amount; line 2: condition + pill). Under
+//      the list "+ Add bonus or commission". Only the heading + link when empty.
+//      Tapping opens Mark as earned + Remove.
+//   d. Invoice: unchanged (owned by the drawer outside this component).
+//
+// Rules: label column 100px; no text ever wraps (truncate); selects use the
+// same IconDown chevron as the section headers (native arrow hidden), 14px from
+// the right edge with 40px right padding. Persistence is the drawer's job.
 
 import React, { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -20,7 +23,7 @@ import {
   type PaymentStructureKind, type DealExtra,
 } from "@/lib/pay-status";
 import { DealInput } from "@/components/deal-input";
-import { IconPlus } from "@/components/icons";
+import { IconPlus, IconDown } from "@/components/icons";
 
 type EditorPayment = {
   id: string;
@@ -58,23 +61,39 @@ const PAYS = [
 ] as const;
 
 // Drawer input/select base: 1px line2 border, 8px radius, 36px (h-9) tall,
-// 14px (text-sm) text, 10px horizontal padding.
+// 14px (text-sm) text, 10px horizontal padding. Never wraps.
 export const drawerFieldCls =
-  "w-full bg-card border border-line2 rounded-lg px-2.5 h-9 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans";
-// Selects get the same field look plus our custom chevron arrow (native hidden).
-const selectFieldCls = `${drawerFieldCls} cursor-pointer chevron-select`;
+  "w-full bg-card border border-line2 rounded-lg px-2.5 h-9 text-sm text-ink placeholder:text-inkfaint focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans whitespace-nowrap overflow-hidden text-ellipsis";
 
-const rowCls = "grid grid-cols-[120px_1fr] gap-4 items-center min-h-[56px] py-3 border-b border-line last:border-b-0";
-// Payment/extras rows: taller rhythm so their pill + due + amount breathe.
-const payRowCls = "grid grid-cols-[120px_1fr] gap-4 items-center min-h-[64px] py-3 border-b border-line last:border-b-0";
-const labelCls = "text-[12.5px] font-medium text-ink";
+/** A select styled as a drawer field, with our chevron icon overlaid at the
+ *  right (14px from the edge, 40px right padding) and the native arrow hidden. */
+export const Sel = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(function Sel({ className, children, ...props }, ref) {
+  return (
+    <div className="relative flex-1 min-w-0">
+      <select
+        ref={ref}
+        className={cn(
+          "w-full bg-card border border-line2 rounded-lg px-2.5 h-9 text-sm text-ink appearance-none focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent transition font-sans whitespace-nowrap overflow-hidden text-ellipsis pr-[40px]",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+      <IconDown size={14} className="pointer-events-none absolute right-[14px] top-1/2 -translate-y-1/2 text-inksoft shrink-0" />
+    </div>
+  );
+});
+
+const rowCls = "grid grid-cols-[100px_1fr] gap-3 items-center min-h-[56px] py-3 border-b border-line last:border-b-0";
+const labelCls = "text-[12.5px] font-medium text-ink truncate whitespace-nowrap";
 
 function statusPill(p: EditorPayment) {
   const v = paymentStatusView({ pay_status: p.pay_status ?? null, status: p.status ?? null, expected_date: p.expected_date ?? null, amount: p.amount ?? null });
-  const pill = v.pillKind === "paid" ? <span className="pill pill-paid">{v.label}</span>
-    : v.pillKind === "late" ? <span className="pill pill-due bg-[var(--late)]/10 text-[var(--late)] border-[var(--late)]/30">{v.label}</span>
-    : v.pillKind === "neutral" ? <span className="pill pill-pipe">{v.label}</span>
-    : <span className="pill pill-due">{v.label}</span>;
+  const pill = v.pillKind === "paid" ? <span className="pill pill-paid shrink-0">{v.label}</span>
+    : v.pillKind === "late" ? <span className="pill pill-due bg-[var(--late)]/10 text-[var(--late)] border-[var(--late)]/30 shrink-0">{v.label}</span>
+    : v.pillKind === "neutral" ? <span className="pill pill-pipe shrink-0">{v.label}</span>
+    : <span className="pill pill-due shrink-0">{v.label}</span>;
   return { pill, view: v };
 }
 
@@ -94,7 +113,7 @@ function MoneyInput({ value, onCommit, placeholder, ariaLabel }: { value: string
       inputMode="decimal"
       aria-label={ariaLabel}
       placeholder={placeholder}
-      className={drawerFieldCls}
+      className={`${drawerFieldCls} money`}
       value={focused ? local.current : text}
       onFocus={() => { setFocused(true); }}
       onChange={(e) => { local.current = e.target.value; setText(e.target.value); }}
@@ -172,154 +191,172 @@ export function DealPaymentSection({
   const removeExtra = (id: string) => setExtras(extras.filter((e) => e.id !== id));
   const markEarned = (id: string) => setExtras(extras.map((e) => (e.id === id ? { ...e, earned: true } : e)));
 
+  const groupHead = (t: string) => <div className="text-[11px] font-semibold uppercase tracking-wide text-inksoft whitespace-nowrap mt-1">{t}</div>;
+
   return (
     <div className="space-y-0">
-      {/* Amount */}
+      {/* ===== a. Settings ===== */}
       <div className={rowCls}>
         <span className={labelCls}>Amount</span>
         <MoneyInput value={value} onCommit={onValueCommit} placeholder="$0" ariaLabel="Deal amount" />
       </div>
-
-      {/* Paid dropdown + companion */}
       <div className={rowCls}>
         <span className={labelCls}>Paid</span>
-        <select value={kind ?? "once"} onChange={(e) => setStruct({ ...struct, payment_structure: e.target.value as PaymentStructureKind })} className={`${selectFieldCls}`} aria-label="How you get paid">
+        <Sel value={kind ?? "once"} onChange={(e) => setStruct({ ...struct, payment_structure: e.target.value as PaymentStructureKind })} aria-label="How you get paid">
           {KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
-        </select>
+        </Sel>
       </div>
-
       {kind === "split" && (
         <div className={rowCls}>
           <span className={labelCls}>Upfront</span>
-          <select value={String(struct.structure_upfront_pct ?? 50)} onChange={(e) => setStruct({ ...struct, structure_upfront_pct: Number(e.target.value) })} className={`${selectFieldCls}`} aria-label="Upfront percent">
+          <Sel value={String(struct.structure_upfront_pct ?? 50)} onChange={(e) => setStruct({ ...struct, structure_upfront_pct: Number(e.target.value) })} aria-label="Upfront percent">
             {[25, 30, 40, 50].map((n) => <option key={n} value={n}>{n}% upfront</option>)}
-          </select>
+          </Sel>
         </div>
       )}
       {kind === "monthly" && (
         <div className={rowCls}>
           <span className={labelCls}>For</span>
-          <select value={String(struct.structure_months ?? 3)} onChange={(e) => setStruct({ ...struct, structure_months: Number(e.target.value) })} className={`${selectFieldCls}`} aria-label="Months">
+          <Sel value={String(struct.structure_months ?? 3)} onChange={(e) => setStruct({ ...struct, structure_months: Number(e.target.value) })} aria-label="Months">
             {[3, 6, 12].map((n) => <option key={n} value={n}>{n} months</option>)}
-          </select>
+          </Sel>
         </div>
       )}
       {kind === "once" && (
-        timingRow()
-      )}
-
-      {/* Payment rows */}
-      {payments.length === 0 ? (
-        <div className={cn(rowCls, "min-h-0 py-2")}>
-          <span className={labelCls}>Payment</span>
-          <span className="text-[12.5px] text-inksoft">No payments yet.</span>
-        </div>
-      ) : (
-        <div className="divide-y divide-line">
-          {payments.map((p, i) => {
-            const isOpen = openRow === p.id;
-            const label = view.labels[i] ?? `Payment ${i + 1}`;
-            const dueTxt = p.expected_date ? formatShort(p.expected_date) : "No due date";
-            const { pill } = statusPill(p);
-            return (
-              <div key={p.id} className={cn("divide-y divide-line", isOpen && "bg-card2/40")}>
-                <div className={payRowCls}>
-                  <span className={cn(labelCls, "truncate")}>{label}</span>
-                  <button type="button" onClick={() => setOpenRow(isOpen ? null : p.id)} className="w-full flex items-center gap-3 text-left cursor-pointer min-h-[64px]">
-                    <span className={cn("flex-1 min-w-0 text-[13px] tabular-nums", overdueView(p).view.overdue ? "text-late font-medium" : "text-ink")}>{dueTxt}</span>
-                    <span className="shrink-0 money text-[13px] font-medium tabular-nums">{p.amount != null ? fmtMoney(p.amount) : "—"}</span>
-                    {pill}
-                  </button>
-                </div>
-                {isOpen && (
-                  <div className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 py-2">
-                    {kind === "parts" && (
-                      <>
-                        <span className={labelCls}>Amount</span>
-                        <MoneyInput value={p.amount != null ? String(p.amount) : ""} onCommit={(v) => patchPay(p.id, (x) => ({ ...x, amount: v === "" ? null : Number(v) }))} placeholder="Amount" ariaLabel="Payment amount" />
-                      </>
-                    )}
-                    <span className={labelCls}>Due</span>
-                    <DealInput type="date" value={p.expected_date ?? ""} onCommit={(v) => patchPay(p.id, (x) => ({ ...x, expected_date: v || null }))} className={`${drawerFieldCls} deal-date-input`} placeholder="Due date" ariaLabel="Due date" />
-                    <span className={labelCls}>Status</span>
-                    <select value={p.pay_status ?? "not_invoiced"} onChange={(e) => patchPay(p.id, (x) => ({ ...x, pay_status: e.target.value, status: e.target.value === "paid" ? "received" : "expected" }))} className={`${selectFieldCls}`} aria-label="Status">
-                      {PAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                    <span />
-                    <div className="flex items-center gap-2 justify-end">
-                      {kind === "parts" && payments.length > 2 && (
-                        <button type="button" onClick={() => removePart(p.id)} className="text-[12px] text-late hover:underline cursor-pointer">Remove</button>
-                      )}
-                      <button type="button" onClick={() => setOpenRow(null)} className="px-3 h-9 rounded-lg text-[12.5px] font-medium bg-[var(--accent)] text-onaccent hover:brightness-95 cursor-pointer">Done</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Parts: adds-up-to note + Add a part (16px gap above) */}
-      {kind === "parts" && (
-        <div className="pt-4">
-          {partsMismatch && (
-            <div className="mb-2 rounded-md px-2.5 py-2 text-[12px] text-late bg-[var(--late)]/5 border border-[var(--late)]/30">
-              The parts add up to {fmtMoney(partsSum)}. The deal is {fmtMoney(dealValueNum)}.
+        <>
+          <div className={rowCls}>
+            <span className={labelCls}>When</span>
+            <Sel value={struct.structure_timing ?? "net_30"} onChange={(e) => setStruct({ ...struct, structure_timing: e.target.value })} aria-label="Timing">
+              {[...NET_OPTS, ["set_date", "On a set date"] as const, ["due_on_receipt", "Due on receipt"] as const].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </Sel>
+          </div>
+          {struct.structure_timing === "set_date" && (
+            <div className={rowCls}>
+              <span className={labelCls}>Date</span>
+              <DealInput type="date" value={struct.structure_timing_set_date ?? ""} onCommit={(v) => setStruct({ ...struct, structure_timing_set_date: v || null })} className={`${drawerFieldCls} deal-date-input`} ariaLabel="Set date" />
             </div>
           )}
-          <button type="button" onClick={addPart} className="inline-flex items-center gap-1 text-[12.5px] text-accent font-medium hover:underline cursor-pointer">
-            <IconPlus size={14} /> Add a part
-          </button>
+        </>
+      )}
+
+      {/* ===== b. Schedule ===== */}
+      {groupHead("Schedule")}
+      <div className="mt-1 rounded-[10px] border border-line bg-card">
+        {payments.length === 0 ? (
+          <div className="px-3.5 py-3 text-[12.5px] text-inksoft whitespace-nowrap">No payments yet.</div>
+        ) : (
+          <div className="divide-y divide-line">
+            {payments.map((p, i) => {
+              const isOpen = openRow === p.id;
+              const label = view.labels[i] ?? `Payment ${i + 1}`;
+              const dueTxt = p.expected_date ? `Due ${formatShort(p.expected_date)}` : "No due date";
+              const overdue = overdueView(p).view.overdue;
+              const { pill } = statusPill(p);
+              return (
+                <div key={p.id} className={cn(isOpen && "bg-card2/40")}>
+                  <button type="button" onClick={() => setOpenRow(isOpen ? null : p.id)} className="w-full flex flex-col items-start px-3.5 py-3 text-left cursor-pointer">
+                    <span className="flex w-full items-baseline justify-between">
+                      <span className="min-w-0 text-[13px] font-medium text-ink truncate whitespace-nowrap flex-1">{label}</span>
+                      <span className="shrink-0 money text-[13px] font-medium tabular-nums whitespace-nowrap">{p.amount != null ? fmtMoney(p.amount) : "—"}</span>
+                    </span>
+                    <span className="flex w-full items-baseline justify-between mt-1">
+                      <span className={cn("min-w-0 text-[12px] truncate whitespace-nowrap flex-1", overdue ? "text-late" : "text-inksoft")}>{dueTxt}</span>
+                      {pill}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="grid grid-cols-[100px_1fr] gap-x-3 gap-y-2 px-3.5 py-2 border-t border-line">
+                      {kind === "parts" && (
+                        <>
+                          <span className={labelCls}>Amount</span>
+                          <MoneyInput value={p.amount != null ? String(p.amount) : ""} onCommit={(v) => patchPay(p.id, (x) => ({ ...x, amount: v === "" ? null : Number(v) }))} placeholder="Amount" ariaLabel="Payment amount" />
+                        </>
+                      )}
+                      <span className={labelCls}>Due</span>
+                      <DealInput type="date" value={p.expected_date ?? ""} onCommit={(v) => patchPay(p.id, (x) => ({ ...x, expected_date: v || null }))} className={`${drawerFieldCls} deal-date-input`} placeholder="Due date" ariaLabel="Due date" />
+                      <span className={labelCls}>Status</span>
+                      <Sel value={p.pay_status ?? "not_invoiced"} onChange={(e) => patchPay(p.id, (x) => ({ ...x, pay_status: e.target.value, status: e.target.value === "paid" ? "received" : "expected" }))} aria-label="Status">
+                        {PAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </Sel>
+                      <span />
+                      <div className="flex items-center gap-2 justify-end">
+                        {kind === "parts" && payments.length > 2 && (
+                          <button type="button" onClick={() => removePart(p.id)} className="text-[12px] text-late hover:underline cursor-pointer whitespace-nowrap">Remove</button>
+                        )}
+                        <button type="button" onClick={() => setOpenRow(null)} className="px-3 h-9 rounded-lg text-[12.5px] font-medium bg-[var(--accent)] text-onaccent hover:brightness-95 cursor-pointer">Done</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {kind === "parts" && (
+          <div className="pt-1 pb-3 px-3.5">
+            {partsMismatch && (
+              <div className="mb-2 rounded-md px-2.5 py-2 text-[12px] text-late bg-[var(--late)]/5 border border-[var(--late)]/30 whitespace-nowrap">
+                The parts add up to {fmtMoney(partsSum)}. The deal is {fmtMoney(dealValueNum)}.
+              </div>
+            )}
+            <button type="button" onClick={addPart} className="inline-flex items-center gap-1 text-[12.5px] text-accent font-medium hover:underline cursor-pointer whitespace-nowrap">
+              <IconPlus size={14} /> Add a part
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ===== c. Extras ===== */}
+      {groupHead("Extras")}
+      {extras.length > 0 && (
+        <div className="mt-1 rounded-[10px] border border-dashed border-line bg-card">
+          <div className="divide-y divide-line">
+            {extras.map((e) => {
+              const isOpen = openExtra === e.id;
+              const head = e.kind === "bonus" ? "Bonus" : "Commission";
+              const line2 = e.kind === "bonus"
+                ? (e.condition ? `If ${e.condition}` : null)
+                : (e.on_text ? `On ${e.on_text}` : (e.rate != null ? `${e.rate}%` : null));
+              const amountLabel = e.kind === "bonus"
+                ? (e.amount != null ? fmtMoney(e.amount) : "")
+                : (e.rate != null ? `${e.rate}%` : "");
+              return (
+                <div key={e.id} className={cn(isOpen && "bg-card2/40")}>
+                  <button type="button" onClick={() => setOpenExtra(isOpen ? null : e.id)} className="w-full flex flex-col items-start px-3.5 py-3 text-left cursor-pointer">
+                    <span className="flex w-full items-baseline justify-between">
+                      <span className="min-w-0 text-[13px] font-medium text-ink truncate whitespace-nowrap flex-1">{head}</span>
+                      <span className="shrink-0 money text-[13px] font-medium tabular-nums whitespace-nowrap">{amountLabel}</span>
+                    </span>
+                    <span className="flex w-full items-baseline justify-between mt-1">
+                      <span className="min-w-0 text-[12px] text-inksoft truncate whitespace-nowrap flex-1">{line2 ?? "—"}</span>
+                      {e.earned ? <span className="pill pill-paid shrink-0">Earned</span> : <span className="pill pill-pipe shrink-0">Not earned</span>}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="grid grid-cols-[100px_1fr] gap-x-3 gap-y-2 px-3.5 py-2 border-t border-line">
+                      <span />
+                      <div className="flex items-center gap-2 justify-end">
+                        <button type="button" onClick={() => markEarned(e.id)} className="text-[12.5px] text-accent hover:underline cursor-pointer whitespace-nowrap">Mark as earned</button>
+                        <button type="button" onClick={() => { removeExtra(e.id); setOpenExtra(null); }} className="text-[12.5px] text-late hover:underline cursor-pointer whitespace-nowrap">Remove</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* Extras — one row per bonus/commission, matching the payment-row rhythm:
-        label ("Bonus"/"Commission") with the condition below it in smaller gray
-        text on the left; amount + earned pill on the right. Tapping opens the
-        row to reveal "Mark as earned" and "Remove", like a payment's edit state. */}
-      {extras.map((e) => {
-        const isOpen = openExtra === e.id;
-        const head = e.kind === "bonus" ? "Bonus" : "Commission";
-        const line2 = e.kind === "bonus"
-          ? (e.condition ? `If ${e.condition}` : null)
-          : (e.on_text ? `On ${e.on_text}` : (e.rate != null ? `${e.rate}%` : null));
-        const amountLabel = e.kind === "bonus"
-          ? (e.amount != null ? fmtMoney(e.amount) : "")
-          : (e.rate != null ? `${e.rate}%` : "");
-        return (
-          <div key={e.id} className={cn("divide-y divide-line", isOpen && "bg-card2/40")}>
-            <div className={payRowCls}>
-              <span className={cn(labelCls, "truncate")}>{head}</span>
-              <button type="button" onClick={() => setOpenExtra(isOpen ? null : e.id)} className="w-full flex items-center gap-2 justify-end text-left cursor-pointer min-h-[64px]">
-                <span className="flex-1 min-w-0 text-[12.5px] text-inksoft truncate">{line2}</span>
-                <span className="shrink-0 money text-[13px] font-medium tabular-nums">{amountLabel}</span>
-                {e.earned ? <span className="pill pill-paid shrink-0">Earned</span> : <span className="pill pill-pipe shrink-0">Not earned</span>}
-              </button>
-            </div>
-            {isOpen && (
-              <div className="grid grid-cols-[120px_1fr] gap-4 items-center py-2">
-                <span />
-                <div className="flex items-center gap-2 justify-end">
-                  <button type="button" onClick={() => markEarned(e.id)} className="text-[12.5px] text-accent hover:underline cursor-pointer">Mark as earned</button>
-                  <button type="button" onClick={() => { removeExtra(e.id); setOpenExtra(null); }} className="text-[12.5px] text-late hover:underline cursor-pointer">Remove</button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {/* Add bonus or commission: 16px gap above, flat labeled rows, divider above
-          is owned by the drawer's Invoice row. */}
+      {/* Add bonus or commission (also shown when there are no extras) */}
       {adding ? (
-        <div className="space-y-0 divide-y divide-line pt-4">
+        <div className="rounded-[10px] border border-line bg-card mt-1 space-y-0 divide-y divide-line">
           <div className={rowCls}>
             <span className={labelCls}>Type</span>
-            <select value={exType} onChange={(e) => setExType(e.target.value as "bonus" | "commission")} className={`${selectFieldCls}`} aria-label="Extra type">
+            <Sel value={exType} onChange={(e) => setExType(e.target.value as "bonus" | "commission")} aria-label="Extra type">
               <option value="bonus">Bonus</option>
               <option value="commission">Commission</option>
-            </select>
+            </Sel>
           </div>
           {exType === "bonus" ? (
             <>
@@ -336,9 +373,9 @@ export function DealPaymentSection({
             <>
               <div className={rowCls}>
                 <span className={labelCls}>Rate</span>
-                <div className="relative">
+                <div className="relative flex-1 min-w-0">
                   <input type="number" inputMode="numeric" value={exRate} onChange={(e) => setExRate(e.target.value)} className={cn(drawerFieldCls, "pr-7")} placeholder="Rate" aria-label="Commission rate" />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-inksoft pointer-events-none">%</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-inksoft pointer-events-none whitespace-nowrap">%</span>
                 </div>
               </div>
               <div className={rowCls}>
@@ -348,39 +385,19 @@ export function DealPaymentSection({
             </>
           )}
           <div className="flex items-center justify-end gap-2 pt-2">
-            <button type="button" onClick={() => setAdding(false)} className="px-3 h-9 rounded-lg text-[12.5px] text-inksoft hover:text-ink cursor-pointer">Cancel</button>
+            <button type="button" onClick={() => setAdding(false)} className="px-3 h-9 rounded-lg text-[12.5px] text-inksoft hover:text-ink cursor-pointer whitespace-nowrap">Cancel</button>
             <button type="button" onClick={addExtra} disabled={exType === "bonus" ? !exAmt : !exRate} className="px-3.5 h-9 rounded-lg text-[12.5px] font-medium bg-[var(--accent)] text-onaccent hover:brightness-95 cursor-pointer disabled:opacity-50">Add</button>
           </div>
         </div>
       ) : (
-        <div className="pt-4">
-          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-[12.5px] text-accent font-medium hover:underline cursor-pointer">
+        <div className="pt-2">
+          <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-[12.5px] text-accent font-medium hover:underline cursor-pointer whitespace-nowrap">
             <IconPlus size={14} /> Add bonus or commission
           </button>
         </div>
       )}
     </div>
   );
-
-  function timingRow() {
-    const isSet = struct.structure_timing === "set_date";
-    return (
-      <>
-        <div className={rowCls}>
-          <span className={labelCls}>When</span>
-          <select value={struct.structure_timing ?? "net_30"} onChange={(e) => setStruct({ ...struct, structure_timing: e.target.value })} className={`${selectFieldCls}`} aria-label="Timing">
-            {[...NET_OPTS, ["set_date", "On a set date"] as const, ["due_on_receipt", "Due on receipt"] as const].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        </div>
-        {isSet && (
-          <div className={rowCls}>
-            <span className={labelCls}>Date</span>
-            <DealInput type="date" value={struct.structure_timing_set_date ?? ""} onCommit={(v) => setStruct({ ...struct, structure_timing_set_date: v || null })} className={`${drawerFieldCls} deal-date-input`} ariaLabel="Set date" />
-          </div>
-        )}
-      </>
-    );
-  }
 }
 
 function formatShort(iso: string): string {
