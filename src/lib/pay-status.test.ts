@@ -192,3 +192,32 @@ test("paymentHeaderSummary for split + parts + monthly", () => {
   assert.equal(paymentHeaderSummary({ amount: 1300, structureKind: "parts", extras: [], payments: [{ id: "a", amount: 500, pay_status: "paid", status: "received", expected_date: null }, { id: "b", amount: 800, pay_status: "not_invoiced", status: "expected", expected_date: null }] }), "$1300, 2 parts");
   assert.equal(paymentHeaderSummary({ amount: 1800, structureKind: "monthly", structureMonths: 6, extras: [], payments: [{ id: "a", amount: 300, pay_status: "not_invoiced", status: "expected", expected_date: null }] }), "$1800, 6 months");
 });
+
+/* Release 2: the create-API payment generator (modal preview must match rows). */
+import { generatePaymentsFromStructure } from "./pay-status.ts";
+
+test("once generates a single Full payment, Net 30 from post date", () => {
+  const rows = generatePaymentsFromStructure({ structureKind: "once", amount: 1200, structure_timing: "net_30", post_date: "2026-10-01" });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].amount, 1200);
+  assert.equal(rows[0].expected_date, "2026-10-31"); // Oct 1 + 30 days = Oct 31
+});
+test("split generates upfront (50%) + balance", () => {
+  const rows = generatePaymentsFromStructure({ structureKind: "split", amount: 4800, structure_upfront_pct: 50, structure_balance_timing: "when_posts", post_date: "2026-10-15" });
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].amount, 2400);
+  assert.equal(rows[1].amount, 2400);
+  assert.equal(rows[1].expected_date, "2026-10-15"); // when_posts = post date
+});
+test("parts keeps each row's amount/date and notes the name", () => {
+  const rows = generatePaymentsFromStructure({ structureKind: "parts", amount: 1500, parts: [{ name: "Milestone 1", amount: 500, date: "2026-09-01" }, { name: "Milestone 2", amount: 1000, date: "2026-10-01" }] });
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].amount, 500);
+  assert.equal(rows[0].notes, "Milestone 1");
+  assert.equal(rows[1].amount, 1000);
+});
+test("monthly splits evenly across N months", () => {
+  const rows = generatePaymentsFromStructure({ structureKind: "monthly", amount: 3000, structure_months: 3 });
+  assert.equal(rows.length, 3);
+  assert.ok(rows.every((r) => r.amount === 1000));
+});
