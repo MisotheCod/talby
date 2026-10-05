@@ -25,8 +25,10 @@
       "id": "forgot_year",
       "angle": "self-discovery / curiosity",
       "opening": "do you actually know what you've made this year? i didn't. turns out i was way off.",
-      "note": "curiosity gap + self-recognition. 9.5k views on prior version.",
-      "uses": 1
+      "note": "curiosity gap + self-recognition. 9.5k views on prior version. 2026-10-05 weekly: CLEAR dataset-wide winner on YouTube Shorts \u2014 423 views (sent 09-24) and 319 views (sent 09-23), the only two posts to clear 300. Both top-2 of every metric captured. The Forgotten-Truth cue ('do you actually know... i didn't') + the receipt (booked/paid/outstanding) is the pattern to lean on. NOTE: last week's capped query missed these; found via per-channel pull.",
+      "uses": 2,
+      "winner": true,
+      "winner_note": "2026-10-05 weekly: 423 + 319 views, both YouTube Shorts, ~6-8x every other post in the dataset. Only hook to clear 300. Favor on YT Shorts."
     },
     {
       "id": "dead_spreadsheet",
@@ -42,7 +44,7 @@
       "note": "NEW angle targeting UGC admins specifically (they stack many small brand deals). Mirrors their daily grind: 'spend a day with me' cafe spreadsheet chaos -> one screen (booked/paid/outstanding). TOOL-ONLY, no founder story. Pairs with the ugc_admin post format. Part of rotation, NOT the rotation.",
       "uses": 1,
       "winner": true,
-      "winner_note": "2026-09-27 weekly: only hook that got real reach this week. Same creative sent 09-25: 55 views on YouTube Shorts vs 0 TikTok vs 1 IG. Thin (55 is small) but it is the ONLY non-zero signal in a cold-start sea of zeros. Leans into YouTube Shorts distribution."
+      "winner_note": "2026-09-27 weekly: only hook that got real reach that week. Same creative sent 09-25: 55 views on YouTube Shorts vs 0 TikTok vs 1 IG. 2026-10-05: ugc-admin pain-mirror family held again via paid_is_second_job (70 views, YT Shorts 09-29). Family total YT: 55 + 70. Second-place pattern behind forgot_year (423/319)."
     },
     {
       "id": "owed_vs_list",
@@ -69,7 +71,7 @@
       "id": "paid_is_second_job",
       "angle": "quote / memorable line",
       "opening": "you did the work. getting paid is a separate job nobody taught you.",
-      "note": "Category 5 quote/memorable line. Triggers: transformation + contrasting element. Distinct opening.",
+      "note": "Category 5 quote/memorable line. Triggers: transformation + contrasting element. Distinct opening. 2026-10-05: sent 09-29 as which-is-worse frame ('which is worse: losing track of a payment you are owed, or doing a whole campaign and never getting paid? you did the work, getting paid should not be a second job') -> 70 views on YT Shorts. Real signal, part of the ugc-admin pain-mirror family (55 + 70 on YT). Second pattern to C-shorts behind forgot_year.",
       "uses": 1
     },
     {
@@ -91,9 +93,37 @@
       "angle": "harsh advice (payment-date discipline)",
       "opening": "there's a reason you're always waiting on money. you never wrote down when it was supposed to land.",
       "note": "INJECTED 2026-10-01. Category 1 harsh advice on a topic no pool entry touches: writing down the payment DATE as its own discipline. Distinct from stop_catching_later (that's 'catching up later', this is 'never logged when it should arrive'). Triggers: time-bound ('when it was supposed to land') + contrasting element. Reuses the Forgotten-Truth beat (you can't say when it was due). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1
+    },
+    {
+      "id": "accidental_free_work",
+      "angle": "harsh advice (accidental free work)",
+      "opening": "if you can't look up what a brand owes you right now, you may be doing brand deals for free.",
+      "note": "INJECTED 2026-10-02. Category 1 harsh advice on a mechanic no existing entry covers: discovering you've been working free because you can't check what's owed. Distinct from never_wrote_down_pay (that's about not logging the date; this is the 'you might be losing the money entirely' consequence). Triggers: transformation + contrasting element (paid deals vs actually paid). Distinct opening, never duplicates. uses:0 so rotation airs on equal footing.",
+      "uses": 1
+    },
+    {
+      "id": "dead_invoices_quiet",
+      "angle": "pain points (unpursued invoices)",
+      "opening": "nobody talks about the invoices that quietly died before you ever chased them.",
+      "note": "INJECTED 2026-10-03. Category 2 pain points on a mechanic no entry covers: invoices you never chased because you couldn't see them, so they silently die. Distinct from everyone_talks_tracking (that's tracking deals; this is the dead/unpursued invoice money). Triggers: transformation + contrasting element (money that existed vs money that vanished). Distinct opening, never duplicates. uses:0 so rotation airs it on equal footing.",
+      "uses": 1
+    },
+    {
+      "id": "deal_not_finished_until_paid",
+      "angle": "key insight (what actually completes a deal)",
+      "opening": "a brand deal isn't finished when you post. it's finished when the invoice is paid.",
+      "note": "INJECTED 2026-10-04. Category 4 key insight / big idea (definition reframe: posting != done, payment == done). Distinct from not_leaving_money_table (that's about not losing money; this defines what 'done' means) and paid_is_second_job (that calls paying a separate job; this single-clips the completion). Triggers: transformation ('finished') + contrasting element (post vs paid). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1
+    },
+    {
+      "id": "confidence_masks_missing",
+      "angle": "counterintuitive truth (payment confidence gap)",
+      "opening": "the more you assume you've been paid, the more brand money you're probably missing.",
+      "note": "INJECTED 2026-10-05. Category 3 counterintuitive truth, flips the 'i'm on top of it' confidence creators hold when they think every brand paid them. Distinct mechanic from accidental_free_work (can't look it up) and paid_is_second_job (chasing is a job): this is the quiet assumption that kills revenue. Triggers: transformation + contrasting element (assumed paid vs actually missing). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
       "uses": 0
     }
   ],
   "rotation": "round_robin",
-  "last_used": "2026-10-01"
+  "last_used": "2026-10-05"
 }

@@ -247,6 +247,129 @@
    ],
    "buffer_post_id": "6abe7673538af61e3e187bd7",
    "type": "video"
+  },
+  {
+   "date": "2026-10-02",
+   "platform": "tiktok",
+   "set_id": "tik_niche_tools",
+   "tags": [
+    "#appsforcreators",
+    "#creatorapps",
+    "#influencereconomy",
+    "#uctools",
+    "#contentcreatortools",
+    "#paidvertisers"
+   ],
+   "buffer_post_id": "6abfcb9d0adf17f48c500be0",
+   "type": "carousel"
+  },
+  {
+   "date": "2026-10-02",
+   "platform": "instagram",
+   "set_id": "ig_tools_ops",
+   "tags": [
+    "#appsforcreators",
+    "#creatorapps",
+    "#uctools",
+    "#influencertool",
+    "#contentops",
+    "#branddealapp",
+    "#organizeyourlife"
+   ],
+   "buffer_post_id": "6abfcb9c5f7061ee2f1b87a9",
+   "type": "carousel"
+  },
+  {
+   "date": "2026-10-02",
+   "platform": "youtube",
+   "set_id": "yt_money_insight",
+   "tags": [
+    "#creatoreconomy",
+    "#makeitmadepay",
+    "#influencerbusiness",
+    "#earningonline",
+    "#contentcreatorincome",
+    "#brandcollab"
+   ],
+   "buffer_post_id": "6abfcbc40adf17f48c50160e",
+   "type": "ugc_video"
+  },
+  {
+   "date": "2026-10-04",
+   "platform": "tiktok",
+   "set_id": "tik_creator_core",
+   "tags": [
+    "#creatorlife",
+    "#contentcreator",
+    "#branddeals",
+    "#uctips",
+    "#sponsoredcontent",
+    "#talby"
+   ],
+   "buffer_post_id": "6ac265877d5538d1baa4cc78",
+   "type": "slideshow"
+  },
+  {
+   "date": "2026-10-04",
+   "platform": "instagram",
+   "set_id": "ig_pain_growth",
+   "tags": [
+    "#getpaidasacreator",
+    "#creatorincome",
+    "#makingcontent",
+    "#influencerlife",
+    "#growyourbrand",
+    "#contentcreationtip",
+    "#bloggertips"
+   ],
+   "buffer_post_id": "6ac26587d8dbde86e14bcc03",
+   "type": "slideshow"
+  },
+  {
+   "date": "2026-10-05",
+   "platform": "youtube",
+   "set_id": "yt_creator_howto",
+   "tags": [
+    "#creatortips",
+    "#behavioralcontent",
+    "#branddeals",
+    "#influencereconomy",
+    "#contentcreators",
+    "#uctips"
+   ],
+   "buffer_post_id": "6ac3b26733ca4f2ece0fa559",
+   "type": "ugc_video"
+  },
+  {
+   "date": "2026-10-05",
+   "platform": "instagram",
+   "set_id": "ig_creator_edu",
+   "tags": [
+    "#creatortips",
+    "#contentcreators",
+    "#branddeals",
+    "#influencermarketing",
+    "#uctips",
+    "#creatorlife",
+    "#futureofcontent"
+   ],
+   "buffer_post_id": "6ac3b267421e32d1b93ae7d5",
+   "type": "carousel"
+  },
+  {
+   "date": "2026-10-05",
+   "platform": "tiktok",
+   "set_id": "tik_niche_tools",
+   "tags": [
+    "#appsforcreators",
+    "#creatorapps",
+    "#influencereconomy",
+    "#uctools",
+    "#contentcreatortools",
+    "#paidvertisers"
+   ],
+   "buffer_post_id": "6ac3b267c5a0c4018754297b",
+   "type": "carousel"
   }
  ]
 }

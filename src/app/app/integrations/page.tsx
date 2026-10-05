@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { pageEntrance } from "@/lib/entrance";
 import { StatusPill, Button, Spinner } from "@/components/ui";
 import { IconPlug } from "@/components/icons";
 import { NotionLogo } from "@/components/marketing/notion-logo";
@@ -17,10 +18,18 @@ const ROADMAP = [
 type NotionStatus = { connected: boolean; workspace: string | null; configured: boolean };
 
 export default function IntegrationsPage() {
+  const rootRef = useRef<HTMLDivElement>(null);
   const [notion, setNotion] = useState<NotionStatus | null>(null);
 
   useEffect(() => {
     fetch("/api/notion/status").then((r) => r.json()).then(setNotion).catch(() => ({}));
+  }, []);
+
+  useEffect(() => {
+    if (rootRef.current) {
+      const ctx = pageEntrance(rootRef.current);
+      return () => ctx();
+    }
   }, []);
 
   const disconnectNotion = async () => {
@@ -29,8 +38,8 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <div className="space-y-6 fade-up">
-      <div>
+    <div ref={rootRef} className="space-y-6 fade-up">
+      <div className="entr">
         <h1 className="text-2xl font-semibold">Integrations</h1>
         <p className="text-muted text-sm mt-1">
           Connect the tools you already use.

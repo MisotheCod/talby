@@ -1,6 +1,6 @@
 {
   "note": "Per-platform hashtag test pool. Each set is a coherent group tested on that platform. The daily cron ROTATES through lowest-uses per platform; the weekly cron attributes views to each set to learn which platform's hashtags actually drive reach. Tags are lowercase here; TikTok/IG keep them compact, YouTube can carry a couple more. Uses increments when the set is drafted on that platform.",
-  "last_used": "2026-10-01",
+  "last_used": "2026-10-05",
   "tiktok": {
     "pool": [
       {
@@ -13,7 +13,7 @@
           "#sponsoredcontent",
           "#talby"
         ],
-        "uses": 2
+        "uses": 3
       },
       {
         "id": "tik_pain_relatable",
@@ -37,7 +37,7 @@
           "#sidehustletok",
           "#talby"
         ],
-        "uses": 2
+        "uses": 3
       },
       {
         "id": "tik_niche_tools",
@@ -49,7 +49,7 @@
           "#contentcreatortools",
           "#paidvertisers"
         ],
-        "uses": 1
+        "uses": 3
       }
     ]
   },
@@ -66,7 +66,7 @@
           "#creatorlife",
           "#futureofcontent"
         ],
-        "uses": 2
+        "uses": 3
       },
       {
         "id": "ig_pain_growth",
@@ -79,7 +79,7 @@
           "#contentcreationtip",
           "#bloggertips"
         ],
-        "uses": 2
+        "uses": 3
       },
       {
         "id": "ig_money_business",
@@ -92,7 +92,7 @@
           "#moneycreator",
           "#sidehustle"
         ],
-        "uses": 2
+        "uses": 3
       },
       {
         "id": "ig_tools_ops",
@@ -105,7 +105,7 @@
           "#branddealapp",
           "#organizeyourlife"
         ],
-        "uses": 1
+        "uses": 2
       }
     ]
   },
@@ -121,7 +121,7 @@
           "#contentcreators",
           "#uctips"
         ],
-        "uses": 4
+        "uses": 6
       },
       {
         "id": "yt_money_insight",
@@ -133,7 +133,7 @@
           "#contentcreatorincome",
           "#brandcollab"
         ],
-        "uses": 3
+        "uses": 5
       }
     ]
   }

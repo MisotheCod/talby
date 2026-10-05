@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { pageEntrance } from "@/lib/entrance";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, dealPaymentView, type DealExtra, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
@@ -72,6 +73,7 @@ const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
 
 export default function DealsPage() {
   const supabase = createClient();
+  const rootRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
@@ -169,6 +171,15 @@ export default function DealsPage() {
   }, [supabase]);
 
   useEffect(() => { loadDeals(); }, [loadDeals, supabase]);
+
+  // Entrance: on first load only, drop the deal rows in one by one.
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    if (entered || loading || !rootRef.current) return;
+    setEntered(true);
+    const ctx = pageEntrance(rootRef.current);
+    return () => ctx();
+  }, [entered, loading]);
 
   // Open drawer or new-deal modal via URL params (?open=id, ?new=1)
   useEffect(() => {
@@ -271,7 +282,7 @@ export default function DealsPage() {
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" /></div>;
 
   return (
-    <div className="space-y-6 fade-up">
+    <div ref={rootRef} className="space-y-6 fade-up">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[24px] font-semibold tracking-tight">Deals</h1>
@@ -416,7 +427,7 @@ export default function DealsPage() {
                   onKeyDown={(e) => { if (e.key === "Enter") setSelectedId(d.id); }}
                   role="button"
                   tabIndex={0}
-                  className={cn("w-full grid gap-3 items-start px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
+                  className={cn("entr-row w-full grid gap-3 items-start px-[22px] py-[14px] border-t border-line text-left hover:bg-card2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] deal-row", selectedId === d.id && "bg-card2")}
                 >
                   <span className="d-brand flex items-center gap-3 min-w-0">
                     <span className="h-10 w-10 rounded-xl flex-none flex items-center justify-center font-bold text-[15px] bg-card2 text-inksoft border border-line">

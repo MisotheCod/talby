@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatMoney, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
+import { pageEntrance } from "@/lib/entrance";
 import { paymentStatusView, paymentStructureLabel } from "@/lib/pay-status";
 import { IconPlus, IconMore, IconCheck, IconDown } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
@@ -68,6 +69,7 @@ function trendLine(current: number, prior: number): string | null {
 /* ---------- page component ---------- */
 export default function PaymentsPage() {
   const supabase = createClient();
+  const rootRef = useRef<HTMLDivElement>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [extras, setExtras] = useState<ExtraRow[]>([]);
@@ -110,6 +112,13 @@ export default function PaymentsPage() {
   }, [supabase]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Entrance: stage cards/charts, then rise them in once data is loaded.
+  useEffect(() => {
+    if (loading || !rootRef.current) return;
+    const ctx = pageEntrance(rootRef.current);
+    return () => ctx();
+  }, [loading]);
 
   /* ---------- derived stats ---------- */
   const now = new Date();
@@ -315,7 +324,7 @@ export default function PaymentsPage() {
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="grid grid-cols-4 gap-4"><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /></div></div>;
 
   return (
-    <div className="space-y-6 fade-up">
+    <div ref={rootRef} className="space-y-6 fade-up">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Payments</h1>
@@ -334,20 +343,20 @@ export default function PaymentsPage() {
       <>
       {/* === 1. Four stat cards === */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Earned this year" value={formatMoney(receivedYtdTotal)} color="text-ok"
+        <StatCard label="Earned this year" value={formatMoney(receivedYtdTotal)} color="text-ok" className="entr"
           trend={trendLine(receivedYtdTotal, receivedLastYtdTotal)} />
-        <StatCard label="Expected" value={formatMoney(expectedTotal)} color="text-warn"
+        <StatCard label="Expected" value={formatMoney(expectedTotal)} color="text-warn" className="entr"
           trend={`${expectedCount} payment${expectedCount === 1 ? "" : "s"}${overdueCount ? `, ${overdueCount} overdue` : ""}`} />
-        <StatCard label="Avg deal value" value={avgDealValue ? formatMoney(avgDealValue) : "–"} color="text-ink"
+        <StatCard label="Avg deal value" value={avgDealValue ? formatMoney(avgDealValue) : "–"} color="text-ink" className="entr"
           trend={priorAvg ? trendLine(avgDealValue || 0, priorAvg) : null} />
-        <StatCard label="Best month" value={bestMonthName || "–"} color="text-ink"
+        <StatCard label="Best month" value={bestMonthName || "–"} color="text-ink" className="entr"
           trend={bestMonthAmount ? formatMoney(bestMonthAmount) : "Not enough data yet"} />
       </div>
 
       {/* === 2 & 3. Income over time (left) + Deals signed per month (right) === */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Income over time */}
-        <div className="card p-6">
+        <div className="card p-6 entr">
           <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
             <div>
               <h2 className="font-semibold text-[15px]">Income over time</h2>
@@ -364,7 +373,7 @@ export default function PaymentsPage() {
         </div>
 
         {/* Deals signed per month */}
-        <div className="card p-6">
+        <div className="card p-6 entr">
           <h2 className="font-semibold text-[15px] mb-2">Deals signed per month</h2>
           {dealsByMonth.every((b) => b.value === 0) ? (
             <p className="text-sm text-muted py-10 text-center">Add deals with a created date to see your signing patterns.</p>
@@ -433,7 +442,7 @@ export default function PaymentsPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: "3rem 1fr 6rem 1fr 1fr 1.5rem" }}>
+                          <div className="entr-row grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: "3rem 1fr 6rem 1fr 1fr 1.5rem" }}>
                             <span className={cn("text-sm font-semibold tabular-nums", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>{day ?? "–"}</span>
                             <span className={cn("min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>{p.deal?.brand ?? "Payment"}</span>
                             <span className={cn("money text-sm font-semibold tabular-nums", isRecv ? "text-ok" : "text-ink")}>{formatMoney(p.amount)}</span>
@@ -562,9 +571,9 @@ function ExtrasSection({ extras }: { extras: ExtraRow[] }) {
   );
 }
 
-function StatCard({ label, value, color, trend }: { label: string; value: string; color: string; trend: string | null }) {
+function StatCard({ label, value, color, trend, className }: { label: string; value: string; color: string; trend: string | null; className?: string }) {
   return (
-    <div className="card p-5">
+    <div className={cn("card p-5", className)}>
       <div className="text-sm text-muted font-medium">{label}</div>
       <div className={cn("font-head text-2xl font-semibold mt-1 tabular-nums", color)}>{value}</div>
       {trend && <div className="text-xs text-muted mt-1">{trend}</div>}
@@ -592,7 +601,7 @@ function BarChart({ data, max, h, hMax, color }: {
                 <span> · {b.label}</span>
               </div>
               <div
-                className="w-full max-w-10 sm:max-w-12 rounded-t-sm transition-all group-hover:opacity-85"
+                className="w-full entr-bar max-w-10 sm:max-w-12 rounded-t-sm transition-all group-hover:opacity-85"
                 style={{ height: `${barH}px`, background: color || "var(--accent)" }}
               />
             </div>
@@ -635,7 +644,7 @@ function LineChart({ data, max, h }: {
       {/* soft area fill */}
       <path d={areaPath} fill="var(--accent)" opacity="0.08" />
       {/* line */}
-      <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d={linePath} fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="entr-line" />
       {/* points + labels (every month, empty at zero) */}
       {pts.map((p) => (
         <g key={p.key}>

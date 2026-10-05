@@ -6,13 +6,16 @@ Living reference of what actually works in brand-deal / creator-ops content. Bui
 
 | Hook / angle | Views | Reaction | Lesson |
 |---|---|---|---|
+| `forgot_year` — "do you actually know what you've made this year? i didn't." | **423 + 319 (both YT Shorts, 09-24 / 09-23)** | 2+2 likes | 2026-10-05 weekly. CLEAR dataset-wide winner — the only two posts to clear 300, ~6-8x everything else. Forgotten-Truth cue + receipt (booked/paid/outstanding). Pattern to lean on daily. |
 | `spreadsheet_sign` — "if you're running brand deals out of a spreadsheet this is your sign." | **26,020** | 400 | Blunt direct callout wins hardest. No setup, names the pain instantly, then implies the fix. |
-| `ugc_admin_day` — cafe-moment "wondering which brand actually paid you" | **55 (YT Shorts)** / 0 tiktok / 1 ig | 0 | 2026-09-27 weekly. Same creative, one render → three platforms: YouTube Shorts got all the real reach, TikTok/IG ~zero. Best signal so far → the pattern is the pain-led UGC-admin mirror; the platform is YT Shorts. Thin (55), cold-start, but it's the only non-zero number. |
-| `forgot_year` — "do you actually know what you've made this year? i didn't." | 9,500 | — | Curiosity gap + self-recognition beats features. |
+| `paid_is_second_job` / ugc-admin which-is-worse — "you did the work... which is worse: losing track of a payment you are owed, or doing a whole campaign and never getting paid?" | **70 (YT Shorts, 09-29)** | 0 | 2026-10-05. Real signal; part of the ugc-admin pain-mirror family (55 + 70 on YT). Second pattern to C-shorts. |
+| `ugc_admin_day` — cafe-moment "wondering which brand actually paid you" | **55 (YT Shorts)** / 0 tiktok / 1 ig | 0 | 2026-09-27 weekly. Same creative → one render, three platforms: YouTube Shorts got all the reach, TikTok/IG ~zero. |
+| `forgot_year` — "do you actually know what you've made this year? i didn't." (prior) | 9,500 | — | Curiosity gap + self-recognition beats features. |
 | Google-Sheets-full-time-job framing | 10,950 | — | Naming the tool people actually use resonates more than abstract "track your deals." |
 | No-face / slideshow posts | <1k | — | Face hooks outperform faceless. Stay on face-forward UGC. |
+| spreadsheet vs notes app ("which one are you?") | 2 | 0 | Context-free comparison, no receipt, no pain mirror. Weak by itself. |
 
-Cold-start note (2026-09-27): most posts this week sat at 0–4 views, so the framework is still largely untested. Only `ugc_admin_day` produced a real (if thin) number. `ugc_admin_day` follows the **Forgotten-Truth / Receipt** pattern (pain-led mirror, dashboard as the reveal) — favor that pattern while reach is thin. Hashtag attribution returned no signal: every mapped set pointed to an unsent draft, so no tag has proven anything yet. **Fix before it means anything: the daily engine must record the posts that actually ship in hashtag-usage.json**, not just the drafts.
+Cold-start note (2026-10-05): platform verdict is now decisive, not thin — every non-zero number in the account lives on **YouTube Shorts**; TikTok (3 sends, all 0) and IG (reach 1 each) are cold drains right now. Hook verdict is real for `forgot_year` (423+319 = 742) and second-string for the ugc-admin pain-mirror (55+70=125). Still underpowered: **no hook earned a `losing` flag this week** — recent 0-view sends are recency-capped, not losers. Hashtag attribution is STILL unproven: the daily engine logs draft ids in hashtag-usage.json, but sent posts carry different ids, so only 09-29 yt (70 views, creator_branddeal_video set) is attributable — one point, not a trend, no set crowned. **The standing fix:** hashtag-usage.json must record the SENT post id, not the draft id, or per-platform tag attribution never gets off the ground.
 
 ## The 5 hook categories (Dan Koe framework — pick ONE per run, vary daily)
 
@@ -65,6 +68,7 @@ Frame: "there are two types of creators: the one who tracks every payment, and t
 ### The Forgotten-Truth
 Ask a question they can't answer → admit the answer surprises you → reveal the data.
 Frame: "do you actually know what you've made this year? i didn't. turns out i was way off."
+**PROVEN top (2026-10-05): `forgot_year` on this frame did 423 + 319 on YouTube Shorts — the dataset leader by ~6-8x. This + The Receipt is the #1 pairing right now. Favor on daily YT-Shorts pick.**
 
 ### The Receipt
 Expose a quietly embarrassing normal → pull out the dashboard as proof.

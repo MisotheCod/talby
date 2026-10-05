@@ -16,7 +16,7 @@
       "script": "creator asks the audience a real either-or they're deciding: 'spreadsheet or notion for tracking brand deals? be honest.' then shows the product as their answer",
       "caption_shape": "ends with a direct question to the audience",
       "engagement": "high",
-      "uses": 1
+      "uses": 2
     },
     {
       "id": "split_audience",
@@ -25,7 +25,7 @@
       "script": "creator names two types of creator: 'there are two types of creators. the one who tracks every payment, and the one who is hoping. which one are you?' then shows the product",
       "caption_shape": "'which one are you?' prompt",
       "engagement": "high",
-      "uses": 1
+      "uses": 2
     },
     {
       "id": "fill_blank",
@@ -43,7 +43,7 @@
       "script": "creator takes a stance: 'spreadsheet templates for brand deals are overrated.' then shows the product as the actual fix",
       "caption_shape": "strong opinion invites agreement/arguments",
       "engagement": "high",
-      "uses": 1
+      "uses": 2
     },
     {
       "id": "best_tip",
@@ -52,7 +52,7 @@
       "script": "creator asks: 'what is your go-to way to track brand deals? genuinely asking' then shows the product as their own answer",
       "caption_shape": "'drop your tip' prompt",
       "engagement": "high",
-      "uses": 1
+      "uses": 2
     },
     {
       "id": "two_fears",
@@ -73,5 +73,5 @@
       "uses": 1
     }
   ],
-  "last_used": "2026-10-01"
+  "last_used": "2026-10-05"
 }

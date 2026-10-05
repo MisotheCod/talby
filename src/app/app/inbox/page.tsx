@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { pageEntrance } from "@/lib/entrance";
 import { cn } from "@/lib/utils";
 import { Button, Pill } from "@/components/ui";
 import { IconClose, IconCheck, IconMail } from "@/components/icons";
@@ -24,6 +25,7 @@ function confidenceLabel(c: number | null): { text: string; source: string } {
 
 export default function InboxPage() {
   const supabase = createClient();
+  const rootRef = useRef<HTMLDivElement>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("New");
@@ -36,6 +38,12 @@ export default function InboxPage() {
       setLoading(false);
     })();
   }, [supabase]);
+
+  useEffect(() => {
+    if (loading || !rootRef.current) return;
+    const ctx = pageEntrance(rootRef.current);
+    return () => ctx();
+  }, [loading]);
 
   const act = async (id: string, action: "add" | "not_interested") => {
     try {
@@ -77,8 +85,8 @@ export default function InboxPage() {
   );
 
   return (
-    <div className="space-y-5 fade-up">
-      <div>
+    <div ref={rootRef} className="space-y-5 fade-up">
+      <div className="entr">
         <h1 className="text-2xl font-semibold">Inbox</h1>
         <p className="text-muted text-sm mt-1">Brand-deal outreach detected for you.</p>
       </div>

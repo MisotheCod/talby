@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { pageEntrance } from "@/lib/entrance";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { ACCENT_PRESETS, HEADING_FONTS, applyAccent, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
@@ -30,6 +31,7 @@ type SectionId = (typeof SECTIONS)[number]["id"];
 
 export default function SettingsPage() {
   const supabase = createClient();
+  const rootRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -41,6 +43,13 @@ export default function SettingsPage() {
       ? (searchParams.get("section") as SectionId)
       : "account"
   );
+
+  useEffect(() => {
+    if (rootRef.current) {
+      const ctx = pageEntrance(rootRef.current);
+      return () => ctx();
+    }
+  }, []);
 
   // ---- Creator handle (state lives here so the Save button and field share
   //      the same React state; stale ref bridging previously wedged the button) ----
@@ -193,14 +202,14 @@ export default function SettingsPage() {
     Math.round(current.l) === Math.round(p.l);
 
   return (
-    <div className="fade-up">
-      <div className="mb-2">
+    <div ref={rootRef} className="fade-up">
+      <div className="entr mb-2">
         <h1 className="text-[24px] font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-inksoft mt-1">Your account, appearance, and connections.</p>
       </div>
 
       {/* Section nav */}
-      <div className="mb-6">
+      <div className="entr mb-6">
         <Segmented
           options={SECTIONS.map((s) => s.id)}
           value={section}

@@ -1,27 +1,35 @@
-# Talby Weekly Analytics — 2026-09-27
-
-Cold-start week. Almost every post is at 0–4 views, so most of this is honest "no signal yet," not discovery. But ONE number was real, and it points somewhere.
+# Talby Weekly Analytics — 2026-10-05
 
 ## THIS WEEK WHAT WORKED
 
-- **Winner hook: `ugc_admin_day`** ("the worst part of ugc admin work is the day at the cafe wondering which brand actually paid you") — the ONLY hook with real reach this week. Same creative sent 09-25 → **YouTube Shorts 55 views**, TikTok **0**, Instagram **1**.
-- **Platform lean: YouTube Shorts, not TikTok.** The exact same asset got 55 on YT and ~0 on TikTok/IG. This is the "one render → three platforms" signal: the reach is coming from YouTube Shorts right now, so that's where the daily engine should lean until TikTok proves different.
-- **What to stop doing:** don't treat every send as equal. TikTok and IG are the drains this week — same creative, no pickup. The engine should route the strongest hook of the day to YouTube Shorts first.
-- **Hashtags: NO signal yet.** Every `set_id → post_id` mapped in hashtag-usage.json this week points to an *unsent draft* (0 views). The ugc posts that actually reached the feed were never recorded in the mapping. We cannot attribute a single view to any hashtag set yet. No set flagged winner/loser — cold start. This is a real gap: the daily engine's usage recording isn't keeping up with what actually ships, so this weekly can't attribute.
-- **The one sent effort that underperformed despite a shot:** `dead_spreadsheet` IG ("spreadsheets work right up until you stop updating them") got 1 view / ~3s avg watch. Too thin to call a loser, but it did NOT work as a reach generator this week.
+**Correcting last week's call before anything else.** Last week's report crowned `ugc_admin_day` (55 views) as "the only real signal." That was wrong — not because 55 wasn't thin, but because the org-wide Buffer query caps at the latest ~10 posts and hid the actual leaders. Pulling per-channel this week exposed the real dataset standings:
+
+| Hook (sent date) | Channel | Views |
+|---|---|---|
+| `forgot_year` — "do you actually know what you've made this year? i didn't. turns out i was way off." | YT Shorts | **423** (09-24) |
+| `forgot_year` — same angle, either-or close ("two kinds of creators... i stopped hoping") | YT Shorts | **319** (09-23) |
+| `paid_is_second_job` / ugc-admin which-is-worse ("you did the work... which is worse: losing track of a payment...") | YT Shorts | **70** (09-29) |
+| `ugc_admin_day` — cafe moment "wondering which brand actually paid you" | YT Shorts | 55 (09-25) |
+| spreadsheet vs notes app ("which one are you?") | YT Shorts | 2 (09-23) |
+| generic "one place for every brand deal" | YT Shorts | 2 (09-20) |
+
+- **Winner hook: `forgot_year`.** 423 + 319 = **742 views**, both YouTube Shorts, the only two posts in the entire dataset to clear 300 (~6-8x every other asset). The Forgotten-Truth cue ("do you actually know what you've made this year? i didn't.") + the receipt (booked/paid/outstanding) is the pattern. Marked `winner: true` in hook-pool.json.
+- **Platform lean: YouTube Shorts, decisively.** Every non-zero number in the whole account lives on YT Shorts. Same week TikTok sent 3 posts → **0, 0, 0** views; Instagram 4 posts → **reach 1** each. This is the "one render → three platforms" answer: the reach engine is YT Shorts, full stop, for now. TikTok/IG are drains at current cold-start.
+- **What to stop doing:** (1) treating TikTok/IG as equal distribution — they are not converting; the strongest hook of the day should go to YT Shorts first. (2) Trusting the org-wide posts query for analytics — it truncates to ~10 and hides winners. Use per-channel or bound `createdAt{start,end}`. I still don't know last week's calling was wrong until I pulled per-channel.
+- **No hook earned a `losing` flag this week.** The 0-view sends (YT 10-01, YT 10-03, all TikTok, all IG) are too fresh / recency-capped to call losers — they haven't been live long enough. Do not mislabel. The only honest losers are platform-drain (TikTok/IG near-zero), which is a distribution call, not a hook call.
 
 ## NEXT WEEK HOOKS
 
-Grounding: one real finding — pain-led, "wondering who paid you" UGC-admin mirror works on YouTube Shorts. Everything else is thesis.
+Grounding: three real findings — (1) `forgot_year` (Forgotten-Truth receipt) is the proven top on YT Shorts, (2) the ugc-admin pain-mirror family (55 + 70) is a reliable second, (3) TikTok/IG show zero. Everything else is thesis. First three hooks are grounded; 4-5 are untested candidates that deserve the YT-Shorts route.
 
-1. **`ugc_admin_day` (re-run, WINNER — lean on it).** Re-send the cafe-moment angle, but engineer it *for YouTube Shorts* (tighter loop, the on-screen booked/paid/outstanding card earlier). Why: it's the only asset with real distribution; run it again with the platform it actually worked on before rotating away.
+1. **`forgot_year` (WINNER — lead with it, daily until it cools).** Re-run the exact Forgotten-Truth beat, vary the receipt numbers and the second sentence each day: "do you actually know what you've made this year? i didn't. turns out i was way off. booked [x], paid [x], outstanding [x]. which one are you?" Why: 423 + 319 are the only three-digit numbers we own; it is the top of the dataset and must be the default engine pick on YT Shorts.
 
-2. **Spreadsheet-shame receipt (FORGOTTEN-TRUTH, untested here but strongest adjacent pattern).** "if you're running brand deals out of a spreadsheet this is your sign. booked 101950, paid 33000, outstanding 67450." Open with the exact numbers as the receipt — proof-first, like `spreadsheet_sign` which historically did 26k. Give it the YT-Shorts route on day 1.
+2. **The ugc-admin pain-mirror (family winner, second slot).** "the worst part of ugc admin work is the day at the cafe wondering which brand actually paid you. one screen fixes it: booked, paid, outstanding." Why: this family did 55 + 70 — reliable second. Paired with the receipt it converts.
 
-3. **The "later" panic hook (harsh advice, `stop_catching_later`).** "stop telling yourself you'll track payments later. later is how you do a whole campaign and never get paid." Time-bound + money-lost contrast. Drafted as a slideshow this week but never reached the feed — actually ship it in the Shorts format and measure.
+3. **Which-is-worse engagement on YT Shorts (Either-Or).** "which is worse: losing track of a payment you're owed, or doing a whole campaign and never getting paid? you did the work, getting paid should not be a second job." Why: this exact frame pulled 70 views as part of the same 09-29 family; Either-Or is the comment-puller and YT Shorts rewards it.
 
-4. **Either-Or engagement (high-comment format, second day on TikTok).** "there are two types of creators: the one who knows exactly what they're owed, and the one who is hoping. which one are you?" Designed to pull comments — the metric TikTok/IG actually reward; use it to try to break the IG/TikTok near-zero.
+4. **Ambush-receipt thesis (untested — Forgotten-Truth variant).** "you've had [N] brand deals this year. you can name [N-1] of them from memory. the one you can't is the one you never got paid for." Why: same curiosity+receipt engine that won, new exact-accountability beat. Untested; route to YT Shorts day one.
 
-5. **Counterintuitive flip (`owed_vs_list` / `not_leaving_money_table`).** "a bigger brand deal list isn't success. knowing what you're actually owed is." Earns a shot on the platform that crowned the winner (YT Shorts) since it's the same pain-led register that just worked.
+5. **The "silent outstanding" panic thesis.** "booked $101,950. paid $33,000. outstanding $67,450. that gap isn't your work — it's money you're waiting on. how long has that number been sitting there?" Why: 39% of booked value is outstanding — a real, specific, uncomfortable number. Panic-hook register tied to the receipt. Untested; put it on YT Shorts, not TikTok.
 
-Daily engine instruction: **route each day's farthest-along hook to YT Shorts first**, and keep the mapping (`hashtag-usage.json`) pinned to the posts that actually ship, not the drafts — this weekly cannot attribute anything otherwise.
+**Daily engine instruction:** route the day's strongest hook to YouTube Shorts first, every day. TikTok/IG still get their drafts (audience build matters) but expect ~zero — don't burn the best hook there. And keep the mapping fix from last week front-and-center: record the SENT post id in hashtag-usage.json (not just the draft) or the weekly can't attribute any of this. SENT ids this week were distinct from the draft ids the engine logged — that gap is why attribution is still thin.
