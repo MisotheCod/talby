@@ -399,20 +399,34 @@ export default function PaymentsPage() {
           </div>
         </div>
         {listItems.length === 0 ? (
-          listFilter === "Overdue" ? <p className="text-sm text-muted text-center py-10">Nothing is overdue.</p>
-          : <p className="text-sm text-muted text-center py-10">No payments yet.</p>
+          <div className="card py-10 text-center">
+            <p className="text-sm text-muted text-center py-10">
+              {listFilter === "Overdue" ? "Nothing is overdue." : "No payments yet."}
+            </p>
+          </div>
         ) : (
-          <div className="space-y-6 pb-2 sm:pb-0">
-            {/* column header (not mobile) */}
+          /* ONE card: column header on top, then every month + its payments as
+             divider rows, then the total row. No separate card per month. */
+          <div className="card overflow-hidden">
+            {/* Column header (desktop) — sits inside the card's top edge. */}
             {!isMobile && (
-              <div className="grid items-center gap-3 px-5 text-[11px] font-semibold uppercase tracking-wider text-muted" style={{ gridTemplateColumns: "3rem 1fr 6rem 1fr 1fr 1.5rem" }}>
-                <span>Date</span><span>Brand</span><span>Amount</span><span>Payment</span><span>Status</span><span />
+              <div
+                className="grid items-center gap-3 px-5 text-[11px] font-semibold uppercase tracking-wider text-muted bg-card2/50 border-b border-line"
+                style={{ gridTemplateColumns: "3rem 1fr 1fr 1fr 6rem" }}
+              >
+                <span>Date</span><span>Brand</span><span>Payment</span><span>Status</span><span className="text-right">Amount</span>
               </div>
             )}
-            {listItems.map((group) => (
+
+            {listItems.map((group, gi) => (
               <div key={group.month}>
-                <div className={cn("text-xs font-semibold uppercase tracking-wider text-muted mb-2", isMobile ? "pl-4" : "")}>{group.label}</div>
-                <div className="card divide-y divide-line">
+                {/* Month divider row: small-caps, light gray, full width; divider
+                    above every month except the first. */}
+                <div className={cn("flex items-center px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted bg-card2/40", gi > 0 && "border-t border-line")}>
+                  {group.label}
+                </div>
+
+                <div className="divide-y divide-line">
                   {group.payments.map((p) => {
                     const st = rowsStatus(p);
                     const isRecv = st === "paid";
@@ -442,13 +456,16 @@ export default function PaymentsPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="entr-row grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: "3rem 1fr 6rem 1fr 1fr 1.5rem" }}>
+                          /* --- Desktop: Date | Brand | Payment | Status | Amount --- */
+                          <div className="entr-row grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: "3rem 1fr 1fr 1fr 6rem" }}>
                             <span className={cn("text-sm font-semibold tabular-nums", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>{day ?? "–"}</span>
                             <span className={cn("min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>{p.deal?.brand ?? "Payment"}</span>
-                            <span className={cn("money text-sm font-semibold tabular-nums", isRecv ? "text-ok" : "text-ink")}>{formatMoney(p.amount)}</span>
-                            <span className="text-xs text-inksoft">{payLabel}</span>
-                            {renderStatusPills()}
-                            {!isRecv && <div className="relative">{ (renderMenu()) }</div>}
+                            <span className="text-xs text-inksoft truncate">{payLabel}</span>
+                            <span className="relative flex items-center gap-1.5">
+                              {renderStatusPills()}
+                              {!isRecv && renderMenu()}
+                            </span>
+                            <span className={cn("money text-sm font-semibold tabular-nums text-right", isRecv ? "text-ok" : "text-ink")}>{formatMoney(p.amount)}</span>
                           </div>
                         )}
                       </div>
@@ -489,12 +506,14 @@ export default function PaymentsPage() {
                 </div>
               </div>
             ))}
-          </div>
-        )}
-        {listFooter && listFilter !== "All" && (
-          <div className="mt-3 flex items-center justify-end gap-2 px-5 py-3 rounded-lg border border-line bg-card2/50 text-sm font-semibold">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Total</span>
-            <span className="money tabular-nums">{formatMoney(listTotal ?? 0)}</span>
+
+            {/* Total row (bottom of the card, across all four filters' totals) */}
+            {listFooter && listFilter !== "All" && (
+              <div className="flex items-center justify-between px-5 py-3 border-t border-line bg-card2/30 text-sm font-semibold">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Total</span>
+                <span className="money tabular-nums">{formatMoney(listTotal ?? 0)}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
