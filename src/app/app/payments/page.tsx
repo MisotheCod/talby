@@ -6,6 +6,7 @@ import { formatMoney, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { pageEntrance } from "@/lib/entrance";
 import { paymentStatusView, paymentStructureLabel } from "@/lib/pay-status";
+import { scopeVisibleDeals, scopePaymentsToVisible } from "@/lib/free-plan-scope";
 import { IconPlus, IconMore, IconCheck, IconDown } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 import { IncomeSummary } from "./income-summary";
@@ -26,7 +27,7 @@ type Deal = {
 type ExtraRow = {
   id: string; kind: "bonus" | "commission"; amount: number | null;
   condition: string | null; rate: number | null; on_text: string | null;
-  earned: boolean; deal?: { brand: string } | null;
+  earned: boolean; deal_id?: string | null; deal?: { brand: string } | null;
 };
 type Range = "month" | "quarter" | "year" | "all";
 const RANGES: Range[] = ["month", "quarter", "year", "all"];
@@ -39,6 +40,13 @@ function fmtMonth(iso: string): string {
   // midnight and shifts the month back a day in negative-offset timezones).
   const d = new Date(y, m - 1, 1);
   return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+}
+/** Full month + year, "October 2026" — for the list's month divider rows. */
+function fmtMonthFull(iso: string): string {
+  const [y, m] = iso.split("-").map(Number);
+  if (!y || !m) return iso;
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 function fmtQuarter(key: string): string {
   const m = key.match(/^(\d{4})-Q(\d)/);
@@ -125,8 +133,15 @@ export default function PaymentsPage() {
   const thisYear = now.getFullYear();
   const lastYear = thisYear - 1;
 
-  const received = payments.filter((p) => p.status === "received");
-  const pending = payments.filter((p) => p.status !== "received");
+  /* Free-plan scope: only the 5 most-recent active deals are visible; every
+     aggregate below (received, pending, income, avg deal value, charts) uses
+     the scoped set so the page mirrors what the user can actually see. */
+  const { visibleDeals: scopedDeals, hiddenIds } = scopeVisibleDeals(deals, plan);
+  const scopedPayments = scopePaymentsToVisible(payments, hiddenIds);
+  const scopedExtras = hiddenIds.size ? extras.filter((x) => !x.deal_id || !hiddenIds.has(x.deal_id)) : extras;
+
+  const received = scopedPayments.filter((p) => p.status === "received") as Payment[];
+  const pending = scopedPayments.filter((p) => p.status !== "received") as Payment[];
 
   const receivedYtd = received.filter((p) => p.expected_date?.startsWith(String(thisYear)));
   const receivedYtdTotal = receivedYtd.reduce((s, p) => s + p.amount, 0);
@@ -151,17 +166,16 @@ export default function PaymentsPage() {
     const out: Record<string, string> = {};
     for (const did in byDeal) {
       const rows = byDeal[did].sort((a, b) => (a.expected_date ?? "").localeCompare(b.expected_date ?? ""));
-      const deal = deals.find((dv) => dv.id === did);
+      const deal = scopedDeals.find((dv) => dv.id === did);
       const kind = deal?.payment_structure ?? null;
       rows.forEach((p, i) => {
         out[p.id] = paymentStructureLabel(kind, i, rows.length);
       });
     }
     return out;
-  }, [payments, deals]);
+  }, [scopedPayments, scopedDeals]);
 
-  const activeDeals = deals.filter((d) => d.active && d.status !== "archived" && d.brand?.trim());
-  const dealValues = activeDeals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
+  const dealValues = scopedDeals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
   const avgDealValue = dealValues.length
     ? Math.round(dealValues.reduce((a, b) => a + b, 0) / dealValues.length)
     : null;
@@ -179,7 +193,7 @@ export default function PaymentsPage() {
   const bestMonthAmount = bestMonthEntry ? bestMonthEntry[1] : null;
 
   // Trend for avg deal value vs prior year deals
-  const priorDeals = deals.filter((d) => d.created_at?.startsWith(String(lastYear)));
+  const priorDeals = scopedDeals.filter((d) => d.created_at?.startsWith(String(lastYear)));
   const priorDealValues = priorDeals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
   const priorAvg = priorDealValues.length
     ? Math.round(priorDealValues.reduce((a, b) => a + b, 0) / priorDealValues.length)
@@ -217,7 +231,7 @@ export default function PaymentsPage() {
   // with empty months sitting at zero instead of disappearing.
   const dealsByMonth = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const d of activeDeals) {
+    for (const d of scopedDeals) {
       const m = d.created_at?.slice(0, 7);
       if (m) map[m] = (map[m] || 0) + 1;
     }
@@ -229,7 +243,7 @@ export default function PaymentsPage() {
       out.push({ key, label: fmtMonth(key), value: map[key] || 0 });
     }
     return out;
-  }, [activeDeals]);
+  }, [scopedDeals]);
 
   const dealsMax = Math.max(...dealsByMonth.map((b) => b.value), 1);
 
@@ -295,10 +309,15 @@ export default function PaymentsPage() {
     : listFilter === "Received" ? "Received"
     : listFilter === "All" ? "All payments"
     : "Coming up";
-  const listFooter = listFilter === "Received" ? `Total received ${formatMoney(receivedTotal)}`
-    : listFilter === "Overdue" || listFilter === "All" ? ""
-    : `Total expected ${formatMoney(expectedTotal)}`;
-  const listTotal = listFilter === "Received" ? receivedTotal : (listFilter === "All" ? null : expectedTotal);
+  const listTotalLabel = listFilter === "Received" ? "Total received"
+    : listFilter === "All" ? "Total"
+    : "Total expected";
+  // Total row sums exactly what's shown in the list (the visible groups), so it
+  // stays correct on every filter.
+  const listTotal = listItems.reduce(
+    (s, g) => s + g.payments.reduce((a, p) => a + (p.amount || 0), 0),
+    0
+  );
 
   /* ---------- actions ---------- */
   const markReceived = async (id: string) => {
@@ -337,7 +356,7 @@ export default function PaymentsPage() {
       </div>
 
       {view === "Income summary" && (
-        <IncomeSummary payments={payments} deals={deals} plan={plan} />
+        <IncomeSummary payments={scopedPayments} deals={scopedDeals} plan={plan} />
       )}
       {view === "Payments" && (
       <>
@@ -408,22 +427,24 @@ export default function PaymentsPage() {
           /* ONE card: column header on top, then every month + its payments as
              divider rows, then the total row. No separate card per month. */
           <div className="card overflow-hidden">
-            {/* Column header (desktop) — sits inside the card's top edge. */}
+            {/* Column header (desktop): white, 44px (h-11), 12px gray labels,
+                no gray so it doesn't blend into the first month; 1px divider. */}
             {!isMobile && (
               <div
-                className="grid items-center gap-3 px-5 text-[11px] font-semibold uppercase tracking-wider text-muted bg-card2/50 border-b border-line"
-                style={{ gridTemplateColumns: "3rem 1fr 1fr 1fr 6rem" }}
+                className="grid items-center gap-3 px-5 h-11 text-[12px] font-semibold uppercase tracking-wider text-muted bg-card border-b border-line"
+                style={{ gridTemplateColumns: "56px 1fr 160px 140px 120px 32px" }}
               >
-                <span>Date</span><span>Brand</span><span>Payment</span><span>Status</span><span className="text-right">Amount</span>
+                <span>Date</span><span>Brand</span><span>Payment</span><span>Status</span><span className="text-right">Amount</span><span />
               </div>
             )}
 
             {listItems.map((group, gi) => (
               <div key={group.month}>
-                {/* Month divider row: small-caps, light gray, full width; divider
-                    above every month except the first. */}
-                <div className={cn("flex items-center px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted bg-card2/40", gi > 0 && "border-t border-line")}>
-                  {group.label}
+                {/* Month divider row: full month "October 2026", 12px semibold
+                    gray, 36px tall, light gray bg; divider above every month
+                    except the first. */}
+                <div className={cn("flex items-center px-5 h-9 text-[12px] font-semibold tracking-wide text-muted bg-card2/40", gi > 0 && "border-t border-line")}>
+                  {group.month === "upcoming" ? group.label : fmtMonthFull(group.month)}
                 </div>
 
                 <div className="divide-y divide-line">
@@ -456,16 +477,14 @@ export default function PaymentsPage() {
                             </div>
                           </div>
                         ) : (
-                          /* --- Desktop: Date | Brand | Payment | Status | Amount --- */
-                          <div className="entr-row grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: "3rem 1fr 1fr 1fr 6rem" }}>
+                          /* --- Desktop: Date | Brand | Payment | Status | Amount | ⋯ --- */
+                          <div className="entr-row grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: "56px 1fr 160px 140px 120px 32px" }}>
                             <span className={cn("text-sm font-semibold tabular-nums", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>{day ?? "–"}</span>
                             <span className={cn("min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>{p.deal?.brand ?? "Payment"}</span>
                             <span className="text-xs text-inksoft truncate">{payLabel}</span>
-                            <span className="relative flex items-center gap-1.5">
-                              {renderStatusPills()}
-                              {!isRecv && renderMenu()}
-                            </span>
+                            <span className="flex items-center gap-1.5">{renderStatusPills()}</span>
                             <span className={cn("money text-sm font-semibold tabular-nums text-right", isRecv ? "text-ok" : "text-ink")}>{formatMoney(p.amount)}</span>
+                            <span className="relative w-8 flex justify-center">{!isRecv && renderMenu()}</span>
                           </div>
                         )}
                       </div>
@@ -507,22 +526,20 @@ export default function PaymentsPage() {
               </div>
             ))}
 
-            {/* Total row (bottom of the card, across all four filters' totals) */}
-            {listFooter && listFilter !== "All" && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-line bg-card2/30 text-sm font-semibold">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">Total</span>
-                <span className="money tabular-nums">{formatMoney(listTotal ?? 0)}</span>
-              </div>
-            )}
+            {/* Total row (bottom of the card) — label follows the filter, always shown. */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-line bg-card2/30 text-sm font-semibold">
+              <span className="text-[12px] font-semibold uppercase tracking-wider text-muted">{listTotalLabel}</span>
+              <span className="money tabular-nums">{formatMoney(listTotal)}</span>
+            </div>
           </div>
         )}
       </div>
 
       {/* === 5. Extras (spec 7g): collapsed by default === */}
-      <ExtrasSection extras={extras} />
+      <ExtrasSection extras={scopedExtras} />
 
       {showAdd && (
-        <AddPaymentModal deals={deals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
+        <AddPaymentModal deals={scopedDeals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
       )}
       </>
       )}
