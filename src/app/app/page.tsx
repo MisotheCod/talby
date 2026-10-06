@@ -26,7 +26,7 @@ type Payment = {
 };
 type Content = {
   id: string; title: string; event_date: string; post_type: string | null;
-  platform: string | null; status: string | null;
+  platform: string | null; status: string | null; linked_deal_id: string | null;
 };
 type Todo = { id: string; title: string; done: boolean; due_date: string | null };
 type CalendarNote = { id: string; body: string; event_date: string; done: boolean };
@@ -144,23 +144,13 @@ export default function OverviewPage() {
   }, [loading]);
 
   const activeDeals = deals.filter((d) => d.brand?.trim() && d.active && d.status !== "archived");
-  const booked = activeDeals.reduce((s, d) => s + (d.value ?? 0), 0);
-  const received = payments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
-  const outstanding = payments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
-  const pendingPayments = payments.filter((p) => p.status !== "received");
-  const pastDue = pendingPayments.filter((p) => isPastDue(p.expected_date)).length;
 
-  // Payment-due lookup so the Active list can default-sort by soonest payment.
-  const firstDueByDeal = new Map<string, string>();
-  for (const p of pendingPayments) {
-    if (!p.deal_id) continue;
-    const cur = firstDueByDeal.get(p.deal_id);
-    if (!cur || (p.expected_date ?? "") < cur) firstDueByDeal.set(p.deal_id, p.expected_date ?? "");
-  }
-
-  // Free plan: keep the 5 most recent active deals visible in the list, hide
-  // overflow (rows preserved, reappear when Unlimited). Stats above stay on ALL
-  // deals (honest total + the existing capacity upsell). `deals` is created_at desc.
+  // Free plan overflow gating: the 5 most recent active deals are visible, the
+  // rest are kept safe and hidden until Unlimited. EVERY metric below (booked,
+  // received, outstanding, pending, calendar, payments card) derives from the
+  // VISIBLE deals only, so a free user sees a coherent picture of what they can
+  // act on. The capacity/sidebar "19 of 5" upsell stays on the true total.
+  // `deals` is created_at desc (most recent first).
   const hiddenOverflowIds = new Set<string>();
   if (plan === "free") {
     let kept = 0;
@@ -171,6 +161,29 @@ export default function OverviewPage() {
   }
   const hiddenOverflowCount = hiddenOverflowIds.size;
   const visibleDeals = hiddenOverflowIds.size ? activeDeals.filter((d) => !hiddenOverflowIds.has(d.id)) : activeDeals;
+  const visibleDealIds = new Set(visibleDeals.map((d) => d.id));
+  // Scope payments + content to the visible deals when overflow is hidden
+  // (a payment/calendar row for a hidden deal would leak what's being hidden).
+  const scopedPayments = hiddenOverflowIds.size
+    ? payments.filter((p) => !p.deal_id || visibleDealIds.has(p.deal_id))
+    : payments;
+  const scopedContent = hiddenOverflowIds.size
+    ? content.filter((c) => !c.linked_deal_id || visibleDealIds.has(c.linked_deal_id))
+    : content;
+
+  const booked = visibleDeals.reduce((s, d) => s + (d.value ?? 0), 0);
+  const received = scopedPayments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
+  const outstanding = scopedPayments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
+  const pendingPayments = scopedPayments.filter((p) => p.status !== "received");
+  const pastDue = pendingPayments.filter((p) => isPastDue(p.expected_date)).length;
+
+  // Payment-due lookup so the Active list can default-sort by soonest payment.
+  const firstDueByDeal = new Map<string, string>();
+  for (const p of pendingPayments) {
+    if (!p.deal_id) continue;
+    const cur = firstDueByDeal.get(p.deal_id);
+    if (!cur || (p.expected_date ?? "") < cur) firstDueByDeal.set(p.deal_id, p.expected_date ?? "");
+  }
 
   const filteredDeals = visibleDeals.filter((d) => {
     if (search) {
@@ -213,16 +226,16 @@ export default function OverviewPage() {
   const dayItems = (iso: string) => {
     const items: { t: string; n: string; a?: string; done?: boolean }[] = [];
     // payments (expected or past-due) — same table the Payments card uses
-    payments.filter((p) => p.status !== "received" && p.expected_date === iso)
+    scopedPayments.filter((p) => p.status !== "received" && p.expected_date === iso)
       .forEach((p) => items.push({ t: "payment", n: `${p.deal?.brand ?? "Payment"} payment expected`, a: formatMoney(p.amount) }));
     // received payments on that date land too
-    payments.filter((p) => p.status === "received" && p.expected_date === iso)
+    scopedPayments.filter((p) => p.status === "received" && p.expected_date === iso)
       .forEach((p) => items.push({ t: "received", n: `${p.deal?.brand ?? "Payment"} received`, a: formatMoney(p.amount) }));
     // posts (incl. recurring instances) on that date
-    content.filter((c) => c.event_date === iso)
+    scopedContent.filter((c) => c.event_date === iso)
       .forEach((c) => items.push({ t: "post", n: c.title }));
     // deal deliverables due that day
-    activeDeals.filter((d) => d.due_date === iso)
+    visibleDeals.filter((d) => d.due_date === iso)
       .forEach((d) => items.push({ t: "deliv", n: `${d.brand} deliverable due` }));
     // dated to-dos (both pending and done — done stay visible, struck+dimmed)
     todos.filter((t) => t.due_date === iso)
@@ -238,7 +251,7 @@ export default function OverviewPage() {
   // both, each its own status) through the canonical paymentStatusView, sorted
   // by date with received rows at the end — the same per-row listing the
   // Payments page uses. Money landing soonest is at the top.
-  const timeline = [...payments]
+  const timeline = [...scopedPayments]
     .sort((a, b) => {
       const aRecv = a.status === "received", bRecv = b.status === "received";
       if (aRecv && !bRecv) return 1;
@@ -277,7 +290,7 @@ export default function OverviewPage() {
         <div className="statcard anim">
           <div className="lbl">Booked</div>
           <div className="val cnt-up" data-n={booked}>$0</div>
-          <div className="sub">across {activeDeals.length} active deal{activeDeals.length === 1 ? "" : "s"}</div>
+          <div className="sub">across {visibleDeals.length} active deal{visibleDeals.length === 1 ? "" : "s"}</div>
         </div>
         <div className="statcard anim">
           <div className="lbl">Paid</div>
