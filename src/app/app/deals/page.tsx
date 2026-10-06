@@ -200,7 +200,25 @@ export default function DealsPage() {
 
   const activeCount = deals.filter((d) => d.active && d.status !== "archived").length;
 
-  const filtered = deals.filter((d) => {
+  // Free plan visibility rule: keep the 5 most recent active deals visible,
+  // hide any overflow (their rows are preserved — they reappear when Unlimited).
+  // `deals` arrives pre-sorted created_at desc, so "most recent first".
+  const hiddenOverflowIds = new Set<string>();
+  if (plan === "free") {
+    let kept = 0;
+    for (const d of deals) {
+      if (d.active && d.status !== "archived") {
+        if (kept < FREE_ACTIVE_DEAL_CAP) { kept++; }
+        else { hiddenOverflowIds.add(d.id); }
+      }
+    }
+  }
+  const visibleDeals = hiddenOverflowIds.size ? deals.filter((d) => !hiddenOverflowIds.has(d.id)) : deals;
+  const hiddenOverflowCount = hiddenOverflowIds.size;
+  // True active count still gates adding (a downgraded user with over 5 stays capped).
+  const visibleActiveCount = visibleDeals.filter((d) => d.active && d.status !== "archived").length;
+
+  const filtered = visibleDeals.filter((d) => {
     const paid = (d.pay_rollup?.status ?? "not_invoiced") === "paid";
     switch (filter) {
       case "Negotiating": return d.status === "pipeline";
@@ -288,7 +306,7 @@ export default function DealsPage() {
           <h1 className="text-[24px] font-semibold tracking-tight">Deals</h1>
           <p className="text-sm text-inksoft mt-1">
             {plan === "free"
-              ? `${activeCount} of ${FREE_ACTIVE_DEAL_CAP} active deals`
+              ? `${visibleActiveCount} of ${FREE_ACTIVE_DEAL_CAP} active deals${hiddenOverflowCount ? ` · ${hiddenOverflowCount} more saved` : ""}`
               : `${activeCount} active deals`}
           </p>
         </div>
@@ -337,6 +355,15 @@ export default function DealsPage() {
       </div>
 
       {/* Filter chips + search + sort + view toggle */}
+      {hiddenOverflowCount > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-line2 bg-card p-3.5">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-ink">You have {hiddenOverflowCount} more saved deal{hiddenOverflowCount === 1 ? "" : "s"}.</p>
+            <p className="text-[13px] text-inksoft mt-0.5">They're kept safe and will come back when you're on Unlimited again. Nothing is deleted.</p>
+          </div>
+          <Button size="sm" onClick={() => setShowUpgrade(true)}>Go Unlimited</Button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1.5 flex-wrap">
           <Segmented options={FILTERS} value={filter} onChange={(f) => { setFilter(f); setPage(1); }} />
