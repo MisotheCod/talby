@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
 import { dealPayRollup, paymentStatusView, type DealRollup, type PayStatus } from "@/lib/pay-status";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
+import { startUnlimited } from "@/lib/start-unlimited";
 import { IconPlus } from "@/components/icons";
 import { Pill, Segmented } from "@/components/ui";
 import { AddDealFlow } from "@/components/add-deal-flow";
@@ -157,7 +158,21 @@ export default function OverviewPage() {
     if (!cur || (p.expected_date ?? "") < cur) firstDueByDeal.set(p.deal_id, p.expected_date ?? "");
   }
 
-  const filteredDeals = activeDeals.filter((d) => {
+  // Free plan: keep the 5 most recent active deals visible in the list, hide
+  // overflow (rows preserved, reappear when Unlimited). Stats above stay on ALL
+  // deals (honest total + the existing capacity upsell). `deals` is created_at desc.
+  const hiddenOverflowIds = new Set<string>();
+  if (plan === "free") {
+    let kept = 0;
+    for (const d of activeDeals) {
+      if (kept < FREE_ACTIVE_DEAL_CAP) { kept++; }
+      else { hiddenOverflowIds.add(d.id); }
+    }
+  }
+  const hiddenOverflowCount = hiddenOverflowIds.size;
+  const visibleDeals = hiddenOverflowIds.size ? activeDeals.filter((d) => !hiddenOverflowIds.has(d.id)) : activeDeals;
+
+  const filteredDeals = visibleDeals.filter((d) => {
     if (search) {
       const q = search.toLowerCase();
       const inBrand = d.brand.toLowerCase().includes(q);
@@ -283,6 +298,15 @@ export default function OverviewPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5">
         {/* Active deals */}
         <div className="panel anim">
+          {hiddenOverflowCount > 0 && (
+            <div className="flex items-start gap-3 rounded-lg border border-line2 bg-card2 px-4 py-3 mx-[22px] mt-[19px]">
+              <div className="flex-1">
+                <p className="text-[13px] font-medium text-ink">You have {hiddenOverflowCount} more saved deal{hiddenOverflowCount === 1 ? "" : "s"}.</p>
+                <p className="text-xs text-inksoft mt-0.5">They stay safe and reappear on Unlimited. Nothing is deleted.</p>
+              </div>
+              <button onClick={() => { startUnlimited(); }} className="text-xs font-semibold accent-ink underline underline-offset-2 shrink-0">Go Unlimited</button>
+            </div>
+          )}
           <div className="flex items-center justify-between px-[22px] pt-[19px] pb-[15px] flex-wrap gap-3">
             <h3 className="text-[16px] font-head font-bold">Active deals</h3>
             <div className="flex items-center gap-2 flex-wrap">
