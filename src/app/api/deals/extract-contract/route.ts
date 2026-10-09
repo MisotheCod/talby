@@ -68,7 +68,19 @@ export async function POST(req: Request) {
   if (!text.trim()) {
     return NextResponse.json({ error: "Couldn't read any text from that file." }, { status: 422 });
   }
-  const fields = await extractDealFields(text);
+  let fields: Record<string, unknown>;
+  try {
+    fields = await extractDealFields(text);
+  } catch (err) {
+    // Never crash serverless with an uncaught throw: that yields an HTML 500,
+    // which the client misreads as "could not reach the contract parser."
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("extract-contract field error:", msg);
+    return NextResponse.json(
+      { error: "The extraction AI returned an error. Please re-try, or add the deal manually." },
+      { status: 502 }
+    );
+  }
   // Return the extracted text too (additive) so the client can hand it to the
   // assistant ingest route for chunking + embedding. Extraction itself is unchanged.
   return NextResponse.json({ ok: true, fields, text });

@@ -81,7 +81,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
       try {
         const res = await fetch("/api/deals/extract-contract", { method: "POST", body: fd });
         const data = await res.json();
-        if (!res.ok) { firstErr = firstErr || data.error || "One or more files could not be read."; continue; }
+        if (!res.ok) { firstErr = firstErr || data?.error || "One or more files could not be read."; continue; }
         const fields = data.fields ?? {};
         results.push({
           ...applyContractFields(fields),
