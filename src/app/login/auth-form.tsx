@@ -135,7 +135,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       if (data.user && handleClean) {
         await supabase.from("profiles").update({ handler: handleClean }).eq("id", data.user.id);
       }
-      if (data.user) { posthog.identify(data.user.id, { email }); posthog.capture("signup"); }
+      if (data.user) {
+        // Identify with the new user up front so every subsequent event (and the
+        // user_signed_up event below) is attributed to the right person.
+        posthog.identify(data.user.id, {
+          email,
+          name: handleClean || email,
+          created_at: data.user.created_at,
+        });
+        // Funnel/registration event: method is how they signed up; plan is the
+        // one they're registering for (unlimited when arriving via a plan link).
+        const method = "email"; // Talby signup is email/password only today
+        const plan = searchParams.get("plan") === "unlimited" ? "unlimited" : null;
+        posthog.capture("user_signed_up", { method, plan });
+        posthog.capture("signup");
+      }
       // Primary metric for the landing-test experiment. Attach the assigned
       // variant so PostHog can segment signup_completed by arm. The server-side
       // vid cookie (and the PostHog ph_phc cookie via the same-origin redirect)
