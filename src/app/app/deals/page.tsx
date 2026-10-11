@@ -54,9 +54,9 @@ type Deal = {
 type Payment = { id: string; deal_id: string | null; amount: number; expected_date: string | null; status: string; notes: string | null; invoice_state: string | null; pay_status?: string | null; bonus_confirmed?: boolean };
 type ChecklistItem = { id: string; deal_id: string; title: string; done: boolean };
 type DealFile = { id: string; deal_id: string; name: string; path: string; size_bytes: number | null; mime: string | null; kind?: "contract" | "invoice" | "other" | null };
-type DraftField = "value" | "status" | "deliverable" | "deal_type" | "pay_terms" | "exclusivity_days" | "revisions_included" | "rep_name" | "rep_email" | "notes";
+type DraftField = "brand" | "value" | "status" | "deliverable" | "deal_type" | "pay_terms" | "exclusivity_days" | "revisions_included" | "rep_name" | "rep_email" | "notes";
 type Draft = Record<DraftField, string>;
-const FIELD_KEYS: DraftField[] = ["value", "status", "deliverable", "deal_type", "pay_terms", "exclusivity_days", "revisions_included", "rep_name", "rep_email", "notes"];
+const FIELD_KEYS: DraftField[] = ["brand", "value", "status", "deliverable", "deal_type", "pay_terms", "exclusivity_days", "revisions_included", "rep_name", "rep_email", "notes"];
 /** Structure fields live on `deals` (not Draft) — they are staged + saved as a
  *  group so structure changes regenerate unpaid payments on Save. */
 type StructureStage = {
@@ -714,6 +714,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   // for dirty detection and per-field undo. No blur handlers, no debounces,
   // no timers, no onKeyDown writes — typing is never interrupted.
   const toDraft = (d: Deal) => ({
+    brand: d.brand ?? "",
     value: d.value?.toString() ?? "",
     status: d.status === "archived" ? "archived" : d.status === "pipeline" ? "pipeline" : "active",
     deliverable: d.deliverable ?? "",
@@ -1392,6 +1393,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
           const pd = postDates.length ? `, posts ${postDates[0].date ? formatDate(postDates[0].date) : "soon"}` : "";
           return `${st}${pd}`;
         })()}>
+        <Row label="Brand" field="brand"><DealInput inputRef={bindRef("brand")} value={draft.brand} onCommit={() => onFieldBlur("brand")} className={inputCls} placeholder="e.g. Glossier" /></Row>
         <Row label="Deal status" field="status">
           <Sel ref={bindRef("status") as unknown as (el: { value: string }) => void} defaultValue={draft.status} onBlur={() => onFieldBlur("status")}>
             <option value="active">Active</option>
