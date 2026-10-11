@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test src/lib/pay-status.test.ts"
+    "test": "node --experimental-strip-types --test src/lib/pay-status.test.ts",
+    "check:drawer": "node scripts/drawer-save-regression.cjs"
   },
   "dependencies": {
     "@icon-park/react": "^1.4.2",
