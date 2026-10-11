@@ -188,6 +188,7 @@ async function main() {
   check('Deal amount field present', hasAmt === 1);
   if (hasAmt) {
     await amt.click();
+    await sleep(400); // let React's focus re-render settle before typing (racer on live)
     await page.keyboard.press('Meta+A');
     await page.keyboard.type(NEW_AMOUNT);
     await page.keyboard.press('Tab');
