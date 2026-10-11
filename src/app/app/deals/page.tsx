@@ -895,6 +895,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       }
     } catch (e) {
       setSaveError("Could not save checklist, payments, or post dates.");
+      setSaving(false); // never leave the Save button stuck disabled on a child-write error
       return;
     }
     // Refetch the freshly-saved children so the drawer shows real DB rows/ids
