@@ -1125,7 +1125,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 bg-card2">
-          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} postDates={postDates} setPostDates={setPostDates} postDatesSaved={postDatesSaved} onUpdated={onUpdated} onEditDealAmountStaged={onEditDealAmount} struct={struct} setStruct={setStruct} extras={extras} setExtras={setExtras} />}
+          {tab === "details" && <DetailsTab key={deal.id} deal={deal} payments={payments} setPayments={setPayments} files={files} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} setField={setField} invoiceReview={invoiceReview} onAcceptInvoiceDate={acceptInvoiceDate} onKeepInvoiceDate={keepInvoiceDate} onUploadFile={uploadDealFile} onOpenFile={openDealFile} onRemoveFile={removeDealFile} paymentsSaved={paymentsSaved} postDates={postDates} setPostDates={setPostDates} postDatesSaved={postDatesSaved} onUpdated={onUpdated} onEditDealAmountStaged={onEditDealAmount} struct={struct} setStruct={setStruct} extras={extras} setExtras={setExtras} />}
           {tab === "checklist" && <ChecklistTab items={checklist} setItems={setChecklist} />}
           {tab === "notes" && <NotesTab key={deal.id} draft={draft} bindRef={bindRef} onFieldBlur={onFieldBlur} undo={undo} isDirty={isDirty} />}
           {tab === "files" && <FilesTab dealId={deal.id} files={files} setFiles={setFiles} onUploadFile={uploadDealFile} />}
@@ -1176,9 +1176,9 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
    types, so a keystroke can never stall. onBlur (leaving a field, one action)
    syncs the value for dirty-marking/undo. The drawer's Save reads the refs
    directly. Nothing writes to the DB except Save. */
-function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved, postDates, setPostDates, postDatesSaved, onUpdated, onEditDealAmountStaged, struct, setStruct, extras, setExtras }: {
+function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFieldBlur, undo, isDirty, setField, invoiceReview, onAcceptInvoiceDate, onKeepInvoiceDate, onUploadFile, onOpenFile, onRemoveFile, paymentsSaved, postDates, setPostDates, postDatesSaved, onUpdated, onEditDealAmountStaged, struct, setStruct, extras, setExtras }: {
   deal: Deal; payments: Payment[]; setPayments: (p: Payment[]) => void; files: DealFile[]; paymentsSaved: Payment[];
-  draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean;
+  draft: Draft; bindRef: (k: DraftField) => (el: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null) => void; onFieldBlur: (k: DraftField) => void; undo: (k: DraftField) => void; isDirty: (k: DraftField) => boolean; setField: (k: DraftField, v: string) => void;
   postDates: PostDate[]; setPostDates: (p: PostDate[]) => void; postDatesSaved: PostDate[];
   invoiceReview: { proposed: string | null; current: string | null } | null;
   onAcceptInvoiceDate: () => void; onKeepInvoiceDate: () => void;
@@ -1343,7 +1343,7 @@ function DetailsTab({ deal, payments, setPayments, files, draft, bindRef, onFiel
         })()}>
         <DealPaymentSection
           value={draft.value}
-          onValueCommit={() => onFieldBlur("value")}
+          onValueCommit={(raw) => setField("value", raw)}
           struct={struct}
           setStruct={setStruct}
           payments={payments as unknown as EditorPayment[]}

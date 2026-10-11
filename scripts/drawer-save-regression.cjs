@@ -108,6 +108,7 @@ async function main() {
   const brand = `HarnessBrand${TS.toString().slice(-7)}`;
   const NEW_BRAND = `BrandRenamed${TS.toString().slice(-6)}`;
   const NEW_DELIV = `DeliverableEdited${TS.toString().slice(-5)}`;
+  const NEW_AMOUNT = '2000'; // fixed number: original deal is 1250; must persist as 2000
 
   browser = await chromium.launch({
     headless: true,
@@ -175,6 +176,28 @@ async function main() {
   // 3. Open drawer, expand Deal accordion, edit Brand + Deliverable + Deal type
   await openDealDrawer(dealId, brand);
   check('drawer opened', (await page.locator('button[aria-label="More actions"]').count()) === 1);
+
+  // 3a. DEAL AMOUNT — the Amount row in the Payment card (visible on open).
+  //     Type via select-all + keystrokes, then Tab to commit. Playwright fill()
+  //     races the controlled money input and appends, so use the keyboard path.
+  //     Regression: onValueCommit must stage the raw value so the Save button
+  //     enables; before the fix it reverted to the saved amount and Save stayed
+  //     disabled forever (silent no-op save).
+  const amt = page.locator('input[aria-label="Deal amount"]').first();
+  const hasAmt = await amt.count();
+  check('Deal amount field present', hasAmt === 1);
+  if (hasAmt) {
+    await amt.click();
+    await page.keyboard.press('Meta+A');
+    await page.keyboard.type(NEW_AMOUNT);
+    await page.keyboard.press('Tab');
+    await sleep(800);
+    const saveAfterAmt = page.locator('button:has-text("Save changes")').first();
+    const amtDisabled = await saveAfterAmt.isDisabled().catch(() => null);
+    check('Save enabled after amount edit (dirty flag)', amtDisabled === false);
+    console.log('  amount after edit:', await amt.inputValue().catch(() => '(none)'));
+  }
+
   await expandAccordion(/^Deal/);
   check('Brand field present', await page.locator('input[placeholder="e.g. Glossier"]').count() === 1);
   await editText('e.g. Glossier', NEW_BRAND);
@@ -325,7 +348,7 @@ async function main() {
   if (dbBase && dbKey) {
     try {
       const dbr = await page.evaluate(async ({ base, key, id }) => {
-        const res = await fetch(base + '/rest/v1/deals?select=brand,deliverable,deal_type,status&id=eq.' + encodeURIComponent(id), {
+        const res = await fetch(base + '/rest/v1/deals?select=brand,deliverable,deal_type,status,value&id=eq.' + encodeURIComponent(id), {
           headers: { apikey: key, Authorization: 'Bearer ' + key },
         });
         if (!res.ok) return { err: res.status };
@@ -337,6 +360,7 @@ async function main() {
       check('DB: deliverable persisted', dbr && dbr.deliverable === NEW_DELIV);
       check('DB: deal_type persisted', dbr && /paid_partnership/i.test(dbr.deal_type || ''));
       check('DB: status persisted', dbr && /negotiating|pipeline/i.test(dbr.status || ''));
+      check('DB: amount persisted (edited in drawer)', dbr && Number(dbr.value) === Number(NEW_AMOUNT));
 
       // Payments + post dates ground truth (the Save reconcile writes these).
       const child = await page.evaluate(async ({ base, key, id }) => {
