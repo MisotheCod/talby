@@ -903,10 +903,13 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       for (const cid of existingContentIds) if (!keptContentRows.includes(cid)) await supabase.from("content").delete().eq("id", cid);
       for (const p of postDates) {
         if (!p.date) continue;
+        // content.title is NOT NULL — a post date with no label must not send
+        // null or the insert/update errors silently and the date is lost.
+        const postTitle = p.label?.trim() ? p.label.trim() : "Post";
         if (p.id && existingContentIds.has(p.id)) {
-          await supabase.from("content").update({ event_date: p.date, title: p.label.trim() || null, post_type: (p.kind ?? "").trim() || null }).eq("id", p.id);
+          await supabase.from("content").update({ event_date: p.date, title: postTitle, post_type: (p.kind ?? "").trim() || null }).eq("id", p.id);
         } else {
-          await supabase.from("content").insert({ user_id: user.id, linked_deal_id: deal.id, event_date: p.date, title: p.label.trim() || null, post_type: (p.kind ?? "").trim() || null, status: "planned" });
+          await supabase.from("content").insert({ user_id: user.id, linked_deal_id: deal.id, event_date: p.date, title: postTitle, post_type: (p.kind ?? "").trim() || null, status: "planned" });
         }
       }
     } catch (e) {
