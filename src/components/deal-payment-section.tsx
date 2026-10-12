@@ -244,7 +244,14 @@ export function DealPaymentSection({
           {struct.structure_timing === "set_date" && (
             <div className={rowCls}>
               <span className={labelCls}>Date</span>
-              <DealInput type="date" value={struct.structure_timing_set_date ?? ""} onCommit={(v) => setStruct({ ...struct, structure_timing_set_date: v || null })} className={`${drawerFieldCls} deal-date-input`} ariaLabel="Set date" />
+              <DealInput type="date" value={struct.structure_timing_set_date ?? ""} onCommit={(v) => {
+                const date = v || null;
+                setStruct({ ...struct, structure_timing_set_date: date });
+                // Single source of truth for "Pay by" is the payment row's
+                // expected_date. Editing this once-deal date must reach that row
+                // too, or the deals table / calendar / payments keep the old date.
+                if (payments[0]) patchPay(payments[0].id, (x) => ({ ...x, expected_date: date }));
+              }} className={`${drawerFieldCls} deal-date-input`} ariaLabel="Set date" />
             </div>
           )}
         </>

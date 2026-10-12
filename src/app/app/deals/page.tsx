@@ -826,6 +826,11 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       const st = ((fieldRefs.current as Record<string, unknown>)["status"] as { value?: string } | null)?.value ?? draft.status;
       patch.active = st !== "archived";
     }
+    // deals.due_date is a legacy mirror of the earliest payment expected_date.
+    // Overview's "deliverable due" feed reads it, so keep it synced to the
+    // payment rows (the single source of truth for Pay by) on every save.
+    const earliestPayDate = (payments.map((p) => p.expected_date ?? "").filter(Boolean).sort()[0] ?? null);
+    if (earliestPayDate) patch.due_date = earliestPayDate.slice(0, 10);
     if (Object.keys(patch).length) {
       const { error } = await supabase.from("deals").update(patch).eq("id", deal.id);
       if (error) { setSaveError(error.message || "Could not save changes."); setSaving(false); return; }
