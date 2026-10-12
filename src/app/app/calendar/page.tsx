@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { subscribeDataChange, notifyDataChange } from "@/lib/data-events";
 import { cn, formatMoney } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
@@ -244,6 +245,13 @@ export default function CalendarPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Re-fetch on cross-route data mutations (deal saves, payment/extra edits,
+  // deletes, creates) so the calendar's post dates / pay-by stay current.
+  useEffect(() => {
+    const unsub = subscribeDataChange(() => { load(); });
+    return unsub;
+  }, [load]);
+
   // Dismiss the "+N more" day reveal with Escape.
   useEffect(() => {
     if (!dayReveal) return;
@@ -299,6 +307,7 @@ export default function CalendarPage() {
     }
     // Success: swap skeleton → real pill (the insert confirmed; refetch keeps id).
     await load();
+    notifyDataChange();
   };
 
   // Switch Month/Agenda and persist the choice to the profile (desktop only).
@@ -972,6 +981,8 @@ export default function CalendarPage() {
       type === "note" && setNotes((xs) => xs.map((x) => (x.id === activeId ? { ...x, event_date: origin } : x)));
       setDragError("Couldn't move that. Nothing changed.");
       setTimeout(() => setDragError(null), 3600);
+    } else {
+      notifyDataChange(); // a dragged payment/post date moved — tell every page
     }
   }
 }

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { pageEntrance } from "@/lib/entrance";
 import { startUnlimited } from "@/lib/start-unlimited";
+import { subscribeDataChange, notifyDataChange } from "@/lib/data-events";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, dealPaymentView, type DealExtra, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
 import { type EditorPayment } from "@/components/payment-editor";
@@ -170,7 +171,11 @@ export default function DealsPage() {
     setLoading(false);
   }, [supabase]);
 
-  useEffect(() => { loadDeals(); }, [loadDeals, supabase]);
+  useEffect(() => {
+    const unsub = subscribeDataChange(() => { loadDeals(); });
+    loadDeals();
+    return unsub;
+  }, [loadDeals, supabase]);
 
   // Entrance: on first load only, drop the deal rows in one by one.
   const [entered, setEntered] = useState(false);
@@ -249,8 +254,8 @@ export default function DealsPage() {
 
   const selected = deals.find((d) => d.id === selectedId) ?? null;
 
-  const onCreated = () => { setNewMode(null); celeb.fire(); loadDeals(); };
-  const onUpdated = () => loadDeals();
+  const onCreated = () => { setNewMode(null); celeb.fire(); notifyDataChange(); };
+  const onUpdated = () => notifyDataChange();
 
   // Permanently delete via the server route (owns the cascade + storage + chunks).
   const performDelete = async (deal: Deal) => {
@@ -259,14 +264,14 @@ export default function DealsPage() {
     const res = await fetch(`/api/deals/${deal.id}`, { method: "DELETE" });
     if (!res.ok) return;
     if (selectedId === deal.id) setSelectedId(null);
-    await loadDeals(); // recalc totals, deal count, cap usage
+    notifyDataChange(); // recalc totals, deal count, cap usage across routes
   };
   // Archive (keeps history, frees a cap slot) vs delete (destroys). Archive is
   // the low-risk, prominent action; delete is the deliberate one behind a confirm.
   const setArchived = async (deal: Deal, archived: boolean) => {
     setRowMenu(null);
     await supabase.from("deals").update({ status: archived ? "archived" : "active", active: !archived }).eq("id", deal.id);
-    await loadDeals();
+    notifyDataChange();
   };
   // Duplicate: insert a fresh copy of the deal's fields (no idempotency key so a
   // repeat opens its own copy), then refresh. Note: files/contract are not copied.
@@ -286,7 +291,7 @@ export default function DealsPage() {
       // as fresh linked content rows on the copy.
     }).select("id").single();
     if (data) {
-      setSelectedId(null); celeb.fire(); loadDeals();
+      setSelectedId(null); celeb.fire(); notifyDataChange();
       // Copy linked content rows (any dated post) to the new deal.
       try {
         const src = await supabase.from("content").select("id, event_date, title, post_type").eq("linked_deal_id", deal.id).not("event_date", "is", null);

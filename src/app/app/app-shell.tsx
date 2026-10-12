@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
+import { subscribeDataChange } from "@/lib/data-events";
 import { applyAccent, applyFont, applyMode, ACCENT_PRESETS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -87,6 +88,20 @@ export function AppShell({
       setActiveDeals((data ?? []).length);
     })();
   }, [supabase, pathname]);
+
+  // Keep the Deals nav badge current when deals are created/archived/deleted
+  // without navigating (the router cache keeps this shell mounted).
+  useEffect(() => {
+    const unsub = subscribeDataChange(() => {
+      supabase
+        .from("deals")
+        .select("id")
+        .eq("active", true)
+        .not("status", "eq", "archived")
+        .then(({ data }) => setActiveDeals((data ?? []).length));
+    });
+    return unsub;
+  }, [supabase]);
 
   // One-time onboarding coach tour: show only if the user hasn't seen it yet,
   // on the Overview (/app). `tour_seen` lives on the profile so it never

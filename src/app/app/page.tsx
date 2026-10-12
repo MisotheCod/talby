@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import gsap from "gsap";
 import { createClient } from "@/lib/supabase/client";
+import { subscribeDataChange } from "@/lib/data-events";
 import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
 import { dealPayRollup, paymentStatusView, type DealRollup, type PayStatus } from "@/lib/pay-status";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
@@ -103,6 +104,13 @@ export default function OverviewPage() {
   }, [supabase]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Re-fetch on cross-route data mutations (deal saves, payment/extra edits,
+  // deletes, creates) so Overview never shows stale deal/payment numbers.
+  useEffect(() => {
+    const unsub = subscribeDataChange(() => { load(); });
+    return unsub;
+  }, [load]);
 
   // ---- GSAP load-in (respects prefers-reduced-motion) ----
   useEffect(() => {

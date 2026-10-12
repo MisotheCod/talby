@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { subscribeDataChange, notifyDataChange } from "@/lib/data-events";
 import { formatMoney, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { pageEntrance } from "@/lib/entrance";
@@ -120,6 +121,12 @@ export default function PaymentsPage() {
   }, [supabase]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Re-fetch on cross-route data mutations (deal saves, deletes, creates).
+  useEffect(() => {
+    const unsub = subscribeDataChange(() => { load(); });
+    return unsub;
+  }, [load]);
 
   // Entrance: stage cards/charts, then rise them in once data is loaded.
   useEffect(() => {
@@ -330,6 +337,7 @@ export default function PaymentsPage() {
     setMutating(false);
     setMenuOpen(null);
     load();
+    notifyDataChange();
   };
   const setPayStatus = async (id: string, state: string) => {
     if (mutating) return;
@@ -338,6 +346,7 @@ export default function PaymentsPage() {
     setMutating(false);
     setMenuOpen(null);
     load();
+    notifyDataChange();
   };
 
   if (loading) return <div className="space-y-4"><div className="skeleton h-10 w-56" /><div className="grid grid-cols-4 gap-4"><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /><div className="skeleton h-24" /></div></div>;
@@ -539,7 +548,7 @@ export default function PaymentsPage() {
       <ExtrasSection extras={scopedExtras} />
 
       {showAdd && (
-        <AddPaymentModal deals={scopedDeals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); }} />
+        <AddPaymentModal deals={scopedDeals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); notifyDataChange(); }} />
       )}
       </>
       )}
