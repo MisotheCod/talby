@@ -667,6 +667,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const [postDatesSaved, setPostDatesSaved] = useState<PostDate[]>([]);
   const [plan, setPlan] = useState<"free" | "paid">("free");
   const [menu, setMenu] = useState(false);
+  const [loaded, setLoaded] = useState(false); // children (payments/checklist/extras) loaded
 
   useEffect(() => {
     (async () => {
@@ -693,7 +694,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       setPostDatesSaved(posts.map((p) => ({ ...p })));
       setPaymentsBase(pmNorm(pay.data ?? []));
       setChecklistBase(clNorm(cl.data ?? []));
-    })();
+    })().finally(() => setLoaded(true));
   }, [supabase, deal.id]);
 
   // Normalizers shared by dirty detection, load-baseline, and post-save baseline.
@@ -759,7 +760,7 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     if (draftDealRef.current !== deal.id) {
       draftDealRef.current = deal.id;
       const next = toDraft(deal);
-      setDraft(next); setSaved(next); setSaveError(null); setConfirmClose(false);
+      setDraft(next); setSaved(next); setSaveError(null); setConfirmClose(false); setLoaded(false);
     }
   }, [deal]);
 
@@ -767,7 +768,12 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const dirtyList = FIELD_KEYS.filter(isDirty);
   const postDatesDirty = pdNorm(postDates) !== pdNorm(postDatesSaved);
   const collDirty = clNorm(checklist) !== checklistBase || pmNorm(payments) !== paymentsBase || postDatesDirty;
-  const hasChanges = dirtyList.length > 0 || collDirty;
+  // Structure (split %, balance timing) and extras (bonus/commission) are part
+  // of the drawer's single source of truth — a change to either must enable
+  // Save exactly like any other field. (Was missing: editing split structure or
+  // a bonus on a split deal left the Save button permanently disabled.)
+  const extrasDirty = JSON.stringify(extras) !== JSON.stringify(extrasSaved);
+  const hasChanges = dirtyList.length > 0 || collDirty || structDirty || extrasDirty;
 
   // Uncontrolled-input refs. The drawer's editable text/number inputs write
   // their value ONLY into these DOM refs while the user types (no value=, no
@@ -916,6 +922,8 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
       setPostDatesSaved(posts.map((p) => ({ ...p })));
     } catch { /* non-fatal: next open refetches */ }
     setSaved({ ...draft });
+    setStructSaved(struct);
+    setExtrasSaved([...extras]);
     notifySaved();
     onUpdated();
   };
@@ -1138,9 +1146,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
           </div>
         )}
 
-        {/* Footer: Save changes (primary). "Mark as paid" appears only when the
-            deal has exactly one unpaid payment (single-payment, not yet paid);
-            hidden on multi-payment deals (split/parts/monthly) and when paid. */}
+        {/* Footer: Save changes (primary). Not rendered until the deal's
+            children have loaded so the full-width Save layout never flashes
+            mid-load. "Mark as paid" shows only on single-unpaid-payment deals. */}
+        {loaded && (
         <div className="border-t border-line px-4 py-3 bg-card flex-none flex items-center gap-3">
           {showMarkPaid && (
             <Button variant="secondary" size="lg" onClick={markAllPaid} disabled={paid} className="flex-1 min-w-[120px]">
@@ -1148,9 +1157,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
             </Button>
           )}
           <Button size="lg" onClick={save} disabled={!hasChanges || saving} className={cn("flex-1 min-w-[120px]", !hasChanges && "opacity-50")}>
-            {saving ? <Spinner /> : <IconCheck size={16} />} {saving ? "Saving…" : "Save changes"}
+            {saving && <Spinner />} {saving ? "Saving…" : "Save changes"}
           </Button>
         </div>
+        )}
       </div>
 
       {/* Discard-unsaved-changes confirm: shown on X, overlay click, swipe, or Esc when dirty. */}
