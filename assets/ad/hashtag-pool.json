@@ -1,6 +1,6 @@
 {
   "note": "Per-platform hashtag test pool. Each set is a coherent group tested on that platform. The daily cron ROTATES through lowest-uses per platform; the weekly cron attributes views to each set to learn which platform's hashtags actually drive reach. Tags are lowercase here; TikTok/IG keep them compact, YouTube can carry a couple more. Uses increments when the set is drafted on that platform.",
-  "last_used": "2026-10-05",
+  "last_used": "2026-10-13",
   "tiktok": {
     "pool": [
       {
@@ -13,7 +13,8 @@
           "#sponsoredcontent",
           "#talby"
         ],
-        "uses": 3
+        "uses": 4,
+        "last_used": "2026-10-10"
       },
       {
         "id": "tik_pain_relatable",
@@ -25,7 +26,8 @@
           "#sponsorlatino",
           "#earnyourbag"
         ],
-        "uses": 2
+        "uses": 4,
+        "last_used": "2026-10-12"
       },
       {
         "id": "tik_money_stats",
@@ -37,7 +39,8 @@
           "#sidehustletok",
           "#talby"
         ],
-        "uses": 3
+        "uses": 4,
+        "last_used": "2026-10-11"
       },
       {
         "id": "tik_niche_tools",
@@ -49,7 +52,8 @@
           "#contentcreatortools",
           "#paidvertisers"
         ],
-        "uses": 3
+        "uses": 4,
+        "last_used": "2026-10-13"
       }
     ]
   },
@@ -66,7 +70,8 @@
           "#creatorlife",
           "#futureofcontent"
         ],
-        "uses": 3
+        "uses": 4,
+        "last_used": "2026-10-10"
       },
       {
         "id": "ig_pain_growth",
@@ -79,7 +84,8 @@
           "#contentcreationtip",
           "#bloggertips"
         ],
-        "uses": 3
+        "uses": 4,
+        "last_used": "2026-10-13"
       },
       {
         "id": "ig_money_business",
@@ -92,7 +98,8 @@
           "#moneycreator",
           "#sidehustle"
         ],
-        "uses": 3
+        "uses": 4,
+        "last_used": "2026-10-11"
       },
       {
         "id": "ig_tools_ops",
@@ -105,7 +112,8 @@
           "#branddealapp",
           "#organizeyourlife"
         ],
-        "uses": 2
+        "uses": 4,
+        "last_used": "2026-10-12"
       }
     ]
   },
@@ -121,7 +129,10 @@
           "#contentcreators",
           "#uctips"
         ],
-        "uses": 6
+        "uses": 8,
+        "last_used": "2026-10-13",
+        "winner": true,
+        "winner_note": "2026-10-11 weekly: attributable to the 10-01 YT Shorts post (id 6abe7671c4ee1d4d09e12289) = 273 views \u2014 the only YT hashtag-set with a clean three-digit attribution this week, and it rode the stop_forgetting_deliverables winner. The only lean that's defensible on YouTube right now."
       },
       {
         "id": "yt_money_insight",
@@ -133,7 +144,8 @@
           "#contentcreatorincome",
           "#brandcollab"
         ],
-        "uses": 5
+        "uses": 8,
+        "last_used": "2026-10-12"
       }
     ]
   }

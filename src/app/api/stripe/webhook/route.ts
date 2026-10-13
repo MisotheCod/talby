@@ -86,9 +86,9 @@ export async function POST(req: NextRequest) {
       const who = await resolveUser(supabase, session.metadata?.userId ?? null, session.customer as string | null);
       if (who) {
         const subId = typeof session.subscription === "string" ? session.subscription : null;
-        // Completed checkout (card accepted) starts the trial. The
-        // customer.subscription.* events refine trialing vs active.
-        await setPlanStatus(supabase, who.userId, who.email, "trialing", { stripe_subscription_id: subId });
+        // Completed checkout = paying now (no trial). The
+        // customer.subscription.* events refine active vs past_due etc.
+        await setPlanStatus(supabase, who.userId, who.email, "active", { stripe_subscription_id: subId });
       }
       break;
     }

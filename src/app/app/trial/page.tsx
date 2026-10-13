@@ -54,15 +54,15 @@ export default function TrialPage() {
         </div>
 
         <div className="bg-card border border-line rounded-2xl p-8 shadow-card text-center">
-          <h1 className="text-xl font-semibold tracking-tight">Start your 14 day free trial</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Upgrade to keep editing</h1>
           <p className="text-inksoft text-sm mt-2">
             {email ? <>Signed in as <span className="text-ink font-medium">{email}</span>.</> : "Your deals are safe."}{" "}
-            Add a card to unlock everything and keep adding and editing deals.
+            Your 14 day free trial has ended. You can still view and export everything; subscribe to keep adding and editing deals.
           </p>
 
           <div className="mt-6 space-y-2 text-sm text-left bg-card2 rounded-xl p-4">
-            <div className="flex justify-between"><span>First 14 days</span><span className="font-medium">Free</span></div>
-            <div className="flex justify-between"><span>Then</span><span className="font-medium">$9 a month</span></div>
+            <div className="flex justify-between"><span>Unlimited deals</span><span className="font-medium">$9 a month</span></div>
+            <div className="flex justify-between"><span>Billing</span><span className="font-medium">Monthly</span></div>
             <div className="flex justify-between"><span>Cancel</span><span className="font-medium">Anytime</span></div>
           </div>
 
@@ -71,12 +71,12 @@ export default function TrialPage() {
             disabled={starting}
             className="mt-6 w-full h-11 rounded-xl accent-fill text-sm font-semibold disabled:opacity-50 cursor-pointer"
           >
-            {starting ? <span className="inline-block animate-spin">—</span> : "Start free trial"}
+            {starting ? <span className="inline-block animate-spin">—</span> : "Subscribe for $9 a month"}
           </button>
 
           {error && <p className="text-late text-sm mt-3" role="alert">{error}</p>}
           <p className="text-inksoft text-xs mt-4">
-            You won&apos;t be charged until the trial ends. Cancel anytime before then.
+            Cancel anytime. Your data stays intact whether or not you subscribe.
           </p>
         </div>
 

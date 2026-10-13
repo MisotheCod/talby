@@ -152,17 +152,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       // keep the distinct_id stable, so this attributes per visitor.
       posthog.capture("signup_completed", { landing_variant: readLandingVariant() ?? "unknown" });
 
-      // 1a: every new user goes straight to Stripe Checkout BEFORE seeing the
-      // app. The 14-day trial requires a card up front.
-      const { startUnlimited } = await import("@/lib/start-unlimited");
-      posthog.capture("checkout_opened", { method: "email" });
-      const ok = await startUnlimited();
-      if (!ok) {
-        // Checkout couldn't start (no session yet / fetch error). Land them on
-        // the start-trial screen instead of the app; they are read-only until
-        // they complete checkout.
-        router.push("/app/trial");
-      }
+      // No card required. The account's trial started automatically via the
+      // signup trigger (plan_status=trialing, trial_end=+14d). Send them to
+      // setup; full access is already active.
+      posthog.capture("trial_started", { method: "email" });
+      router.push("/onboarding");
+      router.refresh();
       return;
     }
   };
@@ -188,7 +183,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             )}
             {!isLogin && (
               <p className="auth-trial" data-testid="trial-terms">
-                14 days free, then $9 a month. You won&apos;t be charged until the trial ends. Cancel anytime.
+                14 days free, then $9 a month. No card required to start. Cancel anytime.
               </p>
             )}
             <p className="auth-switch">

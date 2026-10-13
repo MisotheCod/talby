@@ -16,7 +16,8 @@
       "script": "creator asks the audience a real either-or they're deciding: 'spreadsheet or notion for tracking brand deals? be honest.' then shows the product as their answer",
       "caption_shape": "ends with a direct question to the audience",
       "engagement": "high",
-      "uses": 2
+      "uses": 3,
+      "last_used": "2026-10-11"
     },
     {
       "id": "split_audience",
@@ -25,7 +26,8 @@
       "script": "creator names two types of creator: 'there are two types of creators. the one who tracks every payment, and the one who is hoping. which one are you?' then shows the product",
       "caption_shape": "'which one are you?' prompt",
       "engagement": "high",
-      "uses": 2
+      "uses": 3,
+      "last_used": "2026-10-12"
     },
     {
       "id": "fill_blank",
@@ -43,7 +45,8 @@
       "script": "creator takes a stance: 'spreadsheet templates for brand deals are overrated.' then shows the product as the actual fix",
       "caption_shape": "strong opinion invites agreement/arguments",
       "engagement": "high",
-      "uses": 2
+      "uses": 3,
+      "last_used": "2026-10-13"
     },
     {
       "id": "best_tip",
@@ -52,7 +55,8 @@
       "script": "creator asks: 'what is your go-to way to track brand deals? genuinely asking' then shows the product as their own answer",
       "caption_shape": "'drop your tip' prompt",
       "engagement": "high",
-      "uses": 2
+      "uses": 3,
+      "last_used": "2026-10-09"
     },
     {
       "id": "two_fears",
@@ -61,7 +65,8 @@
       "script": "creator pits two small fears: 'what is worse: losing track of a payment, or doing a brand deal for free?' then shows the product preventing both",
       "caption_shape": "'which is worse?' either-or",
       "engagement": "high",
-      "uses": 2
+      "uses": 3,
+      "last_used": "2026-10-10"
     },
     {
       "id": "ugc_admin_day",
@@ -70,8 +75,9 @@
       "script": "creator walks through their ugc admin day like a 'spend a day with me': the cafe laptop moment, tabs of brand-deal chaos, 'which brand actually paid me?' then reveals talby as one screen (booked / paid / outstanding). TOOL-ONLY - no founder story, the product carries it.",
       "caption_shape": "mirrors the day + the relief of one screen, then www.talby.io free to start",
       "engagement": "medium",
-      "uses": 1
+      "uses": 2,
+      "last_used": "2026-10-06"
     }
   ],
-  "last_used": "2026-10-05"
+  "last_used": "2026-10-13"
 }

@@ -26,8 +26,9 @@
  * app's own /api/deals, edits every field, and asserts DB persistence after
  * reload. Exits 0 on full pass, 1 on any failure. Cleans up after itself.
  */
-const { chromium } = require(process.env.PLAYWRIGHT_PATH || '/opt/homebrew/lib/node_modules/playwright');
+const { chromium, webkit, firefox } = require(process.env.PLAYWRIGHT_PATH || '/opt/homebrew/lib/node_modules/playwright');
 const fs = require('fs');
+const ENGINE = { chromium, webkit, firefox }[process.env.PW_BROWSER || 'chromium'];
 
 // Load .env.local into process.env (secrets stay in-process, never printed).
 try {
@@ -110,7 +111,7 @@ async function main() {
   const NEW_DELIV = `DeliverableEdited${TS.toString().slice(-5)}`;
   const NEW_AMOUNT = '2000'; // fixed number: original deal is 1250; must persist as 2000
 
-  browser = await chromium.launch({
+  browser = await ENGINE.launch({
     headless: true,
     executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
   });

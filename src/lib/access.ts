@@ -4,8 +4,8 @@
 // The trial model replaces the free/paid tier. An account's access derives
 // entirely from `plan_status` (see migration 000044):
 //
-//   none         read only (no card on file, no trial started)
-//   trialing     full
+//   none         read only (no trial started, or trial ended without subscribe)
+//   trialing     full access until trial_end, then read only
 //   active       full
 //   past_due     full during a 7 day grace after trial_end, then read only
 //   canceled     read only (after the access period ends)
@@ -29,7 +29,14 @@ export const PAST_DUE_GRACE_DAYS = 7;
  */
 export function hasFullAccess(status: PlanStatus | null | undefined, trialEnd: string | null | undefined, now: Date = new Date()): boolean {
   switch (status ?? "none") {
-    case "trialing":
+    case "trialing": {
+      // Full access only while the trial is live. No card is required to
+      // start the trial; once trial_end passes and the account hasn't
+      // subscribed, it drops to read only. Missing trial_end keeps access
+      // (don't lock people out on missing data).
+      if (!trialEnd) return true;
+      return now.getTime() < new Date(trialEnd).getTime();
+    }
     case "active":
       return true;
     case "past_due": {
@@ -62,6 +69,7 @@ const PINNED_EMAILS = new Set([
   "chanelicarobinson@gmail.com",
   "approvedbybre@gmail.com",
   "camqdesigns@gmail.com",
+  "camquint@gmail.com",
 ]);
 export function isPinnedUnlimited(email: string | null | undefined): boolean {
   return PINNED_EMAILS.has((email ?? "").toLowerCase());

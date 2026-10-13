@@ -41,10 +41,6 @@ export async function POST() {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-    // "You won't be charged until [date]" — 14 days from now.
-    const chargeDate = new Date(Date.now() + 14 * 86400_000);
-    const chargeDateStr = chargeDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
@@ -53,14 +49,14 @@ export async function POST() {
       cancel_url: `${baseUrl}/app/trial?checkout=abandoned`,
       subscription_data: {
         metadata: { userId: user.id },
-        // 14-day free trial, then Stripe charges the card automatically.
-        trial_period_days: 14,
-        description: "Talby Unlimited: 14 days free, then $9 a month.",
+        // Voluntary upgrade: the user had their free trial at signup. No extra
+        // trial here — they start paying now.
+        description: "Talby Unlimited: $9 a month.",
       },
-      // Clear trial terms at the moment of payment intent.
+      // Clear subscription terms at the moment of payment intent.
       custom_text: {
         submit: {
-          message: `14 days free, then $9 a month. You won't be charged until ${chargeDateStr}. Cancel anytime.`,
+          message: `$9 a month. Cancel anytime.`,
         },
       },
       allow_promotion_codes: true,
