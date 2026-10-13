@@ -47,7 +47,11 @@ export async function POST() {
       line_items: [{ price: STRIPE_PLAN_ID, quantity: 1 }],
       success_url: `${baseUrl}/app?upgraded=1`,
       cancel_url: `${baseUrl}/app/deals`,
-      subscription_data: { metadata: { userId: user.id } },
+      subscription_data: {
+        metadata: { userId: user.id },
+        // 14-day free trial, then Stripe charges the card automatically.
+        trial_period_days: 14,
+      },
       allow_promotion_codes: true,
       // Managed Payments (default on new accounts) requires a product tax_code;
       // without one the session creation fails. We aren't collecting taxes, so
