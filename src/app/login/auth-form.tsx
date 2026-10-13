@@ -143,27 +143,24 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           name: handleClean || email,
           created_at: data.user.created_at,
         });
-        // Funnel/registration event: method is how they signed up; plan is the
-        // one they're registering for (unlimited when arriving via a plan link).
-        const method = "email"; // Talby signup is email/password only today
-        const plan = searchParams.get("plan") === "unlimited" ? "unlimited" : null;
-        posthog.capture("user_signed_up", { method, plan });
-        posthog.capture("signup");
+        // Funnel: the account now exists. Account creation IS the trial start
+        // under the no-card model (the signup trigger sets plan_status=trialing).
+        posthog.capture("account_created", { method: "email" });
       }
       // Primary metric for the landing-test experiment. Attach the assigned
       // variant so PostHog can segment signup_completed by arm. The server-side
       // vid cookie (and the PostHog ph_phc cookie via the same-origin redirect)
       // keep the distinct_id stable, so this attributes per visitor.
       posthog.capture("signup_completed", { landing_variant: readLandingVariant() ?? "unknown" });
-      if (searchParams.get("plan") === "unlimited") {
-        // Came from a "Go unlimited" affordance — keep the flow going to checkout.
-        const { startUnlimited } = await import("@/lib/start-unlimited");
-        const ok = await startUnlimited();
-        if (!ok) router.push("/onboarding");
-        return;
-      }
+
+      // No card required. The account's trial started automatically via the
+      // signup trigger (plan_status=trialing, trial_end=+14d). Send them to
+      // setup; full access is already active.
+      // Fire-and-forget the welcome email (idempotent server-side).
+      try { void fetch("/api/trial/welcome", { method: "POST" }); } catch { /* email is best-effort */ }
       router.push("/onboarding");
       router.refresh();
+      return;
     }
   };
 
@@ -185,6 +182,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </h1>
             {!isLogin && (
               <p className="auth-sub">Track every brand deal: contracts, post dates, and payments.</p>
+            )}
+            {!isLogin && (
+              <p className="auth-trial" data-testid="trial-terms">
+                14 days free. No card needed.
+              </p>
             )}
             <p className="auth-switch">
               {isLogin ? "New to Talby? " : "Already have an account? "}

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { pageEntrance } from "@/lib/entrance";
 import { startUnlimited } from "@/lib/start-unlimited";
-import { subscribeDataChange, notifyDataChange } from "@/lib/data-events";
+import { subscribeDataChange, notifyDataChange, notifyReadOnlyBlocked } from "@/lib/data-events";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, dealPaymentView, type DealExtra, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
 import { type EditorPayment } from "@/components/payment-editor";
@@ -833,7 +833,16 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     if (earliestPayDate) patch.due_date = earliestPayDate.slice(0, 10);
     if (Object.keys(patch).length) {
       const { error } = await supabase.from("deals").update(patch).eq("id", deal.id);
-      if (error) { setSaveError(error.message || "Could not save changes."); setSaving(false); return; }
+      if (error) {
+        // RLS rejects writes for read-only accounts (trial ended). Surface the
+        // upgrade modal instead of a cryptic DB message.
+        if (error.code === "42501" || /row-level security|read.?only|violates/i.test(error.message || "")) {
+          notifyReadOnlyBlocked();
+        }
+        setSaveError(error.message || "Could not save changes.");
+        setSaving(false);
+        return;
+      }
     }
     setSaving(false);
     // --- Commit staged checklist changes (diff against nothing: staged list IS authoritative) ---

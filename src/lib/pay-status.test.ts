@@ -85,11 +85,11 @@ test("null date -> not overdue", () => {
 });
 
 test("Gruns split (both not_invoiced rows) renders per-row statuses distantly", () => {
-  // Gruns deal: $500 due Sep 5 (past) + $300 due Oct 6 (future at run time).
+  // Gruns deal: $500 due Sep 5 (past) + $300 due Nov 6 (future at run time).
   // Each row is its OWN status through the shared fn (overview lists both rows,
   // not one line per deal). Only the past-due $500 shows Overdue.
   const a = view({ pay_status: "not_invoiced", expected_date: "2026-09-05", amount: 500 });
-  const b = view({ pay_status: "not_invoiced", expected_date: "2026-10-06", amount: 300 });
+  const b = view({ pay_status: "not_invoiced", expected_date: "2026-11-06", amount: 300 });
   assert.equal(a.label, "Overdue");
   assert.equal(a.overdue, true);
   assert.equal(b.label, "Not invoiced");

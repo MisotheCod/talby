@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { userIsReadOnly } from "@/lib/write-access";
 
 /**
  * DELETE /api/deals/[id]
@@ -30,6 +31,15 @@ export async function DELETE(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+
+  // Read-only gate: the destructive work below uses the service role (which
+  // bypasses RLS). A lapsed-trial user must not be able to delete content.
+  if (await userIsReadOnly(user.id)) {
+    return NextResponse.json(
+      { error: "read_only", message: "Your free trial has ended. Subscribe to keep editing." },
+      { status: 403 }
+    );
+  }
 
   // Ownership check via the user's own (RLS-scoped) client. 404s for anyone
   // who doesn't own this deal — this is the anti-cross-user barrier.

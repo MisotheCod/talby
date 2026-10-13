@@ -4,10 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { STRIPE_PLAN_ID } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Lazy Stripe: preview builds have no STRIPE_SECRET_KEY. Instantiate inside
+// the handler instead of at module load.
+function stripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export async function POST() {
   const supabase = await createClient();
+  const stripe = stripeClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -46,8 +51,19 @@ export async function POST() {
       mode: "subscription",
       line_items: [{ price: STRIPE_PLAN_ID, quantity: 1 }],
       success_url: `${baseUrl}/app?upgraded=1`,
-      cancel_url: `${baseUrl}/app/deals`,
-      subscription_data: { metadata: { userId: user.id } },
+      cancel_url: `${baseUrl}/app/trial?checkout=abandoned`,
+      subscription_data: {
+        metadata: { userId: user.id },
+        // Voluntary upgrade: the user had their free trial at signup. No extra
+        // trial here — they start paying now.
+        description: "Talby Unlimited: $9 a month.",
+      },
+      // Clear subscription terms at the moment of payment intent.
+      custom_text: {
+        submit: {
+          message: `$9 a month. Cancel anytime.`,
+        },
+      },
       allow_promotion_codes: true,
       // Managed Payments (default on new accounts) requires a product tax_code;
       // without one the session creation fails. We aren't collecting taxes, so

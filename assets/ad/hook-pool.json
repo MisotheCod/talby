@@ -86,14 +86,25 @@
       "angle": "harsh advice (deliverables / missed deadlines)",
       "opening": "stop telling brands you'll post on time. you forgot the last deadline yourself.",
       "note": "INJECTED 2026-09-30. Category 1 harsh advice but a DIFFERENT topic than stop_catching_later (which is about payments): this hits the deliverables/deadline pain no existing pool entry touches. Triggers: time-bound (deadline) + contrasting element (promise vs the missed date). New angle, distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
-      "uses": 1
+      "uses": 2,
+      "last_used": "2026-10-12",
+      "winner": true,
+      "winner_note": "2026-10-11 weekly: Either-Or deadline version ('which is worse: missing a post date a brand is counting on, or doing a deal and never getting paid?') sent 10-01 on YT Shorts = 273 views, 3 reactions, 1.10% eng rate \u2014 the HIGHEST engagement rate in the whole dataset, and the #1 NEW mature post this week (was 0 at the 10-05 weekly, recency cap lifted). Time-bound deadline pain mirrors the UGC deliverable panic strongly. Co-winner of the harsh-advice date/discipline family with never_wrote_down_pay."
+    },
+    {
+      "id": "remember_wrong_deal",
+      "angle": "counterintuitive truth (you remember the wrong things)",
+      "opening": "you remember the deal you didn't get. you forgot the one that never paid you.",
+      "note": "INJECTED 2026-10-12. Category 3 counterintuitive truth on a topic no pool entry touches: the memory/emotional asymmetry between rejection and unpaid work. Triggers: contrasting element (the deal you missed vs the payment you lost) + transformation (knowing what's actually sitting unpaid). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing."
     },
     {
       "id": "never_wrote_down_pay",
       "angle": "harsh advice (payment-date discipline)",
       "opening": "there's a reason you're always waiting on money. you never wrote down when it was supposed to land.",
       "note": "INJECTED 2026-10-01. Category 1 harsh advice on a topic no pool entry touches: writing down the payment DATE as its own discipline. Distinct from stop_catching_later (that's 'catching up later', this is 'never logged when it should arrive'). Triggers: time-bound ('when it was supposed to land') + contrasting element. Reuses the Forgotten-Truth beat (you can't say when it was due). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
-      "uses": 1
+      "uses": 1,
+      "winner": true,
+      "winner_note": "2026-10-11 weekly: 'do you actually know when each payment was supposed to land? there's a reason you're always waiting on money' sent 10-03 on YT Shorts = 252 views, 1 comment \u2014 the #2 NEW mature post this week (was 0 at 10-05, recency cap lifted). Forgotten-Truth + time-bound receipt. Co-winner of the harsh-advice date/discipline family with stop_forgetting_deliverables. CAUTION: same hook re-sent 10-04 = 0 (duplicate / 7-day lookback still zero); don't double-send the same hook on adjacent days."
     },
     {
       "id": "accidental_free_work",
@@ -121,9 +132,49 @@
       "angle": "counterintuitive truth (payment confidence gap)",
       "opening": "the more you assume you've been paid, the more brand money you're probably missing.",
       "note": "INJECTED 2026-10-05. Category 3 counterintuitive truth, flips the 'i'm on top of it' confidence creators hold when they think every brand paid them. Distinct mechanic from accidental_free_work (can't look it up) and paid_is_second_job (chasing is a job): this is the quiet assumption that kills revenue. Triggers: transformation + contrasting element (assumed paid vs actually missing). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1,
+      "last_used": "2026-10-06"
+    },
+    {
+      "id": "getting_paid_least_creative",
+      "angle": "quote / memorable line",
+      "opening": "getting paid should be the least creative part of your job. it's the first job you skip.",
+      "note": "INJECTED 2026-10-06. Category 5 quote,the first real quote-format join beyond paid_is_second_job. Creator pain:the finance/admin side is uncreative so it gets deprioritized first, even though it's the money. Triggers: contrasting element(least creative part vs the first job you skip)+ transformation (reframe what getting paid actually is). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1,
+      "last_used": "2026-10-09"
+    },
+    {
+      "id": "awkward_invoice_chase",
+      "angle": "pain points (the awkward chase for your own money)",
+      "opening": "begging a brand for money you already earned is the most awkward part of a creator's job.",
+      "note": "INJECTED 2026-10-08. Category 2 pain points on a mechanic no entry touches: the psychological awkwardness/embarrassment of chasing a brand for money you already earned, so the ask gets delayed and invoices die in the queue. Distinct from dead_invoices_quiet (that's unseen invoices; this is the fear of the chase). Triggers: transformation + status (a business does not beg for its own money). Swipe pattern: The Receipt / pain-mirror, reveal one screen as the fix. Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1,
+      "last_used": "2026-10-10"
+    },
+    {
+      "id": "memory_not_tracking",
+      "angle": "pain point (memory vs real tracking)",
+      "opening": "you don't track your brand deals. you just remember them. which one did you just forget?",
+      "note": "INJECTED 2026-10-09. Category 2 pain points but a mechanic no existing entry touches:the difference between 'remembering your deals' and actually tracking them \u2014 memory is the leaky system. Distinct from everyone_talks_tracking (that's nobody discusses tracking; this is the memory-vs-system flaw). Triggers: transformation + time-bound ('which one did you just forget'). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1,
+      "last_used": "2026-10-11"
+    },
+    {
+      "id": "no_contract_is_favor",
+      "angle": "key insight (an uncontracted deal is a favor, not a business deal)",
+      "opening": "a brand deal you never put on paper isn't a deal. it's a favor you did for a brand.",
+      "note": "INJECTED 2026-10-10. Category 4 key insight / definition reframe on a mechanic no entry covers: running a deal with no contract so it can't be tracked or chased. Distinct from contract_upload (that auto-fills the contract you HAVE; this is the gap when there's NO contract at all) and deal_not_finished_until_paid (completion) and paid_is_second_job (chasing). Triggers: transformation (deal -> favor reframe) + status (a business has contracts, a favor doesn't) + contrasting element. Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
       "uses": 0
+    },
+    {
+      "id": "more_deals_more_risk",
+      "angle": "counterintuitive truth (scope creep kills payout)",
+      "opening": "the more brand deals you say yes to, the more you risk doing some of them for free.",
+      "note": "INJECTED 2026-10-11. Category 3 counterintuitive truth, flips 'more deals = more money'. Distinct from accidental_free_work (that is can't-look-up what's owed; this is saying yes to too much lowers oversight per deal). Trigger: status + contrasting element. Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1,
+      "last_used": "2026-10-13"
     }
   ],
   "rotation": "round_robin",
-  "last_used": "2026-10-05"
+  "last_used": "2026-10-13"
 }

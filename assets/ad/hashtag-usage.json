@@ -370,6 +370,68 @@
    ],
    "buffer_post_id": "6ac3b267c5a0c4018754297b",
    "type": "carousel"
+  },
+  {
+   "date": "2026-10-06",
+   "platform": "tiktok",
+   "set_id": "tik_pain_relatable",
+   "tags": [
+    "#branddealdiaries",
+    "#influencersgettingpaid",
+    "#gettingpaid",
+    "#creatorstruggles",
+    "#sponsorlatino",
+    "#earnyourbag"
+   ],
+   "buffer_post_id": "6ac5060cc6802fab7fd81b5b",
+   "type": "slideshow"
+  },
+  {
+   "date": "2026-10-06",
+   "platform": "instagram",
+   "set_id": "ig_tools_ops",
+   "tags": [
+    "#appsforcreators",
+    "#creatorapps",
+    "#uctools",
+    "#influencertool",
+    "#contentops",
+    "#branddealapp",
+    "#organizeyourlife"
+   ],
+   "buffer_post_id": "6ac5060b6ea5569c43092053",
+   "type": "slideshow"
+  },
+  {
+   "date": "2026-10-10",
+   "platform": "instagram",
+   "set_id": "ig_creator_edu",
+   "tags": [
+    "#creatortips",
+    "#contentcreators",
+    "#branddeals",
+    "#influencermarketing",
+    "#uctips",
+    "#creatorlife",
+    "#futureofcontent"
+   ],
+   "buffer_post_id": "6aca4941ed92ed8fa5cf9846",
+   "type": "carousel"
+  },
+  {
+   "date": "2026-10-10",
+   "platform": "tiktok",
+   "set_id": "tik_creator_core",
+   "tags": [
+    "#creatorlife",
+    "#contentcreator",
+    "#branddeals",
+    "#uctips",
+    "#sponsoredcontent",
+    "#talby"
+   ],
+   "buffer_post_id": "6aca4941f91f772d459725e2",
+   "type": "carousel"
   }
  ]
 }

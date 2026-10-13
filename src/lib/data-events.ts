@@ -28,3 +28,17 @@ export function subscribeDataChange(cb: Listener): () => void {
 export function notifyDataChange(): void {
   listeners.forEach((l) => l());
 }
+
+// ---------------------------------------------------------------------------
+// Read-only upgrade signal. A blocked write (RLS 403 or a server read_only
+// response) fires this so the app shell can surface the upgrade modal. Kept
+// separate from data-change so a blocked write doesn't spuriously refetch.
+// ---------------------------------------------------------------------------
+const upgradeListeners = new Set<() => void>();
+export function subscribeUpgradePrompt(cb: () => void): () => void {
+  upgradeListeners.add(cb);
+  return () => { upgradeListeners.delete(cb); };
+}
+export function notifyReadOnlyBlocked(): void {
+  upgradeListeners.forEach((l) => l());
+}
