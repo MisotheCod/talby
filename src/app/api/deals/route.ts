@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generatePaymentsFromStructure } from "@/lib/pay-status";
+import { userIsReadOnly } from "@/lib/write-access";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,6 +27,16 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
+
+  // Read-only gate: return a clear, actionable 403 instead of letting the
+  // insert fail with a raw RLS error. RLS still enforces this server-side,
+  // but this gives the client a message it can turn into an upgrade prompt.
+  if (await userIsReadOnly(user.id)) {
+    return NextResponse.json(
+      { error: "read_only", message: "Your free trial has ended. Subscribe to keep editing." },
+      { status: 403 }
+    );
+  }
 
   let body: {
     brand?: string; payload?: Record<string, unknown>;

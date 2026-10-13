@@ -16,6 +16,8 @@ export default async function AppLayout({
     handler: string | null;
     accent: string | null;
     plan: string;
+    plan_status: string | null;
+    trial_end: string | null;
     head_font: string | null;
     avatar_url: string | null;
     theme_mode: string | null;
@@ -23,13 +25,15 @@ export default async function AppLayout({
   if (user) {
     const res = await supabase
       .from("profiles")
-      .select("handler, accent, plan, head_font, avatar_url, theme_mode")
+      .select("handler, accent, plan, plan_status, trial_end, head_font, avatar_url, theme_mode")
       .eq("id", user.id)
       .single();
     profile = res.data as unknown as {
       handler: string | null;
       accent: string | null;
       plan: string;
+      plan_status: string | null;
+      trial_end: string | null;
       head_font: string | null;
       avatar_url: string | null;
       theme_mode: string | null;
@@ -53,6 +57,8 @@ export default async function AppLayout({
         handler={profile?.handler ?? null}
         accent={profile?.accent ?? null}
         plan={profile?.plan ?? "free"}
+        planStatus={profile?.plan_status ?? null}
+        trialEnd={profile?.trial_end ?? null}
         headFont={profile?.head_font ?? DEFAULT_HEAD_FONT}
         avatarUrl={profile?.avatar_url ?? null}
         themeMode={mode}

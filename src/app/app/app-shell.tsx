@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { startUnlimited } from "@/lib/start-unlimited";
-import { subscribeDataChange } from "@/lib/data-events";
+import { subscribeDataChange, subscribeUpgradePrompt } from "@/lib/data-events";
+import { hasFullAccess, type PlanStatus } from "@/lib/access";
+import { UpgradeModal } from "@/components/upgrade-modal";
 import { applyAccent, applyFont, applyMode, ACCENT_PRESETS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
 import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,8 @@ export function AppShell({
   handler,
   accent,
   plan,
+  planStatus,
+  trialEnd,
   headFont,
   avatarUrl,
   themeMode,
@@ -42,6 +46,8 @@ export function AppShell({
   handler: string | null;
   accent: string | null;
   plan: string;
+  planStatus?: string | null;
+  trialEnd?: string | null;
   headFont?: string | null;
   avatarUrl?: string | null;
   themeMode?: ThemeMode;
@@ -54,6 +60,19 @@ export function AppShell({
   const [fontState, setFontState] = useState<string>(headFont ?? DEFAULT_HEAD_FONT);
   const [modeState, setModeState] = useState<ThemeMode>(themeMode ?? DEFAULT_MODE);
   const [activeDeals, setActiveDeals] = useState(0);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+
+  // Read-only derivation. Pinned owner accounts are plan_status='active' in
+  // the DB (and pinned at the webhook/cron layer), so they pass hasFullAccess
+  // here; everyone else derives from plan_status + trial_end via the shared
+  // helper (mirrors RLS exactly).
+  const readOnly = !hasFullAccess(
+    (planStatus ?? "none") as PlanStatus,
+    trialEnd ?? null
+  );
+
+  // Surface the upgrade modal when a write is blocked read-only anywhere.
+  useEffect(() => subscribeUpgradePrompt(() => setUpgradeOpen(true)), []);
 
   // Refs always hold the LATEST applied accent/mode. The ThemeControl popover can
   // trigger onSave->saveAccent then onSaveMode->saveMode in one tick; those run on
@@ -277,12 +296,19 @@ export function AppShell({
             <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
           </div>
         </div>
+        {readOnly && (
+          <div className="readonly-banner" role="status">
+            <span className="readonly-banner-text">Your free trial has ended. You can view and export everything.</span>
+            <button type="button" className="readonly-banner-btn" onClick={() => setUpgradeOpen(true)}>Subscribe</button>
+          </div>
+        )}
         <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
           {children}
         </main>
         <AssistantLauncher />
         <CoachTour open={pathname === "/app" && tourOpen} steps={tourSteps} onDone={completeTour} />
         {notifPrompt && <NotificationPrompt onDone={() => setNotifPrompt(false)} />}
+        {upgradeOpen && <UpgradeModal reason="readonly" onClose={() => setUpgradeOpen(false)} />}
       </div>
     </div>
   );
