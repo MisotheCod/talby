@@ -4,10 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { STRIPE_PLAN_ID } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Lazy Stripe: preview builds have no STRIPE_SECRET_KEY. Instantiate inside
+// the handler instead of at module load.
+function stripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 export async function POST() {
   const supabase = await createClient();
+  const stripe = stripeClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

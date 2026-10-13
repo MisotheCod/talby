@@ -6,10 +6,18 @@ import { completeDeletion, logDeletion, purgeUserStorage } from "@/lib/account-d
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Lazy Stripe: only instantiate when there's a key (preview builds have no
+// STRIPE_SECRET_KEY and would otherwise fail at module load).
+function stripeClient() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  return new Stripe(key);
+}
 
 /** Cancel any live Stripe subscription for the customer, so the deleted account never keeps billing. */
 async function cancelStripeSubscription(stripeCustomerId: string | null, email: string | null): Promise<string> {
+  const stripe = stripeClient();
+  if (!stripe) return "no stripe key";
   let customerId = stripeCustomerId;
   let detail = "no stripe customer";
   try {

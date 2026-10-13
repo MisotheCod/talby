@@ -5,7 +5,11 @@ import { isPinnedUnlimited, type PlanStatus } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Lazy Stripe: preview builds have no STRIPE_SECRET_KEY. Instantiate inside
+// the handler instead of at module load.
+function stripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!);
+}
 
 /**
  * Stripe is the single source of truth for subscription lifecycle. Every event
@@ -72,6 +76,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
+    const stripe = stripeClient();
     event = stripe.webhooks.constructEvent(body, sig ?? "", process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err) {
     console.error("Webhook signature verification failed.", err);
