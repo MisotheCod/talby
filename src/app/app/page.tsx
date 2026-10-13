@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import gsap from "gsap";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeDataChange } from "@/lib/data-events";
@@ -59,6 +61,7 @@ const TYPE: Record<string, [string, string]> = {
 
 export default function OverviewPage() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [handle, setHandle] = useState<string | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -104,6 +107,12 @@ export default function OverviewPage() {
   }, [supabase]);
 
   useEffect(() => { load(); }, [load]);
+
+  // checkout_completed: fired once on the success redirect (Stripe -> ?upgraded=1).
+  const upgraded = searchParams.get("upgraded");
+  useEffect(() => {
+    if (upgraded === "1") posthog.capture("checkout_completed", { method: "email" });
+  }, [upgraded]);
 
   // Re-fetch on cross-route data mutations (deal saves, payment/extra edits,
   // deletes, creates) so Overview never shows stale deal/payment numbers.

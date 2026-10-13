@@ -143,27 +143,27 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           name: handleClean || email,
           created_at: data.user.created_at,
         });
-        // Funnel/registration event: method is how they signed up; plan is the
-        // one they're registering for (unlimited when arriving via a plan link).
-        const method = "email"; // Talby signup is email/password only today
-        const plan = searchParams.get("plan") === "unlimited" ? "unlimited" : null;
-        posthog.capture("user_signed_up", { method, plan });
-        posthog.capture("signup");
+        // Funnel: the account now exists.
+        posthog.capture("account_created", { method: "email" });
       }
       // Primary metric for the landing-test experiment. Attach the assigned
       // variant so PostHog can segment signup_completed by arm. The server-side
       // vid cookie (and the PostHog ph_phc cookie via the same-origin redirect)
       // keep the distinct_id stable, so this attributes per visitor.
       posthog.capture("signup_completed", { landing_variant: readLandingVariant() ?? "unknown" });
-      if (searchParams.get("plan") === "unlimited") {
-        // Came from a "Go unlimited" affordance — keep the flow going to checkout.
-        const { startUnlimited } = await import("@/lib/start-unlimited");
-        const ok = await startUnlimited();
-        if (!ok) router.push("/onboarding");
-        return;
+
+      // 1a: every new user goes straight to Stripe Checkout BEFORE seeing the
+      // app. The 14-day trial requires a card up front.
+      const { startUnlimited } = await import("@/lib/start-unlimited");
+      posthog.capture("checkout_opened", { method: "email" });
+      const ok = await startUnlimited();
+      if (!ok) {
+        // Checkout couldn't start (no session yet / fetch error). Land them on
+        // the start-trial screen instead of the app; they are read-only until
+        // they complete checkout.
+        router.push("/app/trial");
       }
-      router.push("/onboarding");
-      router.refresh();
+      return;
     }
   };
 
@@ -185,6 +185,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             </h1>
             {!isLogin && (
               <p className="auth-sub">Track every brand deal: contracts, post dates, and payments.</p>
+            )}
+            {!isLogin && (
+              <p className="auth-trial" data-testid="trial-terms">
+                14 days free, then $9 a month. You won&apos;t be charged until the trial ends. Cancel anytime.
+              </p>
             )}
             <p className="auth-switch">
               {isLogin ? "New to Talby? " : "Already have an account? "}

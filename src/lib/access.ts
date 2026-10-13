@@ -54,10 +54,14 @@ export function isReadOnly(status: PlanStatus | null | undefined, trialEnd: stri
 }
 
 /**
- * Chanelica (the owner's wife) must never lose full access, regardless of any
- * webhook, cron, or gift expiry. Callers that could downgrade her must short
- * circuit on this first.
+ * Pinned accounts (the owner's family) must never lose full access, regardless
+ * of any webhook, cron, or gift expiry. Callers that could downgrade them must
+ * short circuit on this first.
  */
+const PINNED_EMAILS = new Set([
+  "chanelicarobinson@gmail.com",
+  "approvedbybre@gmail.com",
+]);
 export function isPinnedUnlimited(email: string | null | undefined): boolean {
-  return (email ?? "").toLowerCase() === "chanelicarobinson@gmail.com";
+  return PINNED_EMAILS.has((email ?? "").toLowerCase());
 }
