@@ -61,6 +61,7 @@ export function isReadOnly(status: PlanStatus | null | undefined, trialEnd: stri
 const PINNED_EMAILS = new Set([
   "chanelicarobinson@gmail.com",
   "approvedbybre@gmail.com",
+  "camqdesigns@gmail.com",
 ]);
 export function isPinnedUnlimited(email: string | null | undefined): boolean {
   return PINNED_EMAILS.has((email ?? "").toLowerCase());
