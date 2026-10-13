@@ -143,7 +143,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           name: handleClean || email,
           created_at: data.user.created_at,
         });
-        // Funnel: the account now exists.
+        // Funnel: the account now exists. Account creation IS the trial start
+        // under the no-card model (the signup trigger sets plan_status=trialing).
         posthog.capture("account_created", { method: "email" });
       }
       // Primary metric for the landing-test experiment. Attach the assigned
@@ -155,7 +156,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       // No card required. The account's trial started automatically via the
       // signup trigger (plan_status=trialing, trial_end=+14d). Send them to
       // setup; full access is already active.
-      posthog.capture("trial_started", { method: "email" });
       router.push("/onboarding");
       router.refresh();
       return;
@@ -183,7 +183,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             )}
             {!isLogin && (
               <p className="auth-trial" data-testid="trial-terms">
-                14 days free, then $9 a month. No card required to start. Cancel anytime.
+                14 days free. No card needed.
               </p>
             )}
             <p className="auth-switch">

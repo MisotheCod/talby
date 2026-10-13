@@ -108,10 +108,10 @@ export default function OverviewPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // checkout_completed: fired once on the success redirect (Stripe -> ?upgraded=1).
+  // subscribed: fired once on the success redirect (Stripe -> ?upgraded=1).
   const upgraded = searchParams.get("upgraded");
   useEffect(() => {
-    if (upgraded === "1") posthog.capture("checkout_completed", { method: "email" });
+    if (upgraded === "1") posthog.capture("subscribed", { method: "email" });
   }, [upgraded]);
 
   // Re-fetch on cross-route data mutations (deal saves, payment/extra edits,
