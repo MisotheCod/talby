@@ -71,6 +71,18 @@ export function AppShell({
     trialEnd ?? null
   );
 
+  // Trial banner: show "X days left" during trialing, with a tighter "ends in
+  // X days" wording in the final 3 days. Hidden once read-only (the read-only
+  // banner takes over) or once paid.
+  const isTrialing = (planStatus ?? "none") === "trialing";
+  const daysLeft = trialEnd
+    ? Math.max(0, Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86400_000))
+    : 0;
+  const trialBannerText =
+    daysLeft <= 3
+      ? `Your trial ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`
+      : `${daysLeft} days left in your free trial.`;
+
   // Surface the upgrade modal when a write is blocked read-only anywhere.
   useEffect(() => subscribeUpgradePrompt(() => setUpgradeOpen(true)), []);
 
@@ -296,6 +308,12 @@ export function AppShell({
             <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
           </div>
         </div>
+        {isTrialing && !readOnly && (
+          <div className="readonly-banner" role="status">
+            <span className="readonly-banner-text">{trialBannerText}</span>
+            <button type="button" className="readonly-banner-btn" onClick={() => setUpgradeOpen(true)}>Subscribe</button>
+          </div>
+        )}
         {readOnly && (
           <div className="readonly-banner" role="status">
             <span className="readonly-banner-text">Your free trial has ended. You can view and export everything.</span>

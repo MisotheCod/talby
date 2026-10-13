@@ -156,6 +156,8 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       // No card required. The account's trial started automatically via the
       // signup trigger (plan_status=trialing, trial_end=+14d). Send them to
       // setup; full access is already active.
+      // Fire-and-forget the welcome email (idempotent server-side).
+      try { void fetch("/api/trial/welcome", { method: "POST" }); } catch { /* email is best-effort */ }
       router.push("/onboarding");
       router.refresh();
       return;
