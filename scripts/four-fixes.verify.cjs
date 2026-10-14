@@ -44,9 +44,9 @@ const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log(`  ${ok ? 'PASS' : 
     await sleep(2600);
     const dealsBody = await page.locator('body').innerText();
     console.log('\n=== DEALS TABLE (chromium-default viewport is 390 here) ===');
-    ck('extras deal shows "+ 2 extras" chip', dealsBody.includes('+ 2 extras'), '');
-    ck('monthly deal shows "$1,000 a month" second line', dealsBody.includes('$1,000 a month'), '');
-    ck('no old "+ $1,000 bonus" line', !dealsBody.includes('bonus') && !dealsBody.includes('commission'), '');
+    ck('extras deal shows EXTRAS chips (Bonus/Commission names)', dealsBody.includes('Bonus $1,000') && dealsBody.includes('Commission 10%'), '');
+    ck('monthly deal shows "Month 1 of 3" pay-by count (no $/mo line)', dealsBody.includes('Month 1 of 3') && !dealsBody.includes('a month'), '');
+    ck('no old "+ 2 extras" chip (replaced by EXTRAS section)', !dealsBody.includes('+ 2 extras'), '');
 
     // ===== Task 1: payments row menu (portal + hide status) =====
     await page.goto(`${BASE}/app/payments`, { waitUntil: 'networkidle' });
@@ -85,22 +85,23 @@ const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log(`  ${ok ? 'PASS' : 
     });
     ck('Subscribe button is outlined/secondary (has border, not solid accent)', !!btnInfo && btnInfo.border, btnInfo && btnInfo.bg);
 
-    // ===== Task 4b: extras hover card (desktop) =====
-    console.log('\n=== EXTRAS CHIP HOVER (desktop 1280) ===');
+    // ===== Task 4b: extras hover card (desktop, on the dotted-underlined amount) =====
+    console.log('\n=== EXTRAS AMOUNT HOVER (desktop 1280) ===');
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`${BASE}/app/deals`, { waitUntil: 'networkidle' });
     await sleep(2200);
-    const chip = page.locator('text=+ 2 extras').first();
-    if (await chip.count()) {
-      await chip.hover();
+    // The extras deal's amount is the dotted-underlined cell in its row.
+    const amountCell = page.locator(`.deal-row:has-text("${brandExtra}") .d-amount .underline`).first();
+    if (await amountCell.count()) {
+      await amountCell.hover();
       await sleep(400);
       const card = await page.evaluate(() => {
-        const cands = [...document.querySelectorAll('div')].filter(d => d.textContent.includes('Bonus') && d.textContent.includes('Commission') && d.textContent.includes('100K views'));
+        const cands = [...document.querySelectorAll('div[role="dialog"][aria-label="Extras"]')];
         return cands.length ? cands.map(c => c.textContent.replace(/\s+/g, ' ').trim()).slice(-1)[0] : null;
       });
-      ck('hover card lists Bonus + Commission detail', !!card && card.includes('Bonus') && card.includes('$1,000') && card.includes('10% of sales') && card.includes('100K views'), card);
+      ck('hover card lists Bonus + Commission + condition', !!card && card.includes('Bonus, $1,000') && card.includes('Commission, 10%') && card.includes('100K views'), card);
     } else {
-      ck('hover card lists extras (chip present)', false, 'chip not found');
+      ck('hover card lists extras (amount underline present)', false, 'amount underline not found');
     }
 
     console.log(`\n=== RESULT: ${pass}/${pass + fail} passed ===`);
