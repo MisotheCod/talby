@@ -4,10 +4,10 @@
 // (no "use client") so server API routes can call them too. Re-exported here so
 // existing client imports from @/lib/pay-status keep working unchanged, and
 // imported as local bindings for this file's own use below.
-import { NET_DAYS } from "./payment-structure";
-import type { PaymentStructureKind } from "./payment-structure";
-export { NET_DAYS, generatePaymentsFromStructure } from "./payment-structure";
-export type { PaymentStructureKind } from "./payment-structure";
+import { NET_DAYS } from "./payment-structure.ts";
+import type { PaymentStructureKind } from "./payment-structure.ts";
+export { NET_DAYS, generatePaymentsFromStructure } from "./payment-structure.ts";
+export type { PaymentStructureKind } from "./payment-structure.ts";
 
 // Pay-status consolidation (PR one).
 //
