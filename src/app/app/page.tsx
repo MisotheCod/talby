@@ -12,6 +12,7 @@ import { dealPayRollup, paymentStatusView, type DealRollup, type PayStatus } fro
 import { IconPlus } from "@/components/icons";
 import { Pill, Segmented } from "@/components/ui";
 import { AddDealFlow } from "@/components/add-deal-flow";
+import { StatCard } from "@/components/stat-card";
 
 type Deal = {
   id: string; brand: string; status: string; value: number | null;
@@ -269,21 +270,12 @@ export default function OverviewPage() {
 
       {/* Stats row (auto-fit) */}
       <div className="stats">
-        <div className="statcard anim">
-          <div className="lbl">Booked</div>
-          <div className="val cnt-up" data-n={booked}>$0</div>
-          <div className="sub">across {activeDeals.length} active deal{activeDeals.length === 1 ? "" : "s"}</div>
-        </div>
-        <div className="statcard anim">
-          <div className="lbl">Paid</div>
-          <div className="val cnt-up" style={{ color: "var(--paid)" }} data-n={received}>$0</div>
-          <div className="sub">received, all time</div>
-        </div>
-        <div className="statcard anim">
-          <div className="lbl">Outstanding</div>
-          <div className="val cnt-up" style={{ color: "var(--due)" }} data-n={outstanding}>$0</div>
-          <div className="sub">{pendingPayments.length} payment{pendingPayments.length === 1 ? "" : "s"} expected</div>
-        </div>
+        <StatCard className="anim" label="Booked" value="$0" valueClassName="cnt-up" dataN={booked}
+          sub={`across ${activeDeals.length} active deal${activeDeals.length === 1 ? "" : "s"}`} />
+        <StatCard className="anim" label="Paid" value="$0" valueClassName="cnt-up" dataN={received} color="var(--paid)"
+          sub="received, all time" />
+        <StatCard className="anim" label="Outstanding" value="$0" valueClassName="cnt-up" dataN={outstanding} color="var(--due)"
+          sub={`${pendingPayments.length} payment${pendingPayments.length === 1 ? "" : "s"} expected`} />
         <NextPaymentCard payments={pendingPayments} />
       </div>
 
@@ -391,16 +383,6 @@ export default function OverviewPage() {
   );
 }
 
-function StatCard({ label, value, sub, color }: { label: string; value: string; sub: string; color?: string }) {
-  return (
-    <div className="statcard">
-      <div className="lbl">{label}</div>
-      <div className="val" style={color ? { color } : undefined}>{value}</div>
-      <div className="sub">{sub}</div>
-    </div>
-  );
-}
-
 function NextPaymentCard({ payments }: { payments: Payment[] }) {
   // The next unpaid payment: soonest expected_date among non-received rows.
   const next = [...payments]
@@ -408,21 +390,11 @@ function NextPaymentCard({ payments }: { payments: Payment[] }) {
   const fmt = next?.expected_date
     ? new Date(next.expected_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
     : null;
-  return (
-    <div className="statcard">
-      <div className="lbl">Next payment</div>
-      {next ? (
-        <>
-          <div className="val" style={{ color: "var(--due)" }}>{formatMoney(next.amount)}</div>
-          <div className="sub">{next.deal?.brand ?? "Payment"}{fmt ? ` · ${fmt}` : ""}</div>
-        </>
-      ) : (
-        <>
-          <div className="val" style={{ color: "var(--ink-soft)" }}>—</div>
-          <div className="sub">No payments yet</div>
-        </>
-      )}
-    </div>
+  return next ? (
+    <StatCard label="Next payment" value={formatMoney(next.amount)} color="var(--due)"
+      sub={`${next.deal?.brand ?? "Payment"}${fmt ? ` · ${fmt}` : ""}`} />
+  ) : (
+    <StatCard label="Next payment" value="—" color="var(--ink-soft)" sub="No payments yet" />
   );
 }
 

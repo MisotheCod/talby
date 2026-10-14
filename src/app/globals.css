@@ -72,6 +72,10 @@
   /* --- Sidebar sugar: barely-perceptible accent tint (capped, derives from
      the live accent via color-mix so it re-tints on theme preview/save). --- */
   --side-bg: color-mix(in srgb, var(--accent) 4%, var(--panel-glass));
+  /* Solid (opaque) sidebar surface — used by the mobile drawer so the page
+     never shows through. Same accent tint as --side-bg, but over a solid
+     white instead of translucent glass. */
+  --side-solid: color-mix(in srgb, var(--accent) 4%, #ffffff);
 }
 
 /* ============================================================
@@ -93,6 +97,7 @@
   --line-2: #303845;
   --panel-glass: rgba(23, 28, 36, 0.9);
   --side-bg: color-mix(in srgb, var(--accent) 5%, var(--panel-glass));
+  --side-solid: color-mix(in srgb, var(--accent) 5%, #171c24);
 
   /* status surfaces: stronger tint bg + lighter fg for contrast on dark */
   --paid-bg: #123026;
@@ -473,7 +478,8 @@ h1, h2, h3, h4 {
 .search .ic { width: 16px; height: 16px; stroke: var(--ink-faint); stroke-width: 2; fill: none; flex: none; }
 
 /* ------- Stats row + stat cards ------- */
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+@media (min-width: 1001px) { .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .statcard { background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; box-shadow: var(--sh-card); }
 .statcard .lbl { font-size: 11px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink-faint); }
 .statcard .val { font-family: var(--font-head), var(--font-inter), sans-serif; font-size: 28px; font-weight: 700; margin-top: 9px; letter-spacing: -0.03em; line-height: 1.1; }
@@ -540,8 +546,10 @@ h1, h2, h3, h4 {
   .shell { grid-template-columns: 1fr; padding: 14px; }
   .topbar { display: flex; }
   .side {
-    position: fixed; left: 14px; top: 14px; bottom: 14px; width: 266px; height: auto;
+    position: fixed; left: 0; top: 0; bottom: 0; width: 266px; height: auto;
     z-index: 80; transform: translateX(-115%); transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.3, 1);
+    background: var(--side-solid);
+    border: none; border-radius: 0;
   }
   .side.open { transform: none; }
   .main { padding: 0; }
@@ -945,7 +953,7 @@ input[type="range"].zoom::-moz-range-track {
 .hamb svg { width: 22px; height: 22px; stroke: var(--ink); stroke-width: 2; fill: none; }
 .topbar .tt { font-family: var(--font-head), sans-serif; font-weight: 700; font-size: 16px; }
 .backdrop {
-  position: fixed; inset: 0; background: rgba(13, 15, 19, 0.32);
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5);
   z-index: 79; opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s;
 }
 .backdrop.show { opacity: 1; visibility: visible; }

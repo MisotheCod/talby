@@ -10,6 +10,7 @@ import { paymentStatusView, paymentStructureLabel } from "@/lib/pay-status";
 import { IconPlus, IconMore, IconCheck, IconDown } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 import { IncomeSummary } from "./income-summary";
+import { StatCard } from "@/components/stat-card";
 
 /* ---------- types ---------- */
 type Payment = {
@@ -356,16 +357,16 @@ export default function PaymentsPage() {
       )}
       {view === "Payments" && (
       <>
-      {/* === 1. Four stat cards === */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Earned this year" value={formatMoney(receivedYtdTotal)} color="text-ok" className="entr"
-          trend={trendLine(receivedYtdTotal, receivedLastYtdTotal)} />
-        <StatCard label="Expected" value={formatMoney(expectedTotal)} color="text-warn" className="entr"
-          trend={`${expectedCount} payment${expectedCount === 1 ? "" : "s"}${overdueCount ? `, ${overdueCount} overdue` : ""}`} />
-        <StatCard label="Avg deal value" value={avgDealValue ? formatMoney(avgDealValue) : "–"} color="text-ink" className="entr"
-          trend={priorAvg ? trendLine(avgDealValue || 0, priorAvg) : null} />
-        <StatCard label="Best month" value={bestMonthName || "–"} color="text-ink" className="entr"
-          trend={bestMonthAmount ? formatMoney(bestMonthAmount) : "Not enough data yet"} />
+      {/* === 1. Four stat cards (shared StatCard, same as Overview) === */}
+      <div className="stats">
+        <StatCard className="entr" label="Earned this year" value={formatMoney(receivedYtdTotal)} color="var(--paid)"
+          sub="received this year" />
+        <StatCard className="entr" label="Expected" value={formatMoney(expectedTotal)} color="var(--due)"
+          sub={`${expectedCount} payment${expectedCount === 1 ? "" : "s"}`} />
+        <StatCard className="entr" label="Avg deal value" value={avgDealValue ? formatMoney(avgDealValue) : "–"}
+          sub={`across ${deals.length} deal${deals.length === 1 ? "" : "s"}`} />
+        <StatCard className="entr" label="Best month" value={bestMonthName || "No data yet"}
+          sub={bestMonthAmount ? formatMoney(bestMonthAmount) : undefined} />
       </div>
 
       {/* === 2 & 3. Income over time (left) + Deals signed per month (right) === */}
@@ -599,16 +600,6 @@ function ExtrasSection({ extras }: { extras: ExtraRow[] }) {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function StatCard({ label, value, color, trend, className }: { label: string; value: string; color: string; trend: string | null; className?: string }) {
-  return (
-    <div className={cn("card p-5", className)}>
-      <div className="text-sm text-muted font-medium">{label}</div>
-      <div className={cn("font-head text-2xl font-semibold mt-1 tabular-nums", color)}>{value}</div>
-      {trend && <div className="text-xs text-muted mt-1">{trend}</div>}
     </div>
   );
 }
