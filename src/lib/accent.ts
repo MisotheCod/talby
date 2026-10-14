@@ -10,14 +10,37 @@ export type HSL = { h: number; s: number; l: number };
 export type ThemeMode = "light" | "dark";
 export const DEFAULT_MODE: ThemeMode = "light";
 
-/** Heading-font choices. Lexend is the only brand heading font; the
- *  Space Grotesk / Bricolage / Fraunces options were leftover demo fonts
- *  and were removed. fontCssVar falls back to Lexend for unknown names, so
- *  any saved choice predating the removal renders as Lexend. */
+/** Heading-font choices. Lexend is the default (loaded globally by next/font).
+ *  The other three are Google Fonts loaded on demand, only inside the app, and
+ *  only when selected or previewed — so marketing pages never fetch them. Each
+ *  entry's `cssVar` is the exact font-family the browser should use once the
+ *  face is loaded. */
 export const HEADING_FONTS = [
   { name: "Lexend", cssVar: "var(--font-lexend)" },
+  { name: "Bricolage Grotesque", cssVar: "\"Bricolage Grotesque\", var(--font-lexend)" },
+  { name: "Fraunces", cssVar: "\"Fraunces\", var(--font-lexend)" },
+  { name: "Space Grotesk", cssVar: "\"Space Grotesk\", var(--font-lexend)" },
 ] as const;
 export const DEFAULT_HEAD_FONT = "Lexend";
+
+/** Google Fonts CSS2 URL per on-demand heading font (Lexend is next/font, not here). */
+const GOOGLE_FONT_URLS: Record<string, string> = {
+  "Bricolage Grotesque": "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&display=swap",
+  Fraunces: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,100..900&display=swap",
+  "Space Grotesk": "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&display=swap",
+};
+
+const _loadedFonts = new Set<string>();
+/** Load a heading font's stylesheet once, on demand (only inside the app). */
+function ensureFontLoaded(name: string) {
+  const url = GOOGLE_FONT_URLS[name];
+  if (!url || _loadedFonts.has(name) || typeof document === "undefined") return;
+  _loadedFonts.add(name);
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = url;
+  document.head.appendChild(link);
+}
 
 export const ACCENT_PRESETS: (HSL & { name: string })[] = [
   { name: "Ocean blue", h: 210, s: 76, l: 50 },
@@ -149,5 +172,7 @@ export function fontCssVar(name: string | null | undefined): string {
 }
 
 export function applyFont(name: string | null | undefined) {
-  document.documentElement.style.setProperty("--font-head", fontCssVar(name));
+  const n = name || DEFAULT_HEAD_FONT;
+  ensureFontLoaded(n);
+  document.documentElement.style.setProperty("--font-head", fontCssVar(n));
 }

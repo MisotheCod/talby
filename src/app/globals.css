@@ -998,6 +998,16 @@ input[type="range"].zoom::-moz-range-track {
 .deal-row .d-payby::before { content: "Pay by · "; color: var(--ink-faint); font-weight: 500; }
 .deal-row .d-menu { grid-area: menu; justify-self: end; }
 
+/* Mobile deal card: its tiny uppercase gray section labels (POST DATE / PAY BY /
+   EXTRAS). */
+.deal-mc-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+
 @media (min-width: 640px) {
   .deal-row {
     grid-template-columns: minmax(0,2.2fr) minmax(0,0.8fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.9fr) minmax(0,0.8fr) 32px;

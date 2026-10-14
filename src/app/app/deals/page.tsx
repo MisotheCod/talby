@@ -7,8 +7,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { pageEntrance } from "@/lib/entrance";
 import { subscribeDataChange, notifyDataChange, notifyReadOnlyBlocked } from "@/lib/data-events";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
-import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, dealPaymentView, type DealExtra, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
+import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, dealPaymentView, paymentStructureLabel, type DealExtra, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
 import { type EditorPayment } from "@/components/payment-editor";
 import { DealPaymentSection, Sel } from "@/components/deal-payment-section";
 import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
@@ -16,7 +17,6 @@ import { DealInput, DealTextarea } from "@/components/deal-input";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconDown, IconUpload, IconGrid, IconList, IconMail, IconUndo } from "@/components/icons";
 import { Button, Input, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
 import { RowMenu } from "@/components/row-menu";
-import { ExtrasChip } from "@/components/extras-chip";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
 import { SaveToastHost, notifySaved } from "@/components/save-toast";
@@ -75,6 +75,7 @@ export default function DealsPage() {
   const supabase = createClient();
   const rootRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -395,6 +396,27 @@ export default function DealsPage() {
         </div>
       ) : (
         <>
+          {isMobile ? (
+            <div className="space-y-2.5">
+              {pageItems.map((d) => (
+                <div key={d.id} className="relative">
+                  <MobileDealCard
+                    deal={d}
+                    selected={selectedId === d.id}
+                    menuOpen={rowMenu === d.id}
+                    onOpen={() => setSelectedId(d.id)}
+                    onToggleMenu={() => setRowMenu(rowMenu === d.id ? null : d.id)}
+                    onArchive={(archived) => setArchived(d, archived)}
+                    onDelete={() => setDeleteTarget(d)}
+                  />
+                </div>
+              ))}
+              <div className="flex items-center justify-between px-1 py-2 text-sm font-semibold">
+                <span className="text-[12px] font-semibold uppercase tracking-wide text-inkfaint">Total {filterLabel(filter)}</span>
+                <span className="money tabular-nums">{formatMoney(visible.reduce((s, deal) => s + (deal.value ?? 0), 0))}</span>
+              </div>
+            </div>
+          ) : (
           <div className="panel overflow-hidden">
             {/* Column headers */}
             <div className="hidden sm:grid grid-cols-[minmax(0,2.2fr)_minmax(0,0.8fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.8fr)_32px] gap-3 px-[22px] py-2.5 border-b border-line text-[11px] font-semibold uppercase tracking-wide text-inkfaint">
@@ -430,16 +452,7 @@ export default function DealsPage() {
                   </span>
                   <PostDateCell deal={d} onChanged={onUpdated} />
                   <PayByCell deal={d} onChanged={onUpdated} />
-                  <span className="d-amount relative flex flex-col items-end">
-                  <span className="inline-flex h-10 items-center"><span className="money text-sm font-medium leading-snug tabular-nums">{formatMoney(d.value)}</span></span>
-                  {d.payment_structure === "monthly" && d.structure_months && d.value != null ? (
-                    <span className="absolute right-0 top-[30px] text-[10px] tabular-nums leading-none whitespace-nowrap text-inksoft/70">
-                      {formatMoney(d.value / d.structure_months)} a month
-                    </span>
-                  ) : (d.extras?.length ?? 0) > 0 ? (
-                    <ExtrasChip extras={d.extras!} className="absolute right-0 top-[30px]" />
-                  ) : null}
-                </span>
+                  <AmountCell deal={d} />
                   {/* Dedicated overflow-menu column: one button, its own grid area. The dropdown
                       itself renders in a portal to escape the table's overflow. */}
                   <span className="d-menu relative">
@@ -462,6 +475,7 @@ export default function DealsPage() {
               <span className="money text-[15px] font-bold tabular-nums">{formatMoney(visible.reduce((s, deal) => s + (deal.value ?? 0), 0))}</span>
             </div>
           </div>
+          )}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-1">
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1} className="px-3 h-9 rounded-lg border border-line2 bg-card text-sm text-inksoft hover:text-ink disabled:opacity-40 cursor-pointer disabled:cursor-default">Previous</button>
@@ -1788,6 +1802,158 @@ function PayByCell({ deal, onChanged }: { deal: Deal; onChanged: () => void }) {
           <div className="px-3 pt-2 pb-0.5 text-[11.5px] text-inksoft border-t border-line mt-1.5">Open the deal to make changes.</div>
         </div>,
         document.body
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Amount cell (desktop column) ----------------\n   The amount stands alone (no "a month" / extras second line). When a deal has\n   extras the amount gets a dotted underline; hovering opens a READ ONLY\n   "Extras" card below, right-aligned to the amount, listing each extra's name\n   + amount on one line and its condition under it in small gray. Deals without\n   extras show a plain amount. Editing happens in the drawer, never here. */
+function AmountCell({ deal }: { deal: Deal }) {
+  const trgRef = useRef<HTMLSpanElement | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const stay = useRef(false);
+  const extras = deal.extras ?? [];
+  const hasExtras = extras.length > 0;
+
+  useEffect(() => {
+    if (!open || !trgRef.current) return;
+    const r = trgRef.current.getBoundingClientRect();
+    const W = 272;
+    const rows = extras.length;
+    const H = 40 + rows * 48 + 16; // title + rows (name + condition) + footer
+    const spaceBelow = window.innerHeight - r.bottom - 8;
+    const up = spaceBelow < H && r.top > H + 8;
+    const x = Math.max(8, Math.min(r.right - W, window.innerWidth - W - 8)); // right-aligned
+    const top = up ? r.top - H - 8 : r.bottom + 8;
+    setPos({ x, y: top });
+  }, [open, extras.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent | TouchEvent) => {
+      const t = e.target as Node;
+      if (trgRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("touchstart", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("touchstart", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <span className="d-amount relative flex flex-col items-end select-none">
+      <span
+        ref={trgRef}
+        className="inline-flex h-10 items-center"
+        onMouseEnter={hasExtras ? () => { stay.current = true; setOpen(true); } : undefined}
+        onMouseLeave={hasExtras ? () => { stay.current = false; setTimeout(() => { if (!stay.current) setOpen(false); }, 180); } : undefined}
+      >
+        <span className={cn("money text-sm font-medium leading-snug tabular-nums",
+          hasExtras && "underline decoration-dotted underline-offset-2 cursor-default")}
+        >
+          {formatMoney(deal.value)}
+        </span>
+      </span>
+      {open && hasExtras && pos && createPortal(
+        <div
+          ref={popRef}
+          role="dialog"
+          aria-label="Extras"
+          className="fixed z-[96] w-[272px] bg-card border border-line2 rounded-xl shadow-pop py-2 fade-up text-sm"
+          style={{ left: pos.x, top: pos.y }}
+          onMouseEnter={() => { stay.current = true; setOpen(true); }}
+          onMouseLeave={() => { stay.current = false; setOpen(false); }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wide text-inkfaint">Extras</div>
+          {extras.map((e) => (
+            <div key={e.id} className="px-3 py-1.5 text-left">
+              <div className="text-[13px] font-medium text-ink">
+                {e.kind === "bonus" ? `Bonus, ${formatMoney(e.amount ?? 0)}` : `Commission, ${e.rate ?? 0}%`}
+              </div>
+              {(e.kind === "bonus" ? e.condition : e.on_text) && (
+                <div className="text-[11px] text-inksoft">{e.kind === "bonus" ? e.condition : e.on_text}</div>
+              )}
+            </div>
+          ))}
+          <div className="px-3 pt-2 pb-0.5 text-[11.5px] text-inksoft border-t border-line mt-1.5">Open the deal to make changes.</div>
+        </div>,
+        document.body
+      )}
+    </span>
+  );
+}
+
+/* ---------------- Mobile deal card ----------------\n   A stacked card shown only under 640px. Three sections, each divided by a\n   hairline when present:\n     top    — brand + ⋯ menu (line 1); status pill + payment pill (left) and\n              a larger amount (right) on line 2. No text under the amount.\n     middle — two equal columns (POST DATE / PAY BY), each a tiny uppercase\n              gray label, the date, then a 4px-spaced count line. Monthly deals\n              show "Month 3 of 6" as the pay-by count.\n     bottom — only when the deal has extras: an EXTRAS label + one chip per\n              extra ("Bonus $1,000", "Commission 10%"). */
+function MobileDealCard({ deal, selected, menuOpen, onOpen, onToggleMenu, onArchive, onDelete }: {
+  deal: Deal; selected: boolean; menuOpen: boolean;
+  onOpen: () => void; onToggleMenu: () => void;
+  onArchive: (archived: boolean) => void; onDelete: () => void;
+}) {
+  const extras = deal.extras ?? [];
+  const post = deal.post_cell;
+  const pay = deal.pay_cell;
+  const monthly = deal.payment_structure === "monthly";
+  const postDate = post?.next ? formatDate(post.next) : null;
+  const payDate = pay?.next_payby ? formatDate(pay.next_payby) : null;
+  // Pay-by count line: monthly → "Month X of N"; else → "N of M paid"/"All paid".
+  const payCount = monthly
+    ? paymentStructureLabel("monthly", Math.min(pay?.paidCount ?? 0, (deal.structure_months ?? Math.max(1, pay?.totalCount ?? 1)) - 1), deal.structure_months ?? Math.max(1, pay?.totalCount ?? 1))
+    : (pay?.line2?.text ?? null);
+  const postCount = post?.line2?.text ?? null;
+
+  return (
+    <div
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter") onOpen(); }}
+      className={cn("deal-mobile-card bg-card border border-line2 rounded-xl px-4 py-3 cursor-pointer text-left", selected && "ring-2 ring-[var(--accent)]")}
+    >
+      {/* top */}
+      <div className="flex items-center gap-2">
+        <span className="text-[15px] font-semibold truncate flex-1 min-w-0">{deal.brand}</span>
+        <RowMenuButton open={menuOpen} onToggle={onToggleMenu} current={deal} onArchive={onArchive} onDelete={onDelete} />
+      </div>
+      <div className="flex items-center gap-2 mt-2">
+        <span className="flex items-center gap-1.5 flex-1 min-w-0"><DealStatusBadge status={deal.status} active={deal.active} />{paymentPill(deal)}</span>
+        <span className="money text-[17px] font-semibold tabular-nums leading-none">{formatMoney(deal.value)}</span>
+      </div>
+
+      {/* middle: post date | pay by */}
+      <div className="mt-3 pt-3 border-t border-line grid grid-cols-2 gap-4">
+        <div>
+          <div className="deal-mc-label">Post date</div>
+          <div className={cn("text-[14px] tabular-nums mt-1", post?.overdue ? "text-late font-medium" : "text-ink")}>{postDate ?? "—"}</div>
+          {postCount && <div className="text-[11px] text-inksoft mt-[4px]">{postCount}</div>}
+        </div>
+        <div>
+          <div className="deal-mc-label">Pay by</div>
+          <div className={cn("text-[14px] tabular-nums mt-1", pay?.overdue ? "text-late font-medium" : "text-ink")}>{payDate ?? "—"}</div>
+          {payCount && <div className="text-[11px] text-inksoft mt-[4px]">{payCount}</div>}
+        </div>
+      </div>
+
+      {/* bottom: extras */}
+      {extras.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-line">
+          <div className="deal-mc-label">Extras</div>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {extras.map((e) => (
+              <span key={e.id} className="inline-flex items-center rounded-md bg-card2 border border-line px-2 py-0.5 text-[12px] text-ink">
+                {e.kind === "bonus" ? `Bonus ${formatMoney(e.amount ?? 0)}` : `Commission ${e.rate ?? 0}%`}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
