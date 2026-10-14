@@ -78,6 +78,7 @@
   margin: 0 0 20px;
   line-height: 1.45;
 }
+/* Desktop trial note — a soft box under the subtitle. */
 .auth-trial {
   font-size: 13.5px;
   font-weight: 500;
@@ -88,6 +89,37 @@
   padding: 10px 12px;
   margin: -6px 0 20px;
   line-height: 1.4;
+}
+/* Three benefit lines under the subtitle (signup, mobile only — the desktop
+   brand panel already shows this value prop). */
+.auth-benefits {
+  display: none;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  flex-direction: column;
+  gap: 9px;
+}
+.auth-benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink, #15181f);
+}
+.auth-benefit-check {
+  color: #1f7ae0;
+  flex: none;
+  margin-top: 1px;
+}
+/* Small gray trial line above the submit button (signup, mobile only). */
+.auth-trial-line {
+  display: none;
+  font-size: 12px;
+  color: var(--ink-faint, #9aa1ae);
+  text-align: center;
+  margin: 12px 0 0;
 }
 .auth-switch {
   font-size: 14px;
@@ -426,11 +458,6 @@
   font-family: var(--font-mono-mono), 'JetBrains Mono', monospace;
 }
 
-/* Mobile: "What Talby does" preview below the form. Hidden on desktop. */
-.auth-mobile-cards {
-  display: none;
-}
-
 /* --- Responsive: hide the panel below 900px; mobile-form layout --- */
 @media (max-width: 899px) {
   .auth-split {
@@ -448,40 +475,21 @@
   .auth-top {
     position: static;
   }
-  /* Logo stays top with normal padding; the form block is centered in the
-     space below it. The gap between the logo and the heading is the wrap's
-     top padding (≈56px). */
+  /* Logo stays top with normal padding. The form starts 40px below the logo
+     (no big empty gap), instead of being vertically centered in the space. */
   .auth-form-wrap {
     flex: 1;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    /* Clear space between the logo and the heading (roughly 56px). */
-    padding-top: 56px;
+    padding-top: 40px;
   }
   .auth-heading-desk { display: none; }
   .auth-heading-mobile { display: inline; }
-  .auth-mobile-cards {
-    display: block;
-    margin-top: 8px;
-  }
-  .auth-mobile-cards-label {
-    font-family: var(--font-lexend), 'Lexend', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink-soft, #5a6170);
-    margin-bottom: 10px;
-  }
-  /* Show the two preview cards at a smaller size below the terms. */
-  .auth-mobile-cards .auth-panel-card {
-    font-size: 12.5px;
-    padding: 11px 13px;
-  }
-  .auth-mobile-cards .ac-v {
-    font-size: 12.5px;
-  }
-  .auth-mobile-cards .ac-income-val {
-    font-size: 21px;
-  }
+  /* Mobile swaps the desktop trial box + panel pitch for benefit bullets +
+     a small gray trial line above the button. */
+  .auth-trial { display: none; }
+  .auth-benefits { display: flex; }
+  .auth-trial-line { display: block; }
 }
 
 /* Respect reduced motion */

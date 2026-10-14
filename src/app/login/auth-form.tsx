@@ -165,7 +165,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   };
 
   return (
-    <div className="auth-split">
+    <div className={`auth-split ${isLogin ? "auth-mode-login" : "auth-mode-signup"}`}>
       {/* Left — the form */}
       <div className="auth-col auth-form-col">
         <div className="auth-top">
@@ -187,6 +187,13 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               <p className="auth-trial" data-testid="trial-terms">
                 14 days free. No card needed.
               </p>
+            )}
+            {!isLogin && (
+              <ul className="auth-benefits">
+                <li className="auth-benefit"><IconCheck size={15} className="auth-benefit-check" /> Upload a contract and the deal fills itself in</li>
+                <li className="auth-benefit"><IconCheck size={15} className="auth-benefit-check" /> See every post date and payment in one place</li>
+                <li className="auth-benefit"><IconCheck size={15} className="auth-benefit-check" /> Know when a brand is late paying you</li>
+              </ul>
             )}
             <p className="auth-switch">
               {isLogin ? "New to Talby? " : "Already have an account? "}
@@ -237,7 +244,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                     type={showPw ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 8 characters"
+                    placeholder={isLogin ? "" : "At least 8 characters"}
                     autoComplete={isLogin ? "current-password" : "new-password"}
                     required
                     className="auth-input auth-input-pw"
@@ -258,6 +265,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               <button type="submit" className="auth-submit" disabled={loading}>
                 {loading ? <span className="auth-spinner" /> : isLogin ? "Log in" : "Create account"}
               </button>
+              {!isLogin && (
+                <p className="auth-trial-line" data-testid="trial-terms">14 days free. No card needed.</p>
+              )}
             </form>
 
             <p className="auth-terms">
@@ -268,13 +278,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           </div>
         </div>
 
-        {!isLogin && (
-          <div className="auth-mobile-cards" aria-hidden>
-            <div className="auth-mobile-cards-label">What Talby does</div>
-            <ContractCard />
-            <ThisWeekCard />
-          </div>
-        )}
       </div>
 
       {/* Right — brand panel */}
