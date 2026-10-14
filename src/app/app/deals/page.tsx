@@ -67,14 +67,14 @@ type StructureStage = {
   structure_start_date: string | null;
 };
 
-const FILTERS = ["Negotiating", "Active", "Paid", "Archived", "All"] as const;
+const FILTERS = ["All", "Negotiating", "Active", "Paid", "Archived"] as const;
 
 export default function DealsPage() {
   const supabase = createClient();
   const rootRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false); // dropdown open
   const [newMode, setNewMode] = useState<"blank" | "upload" | null>(null); // which New deal modal variant
