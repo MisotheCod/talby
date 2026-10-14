@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { generatePaymentsFromStructure } from "@/lib/pay-status";
+import { generatePaymentsFromStructure } from "@/lib/payment-structure";
 import { userIsReadOnly } from "@/lib/write-access";
 
 export const dynamic = "force-dynamic";
@@ -49,9 +49,10 @@ export async function POST(req: Request) {
   if (!brand) return NextResponse.json({ error: "brand is required" }, { status: 400 });
   const idKey = `${user.id}:${key || "nokey"}`;
 
-  // Structure + extras are NOT deals columns — strip them before the insert so
-  // the deal row itself carries only its own fields. They persist separately.
-  const { structure_parts: _sp, extras: _ex, ...dealPayload } = (body.payload ?? {}) as Record<string, unknown>;
+  // Structure, extras and post_dates are NOT deals columns — strip them before
+  // the insert so the deal row carries only its own fields. They persist
+  // separately (payments/content/deal_extras) below.
+  const { structure_parts: _sp, extras: _ex, post_dates: _pd, ...dealPayload } = (body.payload ?? {}) as Record<string, unknown>;
   const structureParts = (body.payload?.["structure_parts"] ?? []) as { name?: string | null; amount?: number | null; date?: string | null }[];
   const extras = (body.payload?.["extras"] ?? []) as { kind?: string; amount?: number | null; condition?: string | null; rate?: number | null; on_text?: string | null; earned?: boolean }[];
 
@@ -134,7 +135,7 @@ export async function POST(req: Request) {
           user_id: user.id,
           linked_deal_id: created.id,
           event_date: p.date,
-          title: (p.label ?? "").trim() || null,
+          title: (p.label ?? "").trim() || "Post",
           post_type: (p.kind ?? "").trim() || null,
           status: "planned",
         });
@@ -162,7 +163,7 @@ export async function POST(req: Request) {
           status: "expected", pay_status: "not_invoiced", bonus_confirmed: true,
         });
       }
-    } catch { /* non-fatal */ }
+    } catch (e) { console.error("[create-deal] payment generation failed:", (e as Error)?.message ?? e); }
   }
 
   // Persist extras (release 1): bonuses/commissions on the deal, separate from
