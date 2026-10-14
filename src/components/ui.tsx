@@ -66,6 +66,7 @@ export function Textarea({
 
 export { Select } from "@/components/select";
 export type { Select as SelectProps } from "@/components/select";
+export { MultiSelect } from "@/components/multi-select";
 
 /** Reusable tinted pill — one source color, tinted bg + same-hue text + subtle
  *  same-hue border, all derived via color-mix from a single token. Supply a

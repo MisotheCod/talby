@@ -99,12 +99,13 @@ function IconUpload({ size = 18 }: { size?: number }) {
 function InlineNewDeal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   return (
     <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={onClose}>
-      <div className="bg-card w-full max-w-lg rounded-2xl border border-line2 shadow-pop p-6 max-h-[90dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-card w-full max-w-[720px] rounded-2xl border border-line2 shadow-pop flex flex-col max-h-[85dvh]" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0 border-b border-line">
           <h3 className="text-lg font-semibold">New deal</h3>
           <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
         </div>
-        <DealForm
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+          <DealForm
             mode="create"
             initial={emptyDealForm()}
             onSaved={onSaved}
@@ -113,6 +114,7 @@ function InlineNewDeal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
             pending={false}
             submitLabel="Add deal"
           />
+        </div>
       </div>
     </div>
   );

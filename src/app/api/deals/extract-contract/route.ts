@@ -69,7 +69,14 @@ export async function POST(req: Request) {
   }
   let fields: Record<string, unknown>;
   try {
-    fields = await extractDealFields(text);
+    // The account owner (the creator) is passed so the reader can reject any
+    // rep contact that matches the creator — the rep must be the BRAND's person.
+    const ownerIdentity = [
+      user.email ?? "",
+      (user.user_metadata as Record<string, unknown> | undefined)?.full_name as string ?? "",
+      (user.user_metadata as Record<string, unknown> | undefined)?.name as string ?? "",
+    ].filter((s) => s.trim() !== "").join("; ");
+    fields = await extractDealFields(text, ownerIdentity);
   } catch (err) {
     // Never crash serverless with an uncaught throw: that yields an HTML 500,
     // which the client misreads as "could not reach the contract parser."
@@ -97,8 +104,8 @@ const SYSTEM = [
   "- revisions_included: the number of revision rounds included in the contract, as a whole number string (e.g. '2'); if the contract says revisions are unlimited, set it to the string 'Unlimited'; if the number of included revisions is not stated, set it to null. NEVER invent a number.",
   "- due_date: the deadline for final deliverables in YYYY-MM-DD; null if unstated.",
   "- post_dates: a JSON array of EVERY scheduled post/publish/live date the contract mentions, each as {\"date\":\"YYYY-MM-DD\", \"label\":\"Reel\"|\"Story 2\"|...}. A deal for one Reel and three Stories usually has FOUR dates. Extract every distinct one the contract states; if it names a platform/deliverable alongside a date, put that in label (e.g. 'Reel' or 'Story 2'); if only dates are given, label is \"\". Empty array [] if no dates are stated. NEVER invent a date.",
-  "- rep_name: the human representative's name; null if unknown.",
-  "- rep_email: the representative's email; null if unknown.",
+  "- rep_name: the brand's representative — the human contact at the commissioning company, never the creator/filer. If the only name or email found matches the account owner, set rep_name and rep_email to null (leave Rep contact empty).",
+  "- rep_email: the representative's email; null if unknown or if it belongs to the creator.",
   "- platforms: comma-separated platforms (Instagram, TikTok, YouTube...); null if none.",
   "- payment_structure: the way the deal is paid, as {\"kind\":\"once\"|\"split\"|\"parts\"|\"monthly\", ...details}else null when a single all-at-once payment (the default). Detail fields by kind:\n     once:  {\"kind\":\"once\", \"timing\":\"when_posts\"|\"net_15\"|\"net_30\"|\"net_45\"|\"net_60\"}\n     split: {\"kind\":\"split\", \"upfront_pct\":<25|30|40|50>, \"balance_timing\":\"when_posts\"|\"net_15\"|\"net_30\"|\"net_60\"}\n     parts: {\"kind\":\"parts\", \"parts\":[{\"name\":\"Milestone 1\",\"amount\":<number>,\"date\":\"YYYY-MM-DD\"|null,\"trigger\":\"signing\"|\"approval\"|\"posting\"|\"campaign end\"|null}]}\n     monthly: {\"kind\":\"monthly\", \"months\":<3|6|12>, \"start_date\":\"YYYY-MM-DD\"|null}\n     Capture the exact timing and each part's amount/date/trigger. If none of these is clearly stated, set payment_structure to null (NOT 'once' with a guess); the deal form defaults to All at once / Net 30 and flags the Paid field for review.",
   "- extras: a JSON array of any bonuses or commissions the contract mentions: a bonus is {\"kind\":\"bonus\",\"amount\":<number>,\"condition\":\"the Reel passes 100K views\"}; a commission is {\"kind\":\"commission\",\"rate\":<number percent>,\"on\":\"sales with code CAMBO10\"}. Empty array [] when none stated.",
@@ -108,7 +115,10 @@ const SYSTEM = [
   '{"brand":..., "deliverable":..., "value_total":<number|null>, "pay_terms":..., "exclusivity_days":<int|null>, "revisions_included":<string|null>, "due_date":..., "post_dates":[{"date":"YYYY-MM-DD","label":"Reel"}], "rep_name":..., "rep_email":..., "platforms":..., "payment_structure":{...}|null, "extras":[...], "payment_note":...}',
 ].join("\n");
 
-async function extractDealFields(text: string): Promise<Record<string, unknown>> {
+async function extractDealFields(text: string, ownerIdentity: string): Promise<Record<string, unknown>> {
+  const ownerNote = ownerIdentity
+    ? `\n\nThe account owner (the creator filing this contract) is: ${ownerIdentity}. Treat any name or email in the contract that matches this as the CREATOR, not as the brand's representative. The rep (rep_name/rep_email) must be a contact at the BRAND.`
+    : "";
   const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -119,7 +129,7 @@ async function extractDealFields(text: string): Promise<Record<string, unknown>>
     },
     body: JSON.stringify({
       model: "google/gemini-3.5-flash-lite",
-      messages: [{ role: "system", content: SYSTEM }, { role: "user", content: text }],
+      messages: [{ role: "system", content: SYSTEM }, { role: "user", content: text + ownerNote }],
       temperature: 0,
       response_format: { type: "json_object" },
     }),

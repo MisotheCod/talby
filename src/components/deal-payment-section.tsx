@@ -421,7 +421,7 @@ export function DealPaymentSection({
 function formatShort(iso: string): string {
   const d = new Date(iso + "T00:00:00");
   if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 function overdueView(p: EditorPayment) {
   const v = paymentStatusView({ pay_status: p.pay_status ?? null, status: p.status ?? null, expected_date: p.expected_date ?? null, amount: p.amount ?? null });

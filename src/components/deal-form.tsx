@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
+import { cn, formatDateFull } from "@/lib/utils";
 import { newPostDateRow, type PostDate } from "@/lib/post-dates";
 import { generatePaymentsFromStructure } from "@/lib/pay-status";
 import { DealInput, DealTextarea, inputFieldCls } from "@/components/deal-input";
@@ -56,7 +56,7 @@ function newRowKey(): string {
 
 /** Which fields the extractor actually filled (for sparkle markers). */
 export function contractAutoFields(f: Record<string, unknown>): (keyof DealFormValues)[] {
-  const keys: (keyof DealFormValues)[] = ["brand", "deliverable", "pay_terms", "rep_name", "rep_email"];
+  const keys: (keyof DealFormValues)[] = ["brand", "deliverable", "rep_name", "rep_email"];
   if (f.value_total != null) keys.push("value");
   if (typeof f.due_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f.due_date)) keys.push("due_date");
   if (typeof f.exclusivity_days === "number") keys.push("exclusivity_days");
@@ -79,10 +79,12 @@ export function contractFlags(f: Record<string, unknown>): DealFlag[] {
   if (f.value_total == null) flags.push({ key: "value", reason: "No compensation amount found in the contract." });
   if (!f.deliverable) flags.push({ key: "deliverable", reason: "Couldn't read the deliverables. Add them so the deal is complete." });
   if (!f.due_date && f.rep_name) flags.push({ key: "due_date", reason: "No due date detected. Set one if the contract has a deadline." });
-  if (!f.pay_terms) flags.push({ key: "pay_terms", reason: "No payment timing found. If the contract states terms, pick them." });
-  // Spec 5d: payment terms missing/unclear -> default to All at once / Net 30 and flag the Paid field.
+  // Spec 5/6/7: only flag payment timing when the reader truly found none. If it
+  // filled in the structure (Paid + When), do not nag. Reason points at the
+  // Paid/When fields, never at the retired Pay Terms, and never shows the
+  // internal "once"/"split" values — only the labels people see.
   if (!f.payment_structure || typeof f.payment_structure !== "object") {
-    flags.push({ key: "payment_structure", reason: "Payment terms were unclear, so this defaults to All at once, Net 30. Confirm how you actually get paid." });
+    flags.push({ key: "payment_structure", reason: "We couldn't tell how you get paid. Check the Paid and When fields above and pick how it's paid." });
   }
   if ((f.value_total as number) === 0) flags.push({ key: "value", reason: "Amount read as $0, likely for a pro-bono or fee-gifted deal. Confirm it." });
   return flags;
@@ -339,7 +341,7 @@ export function DealForm({
   // ---- one-line summaries for collapsed sections ----
   const repSummary = [v.rep_name.trim(), v.rep_email.trim()].filter(Boolean).join(" · ");
   const detailsSummary = [
-    v.due_date ? `Due ${v.due_date}` : null,
+    v.due_date ? `Due ${formatDateFull(v.due_date)}` : null,
     v.exclusivity_days ? `${v.exclusivity_days} days exclusivity` : null,
     v.revisions_included ? `${v.revisions_included} revisions` : null,
   ].filter(Boolean).join(" · ");
@@ -429,7 +431,7 @@ export function DealForm({
               <span className={cn("h-4 w-1.5 rounded-full shrink-0 mt-1.5", "bg-due")} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium capitalize">{f.key.replace(/_/g, " ")}</span>
+                  <span className="text-xs font-medium capitalize">{flagLabel(f.key)}</span>
                   <FlagEdit key={f.key} field={f.key} value={v[f.key] as string | { url: string; label?: string }[]} onChange={(x: unknown) => set(f.key, x as never)} />
                 </div>
                 <p className="text-[11px] text-inksoft mt-0.5">{f.reason}</p>
@@ -439,34 +441,48 @@ export function DealForm({
         </div>
       )}
 
-      {/* ---- Core: always visible ---- */}
-      {mode === "create" && (
-        <Field label="Brand *" spark={spark("brand")}><DealInput value={v.brand} onCommit={(val) => set("brand", val)} placeholder="e.g. Glossier" /></Field>
-      )}
+      {/* ---- Core: always visible. Paired side by side so the (now wider) form
+           stays short: Brand|Deal amount, Deliverable|Post date, Paid|When. ---- */}
       <div className="grid grid-cols-2 gap-4">
+        {mode === "create" ? (
+          <Field label="Brand *" spark={spark("brand")}><DealInput value={v.brand} onCommit={(val) => set("brand", val)} placeholder="e.g. Glossier" /></Field>
+        ) : (
+          <Field label="Deal status"><Select value={v.status} onChange={(e) => set("status", e.target.value)}>
+            {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </Select></Field>
+        )}
         <Field label="Deal amount" spark={spark("value")}><DealInput type="number" inputMode="decimal" value={v.value} onCommit={(val) => set("value", val)} placeholder="$1,500" /></Field>
-        <Field label="Deal status"><Select value={v.status} onChange={(e) => set("status", e.target.value)}>
-          {DEAL_STATUSES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </Select></Field>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Deliverable" spark={spark("deliverable")}><DealInput value={v.deliverable} onCommit={(val) => set("deliverable", val)} placeholder="e.g. 2 IG posts + 1 story" /></Field>
         <Field label="Post date"><DealInput type="date" value={v.post_dates[0]?.date ?? ""} onCommit={(val) => set("post_dates", val ? [newPostDateRow({ date: val }), ...v.post_dates.slice(1)].slice(0, Math.max(1, v.post_dates.length)) : v.post_dates)} /></Field>
       </div>
 
-      {/* ---- Paid: structure + companion (spec 4b) ---- */}
-      <Field label="Paid">
-        <Select value={v.payment_structure} onChange={(e) => set("payment_structure", e.target.value as DealFormValues["payment_structure"])}>
-          <option value="once">All at once</option>
-          <option value="split">Upfront + balance</option>
-          <option value="parts">In parts</option>
-          <option value="monthly">Monthly</option>
-        </Select>
-      </Field>
-      {v.payment_structure === "once" && (
-        <Field label="When">
-          <Select value={v.structure_timing} onChange={(e) => set("structure_timing", e.target.value)}>
-            {STRUCTURE_NET.map(([val, lab]) => <option key={val} value={val}>{lab}</option>)}
+      {/* ---- Paid + companion (spec 4b). For "once" the Paid and When sit
+           side by side; the other structures keep their own companion below. ---- */}
+      {v.payment_structure === "once" ? (
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Paid">
+            <Select value={v.payment_structure} onChange={(e) => set("payment_structure", e.target.value as DealFormValues["payment_structure"])}>
+              <option value="once">All at once</option>
+              <option value="split">Upfront + balance</option>
+              <option value="parts">In parts</option>
+              <option value="monthly">Monthly</option>
+            </Select>
+          </Field>
+          <Field label="When">
+            <Select value={v.structure_timing} onChange={(e) => set("structure_timing", e.target.value)}>
+              {STRUCTURE_NET.map(([val, lab]) => <option key={val} value={val}>{lab}</option>)}
+            </Select>
+          </Field>
+        </div>
+      ) : (
+        <Field label="Paid">
+          <Select value={v.payment_structure} onChange={(e) => set("payment_structure", e.target.value as DealFormValues["payment_structure"])}>
+            <option value="once">All at once</option>
+            <option value="split">Upfront + balance</option>
+            <option value="parts">In parts</option>
+            <option value="monthly">Monthly</option>
           </Select>
         </Field>
       )}
@@ -576,7 +592,7 @@ export function DealForm({
         <p className="text-[11px] text-inksoft flex items-center gap-1.5"><IconAuto size={13} className="text-due" /> <span>Sparkle = filled by your contract. Edit anything before adding.</span></p>
       )}
 
-      <div className="flex justify-end gap-3">
+      <div className="flex justify-end gap-3 sticky bottom-0 bg-card py-2 -mx-1 px-1">
         {mode === "create" && onCancel && (
           <Button variant="secondary" size="md" onClick={onCancel}>Cancel</Button>
         )}
@@ -647,7 +663,7 @@ function PaymentPreview({ v }: { v: DealFormValues }) {
 }
 function friendlyDate(iso: string): string {
   const d = new Date(iso + "T00:00:00");
-  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 function Rows({ rows }: { rows: { label: string; due: string; amount: number }[] }) {
   return (
@@ -704,10 +720,25 @@ function AddExtraButton({ onAdd }: { onAdd: (e: ExtraDraft) => void }) {
 }
 
 /** Inline mini-editor for a flagged field, so the user can fix it right in the attention block. */
+function flagLabel(key: keyof DealFormValues): string {
+  if (key === "payment_structure") return "Paid and When";
+  if (key === "value") return "Deal amount";
+  return key.replace(/_/g, " ");
+}
+
+/** Inline mini-editor for a flagged field, so the user can fix it right in the attention block. */
 function FlagEdit({ field, value, onChange }: { field: keyof DealFormValues; value: string | { url: string; label?: string }[]; onChange: (x: string) => void }) {
   if (typeof value !== "string") return null;
   if (field === "due_date") return <DealInput type="date" value={value} onCommit={(v) => onChange(v)} className={`${inputFieldCls} !h-7 !text-xs`} />;
   if (field === "exclusivity_days" || field === "value" ) return <DealInput type="number" value={value} onCommit={(v) => onChange(v)} className={`${inputFieldCls} !h-7 !text-xs !w-28`} />;
+  if (field === "payment_structure") return (
+    <Select value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="once">All at once</option>
+      <option value="split">Upfront + balance</option>
+      <option value="parts">In parts</option>
+      <option value="monthly">Monthly</option>
+    </Select>
+  );
   if (field === "pay_terms") return (
     <Select value={value} onChange={(e) => onChange(e.target.value)}>
       {PAY_TERM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

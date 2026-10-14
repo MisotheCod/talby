@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeDataChange, notifyDataChange } from "@/lib/data-events";
-import { cn, formatMoney } from "@/lib/utils";
+import { cn, formatMoney, splitList, joinList } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { IconPlus, IconClose, IconCheck, IconDelete } from "@/components/icons";
 import { Tiktok, Instagram, Youtube, Twitter, Facebook, Rss, Music, Link as IconParkLink } from "@icon-park/react";
-import { Button, Input, Select, Spinner, Textarea, Pill, Segmented } from "@/components/ui";
+import { Button, Input, Select, Spinner, Textarea, Pill, Segmented, MultiSelect } from "@/components/ui";
 
 type Content = {
   id: string; title: string; platform: string | null; post_type: string | null;
@@ -288,8 +288,8 @@ export default function CalendarPage() {
             user_id: user.id, body: name, event_date: targetDay, done: p.noteDone, details: p.noteDetails.trim() || null,
           }).select()
         : await supabase.from("content").insert({
-            user_id: user.id, title: name, platform: p.platform || null,
-            post_type: p.postType || null, event_date: targetDay, linked_deal_id: p.dealId || null,
+            user_id: user.id, title: name, platform: joinList(p.platform),
+            post_type: joinList(p.postType), event_date: targetDay, linked_deal_id: p.dealId || null,
             scheduled_time: p.scheduledTime || null,
             repeat_type: p.repeat || null, repeat_until: p.repeatUntil || null,
           }).select();
@@ -469,15 +469,15 @@ export default function CalendarPage() {
   const platformIcon = (p: string) => PLATFORM_ICONS[p] ?? IconParkLink;
 
   const mobileChips = (iso: string) => deskItems(iso).map((it) => {
-    const platform = it.type === "deal" || it.type === "deliverable"
-      ? (content.find((c) => c.id === it.nav.id)?.platform) || null
-      : null;
+    const platforms = it.type === "deal" || it.type === "deliverable"
+      ? splitList(content.find((c) => c.id === it.nav.id)?.platform)
+      : [];
     return {
       id: it.id,          // prefixed display id: "pay"+id / "todo"+id / "note"+id / content id
       type: it.nav.type,  // content | deliverable | payment | todo | note (what the resolver checks)
       name: it.fullName,  // untruncated: legal suffix intact, wraps in the cell
       amount: it.amount,  // payments only
-      platform,           // posts only: platform (rendered as an outline icon)
+      platforms,          // posts only: platforms (each an outline icon)
       color: it.color,
       done: it.done,
       readonly: it.skeleton || it.readonly, // optimistic add / deal-level display: not tappable
@@ -629,7 +629,7 @@ export default function CalendarPage() {
                   </span>
                   <span className="cal-cell-chips">
                     {chips.map((chip) => {
-                      const PlatI = chip.platform ? platformIcon(chip.platform) : null;
+                      const plats = chip.platforms;
                       return (
                       <button
                         key={chip.id}
@@ -641,9 +641,9 @@ export default function CalendarPage() {
                       >
                         <span className="calchip-name">{chip.name}</span>
                         {chip.amount && <span className="calchip-amount">{chip.amount}</span>}
-                        {PlatI && (
-                          <span className="calchip-plats" aria-label={chip.platform ?? ""}>
-                            <PlatI size={14} />
+                        {plats.length > 0 && (
+                          <span className="calchip-plats" aria-label={plats.join(", ")}>
+                            {plats.map((p) => { const PlatI = platformIcon(p); return <PlatI key={p} size={14} />; })}
                           </span>
                         )}
                       </button>
@@ -1177,8 +1177,8 @@ type AddPayload = {
   noteDone: boolean;
   noteDetails: string;
   noteDate: string;
-  platform: string;
-  postType: string;
+  platform: string[];
+  postType: string[];
   dealId: string;
   scheduledTime: string;
   showRepeat: boolean;
@@ -1201,8 +1201,8 @@ function AddEventPopover({
   const [noteDone, setNoteDone] = useState(initial?.payload.noteDone ?? false);
   const [noteDetails, setNoteDetails] = useState(initial?.payload.noteDetails ?? "");
   const [noteDate, setNoteDate] = useState(initial?.payload.noteDate ?? date);
-  const [platform, setPlatform] = useState(initial?.payload.platform ?? "");
-  const [postType, setPostType] = useState(initial?.payload.postType ?? "");
+  const [platform, setPlatform] = useState<string[]>(initial?.payload.platform ?? []);
+  const [postType, setPostType] = useState<string[]>(initial?.payload.postType ?? []);
   const [dealId, setDealId] = useState(initial?.payload.dealId ?? "");
   const [scheduledTime, setScheduledTime] = useState(initial?.payload.scheduledTime ?? "");
   const [showRepeat, setShowRepeat] = useState(initial?.payload.showRepeat ?? false);
@@ -1263,17 +1263,11 @@ function AddEventPopover({
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="text-xs text-muted mb-1 block">Platform</span>
-              <Select value={platform} onChange={(e) => setPlatform(e.target.value)}>
-                <option value="">Choose platform</option>
-                {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-              </Select>
+              <MultiSelect value={platform} onChange={setPlatform} options={PLATFORMS} placeholder="Choose platforms" ariaLabel="Platform" />
             </label>
             <label className="block">
               <span className="text-xs text-muted mb-1 block">Post type</span>
-              <Select value={postType} onChange={(e) => setPostType(e.target.value)}>
-                <option value="">Choose post type</option>
-                {POST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </Select>
+              <MultiSelect value={postType} onChange={setPostType} options={POST_TYPES} placeholder="Choose types" ariaLabel="Post type" />
             </label>
           </div>
           <label className="block">
@@ -1425,8 +1419,8 @@ function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
 }) {
   const supabase = createClient();
   const [title, setTitle] = useState(item.title);
-  const [platform, setPlatform] = useState(item.platform ?? "");
-  const [postType, setPostType] = useState(item.post_type ?? "");
+  const [platform, setPlatform] = useState<string[]>(splitList(item.platform));
+  const [postType, setPostType] = useState<string[]>(splitList(item.post_type));
   const [dealId, setDealId] = useState(item.linked_deal_id ?? "");
   const [scheduledTime, setScheduledTime] = useState(item.scheduled_time ?? "");
   const [caption, setCaption] = useState(item.caption ?? "");
@@ -1437,7 +1431,7 @@ function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
     if (!title.trim()) { setError("Add a title."); return; }
     setSaving(true); setError("");
     const { error } = await supabase.from("content").update({
-      title: title.trim(), platform: platform || null, post_type: postType || null,
+      title: title.trim(), platform: joinList(platform), post_type: joinList(postType),
       linked_deal_id: dealId || null, scheduled_time: scheduledTime || null, caption: caption || null,
     }).eq("id", item.id);
     setSaving(false);
@@ -1465,17 +1459,11 @@ function ContentDetailPopover({ item, deals, position, onClose, onSaved }: {
         <div className="grid grid-cols-2 gap-3">
           <label className="block">
             <span className="text-xs text-muted mb-1 block">Platform</span>
-            <Select value={platform} onChange={(e) => setPlatform(e.target.value)}>
-              <option value="">Choose platform</option>
-              {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-            </Select>
+            <MultiSelect value={platform} onChange={setPlatform} options={PLATFORMS} placeholder="Choose platforms" ariaLabel="Platform" />
           </label>
           <label className="block">
             <span className="text-xs text-muted mb-1 block">Post type</span>
-            <Select value={postType} onChange={(e) => setPostType(e.target.value)}>
-              <option value="">Choose post type</option>
-              {POST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </Select>
+            <MultiSelect value={postType} onChange={setPostType} options={POST_TYPES} placeholder="Choose types" ariaLabel="Post type" />
           </label>
         </div>
         <Select value={dealId} onChange={(e) => setDealId(e.target.value)}>
@@ -1695,8 +1683,8 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
 }) {
   const supabase = createClient();
   const [title, setTitle] = useState(item.title);
-  const [platform, setPlatform] = useState(item.platform ?? "");
-  const [postType, setPostType] = useState(item.post_type ?? "");
+  const [platform, setPlatform] = useState<string[]>(splitList(item.platform));
+  const [postType, setPostType] = useState<string[]>(splitList(item.post_type));
   const [dealId, setDealId] = useState(item.linked_deal_id ?? "");
   const [scheduledTime, setScheduledTime] = useState(item.scheduled_time ?? "");
   const [caption, setCaption] = useState(item.caption ?? "");
@@ -1708,7 +1696,7 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
 
   const markDirty = () => setDirty(true);
   const changed = () =>
-    title !== item.title || platform !== (item.platform ?? "") || postType !== (item.post_type ?? "") ||
+    title !== item.title || platform.join(",") !== (item.platform ?? "") || postType.join(",") !== (item.post_type ?? "") ||
     dealId !== (item.linked_deal_id ?? "") || scheduledTime !== (item.scheduled_time ?? "") || caption !== (item.caption ?? "");
 
   // Grow to full height when the on-screen keyboard is up (visualViewport
@@ -1732,7 +1720,7 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
     if (!title.trim()) { setError("Add a title."); return; }
     setSaving(true); setError("");
     const { error: err } = await supabase.from("content").update({
-      title: title.trim(), platform: platform || null, post_type: postType || null,
+      title: title.trim(), platform: joinList(platform), post_type: joinList(postType),
       linked_deal_id: dealId || null, scheduled_time: scheduledTime || null, caption: caption || null,
     }).eq("id", item.id);
     setSaving(false);
@@ -1780,17 +1768,11 @@ function PostEditorSheet({ item, deals, onClose, onSaved }: {
           </label>
           <label className="cal-mb-field block">
             <span>Platform</span>
-            <Select value={platform} onChange={(e) => { setPlatform(e.target.value); markDirty(); }}>
-              <option value="">Choose platform</option>
-              {PLATFORMS.map((p) => <option key={p} value={p}>{p}</option>)}
-            </Select>
+            <MultiSelect value={platform} onChange={(v) => { setPlatform(v); markDirty(); }} options={PLATFORMS} placeholder="Choose platforms" ariaLabel="Platform" />
           </label>
           <label className="cal-mb-field block">
             <span>Post type</span>
-            <Select value={postType} onChange={(e) => { setPostType(e.target.value); markDirty(); }}>
-              <option value="">Choose post type</option>
-              {POST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </Select>
+            <MultiSelect value={postType} onChange={(v) => { setPostType(v); markDirty(); }} options={POST_TYPES} placeholder="Choose types" ariaLabel="Post type" />
           </label>
           <label className="cal-mb-field block">
             <span>Time</span>

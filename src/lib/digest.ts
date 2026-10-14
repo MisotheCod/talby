@@ -62,7 +62,7 @@ export async function getDayItems(userId: string, iso: string): Promise<DayDiges
   }
 
   for (const c of (postRes.data ?? []) as { title: string; platform: string | null }[]) {
-    posts.push({ kind: "post", label: c.title, platform: c.platform ?? undefined });
+    posts.push({ kind: "post", label: c.title, platform: c.platform ? c.platform.split(",").map((s) => s.trim()).filter(Boolean).join(" · ") : undefined });
   }
 
   for (const t of (todoRes.data ?? []) as { title: string; done: boolean }[]) {

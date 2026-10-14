@@ -588,12 +588,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Modal({ onClose, title, children }: { onClose: () => void; title: string; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
-      <div className="bg-card w-full max-w-lg p-6 rounded-2xl border border-line2 shadow-pop fade-up" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-card w-full max-w-[720px] rounded-2xl border border-line2 shadow-pop fade-up flex flex-col max-h-[85dvh]" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 shrink-0 border-b border-line">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
         </div>
-        {children}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );
