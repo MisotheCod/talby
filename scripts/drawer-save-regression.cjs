@@ -149,30 +149,36 @@ async function main() {
   const dealId = created.deal.id;
 
   // 2b. Ensure a payment row exists so the drawer's Schedule editor has a real
-  //     row to test. (The create API occasionally leaves a deal payment-less;
-  //     seeding directly keeps the harness focused on the drawer save, not that
-  //     create-path quirk.)
-  const dbBaseAdmin = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-  const dbKeyAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-  if (dbBaseAdmin && dbKeyAdmin) {
-    const seeded = await page.evaluate(async ({ base, key, dealId, userEmail }) => {
-      const h = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
-      // find the user id by email
-      const who = await fetch(base + '/rest/v1/profiles?select=id&email=eq.' + encodeURIComponent(userEmail), { headers: h }).then((r) => r.json());
-      const uid = (who && who[0] && who[0].id) || null;
-      if (!uid) return { ok: false, reason: 'profile-not-found' };
-      // seed one payment on the deal (same shape the create path would write)
-      const ins = await fetch(base + '/rest/v1/payments', {
-        method: 'POST',
-        headers: h,
-        body: JSON.stringify({ user_id: uid, deal_id: dealId, amount: 1250, expected_date: null, status: 'expected', pay_status: 'not_invoiced', bonus_confirmed: true }),
-      });
-      const pay = await fetch(base + '/rest/v1/payments?select=id&deal_id=eq.' + encodeURIComponent(dealId), { headers: h }).then((r) => r.json());
-      return { ok: ins.ok, count: (pay || []).length };
-    }, { base: dbBaseAdmin, key: dbKeyAdmin, dealId, userEmail: email });
-    console.log('  seeded payment:', JSON.stringify(seeded));
-    check('payment row seeded', seeded && seeded.ok && seeded.count === 1);
-  }
+    //     row to test. Since e330856 the create API ALWAYS generates the deal's
+    //     payment rows (single source of truth), so this only back-fills in the
+    //     rare case generation failed. Seeding unconditionally used to be safe
+    //     (create used to leave deals payment-less) but now creates a DUPLICATE
+    //     row that turns "Full payment" into "1 of 2"/"2 of 2" and derails the
+    //     single-row due-date edit. Seed only when there are zero payments.
+    const dbBaseAdmin = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+    const dbKeyAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+    if (dbBaseAdmin && dbKeyAdmin) {
+      const seeded = await page.evaluate(async ({ base, key, dealId, userEmail }) => {
+        const h = { apikey: key, Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' };
+        // find the user id by email
+        const who = await fetch(base + '/rest/v1/profiles?select=id&email=eq.' + encodeURIComponent(userEmail), { headers: h }).then((r) => r.json());
+        const uid = (who && who[0] && who[0].id) || null;
+        if (!uid) return { ok: false, reason: 'profile-not-found' };
+        const existing = await fetch(base + '/rest/v1/payments?select=id&deal_id=eq.' + encodeURIComponent(dealId), { headers: h }).then((r) => r.json());
+        const count = (existing || []).length;
+        // Only seed if the create path produced no payment (defensive fallback).
+        if (count > 0) return { ok: true, count, seeded: false };
+        const ins = await fetch(base + '/rest/v1/payments', {
+          method: 'POST',
+          headers: h,
+          body: JSON.stringify({ user_id: uid, deal_id: dealId, amount: 1250, expected_date: null, status: 'expected', pay_status: 'not_invoiced', bonus_confirmed: true }),
+        });
+        const after = await fetch(base + '/rest/v1/payments?select=id&deal_id=eq.' + encodeURIComponent(dealId), { headers: h }).then((r) => r.json());
+        return { ok: ins.ok, count: (after || []).length, seeded: true };
+      }, { base: dbBaseAdmin, key: dbKeyAdmin, dealId, userEmail: email });
+      console.log('  seeded payment:', JSON.stringify(seeded));
+      check('payment row seeded', seeded && seeded.ok && seeded.count === 1);
+    }
 
   // 3. Open drawer, expand Deal accordion, edit Brand + Deliverable + Deal type
   await openDealDrawer(dealId, brand);
