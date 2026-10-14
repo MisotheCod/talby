@@ -11,6 +11,7 @@ import { IconPlus, IconMore, IconCheck, IconDown } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 import { IncomeSummary } from "./income-summary";
 import { StatCard } from "@/components/stat-card";
+import { RowMenu } from "@/components/row-menu";
 
 /* ---------- types ---------- */
 type Payment = {
@@ -32,6 +33,10 @@ type ExtraRow = {
 };
 type Range = "month" | "quarter" | "year" | "all";
 const RANGES: Range[] = ["month", "quarter", "year", "all"];
+// One grid template for the payments list: Date | Brand | Payment | Status |
+// Amount | menu. Used by the header, every row, and the total row so the amount
+// aligns under "Amount" everywhere.
+const LIST_COLUMNS = "56px 1fr 160px 140px 120px 32px";
 
 /* ---------- helpers ---------- */
 function fmtMonth(iso: string): string {
@@ -88,19 +93,8 @@ export default function PaymentsPage() {
   const [view, setView] = useState<"Payments" | "Income summary">("Payments");
   const [range, setRange] = useState<Range>("month");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const [mutating, setMutating] = useState(false);
-
-  /* Close ⋮ menu on outside click */
-  useEffect(() => {
-    if (!menuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(null);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [menuOpen]);
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -429,7 +423,7 @@ export default function PaymentsPage() {
             {!isMobile && (
               <div
                 className="grid items-center gap-3 px-5 h-11 text-[12px] font-semibold uppercase tracking-wider text-muted bg-card border-b border-line"
-                style={{ gridTemplateColumns: "56px 1fr 160px 140px 120px 32px" }}
+                style={{ gridTemplateColumns: LIST_COLUMNS }}
               >
                 <span>Date</span><span>Brand</span><span>Payment</span><span>Status</span><span className="text-right">Amount</span><span />
               </div>
@@ -475,7 +469,7 @@ export default function PaymentsPage() {
                           </div>
                         ) : (
                           /* --- Desktop: Date | Brand | Payment | Status | Amount | ⋯ --- */
-                          <div className="entr-row grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: "56px 1fr 160px 140px 120px 32px" }}>
+                          <div className="entr-row grid items-center gap-3 px-5 py-3" style={{ gridTemplateColumns: LIST_COLUMNS }}>
                             <span className={cn("text-sm font-semibold tabular-nums", isRecv ? "text-muted" : isPast ? "text-late" : "text-ink")}>{day ?? "–"}</span>
                             <span className={cn("min-w-0 truncate text-sm", isRecv ? "text-muted" : "font-medium")}>{p.deal?.brand ?? "Payment"}</span>
                             <span className="text-xs text-inksoft truncate">{payLabel}</span>
@@ -499,23 +493,20 @@ export default function PaymentsPage() {
                       }
                     }
                     function renderMenu() {
+                      const ps = p.pay_status ?? "not_invoiced";
                       return (
-                        <>
-                          <button onClick={() => setMenuOpen(menuOpen === p.id ? null : p.id)} aria-label="Actions" className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-card2 cursor-pointer">
-                            <IconMore size={16} />
-                          </button>
-                          {menuOpen === p.id && (
-                            <div ref={menuRef} className="absolute right-0 top-7 z-20 w-48 bg-card border border-line2 rounded-xl shadow-pop py-1 fade-up">
-                              <button onClick={() => setPayStatus(p.id, "invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">Mark invoiced</button>
-                              <button onClick={() => setPayStatus(p.id, "not_invoiced")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer" disabled={(p.pay_status ?? "not_invoiced") === "not_invoiced"}>Mark not invoiced</button>
-                              <button onClick={() => setPayStatus(p.id, "no_invoice_needed")} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer">No invoice needed</button>
-                              <div className="my-1 h-px bg-line" />
-                              <button onClick={() => markReceived(p.id)} className="w-full text-left px-3.5 py-2 text-sm hover:bg-card2 cursor-pointer flex items-center gap-2">
-                                <IconCheck size={14} /> Mark as paid
-                              </button>
-                            </div>
-                          )}
-                        </>
+                        <RowMenu
+                          ariaLabel="Payment actions"
+                          open={menuOpen === p.id}
+                          onToggle={() => setMenuOpen(menuOpen === p.id ? null : p.id)}
+                          items={[
+                            { label: "Mark invoiced", onClick: () => setPayStatus(p.id, "invoiced"), hidden: ps === "invoiced" },
+                            { label: "Mark not invoiced", onClick: () => setPayStatus(p.id, "not_invoiced"), hidden: ps === "not_invoiced" },
+                            { label: "No invoice needed", onClick: () => setPayStatus(p.id, "no_invoice_needed"), hidden: ps === "no_invoice_needed" },
+                            { divider: true as const },
+                            { label: "Mark as paid", onClick: () => markReceived(p.id), icon: <IconCheck size={14} /> },
+                          ]}
+                        />
                       );
                     }
                   })}
@@ -523,11 +514,20 @@ export default function PaymentsPage() {
               </div>
             ))}
 
-            {/* Total row (bottom of the card) — label follows the filter, always shown. */}
-            <div className="flex items-center justify-between px-5 py-3 border-t border-line bg-card2/30 text-sm font-semibold">
-              <span className="text-[12px] font-semibold uppercase tracking-wider text-muted">{listTotalLabel}</span>
-              <span className="money tabular-nums">{formatMoney(listTotal)}</span>
-            </div>
+            {/* Total row (bottom of the card) — label follows the filter, always shown.
+                Amount sums the visible rows and right-aligns under the Amount column. */}
+            {isMobile ? (
+              <div className="flex items-center justify-between px-5 py-3 border-t border-line bg-card2/30 text-sm font-semibold">
+                <span className="text-[12px] font-semibold uppercase tracking-wider text-muted">{listTotalLabel}</span>
+                <span className="money tabular-nums">{formatMoney(listTotal)}</span>
+              </div>
+            ) : (
+              <div className="grid items-center gap-3 px-5 py-3 border-t border-line bg-card2/30 text-sm font-semibold" style={{ gridTemplateColumns: LIST_COLUMNS }}>
+                <span className="col-span-4 text-[12px] font-semibold uppercase tracking-wider text-muted">{listTotalLabel}</span>
+                <span className="money tabular-nums text-right">{formatMoney(listTotal)}</span>
+                <span />
+              </div>
+            )}
           </div>
         )}
       </div>

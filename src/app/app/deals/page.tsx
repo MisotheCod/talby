@@ -15,6 +15,8 @@ import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type Conten
 import { DealInput, DealTextarea } from "@/components/deal-input";
 import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconDown, IconUpload, IconGrid, IconList, IconMail, IconUndo } from "@/components/icons";
 import { Button, Input, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
+import { RowMenu } from "@/components/row-menu";
+import { ExtrasChip } from "@/components/extras-chip";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
 import { SaveToastHost, notifySaved } from "@/components/save-toast";
@@ -430,13 +432,13 @@ export default function DealsPage() {
                   <PayByCell deal={d} onChanged={onUpdated} />
                   <span className="d-amount relative flex flex-col items-end">
                   <span className="inline-flex h-10 items-center"><span className="money text-sm font-medium leading-snug tabular-nums">{formatMoney(d.value)}</span></span>
-                  {(d.payment_structure === "monthly" || (d.extras?.length ?? 0) > 0) && (
+                  {d.payment_structure === "monthly" && d.structure_months && d.value != null ? (
                     <span className="absolute right-0 top-[30px] text-[10px] tabular-nums leading-none whitespace-nowrap text-inksoft/70">
-                      {d.payment_structure === "monthly" && d.structure_months && d.value != null
-                        ? `${formatMoney(d.value / d.structure_months)} a month`
-                        : (d.extras ?? []).map((e) => e.kind === "bonus" ? `+ ${formatMoney(e.amount ?? 0)} bonus` : `+ ${e.rate ?? 0}% commission`).join(", ")}
+                      {formatMoney(d.value / d.structure_months)} a month
                     </span>
-                  )}
+                  ) : (d.extras?.length ?? 0) > 0 ? (
+                    <ExtrasChip extras={d.extras!} className="absolute right-0 top-[30px]" />
+                  ) : null}
                 </span>
                   {/* Dedicated overflow-menu column: one button, its own grid area. The dropdown
                       itself renders in a portal to escape the table's overflow. */}

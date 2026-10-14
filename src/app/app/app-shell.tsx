@@ -18,6 +18,7 @@ import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
 } from "@/components/icons";
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantLauncher } from "@/components/assistant";
+import { Button } from "@/components/ui";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -307,13 +308,13 @@ export function AppShell({
           {isTrialing && !readOnly && (
             <div className="readonly-banner" role="status">
               <span className="readonly-banner-text">{trialBannerText}</span>
-              <button type="button" className="readonly-banner-btn" onClick={() => setUpgradeOpen(true)}>Subscribe</button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setUpgradeOpen(true)}>Subscribe</Button>
             </div>
           )}
           {readOnly && (
             <div className="readonly-banner" role="status">
               <span className="readonly-banner-text">Your free trial has ended. You can view and export everything.</span>
-              <button type="button" className="readonly-banner-btn" onClick={() => setUpgradeOpen(true)}>Subscribe</button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setUpgradeOpen(true)}>Subscribe</Button>
             </div>
           )}
           {children}
