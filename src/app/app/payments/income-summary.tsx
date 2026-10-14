@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatMoney, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
-import { UpgradeModal } from "@/components/upgrade-modal";
 import { IconCalendar, IconDown, IconCheck, IconFile } from "@/components/icons";
 import {
   buildPeriods, defaultPeriod, keyStr, periodLabel, periodDetail,
@@ -43,12 +42,11 @@ const GROUP_LABELS: Record<string, string> = {
   quick: "Quick", quarter: "Quarters", month: "Months", year: "Years",
 };
 
-export function IncomeSummary({ payments, deals, plan }: {
-  payments: Payment[]; deals: Deal[]; plan: "free" | "paid";
+export function IncomeSummary({ payments, deals }: {
+  payments: Payment[]; deals: Deal[];
 }) {
   const isMobile = useIsMobile();
   const [open, setOpen] = useState(false);
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [csvMsg, setCsvMsg] = useState<string | null>(null);
   const [tipBrand, setTipBrand] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -149,18 +147,6 @@ export function IncomeSummary({ payments, deals, plan }: {
     document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", esc); };
   }, [open]);
-
-  if (plan !== "paid") {
-    return (
-      <div className="card p-8 text-center">
-        <h2 className="text-lg font-semibold">Income summary</h2>
-        <p className="text-sm text-muted mt-2">See income by month, quarter, or year, break it down by brand, and export a tax-ready CSV.</p>
-        <p className="text-sm text-muted mt-1">This is an Unlimited feature.</p>
-        <button onClick={() => setShowUpgrade(true)} className="btn btn-3d btn-lg mt-5">Go unlimited</button>
-        {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
-      </div>
-    );
-  }
 
   const list = (
     <div className="py-1">

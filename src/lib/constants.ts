@@ -6,9 +6,6 @@
 // process.env values.
 // ============================================================
 
-/** FREE-PLAN ACTIVE-DEAL CAP. */
-export const FREE_ACTIVE_DEAL_CAP = 5;
-
 /** Stripe paid plan price id (public identifier, not a secret). */
 export const STRIPE_PLAN_ID = process.env.STRIPE_PRICE_ID || "";
 

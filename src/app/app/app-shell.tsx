@@ -4,12 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { startUnlimited } from "@/lib/start-unlimited";
 import { subscribeDataChange, subscribeUpgradePrompt } from "@/lib/data-events";
 import { hasFullAccess, type PlanStatus } from "@/lib/access";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { applyAccent, applyFont, applyMode, ACCENT_PRESETS, DEFAULT_HSL, DEFAULT_HEAD_FONT, DEFAULT_MODE, parseHSL, serializeHSL, type HSL, type ThemeMode } from "@/lib/accent";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { ThemeControl } from "@/components/theme-control";
 import { CoachTour, type TourStep } from "@/components/coach-tour";
@@ -80,7 +78,7 @@ export function AppShell({
     : 0;
   const trialBannerText =
     daysLeft <= 3
-      ? `Your trial ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`
+      ? `Your free trial ends in ${daysLeft} day${daysLeft === 1 ? "" : "s"}.`
       : `${daysLeft} days left in your free trial.`;
 
   // Surface the upgrade modal when a write is blocked read-only anywhere.
@@ -239,8 +237,6 @@ export function AppShell({
   const avatarImg = avatarUrl
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarUrl}`
     : null;
-  const capUsed = activeDeals;
-
   const nav = (
     <>
       <div>
@@ -263,7 +259,6 @@ export function AppShell({
 
   const footer = (
     <div className="side-foot">
-      {plan === "free" && <UpsellCard used={capUsed} cap={FREE_ACTIVE_DEAL_CAP} />}
       <ThemeControl current={accentState} currentFont={fontState} currentMode={modeState}
         onPreview={previewAccent} onSave={saveAccent} onPreviewFont={previewFont}
         onSaveFont={saveFont} onPreviewMode={previewMode} onSaveMode={saveMode}
@@ -308,25 +303,25 @@ export function AppShell({
             <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
           </div>
         </div>
-        {isTrialing && !readOnly && (
-          <div className="readonly-banner" role="status">
-            <span className="readonly-banner-text">{trialBannerText}</span>
-            <button type="button" className="readonly-banner-btn" onClick={() => setUpgradeOpen(true)}>Subscribe</button>
-          </div>
-        )}
-        {readOnly && (
-          <div className="readonly-banner" role="status">
-            <span className="readonly-banner-text">Your free trial has ended. You can view and export everything.</span>
-            <button type="button" className="readonly-banner-btn" onClick={() => setUpgradeOpen(true)}>Subscribe</button>
-          </div>
-        )}
         <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
+          {isTrialing && !readOnly && (
+            <div className="readonly-banner" role="status">
+              <span className="readonly-banner-text">{trialBannerText}</span>
+              <button type="button" className="readonly-banner-btn" onClick={() => setUpgradeOpen(true)}>Subscribe</button>
+            </div>
+          )}
+          {readOnly && (
+            <div className="readonly-banner" role="status">
+              <span className="readonly-banner-text">Your free trial has ended. You can view and export everything.</span>
+              <button type="button" className="readonly-banner-btn" onClick={() => setUpgradeOpen(true)}>Subscribe</button>
+            </div>
+          )}
           {children}
         </main>
         <AssistantLauncher />
         <CoachTour open={pathname === "/app" && tourOpen} steps={tourSteps} onDone={completeTour} />
         {notifPrompt && <NotificationPrompt onDone={() => setNotifPrompt(false)} />}
-        {upgradeOpen && <UpgradeModal reason="readonly" onClose={() => setUpgradeOpen(false)} />}
+        {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
       </div>
     </div>
   );
@@ -342,16 +337,6 @@ function NavItem({ href, label, icon: Icon, active, badge, onNavigate }: {
       {label}
       {badge !== undefined && <span className="badge">{badge}</span>}
     </Link>
-  );
-}
-
-function UpsellCard({ used, cap }: { used: number; cap: number }) {
-  return (
-    <div className="upsell">
-      <div className="t">{used} of {cap} deals used</div>
-      <div className="d">One more and you&apos;ll want unlimited. Good problem to have.</div>
-      <button type="button" onClick={() => { startUnlimited(); }} className="btn3d full no-underline block text-center w-full">Go unlimited</button>
-    </div>
   );
 }
 

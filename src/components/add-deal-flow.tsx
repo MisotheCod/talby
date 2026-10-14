@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import posthog from "posthog-js";
 import { createClient } from "@/lib/supabase/client";
-import { startUnlimited } from "@/lib/start-unlimited";
 import { cn, formatMoney } from "@/lib/utils";
 import { paidPaymentGap } from "@/lib/pay-status";
 import { IconPlus, IconClose, IconRefresh } from "@/components/icons";
@@ -11,8 +10,6 @@ import { Button, Spinner, StatusPill } from "@/components/ui";
 import { emptyDealForm, DealForm } from "@/components/deal-form";
 import UploadModal from "@/components/upload-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
-
 /** The three "how do you want to add a deal" entry points. */
 type Flow = "choose" | "new" | "upload" | "notion" | null;
 
@@ -100,23 +97,6 @@ function IconUpload({ size = 18 }: { size?: number }) {
 
 /* ---------------- Inline New Deal (DealForm create) ---------------- */
 function InlineNewDeal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const supabase = createClient();
-  const [plan, setPlan] = useState<"free" | "paid">("free");
-  const [activeDeals, setActiveDeals] = useState(0);
-
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-      setPlan(((p.data as unknown as { plan?: string } | null)?.plan === "paid") ? "paid" : "free");
-      const { count } = await supabase.from("deals").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("active", true);
-      setActiveDeals(count ?? 0);
-    })();
-  }, [supabase]);
-
-  const atCap = plan === "free" && activeDeals >= FREE_ACTIVE_DEAL_CAP;
-
   return (
     <div className="fixed inset-0 z-[90] bg-black/30 grid place-items-center p-4" onClick={onClose}>
       <div className="bg-card w-full max-w-lg rounded-2xl border border-line2 shadow-pop p-6 max-h-[90dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
@@ -124,14 +104,7 @@ function InlineNewDeal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           <h3 className="text-lg font-semibold">New deal</h3>
           <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg text-inksoft hover:text-ink hover:bg-card2 cursor-pointer"><IconClose size={18} /></button>
         </div>
-        {atCap && (
-          <div className="rounded-xl bg-accenttint p-4 text-sm mb-4">
-            <div className="font-semibold accent-ink">You&apos;re at the free-plan limit</div>
-            <p className="text-inksoft mt-0.5">You have {activeDeals} active deals. <a href="#" onClick={(e) => { e.preventDefault(); onClose(); startUnlimited(); }} className="accent-ink font-semibold underline underline-offset-2">Go unlimited</a> to keep adding.</p>
-          </div>
-        )}
-        {!atCap && (
-          <DealForm
+        <DealForm
             mode="create"
             initial={emptyDealForm()}
             onSaved={onSaved}
@@ -140,7 +113,6 @@ function InlineNewDeal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
             pending={false}
             submitLabel="Add deal"
           />
-        )}
       </div>
     </div>
   );

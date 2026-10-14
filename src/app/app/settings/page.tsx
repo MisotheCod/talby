@@ -6,14 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { pageEntrance } from "@/lib/entrance";
 import { startUnlimited } from "@/lib/start-unlimited";
 import { ACCENT_PRESETS, HEADING_FONTS, applyAccent, applyFont, DEFAULT_HSL, DEFAULT_HEAD_FONT, parseHSL, serializeHSL, type HSL } from "@/lib/accent";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { IconCheck } from "@/components/icons";
 import { Button, Segmented, Spinner } from "@/components/ui";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DangerZone } from "@/components/danger-zone";
 
-type Profile = { handler: string | null; accent: string | null; plan: string; head_font: string | null; avatar_url: string | null };
+type Profile = { handler: string | null; accent: string | null; plan: string; plan_status: string | null; head_font: string | null; avatar_url: string | null };
 type AccountUser = { email?: string | null };
 
 function userName(handler: string | null): string {
@@ -37,7 +36,6 @@ export default function SettingsPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [activeCount, setActiveCount] = useState(0);
   const [section, setSection] = useState<SectionId>(
     (searchParams.get("section") as SectionId) && SECTIONS.some((s) => s.id === searchParams.get("section"))
       ? (searchParams.get("section") as SectionId)
@@ -125,18 +123,10 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setEmail((user as AccountUser).email ?? null);
-      const { data } = await supabase.from("profiles").select("handler, accent, plan, head_font, avatar_url").eq("id", user.id).single();
+      const { data } = await supabase.from("profiles").select("handler, accent, plan, plan_status, head_font, avatar_url").eq("id", user.id).single();
       const p = (data as unknown as Profile) ?? null;
       setProfile(p);
       setHandleVal(p?.handler ?? null);
-      const { data: deals } = await supabase
-        .from("deals")
-        .select("id")
-        .eq("active", true)
-        .not("status", "eq", "archived")
-        .not("brand", "is", "")
-        .gt("brand", "");
-      setActiveCount((deals ?? []).length);
       const hsl = parseHSL(p?.accent) ?? DEFAULT_HSL;
       setCurrent(hsl);
       setSavedTheme(hsl);
@@ -293,15 +283,13 @@ export default function SettingsPage() {
                       </div>
 
                       {/* Plan */}
-                      {profile?.plan === "free" ? (
-                        <FreePlanPanel used={activeCount} cap={FREE_ACTIVE_DEAL_CAP} onUpgrade={startUpgrade} saving={saving} />
-                      ) : (
-                        <div className="flex items-center gap-4 px-6 py-5 border-b border-line">
-                          <div className="w-[140px] shrink-0 text-sm text-inksoft">Plan</div>
-                          <div className="flex-1 min-w-0 text-sm">Paid · unlimited deals + file uploads</div>
-                          <Button variant="ghost" size="sm" onClick={startUpgrade} disabled={saving}>Manage</Button>
+                      <div className="flex items-center gap-4 px-6 py-5 border-b border-line">
+                        <div className="w-[140px] shrink-0 text-sm text-inksoft">Plan</div>
+                        <div className="flex-1 min-w-0 text-sm">
+                          {profile?.plan_status === "active" ? "Talby Unlimited" : "Free trial"}
                         </div>
-                      )}
+                        <Button variant="ghost" size="sm" onClick={startUpgrade} disabled={saving}>Manage</Button>
+                      </div>
                     </div>
 
                     {/* Danger zone: irreversible account actions, separated by a hairline */}
@@ -467,28 +455,6 @@ export default function SettingsPage() {
   }
 
   }
-
-/** Free-plan upgrade panel: accent-tinted, growth-framed, sits at the card bottom. */
-function FreePlanPanel({ used, cap, onUpgrade, saving }: { used: number; cap: number; onUpgrade: () => void; saving: boolean }) {
-  const chips = ["Unlimited deals", "File uploads", "AI assistant"];
-  const left = cap - used;
-  return (
-    <div className="accent-soft px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
-      <div className="min-w-0">
-        <div className="font-semibold text-sm">Free · {used} of {cap} deals used</div>
-        <p className="text-[13px] mt-1">
-          {left > 0 ? `One more and you'll want unlimited. Good problem to have.` : "You're at the free limit. Upgrade for unlimited deals."}
-        </p>
-        <div className="flex gap-1.5 mt-2.5 flex-wrap">
-          {chips.map((c) => (
-            <span key={c} className="inline-flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full bg-accenttint2 text-accentink">{c}</span>
-          ))}
-        </div>
-      </div>
-      <Button onClick={onUpgrade} disabled={saving}>{saving ? <Spinner /> : "Go unlimited"}</Button>
-    </div>
-  );
-}
 
 /** Connection cards (Notion) with their official logo. */
 function ConnectionsList() {

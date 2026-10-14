@@ -9,8 +9,6 @@ import { createClient } from "@/lib/supabase/client";
 import { subscribeDataChange } from "@/lib/data-events";
 import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
 import { dealPayRollup, paymentStatusView, type DealRollup, type PayStatus } from "@/lib/pay-status";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
-import { startUnlimited } from "@/lib/start-unlimited";
 import { IconPlus } from "@/components/icons";
 import { Pill, Segmented } from "@/components/ui";
 import { AddDealFlow } from "@/components/add-deal-flow";
@@ -70,7 +68,6 @@ export default function OverviewPage() {
   const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
-  const [plan, setPlan] = useState<"free" | "paid">("free");
   const [loading, setLoading] = useState(true);
   const [addFlowOpen, setAddFlowOpen] = useState(false);
   const [selDay, setSelDay] = useState(0); // index into this week (today first)
@@ -82,10 +79,9 @@ export default function OverviewPage() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const p = await supabase.from("profiles").select("handler, plan").eq("id", user.id).single();
-      const row = p.data as unknown as { handler: string | null; plan: string } | null;
+      const p = await supabase.from("profiles").select("handler").eq("id", user.id).single();
+      const row = p.data as unknown as { handler: string | null } | null;
       setHandle(row?.handler ?? null);
-      setPlan((row?.plan ?? "free") as "free" | "paid");
     }
     // All data for the week + payments + deals, user-scoped via RLS.
     const [d, pay, c, t, n] = await Promise.all([
@@ -132,8 +128,6 @@ export default function OverviewPage() {
         const n = +(el as HTMLElement).dataset.n! || 0;
         el.textContent = "$" + n.toLocaleString();
       });
-      const cap = root.querySelector<HTMLElement>("#capfill");
-      if (cap) cap.style.width = cap.dataset.w || "0%";
       return;
     }
     const ctx = gsap.context(() => {
@@ -153,45 +147,16 @@ export default function OverviewPage() {
         gsap.to(o, { v: n, duration: 1.1, ease: "power2.out", delay: 0.35 + i * 0.12,
           onUpdate: () => { el.textContent = "$" + Math.round(o.v).toLocaleString(); } });
       });
-      // capacity bar fill to real percentage
-      const cap = root.querySelector<HTMLElement>("#capfill");
-      if (cap) gsap.to(cap, { width: cap.dataset.w || "0%", duration: 0.9, ease: "power2.out", delay: 0.6 });
     }, root);
     return () => ctx.revert();
   }, [loading]);
 
   const activeDeals = deals.filter((d) => d.brand?.trim() && d.active && d.status !== "archived");
 
-  // Free plan overflow gating: the 5 most recent active deals are visible, the
-  // rest are kept safe and hidden until Unlimited. EVERY metric below (booked,
-  // received, outstanding, pending, calendar, payments card) derives from the
-  // VISIBLE deals only, so a free user sees a coherent picture of what they can
-  // act on. The capacity/sidebar "19 of 5" upsell stays on the true total.
-  // `deals` is created_at desc (most recent first).
-  const hiddenOverflowIds = new Set<string>();
-  if (plan === "free") {
-    let kept = 0;
-    for (const d of activeDeals) {
-      if (kept < FREE_ACTIVE_DEAL_CAP) { kept++; }
-      else { hiddenOverflowIds.add(d.id); }
-    }
-  }
-  const hiddenOverflowCount = hiddenOverflowIds.size;
-  const visibleDeals = hiddenOverflowIds.size ? activeDeals.filter((d) => !hiddenOverflowIds.has(d.id)) : activeDeals;
-  const visibleDealIds = new Set(visibleDeals.map((d) => d.id));
-  // Scope payments + content to the visible deals when overflow is hidden
-  // (a payment/calendar row for a hidden deal would leak what's being hidden).
-  const scopedPayments = hiddenOverflowIds.size
-    ? payments.filter((p) => !p.deal_id || visibleDealIds.has(p.deal_id))
-    : payments;
-  const scopedContent = hiddenOverflowIds.size
-    ? content.filter((c) => !c.linked_deal_id || visibleDealIds.has(c.linked_deal_id))
-    : content;
-
-  const booked = visibleDeals.reduce((s, d) => s + (d.value ?? 0), 0);
-  const received = scopedPayments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
-  const outstanding = scopedPayments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
-  const pendingPayments = scopedPayments.filter((p) => p.status !== "received");
+  const booked = activeDeals.reduce((s, d) => s + (d.value ?? 0), 0);
+  const received = payments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
+  const outstanding = payments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
+  const pendingPayments = payments.filter((p) => p.status !== "received");
   const pastDue = pendingPayments.filter((p) => isPastDue(p.expected_date)).length;
 
   // Payment-due lookup so the Active list can default-sort by soonest payment.
@@ -202,7 +167,7 @@ export default function OverviewPage() {
     if (!cur || (p.expected_date ?? "") < cur) firstDueByDeal.set(p.deal_id, p.expected_date ?? "");
   }
 
-  const filteredDeals = visibleDeals.filter((d) => {
+  const filteredDeals = activeDeals.filter((d) => {
     if (search) {
       const q = search.toLowerCase();
       const inBrand = d.brand.toLowerCase().includes(q);
@@ -243,16 +208,16 @@ export default function OverviewPage() {
   const dayItems = (iso: string) => {
     const items: { t: string; n: string; a?: string; done?: boolean }[] = [];
     // payments (expected or past-due) — same table the Payments card uses
-    scopedPayments.filter((p) => p.status !== "received" && p.expected_date === iso)
+    payments.filter((p) => p.status !== "received" && p.expected_date === iso)
       .forEach((p) => items.push({ t: "payment", n: `${p.deal?.brand ?? "Payment"} payment expected`, a: formatMoney(p.amount) }));
     // received payments on that date land too
-    scopedPayments.filter((p) => p.status === "received" && p.expected_date === iso)
+    payments.filter((p) => p.status === "received" && p.expected_date === iso)
       .forEach((p) => items.push({ t: "received", n: `${p.deal?.brand ?? "Payment"} received`, a: formatMoney(p.amount) }));
     // posts (incl. recurring instances) on that date
-    scopedContent.filter((c) => c.event_date === iso)
+    content.filter((c) => c.event_date === iso)
       .forEach((c) => items.push({ t: "post", n: c.title }));
     // deal deliverables due that day
-    visibleDeals.filter((d) => d.due_date === iso)
+    activeDeals.filter((d) => d.due_date === iso)
       .forEach((d) => items.push({ t: "deliv", n: `${d.brand} deliverable due` }));
     // dated to-dos (both pending and done — done stay visible, struck+dimmed)
     todos.filter((t) => t.due_date === iso)
@@ -268,7 +233,7 @@ export default function OverviewPage() {
   // both, each its own status) through the canonical paymentStatusView, sorted
   // by date with received rows at the end — the same per-row listing the
   // Payments page uses. Money landing soonest is at the top.
-  const timeline = [...scopedPayments]
+  const timeline = [...payments]
     .sort((a, b) => {
       const aRecv = a.status === "received", bRecv = b.status === "received";
       if (aRecv && !bRecv) return 1;
@@ -302,12 +267,12 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* Stats row (auto-fit; paid users get no capacity card and cards stretch) */}
+      {/* Stats row (auto-fit) */}
       <div className="stats">
         <div className="statcard anim">
           <div className="lbl">Booked</div>
           <div className="val cnt-up" data-n={booked}>$0</div>
-          <div className="sub">across {visibleDeals.length} active deal{visibleDeals.length === 1 ? "" : "s"}</div>
+          <div className="sub">across {activeDeals.length} active deal{activeDeals.length === 1 ? "" : "s"}</div>
         </div>
         <div className="statcard anim">
           <div className="lbl">Paid</div>
@@ -319,24 +284,13 @@ export default function OverviewPage() {
           <div className="val cnt-up" style={{ color: "var(--due)" }} data-n={outstanding}>$0</div>
           <div className="sub">{pendingPayments.length} payment{pendingPayments.length === 1 ? "" : "s"} expected</div>
         </div>
-        {plan === "free" && (
-          <CapacityCard used={activeDeals.length} cap={FREE_ACTIVE_DEAL_CAP} />
-        )}
+        <NextPaymentCard payments={pendingPayments} />
       </div>
 
       {/* Two columns */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5">
         {/* Active deals */}
         <div className="panel anim">
-          {hiddenOverflowCount > 0 && (
-            <div className="flex items-start gap-3 rounded-lg border border-line2 bg-card2 px-4 py-3 mx-[22px] mt-[19px]">
-              <div className="flex-1">
-                <p className="text-[13px] font-medium text-ink">You have {hiddenOverflowCount} more saved deal{hiddenOverflowCount === 1 ? "" : "s"}.</p>
-                <p className="text-xs text-inksoft mt-0.5">They stay safe and reappear on Unlimited. Nothing is deleted.</p>
-              </div>
-              <button onClick={() => { startUnlimited(); }} className="text-xs font-semibold accent-ink underline underline-offset-2 shrink-0">Go Unlimited</button>
-            </div>
-          )}
           <div className="flex items-center justify-between px-[22px] pt-[19px] pb-[15px] flex-wrap gap-3">
             <h3 className="text-[16px] font-head font-bold">Active deals</h3>
             <div className="flex items-center gap-2 flex-wrap">
@@ -447,16 +401,27 @@ function StatCard({ label, value, sub, color }: { label: string; value: string; 
   );
 }
 
-function CapacityCard({ used, cap }: { used: number; cap: number }) {
-  const pct = Math.min(100, (used / cap) * 100);
+function NextPaymentCard({ payments }: { payments: Payment[] }) {
+  // The next unpaid payment: soonest expected_date among non-received rows.
+  const next = [...payments]
+    .sort((a, b) => (a.expected_date ?? "9999-99-99").localeCompare(b.expected_date ?? "9999-99-99"))[0];
+  const fmt = next?.expected_date
+    ? new Date(next.expected_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
   return (
-    <div className="statcard cap">
-      <div className="lbl">Deal capacity</div>
-      <div className="val">{used} / {cap}</div>
-      <div className="sub">{cap - used > 0 ? `${cap - used} slot${cap - used === 1 ? "" : "s"} left on free` : "You're at the free limit"}</div>
-      <div className="capbar">
-        <i id="capfill" data-w={`${pct}%`} style={{ width: 0 }} />
-      </div>
+    <div className="statcard">
+      <div className="lbl">Next payment</div>
+      {next ? (
+        <>
+          <div className="val" style={{ color: "var(--due)" }}>{formatMoney(next.amount)}</div>
+          <div className="sub">{next.deal?.brand ?? "Payment"}{fmt ? ` · ${fmt}` : ""}</div>
+        </>
+      ) : (
+        <>
+          <div className="val" style={{ color: "var(--ink-soft)" }}>—</div>
+          <div className="sub">No payments yet</div>
+        </>
+      )}
     </div>
   );
 }

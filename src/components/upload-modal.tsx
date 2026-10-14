@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { IconClose, IconUpload, IconDelete } from "@/components/icons";
 import { Button, Spinner, StatusPill } from "@/components/ui";
 import {
@@ -37,18 +36,7 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
   const [drafts, setDrafts] = useState<ContractDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const [plan, setPlan] = useState<"free" | "paid">("free");
   const [dragOver, setDragOver] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-        setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
-      }
-    })();
-  }, [supabase]);
 
   const onFiles = async (files: File[]) => {
     if (extracting || !files.length) return;
@@ -119,15 +107,6 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
     const valid = drafts.filter((d) => d.brand.trim());
     if (!valid.length) { setError("Add a brand to at least one contract."); return; }
     setSaving(true); setError("");
-    if (plan === "free") {
-      const activeToAdd = valid.filter((d) => d.status !== "archived").length;
-      const { count } = await supabase.from("deals").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("active", true);
-      if ((count ?? 0) + activeToAdd > FREE_ACTIVE_DEAL_CAP) {
-        setError(`You've reached the free plan's limit of ${FREE_ACTIVE_DEAL_CAP} active deals.`);
-        setSaving(false);
-        return;
-      }
-    }
     let added = 0;
     for (const d of valid) {
       const payload: Record<string, unknown> = {
@@ -156,9 +135,9 @@ export default function UploadModal({ onClose, onSaved }: { onClose: () => void;
         if (!res.ok) { setError(data?.error || "Could not add one of the deals."); break; }
         createdId = (data?.deal as { id?: string } | undefined)?.id ?? null;
         const isDup = data?.duplicate === true;
-        // Persist each contract into its deal's Files tab (paid tier only) — only
+        // Persist each contract into its deal's Files tab — only
         // on the FIRST insert of that key; a retried batch already saved it.
-        if (plan === "paid" && (d.__file as File | undefined) && createdId && !isDup) {
+        if ((d.__file as File | undefined) && createdId && !isDup) {
           const path = `${user.id}/${createdId}/${Date.now()}-${d.__file!.name}`;
           await supabase.storage.from("deal-files").upload(path, d.__file!);
           await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: d.__file!.name, path, size_bytes: d.__file!.size, mime: d.__file!.type });

@@ -6,7 +6,6 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { pageEntrance } from "@/lib/entrance";
-import { startUnlimited } from "@/lib/start-unlimited";
 import { subscribeDataChange, notifyDataChange, notifyReadOnlyBlocked } from "@/lib/data-events";
 import { formatMoney, formatDate, cn } from "@/lib/utils";
 import { dealPayRollup, payStatusLabel, paymentCell, paymentStatusView, paymentMismatch, dealPaymentView, type DealExtra, type PayStatus, type DealRollup, type PaymentRow } from "@/lib/pay-status";
@@ -14,10 +13,8 @@ import { type EditorPayment } from "@/components/payment-editor";
 import { DealPaymentSection, Sel } from "@/components/deal-payment-section";
 import { dealPostDates, postDateCell, newPostDateRow, type PostDate, type ContentPost } from "@/lib/post-dates";
 import { DealInput, DealTextarea } from "@/components/deal-input";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
-import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconInfo, IconDown, IconUpload, IconGrid, IconList, IconMail, IconUndo } from "@/components/icons";
+import { IconPlus, IconClose, IconCheck, IconLink, IconDelete, IconMore, IconPaperclip, IconDown, IconUpload, IconGrid, IconList, IconMail, IconUndo } from "@/components/icons";
 import { Button, Input, Select, StatusPill, Spinner, Segmented } from "@/components/ui";
-import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 import { DealForm, emptyDealForm, type DealFormValues } from "@/components/deal-form";
 import { SaveToastHost, notifySaved } from "@/components/save-toast";
@@ -81,8 +78,6 @@ export default function DealsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false); // dropdown open
   const [newMode, setNewMode] = useState<"blank" | "upload" | null>(null); // which New deal modal variant
-  const [plan, setPlan] = useState<"free" | "paid">("free");
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState(true);
   const celeb = useCelebration();
   const [view] = useState<"list">("list");
@@ -192,38 +187,9 @@ export default function DealsPage() {
     if (searchParams.get("open")) setSelectedId(searchParams.get("open"));
   }, [searchParams]);
 
-  // Load plan
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-        setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
-      }
-    })();
-  }, [supabase]);
-
   const activeCount = deals.filter((d) => d.active && d.status !== "archived").length;
 
-  // Free plan visibility rule: keep the 5 most recent active deals visible,
-  // hide any overflow (their rows are preserved — they reappear when Unlimited).
-  // `deals` arrives pre-sorted created_at desc, so "most recent first".
-  const hiddenOverflowIds = new Set<string>();
-  if (plan === "free") {
-    let kept = 0;
-    for (const d of deals) {
-      if (d.active && d.status !== "archived") {
-        if (kept < FREE_ACTIVE_DEAL_CAP) { kept++; }
-        else { hiddenOverflowIds.add(d.id); }
-      }
-    }
-  }
-  const visibleDeals = hiddenOverflowIds.size ? deals.filter((d) => !hiddenOverflowIds.has(d.id)) : deals;
-  const hiddenOverflowCount = hiddenOverflowIds.size;
-  // True active count still gates adding (a downgraded user with over 5 stays capped).
-  const visibleActiveCount = visibleDeals.filter((d) => d.active && d.status !== "archived").length;
-
-  const filtered = visibleDeals.filter((d) => {
+  const filtered = deals.filter((d) => {
     const paid = (d.pay_rollup?.status ?? "not_invoiced") === "paid";
     switch (filter) {
       case "Negotiating": return d.status === "pipeline";
@@ -266,7 +232,7 @@ export default function DealsPage() {
     if (selectedId === deal.id) setSelectedId(null);
     notifyDataChange(); // recalc totals, deal count, cap usage across routes
   };
-  // Archive (keeps history, frees a cap slot) vs delete (destroys). Archive is
+  // Archive (keeps history) vs delete (destroys). Archive is
   // the low-risk, prominent action; delete is the deliberate one behind a confirm.
   const setArchived = async (deal: Deal, archived: boolean) => {
     setRowMenu(null);
@@ -310,9 +276,7 @@ export default function DealsPage() {
         <div>
           <h1 className="text-[24px] font-semibold tracking-tight">Deals</h1>
           <p className="text-sm text-inksoft mt-1">
-            {plan === "free"
-              ? `${visibleActiveCount} of ${FREE_ACTIVE_DEAL_CAP} active deals${hiddenOverflowCount ? ` · ${hiddenOverflowCount} more saved` : ""}`
-              : `${activeCount} active deals`}
+            {activeCount} active deal{activeCount === 1 ? "" : "s"}
           </p>
         </div>
         <div className="relative">
@@ -360,15 +324,6 @@ export default function DealsPage() {
       </div>
 
       {/* Filter chips + search + sort + view toggle */}
-      {hiddenOverflowCount > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-line2 bg-card p-3.5">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-ink">You have {hiddenOverflowCount} more saved deal{hiddenOverflowCount === 1 ? "" : "s"}.</p>
-            <p className="text-[13px] text-inksoft mt-0.5">They're kept safe and will come back when you're on Unlimited again. Nothing is deleted.</p>
-          </div>
-          <Button size="sm" onClick={() => setShowUpgrade(true)}>Go Unlimited</Button>
-        </div>
-      )}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1.5 flex-wrap">
           <Segmented options={FILTERS} value={filter} onChange={(f) => { setFilter(f); setPage(1); }} />
@@ -517,12 +472,9 @@ export default function DealsPage() {
 
       {newMode && newMode === "blank" && (
         <NewDealModal
-          plan={plan}
-          activeCount={activeCount}
           initialMode="blank"
           onClose={() => setNewMode(null)}
           onCreated={onCreated}
-          onUpgrade={() => { setNewMode(null); setShowUpgrade(true); }}
         />
       )}
 
@@ -541,8 +493,6 @@ export default function DealsPage() {
           onDuplicate={(d) => duplicateDeal(d)}
         />
       )}
-
-      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
 
       {deleteTarget && (
         <ConfirmDeleteDeal
@@ -605,24 +555,13 @@ function filterLabel(filter: (typeof FILTERS)[number]): string {
 }
 
 /* ---------------- New Deal Modal ---------------- */
-function NewDealModal({ plan, activeCount, initialMode, onClose, onCreated, onUpgrade }: { plan: "free" | "paid"; activeCount: number; initialMode: "blank" | "contract"; onClose: () => void; onCreated: () => void; onUpgrade: () => void }) {
+function NewDealModal({ initialMode, onClose, onCreated }: { initialMode: "blank" | "contract"; onClose: () => void; onCreated: () => void }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-
-  const atCap = plan === "free" && activeCount >= FREE_ACTIVE_DEAL_CAP;
 
   return (
     <Modal onClose={onClose} title={initialMode === "contract" ? "Upload a deal" : "New deal"}>
       {error && <p className="text-sm text-late mb-4" role="alert">{error}</p>}
-      {atCap && (
-        <div className="rounded-xl bg-accenttint p-4 text-sm mb-4 flex items-start gap-3">
-          <IconInfo size={18} className="shrink-0 mt-0.5 accent-ink" />
-          <div>
-            <div className="font-semibold accent-ink">You&apos;ve reached the free-plan limit</div>
-            <p className="text-inksoft mt-0.5">You have {activeCount} active deals, the free plan holds {FREE_ACTIVE_DEAL_CAP}. <a href="#" onClick={(e) => { e.preventDefault(); onClose(); startUnlimited(); }} className="accent-ink font-semibold underline underline-offset-2 hover:opacity-80">Go unlimited</a> to keep adding.</p>
-          </div>
-        </div>
-      )}
       <DealForm
         mode="create"
         initial={emptyDealForm()}
@@ -670,17 +609,11 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
   const [files, setFiles] = useState<DealFile[]>([]);
   const [postDates, setPostDates] = useState<PostDate[]>([]);   // staged list (content rows)
   const [postDatesSaved, setPostDatesSaved] = useState<PostDate[]>([]);
-  const [plan, setPlan] = useState<"free" | "paid">("free");
   const [menu, setMenu] = useState(false);
   const [loaded, setLoaded] = useState(false); // children (payments/checklist/extras) loaded
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-        setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
-      }
       const [pay, cl, fl, content, ex] = await Promise.all([
         supabase.from("payments").select("*").eq("deal_id", deal.id),
         supabase.from("deal_checklist").select("*").eq("deal_id", deal.id),
@@ -1088,10 +1021,10 @@ function DealDrawer({ deal, onClose, onUpdated, onCelebrate, onArchive, onDelete
     setFiles((data ?? []) as DealFile[]);
     if (kind === "invoice") {
       // Same extraction path as the Files tab: set pay-by, flip to invoiced,
-      // and show the conflict prompt when the dates differ. On the free plan the
-      // server 403s extraction — that's not a failure (the file is stored); it
-      // means reading the invoice is on Unlimited. Report it so the caller can
-      // say so, not swallow it silently.
+      // and show the conflict prompt when the dates differ. A read-only account
+      // 403s extraction — not a failure (the file is stored); it means reading
+      // the invoice is on Unlimited. Report it so the caller can say so, not
+      // swallow it silently.
       try {
         const fd = new FormData(); fd.append("file", file);
         const res = await fetch("/api/deals/extract-invoice", { method: "POST", body: fd });

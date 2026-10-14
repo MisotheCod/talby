@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/client";
 
 /** Start the Unlimited plan purchase: Stripe checkout if signed in,
- *  signup (plan tagged) if not. Every "Go unlimited" affordance should
+ *  signup (plan tagged) if not. Every subscribe affordance should
  *  route through this so the funnel always ends at checkout. */
 export async function startUnlimited() {
   const supabase = createClient();

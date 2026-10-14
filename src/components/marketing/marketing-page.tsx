@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { TalbyLogo } from "@/components/marketing/talby-logo";
 import { FluentBotSparkle28Regular } from "@/components/fluent-icons";
 import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea, IconNotes, IconSettings } from "@/components/icons";
-import { GoUnlimitedButton } from "@/components/marketing/go-unlimited-button";
 
 /* Marks (Talby + check) as inline symbols — keyed, reusable. */
 function Mark({ width = 26 }: { width?: number } = {}) {
@@ -108,7 +107,7 @@ function SiteNav() {
         </div>
         <div className="nav-cta">
           <a className="login" href="/login">Log in</a>
-          <a className="btn btn-p" href="/signup">Sign up free</a>
+          <a className="btn btn-p" href="/signup">Start free trial</a>
           <button
             type="button"
             className="menu-btn"
@@ -136,7 +135,7 @@ function Hero() {
         <h1>Every brand deal in one place.</h1>
         <p className="lede"><span className="lg">Talby is the calm command center for creators. Track what you agreed to, when it is due, and what has actually landed.</span><span className="sm">Track what you agreed to, when it is due, and what has landed.</span></p>
         <div className="hero-cta">
-          <a className="btn btn-p btn-lg" href="/signup">Sign up free</a>
+          <a className="btn btn-p btn-lg" href="/signup">Start free trial</a>
           <a className="btn btn-s btn-lg" href="#story">See how it works</a>
         </div>
         <p className="note">No card. No setup. Add a deal and go.</p>
@@ -712,34 +711,34 @@ function PricingSection() {
   return (
     <section className="price" id="pricing">
       <div className="col">
-        <h2>Free for your first five deals.</h2>
-        <p><span className="lg">Everything above is on the free plan. Pay when you have more deals than that going at once.</span><span className="sm">Everything above is on the free plan.</span></p>
+        <h2>14 days free. Then $9 a month.</h2>
+        <p><span className="lg">Start your free trial with no card needed. Keep everything you create, whether or not you subscribe.</span><span className="sm">14 days free. No card needed.</span></p>
         <div className="plans">
           <div className="plan">
-            <h3>Free</h3>
+            <h3>Trial</h3>
             <div className="cost">$0</div>
-            <div className="for">Up to 5 active deals</div>
+            <div className="for">14 days, full access</div>
             <ul>
               <li><Ck />Contract reading, deals, calendar and payments</li>
               <li><Ck />Deal scanner for forwarded emails</li>
               <li><Ck />Import from a spreadsheet or Notion</li>
-              <li className="up"><Ck />Talby assistant</li>
-              <li className="up"><Ck />Retainer and repeating deals</li>
-              <li className="up"><Ck />Year end income summary</li>
-            </ul>
-            <a className="btn btn-s" href="/signup">Sign up free</a>
-          </div>
-          <div className="plan">
-            <h3>Unlimited</h3>
-            <div className="cost">$9<small>a month</small></div>
-            <div className="for">As many deals as you can land</div>
-            <ul>
-              <li><Ck />Everything in Free, no deal cap</li>
               <li><Ck />Talby assistant</li>
               <li><Ck />Retainer and repeating deals</li>
               <li><Ck />Year end income summary</li>
             </ul>
-            <GoUnlimitedButton label="Start with Unlimited" className="btn-p text-[15px]" />
+            <a className="btn btn-s" href="/signup">Start free trial</a>
+          </div>
+          <div className="plan">
+            <h3>Unlimited</h3>
+            <div className="cost">$9<small>a month</small></div>
+            <div className="for">Full access, cancel anytime</div>
+            <ul>
+              <li><Ck />Everything in the trial, ongoing</li>
+              <li><Ck />Talby assistant</li>
+              <li><Ck />Retainer and repeating deals</li>
+              <li><Ck />Year end income summary</li>
+            </ul>
+            <a className="btn btn-p" href="/signup">Subscribe for $9 a month</a>
           </div>
         </div>
       </div>
@@ -754,7 +753,7 @@ function CloseSection() {
       <div className="col">
         <h2>Add your first deal tonight.</h2>
         <p>It takes about a minute, and you will know exactly what is due and what is owed by the time you are done.</p>
-        <a className="btn btn-p btn-lg" href="/signup">Sign up free</a>
+        <a className="btn btn-p btn-lg" href="/signup">Start free trial</a>
       </div>
     </section>
   );

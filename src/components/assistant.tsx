@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { startUnlimited } from "@/lib/start-unlimited";
 import { cn } from "@/lib/utils";
 import { Button, Input, Spinner } from "@/components/ui";
 import { IconClose, IconSend } from "@/components/icons";
@@ -46,24 +45,12 @@ type Msg = { role: "user" | "assistant"; text: string; citations?: Citation[] };
 export function AssistantLauncher() {
   const supabase = createClient();
   const [open, setOpen] = useState(false);
-  const [plan, setPlan] = useState<"paid" | "free" | "loading">("loading");
   const [history, setHistory] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [live, setLive] = useState(""); // streaming assistant text (plain, no markdown yet)
   const [error, setError] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) { setPlan("free"); return; }
-      const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-      setPlan(((p.data as unknown as { plan?: string })?.plan === "paid") ? "paid" : "free");
-    })();
-  }, [supabase]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -162,20 +149,9 @@ export function AssistantLauncher() {
             </button>
           </div>
 
-          {plan !== "paid" ? (
-            <div className="px-4 py-4 text-sm text-muted">
-              {plan === "loading" ? (
-                <div className="flex items-center gap-2"><Spinner /> Checking your plan</div>
-              ) : (
-                <div className="rounded-xl border border-line p-4 space-y-2">
-                  <p className="font-medium">The assistant is on the Unlimited plan.</p>
-                  <p className="text-[13px] text-muted">Ask about your deals, payments, contracts, and calendar.</p>
-                  <Button size="sm" onClick={() => { startUnlimited(); }} className="w-full mt-1">Go unlimited</Button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
+          {/* Assistant body — available to every full-access account (trial + paid).
+             Read-only enforcement happens at RLS; nothing to gate here. */}
+          <>
               <div ref={scrollRef} className="assistant-body">
                 {history.length === 0 ? (
                   <div className="px-4 py-4">
@@ -242,8 +218,7 @@ export function AssistantLauncher() {
                   )}
                 </Button>
               </form>
-            </>
-          )}
+          </>
             </div>
           </>
         )}

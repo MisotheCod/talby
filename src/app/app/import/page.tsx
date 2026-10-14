@@ -4,12 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { FREE_ACTIVE_DEAL_CAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { paidPaymentGap } from "@/lib/pay-status";
 import { IconArrowLeft, IconCheck, IconDownload, IconLink, IconRefresh } from "@/components/icons";
 import { Button, Chip, Input, Select, Spinner, StatusPill } from "@/components/ui";
-import { UpgradeModal } from "@/components/upgrade-modal";
 import { NotionLogo } from "@/components/marketing/notion-logo";
 
 type Step = "source" | "notion" | "upload" | "columns" | "mapping" | "review";
@@ -35,9 +33,6 @@ export default function ImportPage() {
     const src = new URLSearchParams(typeof window !== "undefined" ? window.location.search : "").get("source");
     return src === "csv" ? "csv" : src === "notion" ? "notion" : null;
   });
-  const [plan, setPlan] = useState<"free" | "paid">("free");
-
-
   const [columns, setColumns] = useState<string[]>([]);
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [sourceName, setSourceName] = useState("");
@@ -54,7 +49,6 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const [done, setDone] = useState(false);
-  const [showUpgrade, setShowUpgrade] = useState(false);
   const [importSummary, setImportSummary] = useState<{ added: number; updated: number; posts: number; payments: number } | null>(null);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -92,16 +86,6 @@ export default function ImportPage() {
     setMapping({});
     setItems([]);
   };
-
-  useEffect(() => {
-    (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-        setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
-      }
-    })();
-  }, [supabase]);
 
   const back = () => {
     if (done) { router.push("/app/deals"); return; }
@@ -243,29 +227,6 @@ export default function ImportPage() {
       const b = norm(rec.brand);
       if (b && !brandToDeal.has(b)) {
         brandToDeal.set(b, { id: rec.id, value: rec.value ?? null, deliverable: rec.deliverable ?? null, due_date: rec.due_date ?? null, notes: rec.notes ?? null, rep_email: rec.rep_email ?? null });
-      }
-    }
-
-    // --- Free-plan hard stop (mirrors the DB trigger; gives a friendly gate) ---
-    // Count active deals the user WILL have after this import and block free
-    // users who would exceed FREE_ACTIVE_DEAL_CAP. The DB trigger is the real
-    // enforcement; this just surfaces the Upgrade modal instead of a raw error.
-    if (plan === "free") {
-      const dealRows = (existingDeals ?? []) as { brand: string; active: boolean; status: string }[];
-      const existingActive = dealRows.filter((d) => d.active && d.status !== "archived").length;
-      // New inserts that count as active.
-      const newActive = plans.filter((p) => !brandToDeal.has(norm(p.brand)) && p.active).length;
-      // Existing deals being flipped into active (or created fresh).
-      const flippedActive = plans.filter((p) => {
-        const existing = dealRows.find((d) => norm(d.brand) === norm(p.brand));
-        if (!existing) return false;
-        return p.active && !(existing.active && existing.status !== "archived");
-      }).length;
-      if (existingActive + newActive + flippedActive > FREE_ACTIVE_DEAL_CAP) {
-        setImporting(false);
-        setShowUpgrade(true);
-        setImportError("You've reached the free plan's limit of active deals. Go unlimited to import more.");
-        return;
       }
     }
 
@@ -471,12 +432,10 @@ export default function ImportPage() {
           onImport={importRows}
           importing={importing}
           importError={importError}
-          plan={plan}
           actionLabel={source === "notion" ? "Import" : "Add"}
         />
       )}
 
-      {showUpgrade && <UpgradeModal onClose={() => { setShowUpgrade(false); setImportError(""); }} />}
     </div>
   );
 }
@@ -739,19 +698,19 @@ function MappingLoading({ error, onRetry }: { error: string; onRetry: () => void
 }
 
 function ReviewStep({
-  mapping, items, lowCount, selCount, paidGapCount, onToggle, onEdit, onEditDest, onImport, importing, importError, plan, actionLabel = "Import",
+  mapping, items, lowCount, selCount, paidGapCount, onToggle, onEdit, onEditDest, onImport, importing, importError, actionLabel = "Import",
 }: {
   mapping: Record<string, string>; items: ImportItem[]; lowCount: number; selCount: number; paidGapCount: number;
   onToggle: (i: number, s: boolean) => void; onEdit: (i: number, f: keyof MapRow, v: string) => void;
   onEditDest: (i: number, dest: "content" | "payment", field: string, v: string) => void;
-  onImport: () => void; importing: boolean; importError: string; plan: "free" | "paid"; actionLabel?: string;
+  onImport: () => void; importing: boolean; importError: string; actionLabel?: string;
 }) {
   return (
     <div>
       <div className="mb-4">
         <h2 className="font-semibold">Review your mapped deals</h2>
         <p className="text-sm text-inksoft mt-0.5">
-          {selCount} selected · {lowCount} flagged for review · {plan === "free" ? `${FREE_ACTIVE_DEAL_CAP}-deal free limit applies` : "no limit on your plan"}
+          {selCount} selected · {lowCount} flagged for review
         </p>
       </div>
 

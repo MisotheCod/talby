@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { OPENROUTER_API_KEY } from "@/lib/server-config";
+import { userIsReadOnly } from "@/lib/write-access";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,10 +25,8 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
 
-  const prof = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-  const plan = (prof.data as unknown as { plan?: string } | null)?.plan ?? "free";
-  if (plan !== "paid") {
-    return NextResponse.json({ error: "Invoice extraction is on the paid plan." }, { status: 403 });
+  if (await userIsReadOnly(user.id)) {
+    return NextResponse.json({ error: "Invoice extraction is available on the Unlimited plan. Subscribe to keep using it." }, { status: 403 });
   }
   if (!OPENROUTER_API_KEY) {
     return NextResponse.json({ error: "Extraction AI is not configured." }, { status: 500 });

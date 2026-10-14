@@ -54,13 +54,7 @@ export default function InboxPage() {
       });
       const data = await res.json();
       if (res.status >= 400) {
-        if (data.error === "active_cap") {
-          // Free user at the active-deal cap: the deal stays in the inbox; show
-          // an upgrade prompt tied to THIS deal, not a generic feature lock.
-          setMessage({ kind: "warn", text: data.message || "You're at the free active-deal limit. Archive a deal or go unlimited to add this one." });
-        } else {
-          setMessage({ kind: "bad", text: data.error || "Something went wrong. Try again." });
-        }
+        setMessage({ kind: "bad", text: data.error || "Something went wrong. Try again." });
       } else if (data.duplicated) {
         setMessage({ kind: "ok", text: "A deal for this brand already exists. The email was attached to it as a note." });
         setFilter("Added");

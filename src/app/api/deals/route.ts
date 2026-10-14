@@ -118,14 +118,6 @@ export async function POST(req: Request) {
 
   if (insErr || !created) {
     inflight.delete(idKey);
-    // A free user hitting the active-deal cap should get a clear, actionable
-    // message (not a generic DB error) so the UI can offer an upgrade.
-    if (insErr && /limited to \d+ active deals/i.test(insErr.message || "")) {
-      return NextResponse.json(
-        { error: "active_cap", message: "You've reached the free plan's limit of active deals. Archive a deal or go unlimited to add more." },
-        { status: 409 }
-      );
-    }
     return NextResponse.json({ error: insErr?.message || "Could not create the deal." }, { status: 500 });
   }
   inflight.set(idKey, created.id);

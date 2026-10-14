@@ -7,7 +7,6 @@ import { formatMoney, cn } from "@/lib/utils";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { pageEntrance } from "@/lib/entrance";
 import { paymentStatusView, paymentStructureLabel } from "@/lib/pay-status";
-import { scopeVisibleDeals, scopePaymentsToVisible } from "@/lib/free-plan-scope";
 import { IconPlus, IconMore, IconCheck, IconDown } from "@/components/icons";
 import { Button, Input, Select, Spinner, StatusPill, Segmented } from "@/components/ui";
 import { IncomeSummary } from "./income-summary";
@@ -86,7 +85,6 @@ export default function PaymentsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [listFilter, setListFilter] = useState<string>("Upcoming");
   const [view, setView] = useState<"Payments" | "Income summary">("Payments");
-  const [plan, setPlan] = useState<"free" | "paid">("free");
   const [range, setRange] = useState<Range>("month");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -105,10 +103,6 @@ export default function PaymentsPage() {
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const p = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-      setPlan(((p.data as unknown as { plan: string } | null)?.plan ?? "free") as "free" | "paid");
-    }
     const [p, d, x] = await Promise.all([
       supabase.from("payments").select("*, deal:deals(brand, deliverable)").order("expected_date", { ascending: true }),
       supabase.from("deals").select("id, brand, value, deal_type, created_at, active, status, deliverable, payment_structure, structure_months").order("created_at", { ascending: true }),
@@ -140,15 +134,8 @@ export default function PaymentsPage() {
   const thisYear = now.getFullYear();
   const lastYear = thisYear - 1;
 
-  /* Free-plan scope: only the 5 most-recent active deals are visible; every
-     aggregate below (received, pending, income, avg deal value, charts) uses
-     the scoped set so the page mirrors what the user can actually see. */
-  const { visibleDeals: scopedDeals, hiddenIds } = scopeVisibleDeals(deals, plan);
-  const scopedPayments = scopePaymentsToVisible(payments, hiddenIds);
-  const scopedExtras = hiddenIds.size ? extras.filter((x) => !x.deal_id || !hiddenIds.has(x.deal_id)) : extras;
-
-  const received = scopedPayments.filter((p) => p.status === "received") as Payment[];
-  const pending = scopedPayments.filter((p) => p.status !== "received") as Payment[];
+  const received = payments.filter((p) => p.status === "received") as Payment[];
+  const pending = payments.filter((p) => p.status !== "received") as Payment[];
 
   const receivedYtd = received.filter((p) => p.expected_date?.startsWith(String(thisYear)));
   const receivedYtdTotal = receivedYtd.reduce((s, p) => s + p.amount, 0);
@@ -173,16 +160,16 @@ export default function PaymentsPage() {
     const out: Record<string, string> = {};
     for (const did in byDeal) {
       const rows = byDeal[did].sort((a, b) => (a.expected_date ?? "").localeCompare(b.expected_date ?? ""));
-      const deal = scopedDeals.find((dv) => dv.id === did);
+      const deal = deals.find((dv) => dv.id === did);
       const kind = deal?.payment_structure ?? null;
       rows.forEach((p, i) => {
         out[p.id] = paymentStructureLabel(kind, i, rows.length);
       });
     }
     return out;
-  }, [scopedPayments, scopedDeals]);
+  }, [payments, deals]);
 
-  const dealValues = scopedDeals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
+  const dealValues = deals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
   const avgDealValue = dealValues.length
     ? Math.round(dealValues.reduce((a, b) => a + b, 0) / dealValues.length)
     : null;
@@ -200,7 +187,7 @@ export default function PaymentsPage() {
   const bestMonthAmount = bestMonthEntry ? bestMonthEntry[1] : null;
 
   // Trend for avg deal value vs prior year deals
-  const priorDeals = scopedDeals.filter((d) => d.created_at?.startsWith(String(lastYear)));
+  const priorDeals = deals.filter((d) => d.created_at?.startsWith(String(lastYear)));
   const priorDealValues = priorDeals.map((d) => d.value).filter((v): v is number => v !== null && v > 0);
   const priorAvg = priorDealValues.length
     ? Math.round(priorDealValues.reduce((a, b) => a + b, 0) / priorDealValues.length)
@@ -238,7 +225,7 @@ export default function PaymentsPage() {
   // with empty months sitting at zero instead of disappearing.
   const dealsByMonth = useMemo(() => {
     const map: Record<string, number> = {};
-    for (const d of scopedDeals) {
+    for (const d of deals) {
       const m = d.created_at?.slice(0, 7);
       if (m) map[m] = (map[m] || 0) + 1;
     }
@@ -250,7 +237,7 @@ export default function PaymentsPage() {
       out.push({ key, label: fmtMonth(key), value: map[key] || 0 });
     }
     return out;
-  }, [scopedDeals]);
+  }, [deals]);
 
   const dealsMax = Math.max(...dealsByMonth.map((b) => b.value), 1);
 
@@ -365,7 +352,7 @@ export default function PaymentsPage() {
       </div>
 
       {view === "Income summary" && (
-        <IncomeSummary payments={scopedPayments} deals={scopedDeals} plan={plan} />
+        <IncomeSummary payments={payments} deals={deals} />
       )}
       {view === "Payments" && (
       <>
@@ -545,10 +532,10 @@ export default function PaymentsPage() {
       </div>
 
       {/* === 5. Extras (spec 7g): collapsed by default === */}
-      <ExtrasSection extras={scopedExtras} />
+      <ExtrasSection extras={extras} />
 
       {showAdd && (
-        <AddPaymentModal deals={scopedDeals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); notifyDataChange(); }} />
+        <AddPaymentModal deals={deals.map((d) => ({ id: d.id, brand: d.brand }))} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); load(); notifyDataChange(); }} />
       )}
       </>
       )}

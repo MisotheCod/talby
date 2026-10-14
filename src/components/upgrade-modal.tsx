@@ -5,23 +5,14 @@ import { Button } from "@/components/ui";
 import { startUnlimited } from "@/lib/start-unlimited";
 
 /**
- * Upgrade prompt. Two framings:
- *  - "cap"     — hit the free active-deal cap (legacy path).
- *  - "readonly" — trial ended; account is read-only until subscribed.
+ * Upgrade prompt for a read-only account (trial ended). Full access is behind
+ * the $9/mo subscription; the user can still view and export everything.
  */
-export function UpgradeModal({
-  onClose,
-  reason = "readonly",
-}: {
-  onClose: () => void;
-  reason?: "cap" | "readonly";
-}) {
+export function UpgradeModal({ onClose }: { onClose: () => void }) {
   const go = () => {
     onClose();
     startUnlimited();
   };
-
-  const isReadOnly = reason === "readonly";
 
   return (
     <div
@@ -42,13 +33,9 @@ export function UpgradeModal({
         <div className="h-14 w-14 mx-auto rounded-2xl bg-accent text-onaccent grid place-items-center">
           <IconCrown size={26} />
         </div>
-        <h2 className="text-xl font-semibold mt-4 tracking-tight">
-          {isReadOnly ? "Your free trial has ended" : "You've got more deals than the free plan holds"}
-        </h2>
+        <h2 className="text-xl font-semibold mt-4 tracking-tight">Your free trial has ended</h2>
         <p className="text-inksoft text-sm mt-2">
-          {isReadOnly
-            ? "You can still view and export everything. Subscribe for $9 a month to keep adding and editing deals."
-            : "You've hit the free plan's limit of active deals. Go unlimited to keep growing — unlock unlimited deals, file uploads and the AI assistant."}
+          You can still view and export everything. Subscribe for $9 a month to keep adding and editing deals.
         </p>
         <ul className="text-left mt-5 space-y-2 text-sm">
           <li className="flex items-center gap-2"><IconCheck size={16} className="text-accentink shrink-0" /> Unlimited active deals</li>
