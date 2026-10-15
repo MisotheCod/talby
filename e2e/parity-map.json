@@ -24,6 +24,7 @@
     { "id": "15j", "name": "SOverview", "ref": "SOverview__editorial-dark.png", "route": "/", "theme": "editorial", "mode": "dark", "account": "sample" },
 
     { "id": "3a", "name": "ShellSidebar", "ref": "SOverview__studio-light.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample", "crop": [0, 0, 256, 1291] },
+    { "id": "3c", "name": "ShellSidebarNav", "ref": "SOverview__studio-light.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample", "crop": [0, 0, 256, 860] },
     { "id": "3b", "name": "ShellSidebarIcons", "ref": "SOverview__sidebar-icons.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample", "crop": [0, 0, 256, 1271] },
     { "id": "4a", "name": "ShellTopbar", "ref": "SOverview__studio-light.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample", "crop": [0, 0, 1440, 64] }
   ]

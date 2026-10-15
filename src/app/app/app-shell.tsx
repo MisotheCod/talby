@@ -66,6 +66,9 @@ export function AppShell({
   const [fontState, setFontState] = useState<string>(headFont ?? DEFAULT_HEAD_FONT);
   const [modeState, setModeState] = useState<ThemeMode>(themeMode ?? DEFAULT_MODE);
   const [activeDeals, setActiveDeals] = useState(0);
+  const [latePayments, setLatePayments] = useState(0);
+  const [ideaCount, setIdeaCount] = useState(0);
+  const [todoCount, setTodoCount] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   // Read-only derivation. Pinned owner accounts are plan_status='active' in
@@ -123,6 +126,22 @@ export function AppShell({
         .eq("active", true)
         .not("status", "eq", "archived");
       setActiveDeals((data ?? []).length);
+    })();
+  }, [supabase, pathname]);
+
+  // Sidebar badges (spec 01 §11): Deals count, Payments "N late", Ideas and
+  // To-dos counts. Payments late = overdue (expected, not paid, date past).
+  useEffect(() => {
+    (async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const [late, ideas, todos] = await Promise.all([
+        supabase.from("payments").select("id").lt("expected_date", today).neq("status", "received").neq("pay_status", "paid"),
+        supabase.from("ideas").select("id").neq("status", "archived"),
+        supabase.from("todos").select("id").eq("done", false),
+      ]);
+      setLatePayments((late.data ?? []).length);
+      setIdeaCount((ideas.data ?? []).length);
+      setTodoCount((todos.data ?? []).length);
     })();
   }, [supabase, pathname]);
 
@@ -336,7 +355,12 @@ export function AppShell({
           }
           collapsed={false}
           drawer={mobileOpen}
-          counts={{ deals: activeDeals ? String(activeDeals) : null }}
+          counts={{
+            deals: activeDeals ? String(activeDeals) : null,
+            paymentsLate: latePayments ? `${latePayments} late` : null,
+            ideas: ideaCount ? String(ideaCount) : null,
+            todos: todoCount ? String(todoCount) : null,
+          }}
           user={userName(handler)}
           handle={handle}
           planName={planLabel}
