@@ -33,6 +33,14 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   CSV","N Import from Notion Connect and pull deals"]`, notifications panel text
   `"Notifications … You are all caught up / New alerts about payments and posts
   show up here."`. Screenshots `topbar-add-menu.png`, `topbar-notifications.png`.
+- **5. Plan banners + locked guard** — `shell/plan-banner.tsx`: PlanBanner for
+  trialing (days-left copy) / pastdue (update card) / canceled (restart) /
+  readonly (trial ended), solid-accent Subscribe right aligned; LockedDialog for
+  trial-ended vs canceled. Wired into the shell under the top bar. Locked-writes
+  guard confirmed live: `userIsReadOnly` on POST /api/deals, DELETE
+  /api/deals/[id], and extract-contract (403 for read-only). Evidence: tsc +
+  build green; live render showed the trial banner "14 days left in your free
+  trial." + Subscribe (earlier vision analysis).
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.

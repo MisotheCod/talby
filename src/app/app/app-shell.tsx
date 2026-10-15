@@ -22,6 +22,7 @@ import { Button } from "@/components/ui";
 import { AppSidebar, type NavKey } from "@/components/shell/sidebar";
 import { AppTopbar } from "@/components/shell/topbar";
 import type { Notif } from "@/components/shell/notifications";
+import { PlanBanner, type PlanState } from "@/components/shell/plan-banner";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -256,6 +257,19 @@ export function AppShell({
     : planStatus === "past_due" ? "Payment failed"
     : planStatus === "canceled" ? "Plan canceled"
     : "Free trial";
+
+  const trialDaysLeft = (() => {
+    if (!trialEnd) return null;
+    const ms = new Date(trialEnd).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / 86400000));
+  })();
+  const planState: PlanState = (() => {
+    if (planStatus === "active" || plan === "paid") return "active";
+    if (planStatus === "trialing") return "trialing";
+    if (planStatus === "past_due") return "pastdue";
+    if (planStatus === "canceled") return "canceled";
+    return null;
+  })();
   const avatarImg = avatarUrl
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarUrl}`
     : null;
@@ -337,18 +351,11 @@ export function AppShell({
           }}
         />
         <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
-          {isTrialing && !readOnly && (
-            <div className="readonly-banner" role="status">
-              <span className="readonly-banner-text">{trialBannerText}</span>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setUpgradeOpen(true)}>Subscribe</Button>
-            </div>
-          )}
-          {readOnly && (
-            <div className="readonly-banner" role="status">
-              <span className="readonly-banner-text">Your free trial has ended. You can view and export everything.</span>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setUpgradeOpen(true)}>Subscribe</Button>
-            </div>
-          )}
+          <PlanBanner
+            state={readOnly ? "readonly" : planState}
+            daysLeft={trialDaysLeft}
+            onAction={() => setUpgradeOpen(true)}
+          />
           {children}
         </main>
         <AssistantLauncher />

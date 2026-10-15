@@ -9,7 +9,7 @@ Item 0 is already done (foundation, commits 7773522 to 6e577fd).
 - [x] 2. Overlays: Dialog, AlertDialog, Sheet, Drawer, DropdownMenu, Popover, Tooltip, Sonner toasts (top on phone)
 - [x] 3. Sidebar: expanded, icon rail, drawer, trial card, no counts for empty accounts (SSidebar, PlTrial)
 - [x] 4. Top bar, Add deal menu, notifications with empty state (STopbar, SBell, NoEmpty)
-- [ ] 5. Plan banners and locked writes guard (PlPastdue, PlReadonly, PlCanceled)
+- [x] 5. Plan banners and locked writes guard (PlPastdue, PlReadonly, PlCanceled)
 - [ ] 6. Search Cmd K (SCommand)
 - [ ] 7. Date picker (SDatePicker), praise cards (SPraise)
 - [ ] 8. Assistant panel and states (SAssistant, AsEmpty, AsError, AsLimit, AsOffline)
