@@ -6,7 +6,7 @@ Item 0 is already done (foundation, commits 7773522 to 6e577fd).
 
 ## Shell
 - [x] 1. Shared components restyled to kit.js: Button, Input, Textarea, Select, Badge, Card, Checkbox, RadioGroup, Switch, Skeleton, Avatar, Alert, the empty and error block
-- [ ] 2. Overlays: Dialog, AlertDialog, Sheet, Drawer, DropdownMenu, Popover, Tooltip, Sonner toasts (top on phone)
+- [x] 2. Overlays: Dialog, AlertDialog, Sheet, Drawer, DropdownMenu, Popover, Tooltip, Sonner toasts (top on phone)
 - [ ] 3. Sidebar: expanded, icon rail, drawer, trial card, no counts for empty accounts (SSidebar, PlTrial)
 - [ ] 4. Top bar, Add deal menu, notifications with empty state (STopbar, SBell, NoEmpty)
 - [ ] 5. Plan banners and locked writes guard (PlPastdue, PlReadonly, PlCanceled)

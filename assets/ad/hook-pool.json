@@ -95,7 +95,8 @@
       "id": "remember_wrong_deal",
       "angle": "counterintuitive truth (you remember the wrong things)",
       "opening": "you remember the deal you didn't get. you forgot the one that never paid you.",
-      "note": "INJECTED 2026-10-12. Category 3 counterintuitive truth on a topic no pool entry touches: the memory/emotional asymmetry between rejection and unpaid work. Triggers: contrasting element (the deal you missed vs the payment you lost) + transformation (knowing what's actually sitting unpaid). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing."
+      "note": "INJECTED 2026-10-12. Category 3 counterintuitive truth on a topic no pool entry touches: the memory/emotional asymmetry between rejection and unpaid work. Triggers: contrasting element (the deal you missed vs the payment you lost) + transformation (knowing what's actually sitting unpaid). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 0
     },
     {
       "id": "never_wrote_down_pay",
@@ -181,8 +182,15 @@
       "note": "INJECTED 2026-10-11. Category 3 counterintuitive truth, flips 'more deals = more money'. Distinct from accidental_free_work (that is can't-look-up what's owed; this is saying yes to too much lowers oversight per deal). Trigger: status + contrasting element. Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
       "uses": 1,
       "last_used": "2026-10-13"
+    },
+    {
+      "id": "paid_and_forgotten",
+      "angle": "quote / memorable line (memory of money is the leak)",
+      "opening": "the money you're owed doesn't expire. your memory of it does.",
+      "note": "INJECTED 2026-10-15. Category 5 quote/memorable line on a mechanic no entry covers: invoices don't vanish but your memory of them does, so unpaid money leaks silently. Distinct from Forgot-Truth hooks (those ask a question the viewer can't answer; this is a standalone quotable flip). Triggers: contrasting element (money that persists vs memory that fades) + transformation (knowing what's actually owed). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 0
     }
   ],
   "rotation": "round_robin",
-  "last_used": "2026-10-13"
+  "last_used": null
 }

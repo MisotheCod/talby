@@ -39,8 +39,7 @@
       "concept": "reveal an absurd-but-true baseline stat about how most people actually operate, framed as 'this is normal and it is insane'.",
       "talby_adaptation": "'most creators have no idea what they are owed this year. that is not okay but it is normal. here is the fix in one screen.' big-number contrast hook.",
       "needs_product_demo": true,
-      "uses": 3,
-      "last_used": "2026-10-10"
+      "uses": 3
     },
     {
       "id": "voice_of_the_screen",
@@ -54,5 +53,5 @@
       "last_note": "2026-10-14 fill_blank / voice_of_the_screen"
     }
   ],
-  "last_used": "2026-10-13"
+  "last_used": null
 }

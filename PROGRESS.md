@@ -12,6 +12,11 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   Switch, Skeleton, Avatar (initials, rAvatar), Alert + StateBlock (kit `blk`
   empty/error). Evidence: tsc exit 0, `next build` compiled + 42/42 pages,
   `npm test` 22/22.
+- **2. Overlays to kit.js** — Dialog + AlertDialog (card/rDialog/shPop, overlay
+  --t-overlay), Sheet (right side 480px tablet / full phone), Drawer (bottom
+  sheet, rDialog), DropdownMenu (pop + 34px items rItem), Popover (pop),
+  Tooltip (fg/card, 30px, rItem), Sonner (card/rCard/shPop, top on phone).
+  Evidence: tsc exit 0, `next build` compiled + 42/42 pages.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.
