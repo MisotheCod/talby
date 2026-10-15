@@ -1,0 +1,25 @@
+{
+  "handoff": "/Users/miso/talby-yomi-handoff/talby-yomi-handoff",
+  "bar": 0.5,
+  "baseUrl": "http://localhost:3111",
+  "accounts": {
+    "sample": { "email": "fixture.sample@talby.test", "pw": "Shot123!x" },
+    "empty": { "email": "fixture.empty@talby.test", "pw": "Shot123!x" },
+    "trial": { "email": "fixture.trial@talby.test", "pw": "Shot123!x" },
+    "pastdue": { "email": "fixture.pastdue@talby.test", "pw": "Shot123!x" },
+    "canceled": { "email": "fixture.canceled@talby.test", "pw": "Shot123!x" },
+    "readonly": { "email": "fixture.readonly@talby.test", "pw": "Shot123!x" }
+  },
+  "cases": [
+    { "id": "15a", "name": "SOverview", "ref": "SOverview__studio-light.png", "route": "/", "theme": "studio", "mode": "light", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15b", "name": "SOverview", "ref": "SOverview__studio-dark.png", "route": "/", "theme": "studio", "mode": "dark", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15c", "name": "SOverview", "ref": "SOverview__sand-light.png", "route": "/", "theme": "sand", "mode": "light", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15d", "name": "SOverview", "ref": "SOverview__sand-dark.png", "route": "/", "theme": "sand", "mode": "dark", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15e", "name": "SOverview", "ref": "SOverview__mac-light.png", "route": "/", "theme": "mac", "mode": "light", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15f", "name": "SOverview", "ref": "SOverview__mac-dark.png", "route": "/", "theme": "mac", "mode": "dark", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15g", "name": "SOverview", "ref": "SOverview__stationery-light.png", "route": "/", "theme": "stationery", "mode": "light", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15h", "name": "SOverview", "ref": "SOverview__stationery-dark.png", "route": "/", "theme": "stationery", "mode": "dark", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15i", "name": "SOverview", "ref": "SOverview__editorial-light.png", "route": "/", "theme": "editorial", "mode": "light", "viewport": [1440, 900], "account": "sample" },
+    { "id": "15j", "name": "SOverview", "ref": "SOverview__editorial-dark.png", "route": "/", "theme": "editorial", "mode": "dark", "viewport": [1440, 900], "account": "sample" }
+  ]
+}

@@ -118,5 +118,21 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   is skipped (fail-closed on record error). Evidence: 3 calls → 2 rows (dup id
   inserted once), then test rows removed (0 remaining). tsc + build green.
 
+## Parity gate (Run-1 requirement, needed to TICK any screen item)
+- **Parity harness** — `e2e/parity-map.json` (case registry: id, board ref,
+  route, theme, mode, viewport, account) + `e2e/run-parity.cjs` (Playwright +
+  pixelmatch@5 + pngjs). Per case: sign in as the seeded fixture account, set
+  theme+mode via localStorage, render the live screen full-page, pixelmatch
+  against the handoff reference PNG (threshold 0.1), crop-overlap aware,
+  diff written to /tmp/talby-parity, PASS only when diff < 0.5%.
+  Evidence it runs: `node e2e/run-parity.cjs --case 15a` → the current
+  (not-yet-rebuilt) Overview measures **3.677%** vs SOverview__studio-light
+  (1440x900 vs 1440x1291) — the tool executes, crops safety, writes the diff
+  PNG and exits non-zero on failure. The screens themselves (items 15+) are
+  NOT yet rebuilt, so every screen case now fails the bar until each is
+  restyled to match its boards; the harness is the gate those items must pass.
+  This is the tooling the checklist's "parity under 0.5 percent against its
+  listed screenshots" step requires.
+
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.
