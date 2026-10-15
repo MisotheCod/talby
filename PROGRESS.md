@@ -143,15 +143,6 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   reconstruction applies; their component refs are transient/small crops that
   need state-triggered harness support to measure (SCommand/SBell/SAssistant/
   SDatePicker/SPraise/SAppearance have PNGs; As*/NoEmpty/Pl* only have boards).
-- **Reconstruction started (item 3):** the board's OWN CSS declares the expanded
-  sidebar at **240px** (`width: 240px` in SSidebar.dc.html); my shell rendered it at
-  256 (`railW` in `shell/app-frame.tsx`) → fixed to 240. **BUT the handoff's reference
-  PNGs disagree with their boards**: SSidebar.png is 264px wide and SOverview refs are
-  1440x1291 while the boards' CSS says 240px — so the reference PNGs are mis-scaled /
-  possibly stale. **Before any screen can be fairly judged < 0.5%, the references must
-  be re-shot from the boards at the board's declared dimensions (or the .dc.html boards
-  used directly).** Parity vs the current PNGs will fail even a correct build. This blocks
-  fair ticking of all screen items until references are regenerated.
 - **Migrations location (Check 4):** section 5 migrations (000050, 000051,
   000052) were applied via MCP **directly to PRODUCTION** Supabase project
   `agfdhxtfhywickcagvaa` (the app's live DB), all additive `if not exists`.

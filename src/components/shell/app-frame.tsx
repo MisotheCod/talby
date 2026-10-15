@@ -66,7 +66,7 @@ export function AppFrame({
   useEffect(() => { setDrawer(false); }, [path]);
 
   const collapsed = sidebar === "icons";
-  const railW = collapsed ? 72 : 240; // board SSidebar CSS: expanded sidebar = 240px
+  const railW = collapsed ? 72 : 256;
 
   return (
     <div className="flex min-h-screen w-full" style={{ background: "var(--t-page)", color: "var(--t-fg)", fontFamily: "var(--t-body-fam)" }}>
