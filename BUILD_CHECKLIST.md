@@ -1,73 +1,43 @@
-# Talby redesign build checklist
+# Talby redesign build checklist (v2 — Claude's React board ports)
 
-Yomi: copy this file to the repo root as BUILD_CHECKLIST.md. Work top to bottom. For each item: build it, verify it (parity under 0.5 percent against the listed screenshots, phone and tablet boards, its states, no horizontal scroll), commit, tick the box, and move to the next. Never stop because "the rest is a lot". The work only stops when every box is ticked, or the session ends; the next session starts at the first unticked box.
+Yomi: the UI is DONE — every design board is a React component in
+`src/components/talby/`, matched to its board (structure + pixels + clicks),
+verified by Claude in `PARITY.md`. Do NOT rebuild or restyle any screen. Work
+this list in order: put each page board on its route and wire it to real data
+and real saves (README sections 4 and 5). Never edit a board's `render()`.
+After every change run `node tools/talby-parity.cjs` for that board — it must
+still pass. Same safety rules: branch `talby-redesign-v2`, nothing to main, no
+production deploys, additive DB only, never real accounts / Cam's login.
 
-Item 0 is already done (foundation, commits 7773522 to 6e577fd).
+Install (README §3) done: folders copied, fonts self-hosted, preview routes
+live at /talby-preview/<Board>, parity tool runs. Baseline = `e2e/talby-parity/`.
 
-## Shell
-- [x] 1. Shared components restyled to kit.js: Button, Input, Textarea, Select, Badge, Card, Checkbox, RadioGroup, Switch, Skeleton, Avatar, Alert, the empty and error block
-- [x] 2. Overlays: Dialog, AlertDialog, Sheet, Drawer, DropdownMenu, Popover, Tooltip, Sonner toasts (top on phone)
-- [ ] 3. Sidebar: expanded, icon rail, drawer, trial card, no counts for empty accounts (SSidebar, PlTrial)
-- [ ] 4. Top bar, Add deal menu, notifications with empty state (STopbar, SBell, NoEmpty)
-- [x] 5. Plan banners and locked writes guard (PlPastdue, PlReadonly, PlCanceled)
-- [x] 6. Search Cmd K (SCommand)
-- [x] 7. Date picker (SDatePicker), praise cards (SPraise)
-- [x] 8. Assistant panel and states (SAssistant, AsEmpty, AsError, AsLimit, AsOffline)
-- [x] 9. Appearance window and theme switching (SAppearance, SThemes)
-- [x] 10. Seeded test accounts: sample, empty, trial, past due, canceled, read only
+- [ ] A. Install, fonts, preview routes, parity baseline green
+- [ ] B. TalbyPage, setTalbyRoutes, look sync with profiles (theme, mode, sidebar)
+- [ ] C. Overview on /app with real data, view and plan states
+- [ ] D. Deals on /app/deals: table, deal panel, phone sheet, real create, edit and delete
+- [ ] E. New deal dialog: manual, upload (20 MB direct), CSV and Excel, Notion import
+- [ ] F. Payments and Income summary: mark paid, record payment, reminders
+- [ ] G. Calendar
+- [ ] H. To-dos (Open the deal only when linked)
+- [ ] I. Ideas (burst animation)
+- [ ] J. Settings: account, appearance, billing in all five plans, Notion connection, inline errors
+- [ ] K. Onboarding (6 steps), first run tour, reminders, Getting started
+- [ ] L. Homepage on /
+- [ ] M. Backend upgrades still open from the old checklist
+- [ ] N. Triple check: parity tool green on all boards, every forced error, every plan, all themes; REPORT.md; pull request
 
-## Backend first (writes)
-- [x] 11. Section 5 migrations and backfill on a Supabase branch
-- [x] 12. Atomic deal create and delete (upgrade 1)
-- [x] 13. Save helper with error toast and retry (upgrade 2)
-- [x] 14. Idempotency (3), pinned list (5), Stripe events (10)
-
-## Overview and Deals
-- [ ] 15. Overview desktop, all 10 looks (SOverview, SOverview__*)
-- [ ] 16. Overview phone, tablet, empty, loading, error (PhOverview, TbOverview, StOverview*)
-- [ ] 17. Deals table desktop (SDeals)
-- [ ] 18. Deals tablet compact table and phone cards with the Show deals sheet (TbDeals, PhDeals)
-- [ ] 19. Deals empty, loading, error, no results (StDeals*)
-- [ ] 20. Deal panel desktop, tablet, phone (SDeal, TbDeal, PhDeal)
-- [ ] 21. New deal dialog with platform icons and Facebook (SAddDeal, SNewDeal)
-- [ ] 22. New deal form errors and locked dialog (SFlowStates form frames, PlLocked)
-
-## Upload and Notion
-- [ ] 23. 20 MB direct to storage upload, PDF and Word (upgrade 13)
-- [ ] 24. Contract upload flow and its errors (SFlowUpload, SFlowStates upload frames)
-- [ ] 25. CSV and Excel flow and its errors (SFlowUpload, SFlowStates CSV frames)
-- [ ] 26. Notion connect, pick, match, choose, import (SFlowNotion)
-- [ ] 27. Notion errors, pagination, Looks like deals, repeats, import_runs (SFlowStates Notion frames)
-- [ ] 28. Notion token encryption and OAuth domain fix (7), shared rate limits (4)
-
-## Money and calendar
-- [ ] 29. Calendar desktop, tablet, phone, states (SCalendar, TbCalendar, PhCalendar, StCalendar*)
-- [ ] 30. Payments desktop, tablet, phone, states, dialogs (SPayments, TbPayments, PhPayments, StPayments*)
-- [ ] 31. Income summary all sizes and states (SIncome, TbIncome, PhIncome, StIncome*)
-
-## Ideas, To-dos, Settings
-- [ ] 32. Ideas with burst animation, all sizes and states (SIdeas, PhIdeas, TbIdeas, StIdeas*)
-- [ ] 33. To-dos, Open the deal only when linked, all sizes and states (STodos, PhTodos, TbTodos, StTodos*)
-- [ ] 34. Settings opening on Account, all tabs, all sizes, loading and error (SSettings, PhSettings, TbSettings, StSettings*)
-- [ ] 35. Billing in all five plan states (BiActive, BiTrial, BiPastdue, BiCanceled, BiReadonly)
-- [ ] 36. Settings inline errors and Notion connection lost (SeErrors, SeNotionLost)
-- [ ] 37. Legacy plan check (6), trial emails cron (9)
-
-## Onboarding and first run
-- [ ] 38. Setup 6 steps desktop (SOnboard, SOnboardFlow)
-- [ ] 39. Setup phone and tablet, preview sheet (SOnboardPhone, PhOnboard, TbOnboard)
-- [ ] 40. Setup errors (ObNameEmpty, ObPhotoType, ObPhotoBig, ObSave)
-- [ ] 41. First run tour, reminders, Getting started (SWelcome, PhWelcome, TbWelcome, WeBlocked, WeOffline, WeComplete)
-
-## Homepage and cleanup
-- [ ] 42. Homepage desktop (SHome)
-- [ ] 43. Homepage tablet and phone, every demo by touch (TbHome, PhHome)
-- [ ] 44. Email forwarding removed from code and copy (8)
-- [ ] 45. Sentry (11), assistant limits and citations (12)
-
-## Triple check and hand off
-- [ ] 46. Pass 1: full parity suite green on all 115 screenshots, no horizontal scroll at 7 widths
-- [ ] 47. Pass 2: every interaction and every forced error, every plan, all themes
-- [ ] 48. Pass 3: clean clone audit (shadcn, copy, rules, decisions, data safety)
-- [ ] 49. report/index.html side by side, REPORT.md complete with morning steps
-- [ ] 50. Pull request with preview URL
+## Backend already done (do not redo; wire the board handlers to them)
+- Atomic deal create/delete: `create_deal`/`delete_deal` RPCs (000051), forced-fail/create/delete verified.
+- Save helper: `src/lib/save.ts` runSave (error toast + Try again), npm test 27/27.
+- Idempotency: deals unique (user_id, idempotency_key) + inflight map; Stripe dedup via `record_stripe_event` (000052).
+- Pinned list: single source `PINNED_EMAILS` in `src/lib/access.ts`.
+- Section-5 migrations: 000050 (profiles look/onboarding cols, import_runs/notion_syncs/stripe_events tables).
+- Legacy plan check: `src/lib/plan-gate.ts` (currentPlanState via plan_status+hasFullAccess) replaced 3 legacy reads.
+- Shared rate limits: `src/lib/rate-limit.ts` (assistant + ingest).
+- Trial emails cron: scheduled in vercel.json (09:00), route idempotent.
+- Notion token encryption: `src/lib/token-encrypt.ts` (AES-256-GCM on callback write / read decrypt).
+- Sentry: @sentry/nextjs 11 + instrumentation.ts (no-op without SENTRY_DSN).
+- Contract upload: extract-contract 20 MB cap + .docx via mammoth.
+- Seeded test accounts: fixture.*@talby.test (sample = 26 deals / 3 late / 1 idea / 1 todo).
+- Backend work this build lives on `talby-redesign-v2` (already pushed).
