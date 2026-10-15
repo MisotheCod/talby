@@ -23,6 +23,7 @@ import { AppSidebar, type NavKey } from "@/components/shell/sidebar";
 import { AppTopbar } from "@/components/shell/topbar";
 import type { Notif } from "@/components/shell/notifications";
 import { PlanBanner, type PlanState } from "@/components/shell/plan-banner";
+import { SearchPalette, useCmdK } from "@/components/shell/search";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -239,6 +240,8 @@ export function AppShell({
     return "Overview";
   })();
   const shellNotifs: Notif[] = [];
+  const [searchOpen, setSearchOpen] = useState(false);
+  useCmdK((next) => setSearchOpen(next), searchOpen);
 
   // Content max-width: the wide cap applies to every page so the whole app
   // keeps a consistent column width. No per-page variance.
@@ -343,6 +346,7 @@ export function AppShell({
           mob={mobileOpen || false}
           notifications={shellNotifs}
           onNav={() => setMobileOpen((o) => !o)}
+          onSearch={() => setSearchOpen(true)}
           onAppearance={() => { window.location.href = "/app/settings?tab=appearance"; }}
           onAddPick={(k) => {
             if (k === "new") window.location.href = "/app/deals?new=1";
@@ -359,6 +363,16 @@ export function AppShell({
           {children}
         </main>
         <AssistantLauncher />
+        <SearchPalette
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onAction={(a) => {
+            if (a === "new") window.location.href = "/app/deals?new=1";
+            else if (a === "upload") window.location.href = "/app/import?source=csv";
+            else if (a === "notion") window.location.href = "/app/import?source=notion";
+            else if (a === "appearance") window.location.href = "/app/settings?tab=appearance";
+          }}
+        />
         <CoachTour open={pathname === "/app" && tourOpen} steps={tourSteps} onDone={completeTour} />
         {notifPrompt && <NotificationPrompt onDone={() => setNotifPrompt(false)} />}
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}

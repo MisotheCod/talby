@@ -41,6 +41,14 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   /api/deals/[id], and extract-contract (403 for read-only). Evidence: tsc +
   build green; live render showed the trial banner "14 days left in your free
   trial." + Subscribe (earlier vision analysis).
+- **6. Search Cmd K** — `shell/search.tsx`: SearchPalette (overlay + input +
+  scope chips All/Deals/Payments/Calendar/To-dos/Ideas/Pages, Recent from
+  `talby.recentSearch`, Quick actions + Jump to groups, Ask Talby row, footer
+  with ↑↓↵esc + results count, keyboard ↑↓EnterEscape) + `useCmdK`. Wired into
+  the shell (Cmd/Ctrl K). Evidence: live — Cmd K opens the palette, scopes
+  `["All","Deals","Payments","Calendar","To-dos","Ideas","Pages"]`, groups show
+  Recent chips + Quick actions (New deal/Upload/Import from Notion) + Jump to,
+  footer present. Screenshot `search-open.png`.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.
