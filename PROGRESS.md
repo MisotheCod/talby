@@ -49,6 +49,12 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   `["All","Deals","Payments","Calendar","To-dos","Ideas","Pages"]`, groups show
   Recent chips + Quick actions (New deal/Upload/Import from Notion) + Jump to,
   footer present. Screenshot `search-open.png`.
+- **7. Date picker + praise** — `shell/date-picker.tsx`: trigger (md/sm,
+  fill/outline, clear, chevron) + popover (296px, rTile, header prev/next +
+  Month Year, Su..Sa grid 42 cells with today ring / selected primary / outside
+  muted, Presets Today Tomorrow In a week). `shell/praise.tsx`: confetti burst +
+  check badge, title, green chip, line, dismiss, 4.8s timer bar; mounted in the
+  shell. Evidence: tsc exit 0, `next build` green.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.

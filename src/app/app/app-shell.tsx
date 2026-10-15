@@ -24,6 +24,7 @@ import { AppTopbar } from "@/components/shell/topbar";
 import type { Notif } from "@/components/shell/notifications";
 import { PlanBanner, type PlanState } from "@/components/shell/plan-banner";
 import { SearchPalette, useCmdK } from "@/components/shell/search";
+import { Praise, type PraiseData } from "@/components/shell/praise";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -242,6 +243,8 @@ export function AppShell({
   const shellNotifs: Notif[] = [];
   const [searchOpen, setSearchOpen] = useState(false);
   useCmdK((next) => setSearchOpen(next), searchOpen);
+  const [praise, setPraise] = useState<PraiseData | null>(null);
+  const celebrate = (pz: PraiseData) => { setPraise({ ...pz, id: Date.now() }); };
 
   // Content max-width: the wide cap applies to every page so the whole app
   // keeps a consistent column width. No per-page variance.
@@ -376,6 +379,7 @@ export function AppShell({
         <CoachTour open={pathname === "/app" && tourOpen} steps={tourSteps} onDone={completeTour} />
         {notifPrompt && <NotificationPrompt onDone={() => setNotifPrompt(false)} />}
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
+        <Praise data={praise} onClose={() => setPraise(null)} />
       </div>
     </div>
   );
