@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createServiceClient } from "@/lib/supabase/server";
 import { exchangeCode } from "@/lib/notion-server";
+import { encryptToken } from "@/lib/token-encrypt";
 
 export const dynamic = "force-dynamic";
 
@@ -118,7 +119,7 @@ export async function GET(req: Request) {
     const service = createServiceClient();
     const { error: upsertErr } = await service.from("notion_connections").upsert({
       user_id,
-      access_token: tok.access_token,
+      access_token: encryptToken(tok.access_token),
       workspace_name: tok.workspace_name,
       workspace_id: tok.workspace_id,
       bot_id: tok.bot_id,

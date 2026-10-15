@@ -2,6 +2,7 @@ import "server-only";
 import { NOTION_CLIENT_ID, NOTION_CLIENT_SECRET, NOTION_REDIRECT_URI } from "@/lib/server-config";
 import { NOTION_VERSION } from "@/lib/constants";
 import { createServiceClient } from "@/lib/supabase/server";
+import { decryptToken } from "@/lib/token-encrypt";
 
 /**
  * Server-only Notion connection (import source).
@@ -76,7 +77,9 @@ export async function getNotionToken(userId: string): Promise<NotionToken | null
     .select("access_token, bot_id, workspace_id, workspace_name, notion_user_id")
     .eq("user_id", userId)
     .maybeSingle();
-  return (data as unknown as NotionToken) ?? null;
+  const row = data as unknown as NotionToken | null;
+  if (!row) return null;
+  return { ...row, access_token: decryptToken(row.access_token) ?? "" };
 }
 
 const AUTH_HEADERS = (token: string) => ({
