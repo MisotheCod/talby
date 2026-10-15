@@ -10,6 +10,11 @@
 import * as React from 'react';
 import * as Boards from '@/components/talby/_index';
 import { TalbyRoot } from '@/components/talby/_runtime';
+import { initTalbyRoutes } from '@/components/talby-app/routes';
+
+// Real app routes only (preview uses its own setTalbyRoutes). Boards link to
+// each other by name; route them to the live app paths before any render.
+initTalbyRoutes();
 
 export interface TalbyLook {
   theme?: string;
