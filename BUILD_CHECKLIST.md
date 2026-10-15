@@ -13,7 +13,7 @@ Item 0 is already done (foundation, commits 7773522 to 6e577fd).
 - [x] 6. Search Cmd K (SCommand)
 - [x] 7. Date picker (SDatePicker), praise cards (SPraise)
 - [x] 8. Assistant panel and states (SAssistant, AsEmpty, AsError, AsLimit, AsOffline)
-- [ ] 9. Appearance window and theme switching (SAppearance, SThemes)
+- [x] 9. Appearance window and theme switching (SAppearance, SThemes)
 - [ ] 10. Seeded test accounts: sample, empty, trial, past due, canceled, read only
 
 ## Backend first (writes)

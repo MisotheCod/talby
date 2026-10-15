@@ -62,6 +62,13 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   states with Try again. Wired into the shell (streams /api/assistant). Evidence:
   live — fab present, panel renders "Talby Assistant … Hi there. What do you
   want to know? …". Screenshot `assistant.png`. tsc + build green.
+- **9. Appearance + theme switching** — `shell/appearance.tsx`: dialog with the
+  five theme tiles (each mini-previewed in its own tokens) + Mode (Light/Dark/
+  System) + Sidebar (Expanded/Icons only), applied live via useTheme. Wired to
+  the top-bar Appearance button. Evidence: live — dialog lists Studio/Sand/Mac/
+  Stationery/Editorial + modes + sidebar; clicking Sand switched `--t-page`
+  #FFFFFF → #F5EFE8 and `data-theme=sand` (correct Sand token). Screenshots
+  `appearance.png`, `appearance-sand.png`. tsc + build green.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.

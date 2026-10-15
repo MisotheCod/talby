@@ -25,6 +25,7 @@ import type { Notif } from "@/components/shell/notifications";
 import { PlanBanner, type PlanState } from "@/components/shell/plan-banner";
 import { SearchPalette, useCmdK } from "@/components/shell/search";
 import { Praise, type PraiseData } from "@/components/shell/praise";
+import { AppearanceDialog } from "@/components/shell/appearance";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -245,6 +246,7 @@ export function AppShell({
   useCmdK((next) => setSearchOpen(next), searchOpen);
   const [praise, setPraise] = useState<PraiseData | null>(null);
   const celebrate = (pz: PraiseData) => { setPraise({ ...pz, id: Date.now() }); };
+  const [appearOpen, setAppearOpen] = useState(false);
 
   // Content max-width: the wide cap applies to every page so the whole app
   // keeps a consistent column width. No per-page variance.
@@ -350,7 +352,7 @@ export function AppShell({
           notifications={shellNotifs}
           onNav={() => setMobileOpen((o) => !o)}
           onSearch={() => setSearchOpen(true)}
-          onAppearance={() => { window.location.href = "/app/settings?tab=appearance"; }}
+          onAppearance={() => setAppearOpen(true)}
           onAddPick={(k) => {
             if (k === "new") window.location.href = "/app/deals?new=1";
             else if (k === "upload") window.location.href = "/app/import?source=csv";
@@ -380,6 +382,7 @@ export function AppShell({
         {notifPrompt && <NotificationPrompt onDone={() => setNotifPrompt(false)} />}
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
         <Praise data={praise} onClose={() => setPraise(null)} />
+        <AppearanceDialog open={appearOpen} onClose={() => setAppearOpen(false)} />
       </div>
     </div>
   );
