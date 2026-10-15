@@ -1,22 +1,17 @@
-# Talby Redesign v2 — PROGRESS
+# PROGRESS — Talby redesign v2
 
-Branch `talby-redesign-v2`. SHIP_TO_PRODUCTION: no. One uninterrupted run.
+Branch `talby-redesign-v2`. Nothing merges to main. Work top to bottom through
+BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
 
-## Phase 1 — Setup (in progress)
-- [x] Branch `talby-redesign-v2` from main
-- [x] Unpacked handoff to `/Users/miso/talby-yomi-handoff/talby-yomi-handoff/`
-- [x] Copied `tokens/talby-themes.ts` -> `src/lib/theme/talby-themes.ts`
-- [x] Copied `tokens/interactions.css` -> `src/app/interactions.css`
-- [x] Copied `tokens/kit.js` -> `src/lib/theme/kit.js`
-- [x] shadcn init (Radix, mira preset, Tailwind v4)
-- [x] All 37 shadcn base components added to `src/components/ui/`
-- [ ] Talby tokens as CSS vars (theme provider, no flash)
-- [ ] Fonts (Geist, Inter, Fraunces, Playfair Display, DM Mono, Lexend)
-- [ ] Parity tooling (`tools/compare.js`, Playwright deps, seed fixture script)
-- [ ] Seeded test accounts
-
-## Phases 2–12
-Not started.
+- **0. Foundation** — talby-themes tokens + theme provider (CSS vars, no-flash,
+  system-mode live listener), fonts, interactions.css, kit.js, utils helpers.
+  Evidence: commits `7773522`..`6e577fd`, tsc + build green.
+- **1. Shared components to kit.js** — Button (btnP/S/O/G/D + sizes), Input
+  (36px/fill/no-border), Textarea, Select (trigger/content/item), Badge
+  (22px + pay 24px), Card (rCard/border/shCard), Checkbox (16px rBox), RadioGroup,
+  Switch, Skeleton, Avatar (initials, rAvatar), Alert + StateBlock (kit `blk`
+  empty/error). Evidence: tsc exit 0, `next build` compiled + 42/42 pages,
+  `npm test` 22/22.
 
 ## Blocked / notes
-- None yet. `assets/ad/*.json` changes are from the parallel session, left untouched.
+- `assets/ad/*.json` changes are from the parallel session, left untouched.

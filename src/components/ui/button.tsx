@@ -3,32 +3,45 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 import { Slot } from "radix-ui"
 
+/**
+ * Button — restyled to the Talby kit (kit.js / YOMI 2.5, 2.7).
+ * Base (kit `b`): inline-flex, centered, gap 6, height 32, padding 0 14px,
+ * 14px/500, line-height 1, border-radius --t-r-ctl, whitespace-nowrap,
+ * press scale .97 (.tb:active). Variants map 1:1 to the kit:
+ *   default  = btnP  (t.primary / t.primaryFg + t.btnSh, hover opacity .88)
+ *   secondary= btnS  (t.fill / t.fg, hover t.fillHover)
+ *   outline  = btnO  (1px t.border, t.card, hover t.hoverCard / borderStrong)
+ *   ghost    = btnG  (transparent, t.fg, hover --hv)
+ *   destructive = btnD (t.destrBg, white)
+ * Sizes: default 32 / xs 24 / sm 28 / lg 38 block / icon 32 / icon-xs 24 /
+ * icon-sm 28 / icon-lg 32.
+ */
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding text-xs/relaxed font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "tb inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap border border-transparent font-medium leading-none outline-none select-none transition-[background-color,color,border-color,box-shadow,opacity,transform] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--ring)] active:scale-[.97] disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
-        outline:
-          "border-border hover:bg-input/50 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:bg-input/30",
+        default:
+          "bg-[color:var(--t-primary)] text-[color:var(--t-primary-fg)] shadow-[var(--t-btn-sh)] hover:opacity-88",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-[color:var(--t-fill)] text-[color:var(--t-fg)] hover:bg-[color:var(--t-fill-hover)]",
+        outline:
+          "border-[color:var(--t-border)] bg-[color:var(--t-card)] text-[color:var(--t-fg)] hover:border-[color:var(--t-border-strong)] hover:bg-[color:var(--t-hover-card)]",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "bg-transparent text-[color:var(--t-fg)] hover:bg-[color:var(--hv)]",
         destructive:
-          "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-[color:var(--destructive)] text-white hover:opacity-90",
+        link: "text-[color:var(--t-brand-accent)] underline-offset-4 hover:underline",
       },
       size: {
-        default:
-          "h-7 gap-1 px-2 text-xs/relaxed has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        xs: "h-5 gap-1 rounded-sm px-2 text-[0.625rem] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-2.5",
-        sm: "h-6 gap-1 px-2 text-xs/relaxed has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        lg: "h-8 gap-1 px-2.5 text-xs/relaxed has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-4",
-        icon: "size-7 [&_svg:not([class*='size-'])]:size-3.5",
-        "icon-xs": "size-5 rounded-sm [&_svg:not([class*='size-'])]:size-2.5",
-        "icon-sm": "size-6 [&_svg:not([class*='size-'])]:size-3",
-        "icon-lg": "size-8 [&_svg:not([class*='size-'])]:size-4",
+        default: "h-8 rounded-[var(--t-r-ctl)] px-3.5 text-sm",
+        xs: "h-6 gap-1 rounded-[var(--t-r-ctl)] px-2 text-[11px]",
+        sm: "h-7 rounded-[var(--t-r-ctl)] px-3 text-[13px]",
+        lg: "h-[38px] w-full rounded-[var(--t-r-ctl)] px-3.5 text-sm",
+        icon: "size-8 rounded-[var(--t-r-ctl)]",
+        "icon-xs": "size-6 rounded-[var(--t-r-ctl)]",
+        "icon-sm": "size-7 rounded-[var(--t-r-ctl)]",
+        "icon-lg": "size-8 rounded-[var(--t-r-ctl)]",
       },
     },
     defaultVariants: {

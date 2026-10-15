@@ -76,7 +76,8 @@ export function applyLook(look: Look, systemDark: boolean) {
     "--t-h-case": t.hCase, "--t-h-track": t.hTrack, "--t-h-scale": String(t.hScale), "--t-n-track": t.nTrack,
     "--t-r-card": t.rCard, "--t-r-tile": t.rTile, "--t-r-dialog": t.rDialog, "--t-r-ctl": t.rCtl,
     "--t-r-sm": t.rSm, "--t-r-item": t.rItem, "--t-r-box": t.rBox, "--t-r-ev": t.rEv,
-    "--t-r-bar": t.rBar, "--t-r-pill": t.rPill,
+    "--t-r-bar": t.rBar, "--t-r-pill": t.rPill, "--t-r-avatar": t.r ? "16px" : "0px",
+    "--t-destr": t.destr, "--t-destr-bg": t.destrBg,
     "--hv": t.hv, "--hvr": t.hvr, "--bd2": t.borderStrong, "--fg": t.fg, "--ring": t.ring, "--shh": t.shHover,
   };
   const style = el.style;
