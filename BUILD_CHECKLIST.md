@@ -17,7 +17,7 @@ Item 0 is already done (foundation, commits 7773522 to 6e577fd).
 - [x] 10. Seeded test accounts: sample, empty, trial, past due, canceled, read only
 
 ## Backend first (writes)
-- [ ] 11. Section 5 migrations and backfill on a Supabase branch
+- [x] 11. Section 5 migrations and backfill on a Supabase branch
 - [ ] 12. Atomic deal create and delete (upgrade 1)
 - [ ] 13. Save helper with error toast and retry (upgrade 2)
 - [ ] 14. Idempotency (3), pinned list (5), Stripe events (10)

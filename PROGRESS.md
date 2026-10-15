@@ -74,6 +74,13 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   live — 6 accounts seeded: sample (active + 3 deals), empty (none), trial
   (trialing, 9d), pastdue (past_due, 4d), canceled (canceled), readonly (none).
   Emails `fixture.*@talby.test`. Never touches real accounts.
+- **11. Section 5 migrations** — `supabase/migrations/000050_redesign_v2.sql`
+  (additive, `if not exists`). Applied live. Evidence: verified via SQL — 10 new
+  profile columns present (theme, mode, sidebar, platforms, deal_volume,
+  onboarding_completed_at, tour_seen_at, getting_started_dismissed_at,
+  assistant_first_used_at, reminders_asked_at) and 3 new tables present
+  (import_runs, notion_syncs, stripe_events). Backfill set
+  onboarding_completed_at for accounts past step 4.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.
