@@ -47,7 +47,7 @@ function cropRegion(png, region) {
 
   for (const c of cases) {
     const { crop } = c; // optional [x,y,w,h] region applied to ref AND live
-    const refPath = path.join(HANDOFF, "screenshots", c.ref);
+    const refPath = path.join(HANDOFF, c.ref);
     if (!fs.existsSync(refPath)) { console.log(`FAIL ${c.id} ${c.name}: missing reference ${refPath}`); results.push({ id: c.id, pass: false }); continue; }
     const refImg = PNG.sync.read(fs.readFileSync(refPath));
     // Same capture as shoot-boards: viewport = board w x min(board h, 2000).

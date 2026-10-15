@@ -1,16 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Inter, Fraunces, Playfair_Display, DM_Mono, Lexend } from "next/font/google";
 import "./globals.css";
+import "./fonts.css";
 import "./interactions.css";
 import "./marketing.css";
 import { ThemeProvider } from "@/components/theme-provider";
-
-const geist = Geist({ variable: "--font-geist", subsets: ["latin"], display: "swap" });
-const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
-const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], display: "swap" });
-const playfair = Playfair_Display({ variable: "--font-playfair", subsets: ["latin"], display: "swap" });
-const dmMono = DM_Mono({ variable: "--font-dmmono", weight: ["400", "500"], subsets: ["latin"], display: "swap" });
-const lexend = Lexend({ variable: "--font-lexend", subsets: ["latin"], weight: "500", display: "swap" });
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
@@ -57,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geist.variable} ${inter.variable} ${fraunces.variable} ${playfair.variable} ${dmMono.variable} ${lexend.variable} h-full antialiased`}
+      className={`h-full antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />

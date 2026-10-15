@@ -45,6 +45,7 @@ next-env.d.ts
 *.cjs
 # ...but keep the real, version-controlled harnesses/seeders
 !e2e/run-parity.cjs
+!e2e/shoot-baseline.cjs
 !scripts/seed-design-fixture.cjs
 !scripts/drawer-save-regression.cjs
 

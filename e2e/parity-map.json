@@ -1,5 +1,5 @@
 {
-  "handoff": "/Users/miso/talby-yomi-handoff/talby-yomi-handoff",
+  "handoff": "/Users/miso/talby/e2e/baseline",
   "bar": 0.5,
   "baseUrl": "http://localhost:3111",
   "threshold": 0.02,
