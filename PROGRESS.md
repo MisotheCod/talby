@@ -143,6 +143,25 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   reconstruction applies; their component refs are transient/small crops that
   need state-triggered harness support to measure (SCommand/SBell/SAssistant/
   SDatePicker/SPraise/SAppearance have PNGs; As*/NoEmpty/Pl* only have boards).
+- **Corrections applied (after user review):** sidebar is 256px expanded / 72px
+  icons (`sbW` in every page board) — NOT 240 (that's the account-menu popup);
+  reverted the 240 change. Reference PNGs are VALID (made by tools/shoot-boards.js:
+  viewport = board w x min(h,2000), dsf 1, networkidle, fonts.ready, 2600ms,
+  fullPage) and run-parity.cjs now captures the live app the SAME way. Shell cases
+  (3a/3b/4a) compare the sidebar/topbar regions cropped OUT of the page boards
+  (SOverview__studio-light / SOverview__sidebar-icons), not the standalone
+  SSidebar.png. Threshold stays 0.02. Cross-check: re-rendering SOverview with
+  shoot-boards reproduces the committed ref at **1.694%** (not 0.000) — font-load
+  nondeterminism sets a noise floor; flag when calibrating the 0.5% bar.
+- **Backup taken (Check 4).** Full JSON dump of every table via service role:
+  **`backups/talby_backup_20261015_134002.json`** (44 profiles, 102 deals, 207
+  payments, 143 content, 19 extras, 15 files, 82 inbox_leads). Read-only
+  confirmation from migration source: migrations 000050/051/052 are purely
+  additive; every backfill UPDATE.SET writes ONLY columns the migration itself
+  added (theme, mode, onboarding_completed_at, tour_seen_at); legacy columns
+  appear only in WHERE filters — so NO pre-existing column of any real account
+  changed. **No further production DB changes during this build; use a Supabase
+  branch from here on.**
 - **Migrations location (Check 4):** section 5 migrations (000050, 000051,
   000052) were applied via MCP **directly to PRODUCTION** Supabase project
   `agfdhxtfhywickcagvaa` (the app's live DB), all additive `if not exists`.

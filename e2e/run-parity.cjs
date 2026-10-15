@@ -1,15 +1,19 @@
 "use strict";
 /**
  * run-parity.cjs — the parity gate for the redesign build loop.
- * For every case (or a --case 15a filter) it signs in as the case's seeded
- * fixture account, sets theme+mode, renders the live screen full-page, and
- * pixelmatches against the handoff reference PNG (threshold 0.1). A case
- * passes only when diff < bar (0.5%). This is the "<0.5% against its listed
- * screenshots" check the checklist demands. Uses only fixture.*@talby.test
- * accounts — never real accounts, never THE user's login.
  *
- * Usage (local dev server on :3111):
- *   node e2e/run-parity.cjs [--case 15a] [--base http://localhost:3111]
+ * Captures the LIVE app exactly like tools/shoot-boards.js captures the boards:
+ *   viewport = board width x min(board height, 2000), deviceScaleFactor 1,
+ *   goto networkidle (fallback domcontentloaded), fonts.ready, 2600ms wait,
+ *   fullPage screenshot. Diff vs the handoff reference PNG with pixelmatch
+ *   (threshold = map.threshold, default 0.02). PASS only when diff < 0.5%.
+ *
+ * A case may set `crop:[x,y,w,h]` — the same region is cropped from the
+ * reference and from the live fullPage shot (e.g. just the sidebar or top bar
+ * cut out of a page board). Shell items compare against PAGE boards, not the
+ * standalone component PNGs. Uses only fixture.*@talby.test accounts.
+ *
+ * Usage: node e2e/run-parity.cjs [--case 15a] [--all]   (BASE_URL env to point elsewhere)
  * Exits 1 if any selected case fails the bar.
  */
 const { chromium } = require("playwright");
@@ -21,12 +25,19 @@ const path = require("path");
 const map = require("./parity-map.json");
 const HANDOFF = map.handoff;
 const BAR = map.bar;
-const BASE = process.env.BASE_URL || (process.argv.find((a) => a === "--base") ? process.argv[process.argv.indexOf("--base") + 1] : map.baseUrl);
-const CASE_ID = process.argv.includes("--case") ? process.argv[process.argv.indexOf("--case") + 1] : null;
+const THOLD = map.threshold ?? 0.02;
+const BASE = process.env.BASE_URL || map.baseUrl;
+const o = process.argv;
+const CASE_ID = o.includes("--case") ? o[o.indexOf("--case") + 1] : null;
 const outputDir = "/tmp/talby-parity";
 fs.mkdirSync(outputDir, { recursive: true });
 
-function pct(bytes) { return PNG.sync.read(bytes); }
+function cropRegion(png, region) {
+  const [x, y, w, h] = region;
+  const out = new PNG({ width: w, height: h });
+  PNG.bitblt(png, out, x, y, w, h, 0, 0);
+  return out;
+}
 
 (async () => {
   const cases = CASE_ID ? map.cases.filter((c) => c.id === CASE_ID) : map.cases;
@@ -35,10 +46,14 @@ function pct(bytes) { return PNG.sync.read(bytes); }
   const browser = await chromium.launch({ headless: true });
 
   for (const c of cases) {
-    const { clip } = c; // optional [x,y,w,h] region capture for component refs
-    const context = await browser.newContext({
-      viewport: { width: c.viewport[0], height: c.viewport[1] },
-    });
+    const { crop } = c; // optional [x,y,w,h] region applied to ref AND live
+    const refPath = path.join(HANDOFF, "screenshots", c.ref);
+    if (!fs.existsSync(refPath)) { console.log(`FAIL ${c.id} ${c.name}: missing reference ${refPath}`); results.push({ id: c.id, pass: false }); continue; }
+    const refImg = PNG.sync.read(fs.readFileSync(refPath));
+    // Same capture as shoot-boards: viewport = board w x min(board h, 2000).
+    const VW = refImg.width;
+    const VH = Math.min(refImg.height, 2000);
+    const context = await browser.newContext({ viewport: { width: VW, height: VH }, deviceScaleFactor: 1 });
     await context.addInitScript(({ theme, mode }) => {
       try { localStorage.setItem("talby.look", JSON.stringify({ theme, mode, sidebar: "expanded" })); } catch {}
     }, { theme: c.theme, mode: c.mode });
@@ -51,31 +66,32 @@ function pct(bytes) { return PNG.sync.read(bytes); }
       await page.fill("input[type=password]", acc.pw);
       await page.locator("button[type=submit]").first().click();
       await page.waitForURL(/\/app/, { timeout: 20000 }).catch(() => {});
-      await page.goto(`${BASE}/app${c.route}`, { waitUntil: "domcontentloaded", timeout: 40000 });
-      await page.waitForTimeout(2500);
+      await page.goto(`${BASE}/app${c.route}`, { waitUntil: "networkidle", timeout: 40000 }).catch(async () => {
+        await page.goto(`${BASE}/app${c.route}`, { waitUntil: "domcontentloaded", timeout: 40000 });
+      });
+      await page.evaluate(() => (document.fonts && document.fonts.ready));
+      await page.waitForTimeout(c.wait ?? 2600);
 
-      const shot = clip
-        ? await page.screenshot({ clip: { x: clip[0], y: clip[1], width: clip[2], height: clip[3] }, animations: "disabled" })
-        : await page.screenshot({ fullPage: true, animations: "disabled" });
-      const refPath = path.join(HANDOFF, "screenshots", c.ref);
-      if (!fs.existsSync(refPath)) throw new Error(`missing reference ${refPath}`);
-      const A = PNG.sync.read(fs.readFileSync(refPath));
+      const shot = await page.screenshot({ fullPage: true, animations: "disabled" });
       const B = PNG.sync.read(shot);
-      const w = Math.min(A.width, B.width), h = Math.min(A.height, B.height);
-      const sizeNote = (A.width !== B.width || A.height !== B.height) ? ` (size ${B.width}x${B.height} vs ${A.width}x${A.height})` : "";
-      // pixelmatch needs both buffers shaped (w,h); crop both to the overlap.
+      const A = crop ? cropRegion(refImg, crop) : refImg;
+      const live = crop ? cropRegion(B, crop) : B;
+      const w = Math.min(A.width, live.width), h = Math.min(A.height, live.height);
+      const note = (A.width !== live.width || A.height !== live.height)
+        ? ` (region ${live.width}x${live.height} vs ${A.width}x${A.height})` : "";
       const ca = new PNG({ width: w, height: h }), cb = new PNG({ width: w, height: h });
       PNG.bitblt(A, ca, 0, 0, w, h, 0, 0);
-      PNG.bitblt(B, cb, 0, 0, w, h, 0, 0);
+      PNG.bitblt(live, cb, 0, 0, w, h, 0, 0);
       const diff = new PNG({ width: w, height: h });
-      const n = pixelmatch(ca.data, cb.data, diff.data, w, h, { threshold: map.threshold ?? 0.02 });
+      const n = pixelmatch(ca.data, cb.data, diff.data, w, h, { threshold: THOLD });
       const p = (100 * n) / (w * h);
       fs.writeFileSync(path.join(outputDir, `${c.id}-${c.name}-diff.png`), PNG.sync.write(diff));
-      results.push({ id: c.id, name: c.name, pct: +p.toFixed(3), pass: p < BAR, sizeNote });
-      console.log(`${c.pass ? "PASS" : "FAIL"} ${c.id} ${c.name} ${c.theme}-${c.mode}: ${p.toFixed(3)}%${sizeNote} (bar ${BAR}%)`);
+      results.push({ id: c.id, name: c.name, pct: +p.toFixed(3), pass: p < BAR });
+      const label = `${c.id} ${c.name} ${c.theme}-${c.mode}`;
+      console.log(`${p < BAR ? "PASS" : "FAIL"} ${label}: ${p.toFixed(3)}%${note} (bar ${BAR}% thr ${THOLD})`);
     } catch (e) {
-      results.push({ id: c.id, name: c.name, pct: NaN, pass: false, sizeNote: `ERR ${e.message.slice(0, 80)}` });
-      console.log(`FAIL ${c.id} ${c.name}: ERR ${e.message.slice(0, 80)}`);
+      results.push({ id: c.id, name: c.name, pct: NaN, pass: false });
+      console.log(`FAIL ${c.id} ${c.name}: ERR ${e.message.slice(0, 100)}`);
     } finally {
       await context.close();
     }
@@ -86,5 +102,3 @@ function pct(bytes) { return PNG.sync.read(bytes); }
   console.log(`\n${passed}/${results.length} cases passed the ${BAR}% bar. Diffs in ${outputDir}/.`);
   process.exit(passed === results.length ? 0 : 1);
 })().catch((e) => { console.error("FATAL", e.message); process.exit(1); });
-
-function png(buf) { return PNG.sync.read(buf); }
