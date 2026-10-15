@@ -20,6 +20,10 @@
     { "id": "15g", "name": "SOverview", "ref": "SOverview__stationery-light.png", "route": "/", "theme": "stationery", "mode": "light", "viewport": [1440, 900], "account": "sample" },
     { "id": "15h", "name": "SOverview", "ref": "SOverview__stationery-dark.png", "route": "/", "theme": "stationery", "mode": "dark", "viewport": [1440, 900], "account": "sample" },
     { "id": "15i", "name": "SOverview", "ref": "SOverview__editorial-light.png", "route": "/", "theme": "editorial", "mode": "light", "viewport": [1440, 900], "account": "sample" },
-    { "id": "15j", "name": "SOverview", "ref": "SOverview__editorial-dark.png", "route": "/", "theme": "editorial", "mode": "dark", "viewport": [1440, 900], "account": "sample" }
+    { "id": "15j", "name": "SOverview", "ref": "SOverview__editorial-dark.png", "route": "/", "theme": "editorial", "mode": "dark", "viewport": [1440, 900], "account": "sample" },
+
+    { "id": "3a", "name": "SSidebar", "ref": "SSidebar.png", "route": "/", "theme": "studio", "mode": "light", "viewport": [1440, 1000], "account": "sample", "clip": [0, 0, 264, 1000] },
+    { "id": "3b", "name": "SSidebarIcons", "ref": "SOverview__sidebar-icons.png", "route": "/", "theme": "studio", "mode": "light", "viewport": [1440, 900], "account": "sample" },
+    { "id": "4a", "name": "STopbar", "ref": "STopbar.png", "route": "/", "theme": "studio", "mode": "light", "viewport": [1440, 640], "account": "sample", "clip": [0, 0, 1100, 620] }
   ]
 }
