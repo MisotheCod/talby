@@ -17,7 +17,7 @@ import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
   IconNotes, IconLogout, IconSettings,
 } from "@/components/icons";
 import { NotificationBell } from "@/components/notification-bell";
-import { AssistantLauncher } from "@/components/assistant";
+import { AssistantLauncher } from "@/components/shell/assistant";
 import { Button } from "@/components/ui";
 import { AppSidebar, type NavKey } from "@/components/shell/sidebar";
 import { AppTopbar } from "@/components/shell/topbar";

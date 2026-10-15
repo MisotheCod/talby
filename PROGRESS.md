@@ -55,6 +55,13 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   muted, Presets Today Tomorrow In a week). `shell/praise.tsx`: confetti burst +
   check badge, title, green chip, line, dismiss, 4.8s timer bar; mounted in the
   shell. Evidence: tsc exit 0, `next build` green.
+- **8. Assistant** — `shell/assistant.tsx`: fab (Ask Talby, bottom-right /
+  icon-only phone) + panel (400x620 desktop, full-screen phone) — header
+  (avatar, title, sub, New chat, Close), empty state with 4 suggestions,
+  messages, typing dots, composer + disclaimer, and the error / limit / offline
+  states with Try again. Wired into the shell (streams /api/assistant). Evidence:
+  live — fab present, panel renders "Talby Assistant … Hi there. What do you
+  want to know? …". Screenshot `assistant.png`. tsc + build green.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.
