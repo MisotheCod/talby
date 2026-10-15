@@ -153,6 +153,22 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   SSidebar.png. Threshold stays 0.02. Cross-check: re-rendering SOverview with
   shoot-boards reproduces the committed ref at **1.694%** (not 0.000) — font-load
   nondeterminism sets a noise floor; flag when calibrating the 0.5% bar.
+- **Font determinism SOLVED (user: the 1.694% was NOT nondeterminism — the Linux
+  refs used local @fontsource files; macOS rasterizes fonts differently).** Steps:
+  (1) app now self-hosts the same @fontsource latin woff2 via **`src/app/fonts.css`**
+  (families named to match the themes: Geist, Inter, Fraunces, Playfair Display, DM
+  Mono, Lexend), replacing next/font/google — build green.
+  (2) **`e2e/shoot-baseline.cjs`** re-renders boards on THIS machine with the same
+  files (intercepts fonts.googleapis.com, serves the identical woff2) into
+  **`e2e/baseline/`**; parity-map `handoff` now points at e2e/baseline. Verified:
+  **shoot-vs-shoot SOverview = 0.000%** ⇒ the 0.5% bar is now meaningful. Overview
+  live-vs-baseline dropped from ~45% to **15.7%** once fonts matched (remaining =
+  real layout/data, not font). Committed in `afe3988`.
+- **Remaining (user steps 4–5):** seed fixture.sample to the board's exact data
+  (name/handle Chanelica.R, 26 deals, 3 late, badge counts) — table/field names
+  still being located (ideas/todos tables not found by common names) — and then
+  rebuild the sidebar (item 3) against the SOverview crop. Both are the next loop
+  work; sidebar crop currently ~13% (layout+data), overview ~15.7%.
 - **Backup taken (Check 4).** Full JSON dump of every table via service role:
   **`backups/talby_backup_20261015_134002.json`** (44 profiles, 102 deals, 207
   payments, 143 content, 19 extras, 15 files, 82 inbox_leads). Read-only
