@@ -36,7 +36,8 @@
       "script": "creator starts a fill-in-the-blank: 'one thing outsiders get wrong about tracking brand deals is ____.' then shows the product as the correct completion",
       "caption_shape": "ends with '____' to invite replies",
       "engagement": "high",
-      "uses": 2
+      "uses": 3,
+      "last_used": "2026-10-14"
     },
     {
       "id": "overrated",
