@@ -24,6 +24,15 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   test account and rendered /app live: aside present, 6 nav links
   (Overview/Deals/Calendar/Payments/Ideas/To-dos), Settings + user button with
   initials, --t-page #FFFFFF (studio light). Screenshot `/tmp/talby-shell/app-desktop.png`.
+- **4. Top bar + menus** — `shell/topbar.tsx` (nav toggle, title, search pill,
+  appearance, bell, Add deal), `shell/add-deal-menu.tsx` (New deal / Upload /
+  Import from Notion), `shell/notifications.tsx` (header + Mark all read, All/
+  Unread tabs, grouped rows by kind, "You are all caught up" empty state,
+  footer). Wired into the live shell. Evidence: live render against a test
+  account — add menu items `["New deal Start from scratch","Upload Contract or
+  CSV","N Import from Notion Connect and pull deals"]`, notifications panel text
+  `"Notifications … You are all caught up / New alerts about payments and posts
+  show up here."`. Screenshots `topbar-add-menu.png`, `topbar-notifications.png`.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.

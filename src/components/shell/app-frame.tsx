@@ -13,6 +13,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { AppSidebar, type NavKey, type SidebarCounts, type PlanCard } from "@/components/shell/sidebar";
 import { AppTopbar } from "@/components/shell/topbar";
+import type { AddKind } from "@/components/shell/add-deal-menu";
+import type { Notif } from "@/components/shell/notifications";
 
 export function AppFrame({
   active,
@@ -24,11 +26,12 @@ export function AppFrame({
   user = "",
   handle = "",
   fresh = false,
+  notifications = [],
   children,
   onSearch,
   onAppearance,
-  onBell,
-  onAdd,
+  onAddPick,
+  onBellSettings,
   onSettings,
 }: {
   active: NavKey;
@@ -40,11 +43,12 @@ export function AppFrame({
   user?: string;
   handle?: string;
   fresh?: boolean;
+  notifications?: Notif[];
   children: React.ReactNode;
   onSearch?: () => void;
   onAppearance?: () => void;
-  onBell?: () => void;
-  onAdd?: () => void;
+  onAddPick?: (k: AddKind) => void;
+  onBellSettings?: () => void;
   onSettings?: (tab: string) => void;
 }) {
   const path = usePathname();
@@ -84,8 +88,10 @@ export function AppFrame({
       <main className="flex min-w-0 flex-1 flex-col gap-4" style={{ padding: "0 24px 56px 16px", boxSizing: "border-box" }}>
         <AppTopbar
           title={title} mob={mob}
+          notifications={notifications}
           onNav={() => { if (mob) setDrawer(true); }}
-          onSearch={onSearch} onAppearance={onAppearance} onBell={onBell} onAdd={onAdd}
+          onSearch={onSearch} onAppearance={onAppearance}
+          onAddPick={onAddPick} onBellSettings={onBellSettings}
         />
         <div className="min-h-0 flex-1 flex flex-col">{children}</div>
       </main>

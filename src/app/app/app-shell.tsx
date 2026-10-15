@@ -20,6 +20,8 @@ import { NotificationBell } from "@/components/notification-bell";
 import { AssistantLauncher } from "@/components/assistant";
 import { Button } from "@/components/ui";
 import { AppSidebar, type NavKey } from "@/components/shell/sidebar";
+import { AppTopbar } from "@/components/shell/topbar";
+import type { Notif } from "@/components/shell/notifications";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -225,6 +227,18 @@ export function AppShell({
     return pathname.startsWith(href);
   };
 
+  const pageTitle = (() => {
+    if (!pathname) return "Overview";
+    if (pathname.startsWith("/app/deals")) return "Deals";
+    if (pathname.startsWith("/app/calendar")) return "Calendar";
+    if (pathname.startsWith("/app/payments")) return "Payments";
+    if (pathname.startsWith("/app/ideas")) return "Ideas";
+    if (pathname.startsWith("/app/todos") || pathname.startsWith("/app/notes")) return "To-dos";
+    if (pathname.startsWith("/app/settings")) return "Settings";
+    return "Overview";
+  })();
+  const shellNotifs: Notif[] = [];
+
   // Content max-width: the wide cap applies to every page so the whole app
   // keeps a consistent column width. No per-page variance.
   const isWide = true;
@@ -310,15 +324,18 @@ export function AppShell({
 
       {/* Content column (topbar on mobile + main) */}
       <div className="min-w-0">
-        <div className="topbar">
-          <button className="hamb" aria-label="Open menu" onClick={() => setMobileOpen((o) => !o)}>
-            <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
-          </button>
-          <div className="ml-auto flex items-center gap-1.5">
-            <NotificationBell />
-            <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
-          </div>
-        </div>
+        <AppTopbar
+          title={pageTitle}
+          mob={mobileOpen || false}
+          notifications={shellNotifs}
+          onNav={() => setMobileOpen((o) => !o)}
+          onAppearance={() => { window.location.href = "/app/settings?tab=appearance"; }}
+          onAddPick={(k) => {
+            if (k === "new") window.location.href = "/app/deals?new=1";
+            else if (k === "upload") window.location.href = "/app/import?source=csv";
+            else window.location.href = "/app/import?source=notion";
+          }}
+        />
         <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
           {isTrialing && !readOnly && (
             <div className="readonly-banner" role="status">
