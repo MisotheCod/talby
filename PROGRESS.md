@@ -69,6 +69,11 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   Stationery/Editorial + modes + sidebar; clicking Sand switched `--t-page`
   #FFFFFF → #F5EFE8 and `data-theme=sand` (correct Sand token). Screenshots
   `appearance.png`, `appearance-sand.png`. tsc + build green.
+- **10. Seeded test accounts** — `scripts/seed-design-fixture.cjs` (signup via
+  anon key + service-role plan_status set; `--clean` to remove). Evidence: ran
+  live — 6 accounts seeded: sample (active + 3 deals), empty (none), trial
+  (trialing, 9d), pastdue (past_due, 4d), canceled (canceled), readonly (none).
+  Emails `fixture.*@talby.test`. Never touches real accounts.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.
