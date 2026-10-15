@@ -95,6 +95,15 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   Two schema bugs caught + fixed by the tests (`payment_status` NOT NULL and
   its CHECK `expected|paid|none` — coalesced to `none`). tsc + build green,
   `npm test` 22/22.
+- **13. Save helper + error toast + retry** — `src/lib/save.ts`: `runSave`
+  wraps a mutation; on failure it returns null and raises a sonner error toast
+  with a "Try again" action that re-runs the SAME request (idempotent on the
+  idempotency key) — a failure can never be silent. Wired into the deal-form
+  create path (replaces the old inline `setError` only/no-toast path) and
+  exposed via `currentSaveErrorToToast`. Evidence: `src/lib/save.test.ts`
+  (5 cases added to the run) — network failure → null + offline toast + Try
+  again; 500 → server message + Try again; non-JSON 500 → fallback; success →
+  no toast; retry handed to caller. `npm test` **27/27**, tsc + build green.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.

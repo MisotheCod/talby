@@ -19,7 +19,7 @@ Item 0 is already done (foundation, commits 7773522 to 6e577fd).
 ## Backend first (writes)
 - [x] 11. Section 5 migrations and backfill on a Supabase branch
 - [x] 12. Atomic deal create and delete (upgrade 1)
-- [ ] 13. Save helper with error toast and retry (upgrade 2)
+- [x] 13. Save helper with error toast and retry (upgrade 2)
 - [ ] 14. Idempotency (3), pinned list (5), Stripe events (10)
 
 ## Overview and Deals
