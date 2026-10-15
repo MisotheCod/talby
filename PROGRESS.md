@@ -104,6 +104,19 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   (5 cases added to the run) — network failure → null + offline toast + Try
   again; 500 → server message + Try again; non-JSON 500 → fallback; success →
   no toast; retry handed to caller. `npm test` **27/27**, tsc + build green.
+- **14. Idempotency + pinned list + Stripe events** —
+  (1) **Deals idempotency** (upgrade 3): already carried by the unique
+  `(user_id, idempotency_key)` index + the in-process inflight map in
+  `api/deals/route.ts` + `create_deal`'s durable duplicate return (verified in
+  item 12).
+  (2) **Pinned list** (upgrade 5): verified single source —
+  `PINNED_EMAILS` in `src/lib/access.ts` (`isPinnedUnlimited`), imported by
+  `write-access.ts` and the Stripe webhook (no scattered hardcoded lists).
+  (3) **Stripe event idempotency** (upgrade 10): new `000052` RPC
+  `record_stripe_event` (security definer, `ON CONFLICT DO NOTHING`), wired
+  into the webhook — every event is recorded before processing and a duplicate
+  is skipped (fail-closed on record error). Evidence: 3 calls → 2 rows (dup id
+  inserted once), then test rows removed (0 remaining). tsc + build green.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.

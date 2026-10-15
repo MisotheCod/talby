@@ -20,7 +20,7 @@ Item 0 is already done (foundation, commits 7773522 to 6e577fd).
 - [x] 11. Section 5 migrations and backfill on a Supabase branch
 - [x] 12. Atomic deal create and delete (upgrade 1)
 - [x] 13. Save helper with error toast and retry (upgrade 2)
-- [ ] 14. Idempotency (3), pinned list (5), Stripe events (10)
+- [x] 14. Idempotency (3), pinned list (5), Stripe events (10)
 
 ## Overview and Deals
 - [ ] 15. Overview desktop, all 10 looks (SOverview, SOverview__*)
