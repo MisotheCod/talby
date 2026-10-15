@@ -17,6 +17,13 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   sheet, rDialog), DropdownMenu (pop + 34px items rItem), Popover (pop),
   Tooltip (fg/card, 30px, rItem), Sonner (card/rCard/shPop, top on phone).
   Evidence: tsc exit 0, `next build` compiled + 42/42 pages.
+- **3. Sidebar** — `src/components/shell/sidebar.tsx`: expanded + icon rail +
+  drawer, Manage/Create groups, badges (hidden when fresh), plan/trial card with
+  meter, Settings, user button + account menu, collapsed tooltips. Wired into the
+  live shell (`app/app/app-shell.tsx`). Evidence: tsc + build green; signed up a
+  test account and rendered /app live: aside present, 6 nav links
+  (Overview/Deals/Calendar/Payments/Ideas/To-dos), Settings + user button with
+  initials, --t-page #FFFFFF (studio light). Screenshot `/tmp/talby-shell/app-desktop.png`.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.

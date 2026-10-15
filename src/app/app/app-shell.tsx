@@ -19,6 +19,7 @@ import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
 import { NotificationBell } from "@/components/notification-bell";
 import { AssistantLauncher } from "@/components/assistant";
 import { Button } from "@/components/ui";
+import { AppSidebar, type NavKey } from "@/components/shell/sidebar";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -235,6 +236,12 @@ export function AppShell({
 
   const handle = handler ?? "creator";
   const initial = handle.charAt(0).toUpperCase();
+  const planLabel =
+    planStatus === "active" || plan === "paid" ? "Talby Unlimited"
+    : planStatus === "trialing" ? "Free trial"
+    : planStatus === "past_due" ? "Payment failed"
+    : planStatus === "canceled" ? "Plan canceled"
+    : "Free trial";
   const avatarImg = avatarUrl
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarUrl}`
     : null;
@@ -281,16 +288,24 @@ export function AppShell({
 
       {/* Sidebar (desktop floating card; mobile drawer) */}
       <aside className={cn("side", mobileOpen && "open")} id="side">
-        <div className="side-user">
-          <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
-          <div className="min-w-0">
-            <div className="nm truncate">{userName(handler)}</div>
-            <div className="hd truncate">@{handle}</div>
-          </div>
-          <span className="ml-auto"><NotificationBell /></span>
-        </div>
-        <nav className="flex flex-col gap-1">{nav}</nav>
-        {footer}
+        <AppSidebar
+          active={
+            (isActive("/app/deals") ? "deals"
+              : isActive("/app/calendar") ? "calendar"
+              : isActive("/app/payments") ? "payments"
+              : isActive("/app/ideas") ? "ideas"
+              : isActive("/app/todos") ? "todos"
+              : isActive("/app/settings") ? "settings"
+              : "overview") as NavKey
+          }
+          collapsed={false}
+          drawer={mobileOpen}
+          counts={{ deals: activeDeals ? String(activeDeals) : null }}
+          user={userName(handler)}
+          handle={handle}
+          planName={planLabel}
+          onClose={() => setMobileOpen(false)}
+        />
       </aside>
 
       {/* Content column (topbar on mobile + main) */}
