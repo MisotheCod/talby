@@ -21,18 +21,10 @@ type Row = Record<string, unknown>;
 
 // Lightweight in-process rate limit per user: 15 assistant requests / minute.
 // Not a hard security boundary (clears on redeploy), but stops a stray/bursting
-// key from draining OpenRouter credits. Keyed by user id, first-seen sliding window.
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 15;
-const hits = new Map<string, number[]>();
-function rateLimited(uid: string): boolean {
-  const now = Date.now();
-  const arr = (hits.get(uid) || []).filter((t) => now - t < RATE_WINDOW_MS);
-  if (arr.length >= RATE_MAX) return true;
-  arr.push(now);
-  hits.set(uid, arr);
-  return false;
-}
+// key from draining OpenRouter credits. Shared with ingest via @/lib/rate-limit.
+// Plan gate via @/lib/plan-gate (single legacy-plan read path, upgrade 6).
+import { rateLimited } from "@/lib/rate-limit";
+import { currentPlanState } from "@/lib/plan-gate";
 
 /**
  * Local intent classifier (replaces the round-trip LLM classify call).
@@ -177,8 +169,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, intent: "off_topic", answer: "That's a lot at once — give me a few seconds.", citations: [] }, { status: 429 });
   }
 
-  const prof = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-  if ((prof.data as unknown as { plan?: string } | null)?.plan !== "paid") {
+  const { hasAccess } = await currentPlanState(user.id);
+  if (!hasAccess) {
     return NextResponse.json({ error: "paid_required" }, { status: 402 });
   }
   if (!OPENROUTER_API_KEY) {
