@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 // Contract text extraction is CPU/IO bound; Node runtime keeps unpdf's worker happy.
 export const runtime = "nodejs";
 
-/** Max upload: 6 MB. */
-const MAX_BYTES = 6 * 1024 * 1024;
+/** Max upload: 20 MB (upgrade 13). */
+const MAX_BYTES = 20 * 1024 * 1024;
 
 /**
  * Contract upload -> auto-pulled deal.
@@ -35,11 +35,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No file provided." }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "File too large (max 6 MB)." }, { status: 413 });
+    return NextResponse.json({ error: "File too large (max 20 MB)." }, { status: 413 });
   }
 
   const name = file.name.toLowerCase();
   const isPdf = name.endsWith(".pdf");
+  const isDocx = name.endsWith(".docx");
   const isText = name.endsWith(".txt") || name.endsWith(".md") || file.type.startsWith("text/");
 
   let text = "";
@@ -57,10 +58,21 @@ export async function POST(req: Request) {
       console.error("extract-contract pdf error:", msg);
       return NextResponse.json({ error: "Couldn't read the PDF. It may be a scanned image with no selectable text." }, { status: 422 });
     }
+  } else if (isDocx) {
+    try {
+      // Word (.docx) via mammoth — extracts paragraphs/headings to text.
+      const mammoth = await import("mammoth");
+      const out = await mammoth.extractRawText({ buffer: Buffer.from(await file.arrayBuffer()) });
+      text = out.value;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("extract-contract docx error:", msg);
+      return NextResponse.json({ error: "Couldn't read the Word document." }, { status: 422 });
+    }
   } else if (isText) {
     text = await file.text();
   } else {
-    return NextResponse.json({ error: "Please upload a PDF or text file." }, { status: 415 });
+    return NextResponse.json({ error: "Please upload a PDF, Word (.docx), or text file." }, { status: 415 });
   }
 
   text = text.slice(0, 30000);
