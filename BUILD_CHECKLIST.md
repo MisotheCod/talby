@@ -12,7 +12,7 @@ production deploys, additive DB only, never real accounts / Cam's login.
 Install (README §3) done: folders copied, fonts self-hosted, preview routes
 live at /talby-preview/<Board>, parity tool runs. Baseline = `e2e/talby-parity/`.
 
-- [ ] A. Install, fonts, preview routes, parity baseline green
+- [x] A. Install, fonts, preview routes, parity baseline green
 - [ ] B. TalbyPage, setTalbyRoutes, look sync with profiles (theme, mode, sidebar)
 - [ ] C. Overview on /app with real data, view and plan states
 - [ ] D. Deals on /app/deals: table, deal panel, phone sheet, real create, edit and delete
