@@ -7,30 +7,25 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 // In-process safety net: keyed on `${userId}:${idempotencyKey}` → dealId.
-// The DB unique index (see 000028_deal_idempotency.sql) is the durable, exact
-// guard; this map closes the window even before/independently of the index by
-// short-circuiting a re-entrant call on the same server instance.
+// The DB unique index (000028) + the create_deal RPC (000051) are the durable
+// guards; this map closes the window even before/independently of the index.
 const inflight = new Map<string, string>();
 
 /**
  * POST /api/deals  { brand, payload, idempotencyKey?, text? }
  *
- * Creates a deal server-side. Ownership is enforced by RLS (the user's own
- * client) and by the create path itself. Idempotency: a request that carries
- * an idempotencyKey that has already produced a deal (in this process, or in
- * the DB once migration 000028's unique index is applied) returns the existing
- * deal instead of creating a second one — this is what stops a double-click /
- * slow retry from writing twice even when the button's disabled flag hasn't
- * re-rendered yet.
+ * Creates a deal + its children (payments, post dates, extras) ATOMICALLY
+ * through the `create_deal` Postgres RPC (000051): one transaction, so a
+ * failure in any child rolls back the whole deal. Removed the old
+ * `/* non-fatal *​/` blocks that returned 200 after a child write failed.
+ * Contract/text ingest stays outside the transaction (server-side, non-fatal
+ * by nature) but its two attempts both call the RPC.
  */
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
 
-  // Read-only gate: return a clear, actionable 403 instead of letting the
-  // insert fail with a raw RLS error. RLS still enforces this server-side,
-  // but this gives the client a message it can turn into an upgrade prompt.
   if (await userIsReadOnly(user.id)) {
     return NextResponse.json(
       { error: "read_only", message: "Your free trial has ended. Subscribe to keep editing." },
@@ -49,9 +44,6 @@ export async function POST(req: Request) {
   if (!brand) return NextResponse.json({ error: "brand is required" }, { status: 400 });
   const idKey = `${user.id}:${key || "nokey"}`;
 
-  // Structure, extras and post_dates are NOT deals columns — strip them before
-  // the insert so the deal row carries only its own fields. They persist
-  // separately (payments/content/deal_extras) below.
   const { structure_parts: _sp, extras: _ex, post_dates: _pd, ...dealPayload } = (body.payload ?? {}) as Record<string, unknown>;
   const structureParts = (body.payload?.["structure_parts"] ?? []) as { name?: string | null; amount?: number | null; date?: string | null }[];
   const extras = (body.payload?.["extras"] ?? []) as { kind?: string; amount?: number | null; condition?: string | null; rate?: number | null; on_text?: string | null; earned?: boolean }[];
@@ -61,140 +53,76 @@ export async function POST(req: Request) {
   if (key && existingInProc && existingInProc !== "pending") {
     return NextResponse.json({ ok: true, deal: { id: existingInProc }, duplicate: true });
   }
-
-  // 2) Pre-existing DB hit for this key+user (durable across requests/instances,
-  //    once the idempotency_key column exists).
-  if (key) {
-    const { data: prior } = await supabase
-      .from("deals").select("id, brand")
-      .eq("user_id", user.id).eq("idempotency_key", key).maybeSingle();
-    if (prior) {
-      inflight.set(idKey, prior.id);
-      return NextResponse.json({ ok: true, deal: prior, duplicate: true });
-    }
-  }
-
-  // Claim the key in-process so a re-entrant call on this instance short-circuits.
   inflight.set(idKey, "pending");
 
-  const basePayload: Record<string, unknown> = {
-    user_id: user.id,
-    brand,
+  // Compute the child rows up front (same shared generator the modal uses).
+  const postDates = ((body.payload ?? {}).post_dates as { date?: string; label?: string; kind?: string }[] | undefined)
+    ?.filter((p) => p.date)
+    .sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0))
+    .map((p) => ({ date: p.date!, label: p.label ?? "", post_type: p.kind ?? "" })) ?? [];
+
+  const paymentRows = generatePaymentsFromStructure({
+    structureKind: ((dealPayload["payment_structure"] ?? "once") as "once" | "split" | "parts" | "monthly"),
+    amount: typeof dealPayload["value"] === "number" ? dealPayload["value"] : null,
+    structure_timing: (dealPayload["structure_timing"] as string | null) ?? null,
+    structure_upfront_pct: (dealPayload["structure_upfront_pct"] as number | null) ?? null,
+    structure_balance_timing: (dealPayload["structure_balance_timing"] as string | null) ?? null,
+    structure_months: (dealPayload["structure_months"] as number | null) ?? null,
+    parts: structureParts,
+  });
+
+  // Hold values that must never reach the DB if idempotency_key would collide.
+  const dealJson: Record<string, unknown> = {
     ...dealPayload,
+    idempotency_key: key || null,
   };
 
-  let created: { id: string } | null = null;
-  let insErr: { message?: string } | null = null;
-  let duplicate = false;
-
-  // Durable idempotency path — requires the idempotency_key column (migration
-  // 000028). The upsert is atomic on the unique (user, key) index, so two racing
-  // writes under one key produce exactly one row.
-  if (key) {
-    const payload = { ...basePayload, idempotency_key: key };
-    const { data, error } = await supabase
-      .from("deals")
-      .upsert(payload, { onConflict: "user_id,idempotency_key", ignoreDuplicates: true })
-      .select("id, brand")
-      .maybeSingle();
-    if (data) created = data as { id: string };
-    else if (error && !(error.message || "").toLowerCase().includes("idempotency_key")) insErr = error;
-    if (!created) {
-      // DO-NOTHING on conflict returns no row: the row already exists (a peer
-      // created it under this same key) → return it, flagged duplicate.
-      const { data: byKey } = await supabase
-        .from("deals").select("id, brand")
-        .eq("user_id", user.id).eq("idempotency_key", key).maybeSingle();
-      if (byKey) { created = byKey as { id: string }; duplicate = true; }
-    }
-  }
-
-  // Fallback for (a) pre-migration DB with no idempotency_key column, or
-  // (b) no key supplied: plain insert (protected in-session by the map).
-  if (!created && !insErr) {
-    const r = await supabase.from("deals").insert(basePayload).select("id, brand").maybeSingle();
-    if (r.data) created = r.data as { id: string };
-    else if (r.error) insErr = r.error;
-  }
-
-  if (insErr || !created) {
+  let outcome: {
+    ok: boolean; deal_id: string; duplicate: boolean; error?: string;
+  } | null = null;
+  try {
+    const { data, error } = await supabase.rpc("create_deal", {
+      p_user: user.id,
+      p_brand: brand,
+      p_deal: dealJson,
+      p_payments: paymentRows,
+      p_post_dates: postDates,
+      p_extras: extras,
+    });
+    if (error) throw new Error(error.message);
+    outcome = data as { ok: boolean; deal_id: string; duplicate: boolean };
+  } catch (e) {
     inflight.delete(idKey);
-    return NextResponse.json({ error: insErr?.message || "Could not create the deal." }, { status: 500 });
-  }
-  inflight.set(idKey, created.id);
-
-  // Persist post dates as content rows (single source of truth). Post dates
-  // never go into deals.post_date — that column is read-only (write-guarded).
-  if (Array.isArray((body.payload ?? {}).post_dates) && !duplicate) {
-    try {
-      const rows = ((body.payload as Record<string, unknown>).post_dates as { date?: string; label?: string; kind?: string }[])
-        .filter((p) => p.date)
-        .sort((a, b) => (a.date! < b.date! ? -1 : a.date! > b.date! ? 1 : 0));
-      for (const p of rows) {
-        await supabase.from("content").insert({
-          user_id: user.id,
-          linked_deal_id: created.id,
-          event_date: p.date,
-          title: (p.label ?? "").trim() || "Post",
-          post_type: (p.kind ?? "").trim() || null,
-          status: "planned",
-        });
-      }
-    } catch { /* non-fatal: deal is saved; dates can be added in the drawer */ }
+    const msg = e instanceof Error ? e.message : "Could not create the deal.";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 
-  // Generate the deal's payment rows from its structure (spec 1b: every deal has
-  // at least one payment) — same generator the modal preview uses (spec 4c).
-  if (!duplicate) {
-    try {
-      const rows = generatePaymentsFromStructure({
-        structureKind: ((dealPayload["payment_structure"] ?? "once") as "once" | "split" | "parts" | "monthly"),
-        amount: typeof dealPayload["value"] === "number" ? dealPayload["value"] : null,
-        structure_timing: (dealPayload["structure_timing"] as string | null) ?? null,
-        structure_upfront_pct: (dealPayload["structure_upfront_pct"] as number | null) ?? null,
-        structure_balance_timing: (dealPayload["structure_balance_timing"] as string | null) ?? null,
-        structure_months: (dealPayload["structure_months"] as number | null) ?? null,
-        parts: structureParts,
-      });
-      for (const r of rows) {
-        await supabase.from("payments").insert({
-          user_id: user.id, deal_id: created.id,
-          amount: r.amount ?? 0, expected_date: r.expected_date, notes: r.notes || null,
-          status: "expected", pay_status: "not_invoiced", bonus_confirmed: true,
-        });
-      }
-    } catch (e) { console.error("[create-deal] payment generation failed:", (e as Error)?.message ?? e); }
+  if (!outcome?.deal_id) {
+    inflight.delete(idKey);
+    return NextResponse.json({ error: "Could not create the deal." }, { status: 500 });
   }
+  inflight.set(idKey, outcome.deal_id);
 
-  // Persist extras (release 1): bonuses/commissions on the deal, separate from
-  // the tracked payment rows (earned when the user marks them).
-  if (!duplicate && extras.length) {
+  // Contract extraction text -> assistant ingest (server-side, non-fatal).
+  // This is outside the transaction by design; it only affects assistant
+  // retrieval, never the deal's own rows. A failure is recorded on the deal
+  // (see below) per the board's error pattern.
+  let ingestError: string | null = null;
+  if (body.text?.trim() && !outcome.duplicate) {
     try {
-      for (const e of extras) {
-        if (e.kind !== "bonus" && e.kind !== "commission") continue;
-        await supabase.from("deal_extras").insert({
-          user_id: user.id, deal_id: created.id, kind: e.kind,
-          amount: e.kind === "bonus" ? (e.amount ?? null) : null,
-          condition: e.kind === "bonus" ? (e.condition || null) : null,
-          rate: e.kind === "commission" ? (e.rate ?? null) : null,
-          on_text: e.kind === "commission" ? (e.on_text || null) : null,
-          earned: e.earned === true,
-        });
-      }
-    } catch { /* non-fatal */ }
-  }
-
-  // Ingest the extracted contract text for the assistant (server-side, non-fatal).
-  // Skip on a duplicate — a retried submit already chunked+embedded it.
-  if (body.text?.trim() && !duplicate) {
-    try {
-      await fetch(new URL("/api/assistant/ingest", req.url).toString(), {
+      const r = await fetch(new URL("/api/assistant/ingest", req.url).toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dealId: created.id, text: body.text }),
+        body: JSON.stringify({ dealId: outcome.deal_id, text: body.text }),
       });
-    } catch { /* non-fatal */ }
+      if (!r.ok) ingestError = `assistant ingest ${r.status}`;
+    } catch { ingestError = "assistant ingest failed"; }
   }
 
-  return NextResponse.json({ ok: true, deal: created, duplicate });
+  return NextResponse.json({
+    ok: true,
+    deal: { id: outcome.deal_id },
+    duplicate: outcome.duplicate,
+    ...(ingestError ? { ingest_error: ingestError } : {}),
+  });
 }

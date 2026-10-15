@@ -81,6 +81,20 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
   assistant_first_used_at, reminders_asked_at) and 3 new tables present
   (import_runs, notion_syncs, stripe_events). Backfill set
   onboarding_completed_at for accounts past step 4.
+- **12. Atomic deal create/delete** — `000051_atomic_deal_writes.sql`:
+  `create_deal` and `delete_deal` Postgres RPCs (security invoker → RLS still
+  applies). Deal create now inserts deal + payments + post dates + extras in
+  ONE transaction via `supabase.rpc("create_deal", …)`; the `/* non-fatal */`
+  child blocks that returned 200 on partial failure are removed. Delete
+  removes storage objects then drops all rows + the deal atomically via
+  `delete_deal`. Evidence (SQL, acting as fixture.sample, RLS enforced):
+  - Forced-fail: child (content) insert with an uncastable date raised →
+    `deal=0 payment=0 content=0` → **ATOMICITY PASS**
+  - Happy create: `deal=1 pay=1 cont=1 extra=1`
+  - Delete: `deal=0 pay=0 cont=0 extra=0` → **DELETE ATOMICITY PASS**
+  Two schema bugs caught + fixed by the tests (`payment_status` NOT NULL and
+  its CHECK `expected|paid|none` — coalesced to `none`). tsc + build green,
+  `npm test` 22/22.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.
