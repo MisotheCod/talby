@@ -37,7 +37,7 @@ const WAIT = +(args.wait || 3000);
 if (!fs.existsSync(path.join(BOARDS, 'canvas.json'))) { console.error('--boards must point at design-source/boards (canvas.json not found)'); process.exit(2); }
 fs.mkdirSync(OUT, { recursive: true });
 
-const FAM = { 'Geist': 'geist-sans', 'Inter': 'inter', 'Fraunces': 'fraunces', 'Playfair Display': 'playfair-display', 'DM Mono': 'dm-mono' };
+const FAM = { 'Geist': 'geist-sans', 'Inter': 'inter', 'Lexend': 'lexend', 'Fraunces': 'fraunces', 'Playfair Display': 'playfair-display', 'DM Mono': 'dm-mono' };
 function fontCss(base) {
   let css = '';
   for (const fam in FAM) for (const w of [400, 500, 600, 700]) {
