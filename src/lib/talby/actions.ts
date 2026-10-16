@@ -25,15 +25,29 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
 
       switch (type) {
         case "deal.create": {
-          const { form, plan } = p as { form?: Record<string, unknown>; plan?: unknown };
+          const { form, plan, contract } = p as { form?: Record<string, unknown>; plan?: unknown; contract?: string | null };
           const payload = { ...(form ?? {}), ...(plan ? { payment_schedule: plan } : {}) } as Record<string, unknown>;
           const brand = String((form as { brand?: string } | undefined)?.brand ?? payload.brand ?? "").trim();
           if (!brand) return false;
           const res = await fetch("/api/deals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brand, payload, idempotencyKey: `manual:${brand}:${Date.now()}` }) });
           if (!res.ok) return false;
+          // A deal read from a contract keeps that file attached to it.
+          if (contract) {
+            const j = (await res.json().catch(() => ({}))) as { deal?: { id?: string } };
+            const dealId = j?.deal?.id;
+            if (dealId) {
+              await supabase.from("deal_files").insert({
+                deal_id: dealId,
+                name: String(contract).split("/").pop() || "contract",
+                path: contract,
+              });
+            }
+          }
           await refresh(); return true;
         }
         case "deals.import": {
+          // saved: true means the import route already wrote the rows — only reload.
+          if ((p as { saved?: boolean }).saved) { await refresh(); return true; }
           const { deals } = p as { deals?: Array<{ brand: string; amt: number }> };
           for (const d of deals ?? []) {
             const res = await fetch("/api/deals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brand: d.brand, payload: { value: d.amt }, idempotencyKey: `import:${d.brand}:${d.amt}` }) });

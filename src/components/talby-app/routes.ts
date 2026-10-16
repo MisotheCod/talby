@@ -5,6 +5,8 @@
  * the real app paths. Import this from a module that loads before any board.
  */
 import { setTalbyRoutes } from '@/components/talby/_runtime';
+// Registers the real import endpoints for the New deal dialog (upload, CSV, Notion).
+import '@/lib/talby/import-io';
 
 const ROUTES: Record<string, string> = {
   SOverview: '/app',

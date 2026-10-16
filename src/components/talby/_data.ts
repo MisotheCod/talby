@@ -456,3 +456,92 @@ export const SAMPLE_SETTINGS: SettingsData = {
 
 /** Getting started list on the first Overview. Each step is done or not. */
 export type WelcomeData = { done: { profile: boolean; deal: boolean; import: boolean; payby: boolean; ask: boolean; remind: boolean } };
+
+/* ------------------------------------------------------------------ Imports (New deal dialog, SAddDeal) */
+
+/**
+ * Real backend for the upload, CSV and Notion flows in the New deal dialog.
+ * Register it once on the client with setTalbyIO(io). Until it is registered
+ * the dialog runs the design's sample flow, exactly as on the canvas.
+ * State boards (frame prop) always run the sample flow.
+ *
+ * Every function returns a promise. To show an error step, reject with an
+ * object that has a code: { code: 'too_big' }. Codes are listed per function.
+ */
+export type ImportField = 'brand' | 'amt' | 'post' | 'payby' | 'status' | 'pay' | 'plats' | 'rep' | 'repEmail' | 'notes' | 'skip';
+export type ImportRow = {
+  /** CSV: row number. Notion: page id. Sent back in rowIds / pageIds and in failed[].id */
+  id: string | number;
+  brand: string;
+  /** ISODate or '' */
+  post: ISODate | '';
+  status: 'Active' | 'Negotiating';
+  amount: number;
+  /** true when this deal is already in Talby (same notion page id, or same brand and post date for CSV) */
+  repeat: boolean;
+  /** Notion only: 'Split' or 'All at once' */
+  how?: string;
+  /** CSV only: the post date could not be read */
+  noDate?: boolean;
+};
+export type ImportResult = {
+  imported: number;
+  skipped: number;
+  /** sum of Active amounts that imported */
+  booked: number;
+  /** rows that did not save, with a plain reason like 'Notion did not answer in time' */
+  failed: { id: string | number; brand: string; amount: number; reason: string }[];
+};
+export type TalbyImportIO = {
+  /**
+   * Upload and read a contract (PDF or Word, up to 20 MB).
+   * Reject codes: too_big, bad_type, offline, unreadable (scanned image or no text).
+   */
+  readContract(file: File): Promise<{
+    /** id of the stored file, sent back as contract on deal.create */
+    fileId: string;
+    pages?: number;
+    /** same shape as the form: brand, post (ISODate), plats { TikTok: true }, amt ('6,000'), paid ('once'|'split'|'parts'|'monthly'), rep, repEmail */
+    fields: Record<string, any>;
+    /** four lines for the reading checklist: brand and rep, amount and terms, post date and deliverables, bonus and commission. '' when not found */
+    found: [string, string, string, string];
+    /** how many details were found in all */
+    count: number;
+    /** true when only a few were found (shows "Only N details found") */
+    few: boolean;
+    /** "Also in the contract": [tag, text, value], for example ['Bonus', 'If the Reel passes 100K views', '$1,000'] */
+    extras?: [string, string, string][];
+  }>;
+  /** Parse a CSV or Excel file. Keep it server side and return an uploadId. Reject codes: empty, offline. */
+  readCsv(file: File): Promise<{
+    uploadId: string;
+    /** every column, with a sample value and your best guess of the Talby field */
+    cols: { name: string; sample: string; field: ImportField }[];
+    /** every row that has a brand */
+    rows: ImportRow[];
+    /** rows in the file, including ones left out */
+    total: number;
+    /** plain sentences, one per row that needs a look, for example 'Row 11 has no brand, so it stays out.' */
+    issues: string[];
+  }>;
+  /** Save the CSV rows. map is { columnName: field } without skipped columns. rowIds is set on Try again. */
+  importCsv(req: { uploadId: string; map: Record<string, ImportField>; skipRepeats: boolean; rowIds: (string | number)[] | null }): Promise<ImportResult>;
+  /**
+   * Make sure Notion is connected (open the OAuth window if it is not). Resolve when connected.
+   * switchWorkspace: the user asked to connect a different workspace.
+   * Reject codes: notion_denied (window closed), notion_lost, not_ready (import is off on our side).
+   */
+  notionConnect(req: { switchWorkspace: boolean }): Promise<{ workspace: string }>;
+  /** Databases shared with Talby. looksLikeDeals marks the ones that look like deals. Reject code: notion_lost. */
+  notionDatabases(): Promise<{ id: string; name: string; meta: string; looksLikeDeals: boolean }[]>;
+  /** Every row of one database (follow has_more to the end), the properties, and your best field guess for each. Reject codes: notion_lost, fetch_failed. */
+  notionRows(databaseId: string): Promise<{
+    props: { name: string; type: string; field: ImportField; values?: { from: string; to: string }[] }[];
+    rows: ImportRow[];
+  }>;
+  /** Save the chosen pages. map is { propertyName: field }. sync: keep in sync. Reject code: notion_lost. */
+  importNotion(req: { databaseId: string; map: Record<string, ImportField>; pageIds: (string | number)[]; sync: boolean }): Promise<ImportResult>;
+};
+let talbyIO: TalbyImportIO | null = null;
+export function setTalbyIO(io: TalbyImportIO | null) { talbyIO = io; }
+export function getTalbyIO(): TalbyImportIO | null { return talbyIO; }

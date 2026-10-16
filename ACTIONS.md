@@ -16,8 +16,8 @@ Ids: `id` in a payload is the id you passed in `data` (your database id). Overvi
 | type | payload | when |
 |---|---|---|
 | `look.update` | `{ theme, mode, sidebar }` | theme, mode or sidebar changed anywhere (also saved in localStorage `talby.look`). Save to profiles. |
-| `deal.create` | `{ kind: 'deal', form, plan, deals: [{ brand, amt, status, post }], title, chip, line }` | New deal dialog, manual form. `form` is the whole form (brand, amount, status, platforms, dates, payment terms, contacts). `plan` is the payment schedule shown to the user. |
-| `deals.import` | `{ kind: 'import', count, deals: [{ brand, amt, status }] }` | Upload, CSV or Notion import finished. See "Imports" below. |
+| `deal.create` | `{ kind: 'deal', contract, form, plan, deals: [{ brand, amt, status, post }], title, chip, line }` | New deal dialog, manual form. `form` is the whole form (brand, amount, status, platforms, dates, payment terms, contacts). `plan` is the payment schedule shown to the user. `contract` is the uploaded file id when the deal came from a contract, otherwise null. |
+| `deals.import` | `{ kind: 'import', count, deals, saved, source }` | Upload, CSV or Notion import finished. With `saved: true` the rows are already written: just reload. See "Imports" below. |
 | `data.reload` | `{}` | Try again on a page that failed to load (`view="error"`). Refetch, then pass the new `data` and `view`. Resolve when done; reject to show the error again. |
 
 ## Overview (SOverview)
@@ -86,7 +86,24 @@ The reminder dialog copies text to the clipboard only, nothing to save.
 
 ## Imports (the New deal dialog)
 
-The upload, CSV and Notion flows inside `SAddDeal` run on the design's sample responses (`data()` near the top of its logic class: extracted contract fields, CSV rows, Notion databases and rows). To make them real, replace what `data()` returns with your API results, in the same shapes, before each step renders, and keep the step names (`pick`, `reading`, `review`, `csvMap`, and so on). That is backend items 13 and 14. Keep the board's error steps: they already match the error frames in SFlowStates.
+The upload, CSV and Notion flows inside `SAddDeal` call a small backend object, `TalbyImportIO`. Its full contract, with every field and error code, is at the bottom of `src/components/talby/_data.ts`. Register it once with `setTalbyIO(io)`. `src/lib/talby/import-io.ts` already does that against these routes:
+
+| Function | Route |
+|---|---|
+| `readContract(file)` | `POST /api/upload/contract` |
+| `readCsv(file)` | `POST /api/import/csv` (multipart, step one) |
+| `importCsv({ uploadId, map, skipRepeats, rowIds })` | `POST /api/import/csv` (JSON, step two) |
+| `notionConnect({ switchWorkspace })` | `GET /api/notion/status`, and the Notion window if not connected |
+| `notionDatabases()` | `GET /api/notion/databases` |
+| `notionRows(databaseId)` | `GET /api/notion/rows?databaseId=` |
+| `importNotion({ databaseId, map, pageIds, sync })` | `POST /api/notion/import` |
+
+How it works:
+- Until `setTalbyIO` is called, and always on state boards (they pass `frame`), the dialog runs the design sample, so parity is unchanged.
+- To show an error step, reject with `{ code }`. Contract: `too_big`, `bad_type`, `offline`, `unreadable`. CSV: `empty`, `offline`. Notion: `notion_denied`, `notion_lost`, `not_ready`, `fetch_failed`.
+- Imports are saved by `importCsv` and `importNotion` themselves. When they finish, the page board still sends `deals.import`, now with `saved: true` and `source: 'csv' | 'notion'`. For those, only reload the data: do not insert again.
+- A result with `failed` rows shows the partial step. Try again calls the same function with only those ids (`rowIds` or `pageIds`), and the totals add up across tries.
+- `deal.create` from a read contract now carries `contract`: the `fileId` that `readContract` returned. Attach that file to the new deal.
 
 ## The assistant (SAssistant)
 

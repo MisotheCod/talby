@@ -3,7 +3,7 @@ import { OPENROUTER_API_KEY } from "@/lib/server-config";
 /** Max upload: 20 MB (upgrade 13). */
 export const MAX_BYTES = 20 * 1024 * 1024;
 
-export type ReadResult = { text: string } | { code: "too_big" | "bad_type" | "unreadable" | "empty" };
+export type ReadResult = { text: string; pages: number } | { code: "too_big" | "bad_type" | "unreadable" | "empty" };
 
 /**
  * Read the text out of an uploaded contract file.
@@ -19,12 +19,14 @@ export async function readContractText(file: File): Promise<ReadResult> {
   const isText = name.endsWith(".txt") || name.endsWith(".md") || file.type.startsWith("text/");
 
   let text = "";
+  let pages = 1;
   if (isPdf) {
     try {
       const { extractText } = await import("unpdf");
       const data = new Uint8Array(await file.arrayBuffer());
       const out = await extractText(data);
       text = (out.text ?? []).join(" ");
+      pages = (out as { totalPages?: number }).totalPages ?? 1;
     } catch (err) {
       console.error("contract pdf error:", err instanceof Error ? err.message : err);
       return { code: "unreadable" };
@@ -46,7 +48,7 @@ export async function readContractText(file: File): Promise<ReadResult> {
 
   text = text.slice(0, 30000);
   if (!text.trim()) return { code: "empty" };
-  return { text };
+  return { text, pages };
 }
 
 export const CONTRACT_SYSTEM = [

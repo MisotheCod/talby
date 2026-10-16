@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import { TalbyDates, getTalbyIO } from './_data';
 import SDatePicker from './SDatePicker';
 
 const CSS = "body, #dc-root{margin:0;font-synthesis:none}#dc-root .tb{transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease,opacity .15s ease,transform .12s ease}#dc-root .tb:active{transform:scale(.97)}#dc-root .tg:hover{background-color:var(--hv)!important}#dc-root .tp:hover{opacity:.88}#dc-root .tt:hover{color:var(--fg)!important}#dc-root .tz:hover{border-color:var(--pr)!important;background-color:var(--hvz)!important}#dc-root .ti{transition:box-shadow .15s ease}#dc-root .ti:focus, #dc-root .ti:focus-within{box-shadow:0 0 0 2px var(--ring)!important}#dc-root .tb:focus-visible{outline:2px solid var(--ring);outline-offset:2px}#dc-root .a-fade{animation:tFade .2s ease backwards}#dc-root .a-pop{animation:tPop .22s cubic-bezier(.2,.8,.3,1) backwards}#dc-root .a-in{animation:tIn .3s cubic-bezier(.2,.7,.2,1) backwards}#dc-root .a-up{animation:tUp .3s cubic-bezier(.2,.8,.2,1) backwards}#dc-root .a-drop{animation:tDrop .16s cubic-bezier(.2,.8,.3,1) backwards}#dc-root .a-spin{animation:tSpin .8s linear infinite}#dc-root .a-check{animation:tCheck .4s cubic-bezier(.3,1.5,.5,1) backwards}#dc-root .a-pulse{animation:tPulse 1.4s ease-in-out infinite}#dc-root .a-shim{background-image:linear-gradient(90deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.45) 50%,rgba(255,255,255,0) 100%);background-size:200% 100%;animation:tShim 1.3s linear infinite}#dc-root .a-float{animation:tFloat 2.4s ease-in-out infinite}@keyframes tFade{from{opacity:0}to{opacity:1}}@keyframes tPop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes tUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}@keyframes tDrop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}@keyframes tSpin{to{transform:rotate(360deg)}}@keyframes tCheck{0%{transform:scale(.4);opacity:0}100%{transform:none;opacity:1}}@keyframes tPulse{0%,100%{opacity:1}50%{opacity:.3}}@keyframes tShim{from{background-position:200% 0}to{background-position:-200% 0}}@keyframes tFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}@media (prefers-reduced-motion:reduce){#dc-root *, #dc-root *::before, #dc-root *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}\n";
@@ -84,18 +85,21 @@ class Component extends DCLogic {
     if (this.lockKind()) return;
     if (st.step === 'reading') {
       this._iv = setInterval(function () {
+        if (self.io() && !self.state.rd) return;
         var n = self.state.read + 1;
         if (n >= 4) { clearInterval(self._iv); self.setState({ read: 4 }); self._to = setTimeout(function () { self.go('review'); }, 650); }
         else self.setState({ read: n });
       }, 760);
     }
-    if ((st.step === 'connect' || st.step === 'connectDenied' || st.step === 'notionLost') && st.busy) {
+    if ((st.step === 'connect' || st.step === 'connectDenied' || st.step === 'notionLost') && st.busy && !this.io()) {
       this._to = setTimeout(function () { self.setState({ busy: false, step: 'db' }); }, 1300);
     }
     if (st.step === 'importing') {
+      if (this.io() && !st.res && !this._run) this.runImport();
       var total = this.impList().length;
       this._iv = setInterval(function () {
         var n = self.state.prog + 1;
+        if (n >= total && self.io() && !self.state.res) return;
         if (n >= total) { clearInterval(self._iv); self.setState({ prog: total }); self._to = setTimeout(function () { self.finishImport(); }, 700); }
         else self.setState({ prog: n });
       }, 420);
@@ -103,16 +107,132 @@ class Component extends DCLogic {
   }
   go(step, extra) {
     var D = this.data();
+    if (this.io() && !(extra && extra.loaded)) {
+      if (step === 'db' && (!this.state.dbs || this.state.step === 'dbNone')) { this.loadDbs(); return; }
+      if (step === 'map' && this.state.step !== 'preview') { this.loadRows(); return; }
+    }
     var u = { step: step, pop: null };
-    if (step === 'review') u.f = Object.assign({}, this.state.few ? D.FFEW : D.FC);
+    if (step === 'review') u.f = Object.assign({}, this.state.rd ? Object.assign({}, D.F0, this.state.rd.fields || {}) : (this.state.few ? D.FFEW : D.FC));
     if (step === 'reading') u.read = 0;
-    if (step === 'importing') { u.prog = 0; u.retry = null; }
+    if (step === 'importing') { u.prog = 0; u.retry = null; u.resPrev = this.state.res || null; u.res = null; this._run = false; }
     if (step === 'pick') { u.zerr = ''; u.few = false; u.issues = false; }
     if (extra) for (var q in extra) u[q] = extra[q];
     this.setState(u);
   }
+  io() { var x = this.props.frame ? null : (this.props.io || getTalbyIO()); return x && typeof x === 'object' ? x : null; }
+  ioErr(e) { return (e && (e.code || (e.body && e.body.code))) || 'failed'; }
+  ioDate(v) { return v && /^\d{4}-\d\d-\d\d/.test(v) ? TalbyDates.md(v.slice(0, 10)) : (v || ''); }
+  pickFile() {
+    var self = this, csv = this.state.src === 'csv', inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = csv ? '.csv,.tsv,.xlsx,.xls,text/csv' : '.pdf,.doc,.docx,application/pdf';
+    inp.onchange = function () { var fl = inp.files && inp.files[0]; if (fl) self.gotFile(fl); };
+    inp.click();
+  }
+  gotFile(file) {
+    var self = this, io = this.io(), csv = this.state.src === 'csv';
+    var meta = { name: file.name, size: (file.size / 1048576).toFixed(1) + ' MB' };
+    this._file = file;
+    if (!csv && file.size > 20 * 1048576) { this.setState({ zerr: 'big', fileInfo: meta, pop: null }); return; }
+    if (!csv && !/\.(pdf|docx?)$/i.test(file.name)) { this.setState({ zerr: 'type', fileInfo: meta, pop: null }); return; }
+    if (csv) {
+      this.setState({ fileInfo: meta, csvData: null });
+      Promise.resolve().then(function () { return io.readCsv(file); }).then(function (r) {
+        r = r || {};
+        var map = {}; (r.cols || []).forEach(function (c, i) { map[i] = c.field || 'skip'; });
+        self.go('csvMap', { csvData: r, map: map, issues: !!(r.issues && r.issues.length) });
+      }, function (e) { if (self.ioErr(e) === 'offline') self.setState({ zerr: 'offline' }); else self.go('csvEmpty'); });
+      return;
+    }
+    this.go('reading', { fileInfo: meta, rd: null });
+    Promise.resolve().then(function () { return io.readContract(file); }).then(function (r) {
+      if (self.state.step === 'reading') self.setState({ rd: r || {}, few: !!(r && r.few) });
+    }, function (e) {
+      var c = self.ioErr(e);
+      if (self.state.step !== 'reading') return;
+      self.clear();
+      if (c === 'too_big') self.go('pick', { zerr: 'big', fileInfo: meta });
+      else if (c === 'bad_type') self.go('pick', { zerr: 'type', fileInfo: meta });
+      else if (c === 'offline') self.go('pick', { zerr: 'offline' });
+      else self.go('readFail');
+    });
+  }
+  connectIO(sw) {
+    var self = this, io = this.io();
+    Promise.resolve().then(function () { return io.notionConnect({ switchWorkspace: !!sw }); }).then(function (c) {
+      if (!self.state.busy) return;
+      self.setState({ ws: (c && c.workspace) || '' });
+      self.loadDbs();
+    }, function (e) {
+      var c = self.ioErr(e);
+      if (!self.state.busy) return;
+      self.setState({ busy: false, step: c === 'not_ready' ? 'notionSetup' : c === 'notion_lost' ? 'notionLost' : 'connectDenied' });
+    });
+  }
+  loadDbs() {
+    var self = this, io = this.io();
+    Promise.resolve().then(function () { return io.notionDatabases(); }).then(function (list) {
+      list = list || [];
+      var rec = list.filter(function (d) { return d.looksLikeDeals; })[0] || list[0];
+      self.setState({ busy: false, dbs: list, db: rec ? rec.id : '', dbQ: '', step: list.length ? 'db' : 'dbNone', pop: null });
+    }, function (e) {
+      self.setState({ busy: false, step: self.ioErr(e) === 'notion_lost' ? 'notionLost' : 'dbNone', pop: null });
+    });
+  }
+  loadRows() {
+    var self = this, io = this.io(), id = this.state.db;
+    Promise.resolve().then(function () { return io.notionRows(id); }).then(function (r) {
+      r = r || {};
+      var rows = r.rows || [], props = r.props || [];
+      if (!rows.length) { self.go('dbEmpty'); return; }
+      var nmap = {}; props.forEach(function (x, i) { nmap[i] = x.field || 'skip'; });
+      var nsel = {}; rows.forEach(function (x, i) { if (!x.repeat) nsel[i + 1] = true; });
+      self.go('map', { loaded: true, nprops: props, nr: rows, nmap: nmap, nsel: nsel });
+    }, function (e) { self.go(self.ioErr(e) === 'notion_lost' ? 'notionLost' : 'fetchFail'); });
+  }
+  csvKeep() {
+    var st = this.state, self = this;
+    return ((st.csvData && st.csvData.rows) || []).filter(function (r) { return !(st.skipDup && r.repeat); })
+      .map(function (r, i) { return [i + 1, r.brand, self.ioDate(r.post), r.status || 'Active', Number(r.amount) || 0, 0, '', r.id]; });
+  }
+  mapOut(map, names) {
+    var o = {}; names.forEach(function (n, i) { if (map[i] && map[i] !== 'skip') o[n] = map[i]; }); return o;
+  }
+  runImport() {
+    var self = this, io = this.io(), st = this.state, list = this.impList(), ids = list.map(function (r) { return r[7]; });
+    var prev = st.retry ? st.resPrev : null;
+    this._run = true;
+    Promise.resolve().then(function () {
+      if (st.kind === 'upload') return io.importCsv({ uploadId: st.csvData && st.csvData.uploadId, map: self.mapOut(st.map, ((st.csvData && st.csvData.cols) || []).map(function (c) { return c.name; })), skipRepeats: !!st.skipDup, rowIds: st.retry ? ids : null });
+      var db = (st.dbs || []).filter(function (d) { return d.id === st.db; })[0];
+      return io.importNotion({ databaseId: st.db, map: self.mapOut(st.nmap, (st.nprops || []).map(function (x) { return x.name; })), pageIds: ids, sync: !!st.sync, databaseName: db ? db.name : '' });
+    }).then(function (r) {
+      r = Object.assign({ imported: 0, skipped: 0, booked: 0, failed: [] }, r || {});
+      if (prev) { r.imported += prev.imported || 0; r.booked += prev.booked || 0; }
+      self.setState({ res: r });
+    }, function (e) {
+      if (self.ioErr(e) === 'notion_lost') { self.clear(); self.go('notionLost'); return; }
+      var r = { imported: prev ? prev.imported || 0 : 0, skipped: 0, booked: prev ? prev.booked || 0 : 0,
+        failed: list.map(function (x) { return { id: x[7], brand: x[1], amount: x[4], reason: 'The connection dropped while saving' }; }) };
+      self.setState({ res: r });
+    });
+  }
+  finishIO() {
+    var st = this.state, r = st.res;
+    if (r.failed && r.failed.length) { this.go(st.kind === 'upload' ? 'csvPartial' : 'importPartial'); return; }
+    this.doneIO(r);
+  }
+  doneIO(r) {
+    var st = this.state, n = r.imported || 0, booked = r.booked || 0;
+    var db = (st.dbs || []).filter(function (d) { return d.id === st.db; })[0];
+    this.done({ kind: 'import', source: st.kind === 'upload' ? 'csv' : 'notion', saved: true, count: n, deals: [],
+      title: n + (n === 1 ? ' deal imported' : ' deals imported'), chip: booked ? '+$' + booked.toLocaleString('en-US') + ' booked' : '',
+      line: st.kind !== 'upload' && st.sync && db ? db.name + ' stays in sync with Talby.' : 'They are on your Deals page with dates and amounts.' });
+  }
   selN() { var o = this.state.nsel; return Object.keys(o).filter(function (x) { return o[x]; }).length; }
   NROWS() {
+    var self = this;
+    if (this.state.nr) return this.state.nr.map(function (x, i) { return [i + 1, x.brand, self.ioDate(x.post), x.status || 'Active', Number(x.amount) || 0, x.repeat ? 1 : 0, x.how || 'All at once', x.id]; });
     return [[1, 'Brightside Oats', 'Nov 12', 'Active', 2500, 0, 'Split'], [2, 'Haven Home Goods', 'Nov 20', 'Active', 4000, 0, 'All at once'], [3, 'Northfield Denim', 'Nov 28', 'Active', 6500, 0, 'Split'],
       [4, 'Peak Electrolytes', '', 'Negotiating', 3200, 0, 'All at once'], [5, 'Willow Pet Co.', 'Dec 2', 'Active', 1800, 0, 'All at once'], [6, 'Cedar and Sage Candles', 'Dec 8', 'Active', 1200, 0, 'All at once'],
       [7, this.props.demo ? 'Halcyon Skincare' : 'CeraVe', 'Oct 15', 'Active', 8000, 1, 'All at once'], [8, this.props.demo ? 'Basewear' : 'Sprouts', 'Nov 5', 'Active', 4000, 1, 'All at once']];
@@ -120,10 +240,12 @@ class Component extends DCLogic {
   impList() {
     var st = this.state;
     if (st.retry) return st.retry;
+    if (st.csvData && st.kind === 'upload') return this.csvKeep();
     return this.NROWS().filter(function (r) { return st.nsel[r[0]] && !r[5]; });
   }
   finishImport() {
     var st = this.state;
+    if (this.io() && st.res) { this.finishIO(); return; }
     if (st.retry && st.kind === 'upload') {
       var n = st.skipDup ? 15 : 18, booked = st.skipDup ? 41750 : 57750;
       this.done({ kind: 'import', count: n, deals: [], title: n + ' deals imported', chip: '+$' + booked.toLocaleString('en-US') + ' booked', line: 'They are on your Deals page with dates and amounts.' });
@@ -139,6 +261,7 @@ class Component extends DCLogic {
   }
   partialDone() {
     var st = this.state, D = this.data();
+    if (this.io() && st.res) { this.doneIO(st.res); return; }
     if (st.kind === 'upload') {
       this.done({ kind: 'import', count: 12, deals: [], title: '12 deals imported', chip: '+$34,050 booked', line: 'They are on your Deals page with dates and amounts.' });
       return;
@@ -279,6 +402,8 @@ class Component extends DCLogic {
       importPartial: ['2 deals did not come in', 'The other 4 are on your Deals page.']
     };
     var head = { title: (HEAD[step] || HEAD.form)[0], desc: (HEAD[step] || HEAD.form)[1] };
+    var ioRes = this.io() && st.res && (step === 'csvPartial' || step === 'importPartial') ? st.res : null, ioNF = ioRes ? (ioRes.failed || []).length : 0;
+    if (ioRes) head = { title: ioNF + (ioNF === 1 ? ' deal did' : ' deals did') + ' not come in', desc: 'The other ' + ioRes.imported + (ioRes.imported === 1 ? ' is' : ' are') + ' on your Deals page.' };
 
     var BASE = { readFail: 'reading', csvEmpty: 'csvMap', notionSetup: 'connect', connectDenied: 'connect', notionLost: 'connect', dbNone: 'db', dbEmpty: 'db', fetchFail: 'db' };
     var sb = BASE[step] || step;
@@ -318,7 +443,7 @@ class Component extends DCLogic {
       if (formInvalid) { if (!self.state.tried) self.setState({ tried: true, pop: null }); return; }
       if (!online()) { self.setState({ saveErr: true, pop: null }); return; }
       var total = P === 'monthly' ? amt * f.months : amt, active = f.status === 'Active';
-      self.done({ kind: 'deal', count: 1, form: Object.assign({}, f), plan: plan, deals: [{ brand: f.brand.trim(), amt: total, status: f.status, post: f.post || '' }],
+      self.done({ kind: 'deal', count: 1, contract: (self.io() && self.state.rd && self.state.rd.fileId) || null, form: Object.assign({}, f), plan: plan, deals: [{ brand: f.brand.trim(), amt: total, status: f.status, post: f.post || '' }],
         title: 'Deal added', chip: active ? '+' + fmt(total) + ' booked' : 'Negotiating',
         line: f.brand.trim() + (active ? ' is in. That makes ' + ((typeof p.dealsThisYear === 'number' ? p.dealsThisYear : 26) + 1) + ' deals this year.' : ' is saved. It counts once it is signed.') });
     }
@@ -342,20 +467,30 @@ class Component extends DCLogic {
       });
     }
     var CSV_COLS = [['Brand name', 'Fern and Fig Kitchen'], ['Fee', '$2,500'], ['Post date', '11/04/2026'], ['Stage', 'Signed'], ['Paid?', 'No'], ['Contact', 'Mia Chen'], ['Notes', 'Send raw files by Friday']];
+    if (st.csvData) CSV_COLS = (st.csvData.cols || []).map(function (c) { return [c.name, c.sample || '']; });
     var mapRows = mapRowsFor(CSV_COLS, 'map', 'm');
     var matched = Object.keys(st.map).filter(function (x) { return st.map[x] !== 'skip'; }).length;
     var skipped = CSV_COLS.filter(function (c, i) { return st.map[i] === 'skip'; }).map(function (c) { return c[0]; });
     var noBrand = !Object.keys(st.map).some(function (x) { return st.map[x] === 'brand'; });
     var CSV_ROWS = [['Fern and Fig Kitchen', 'Nov 4', 'Active', 2500, 0], ['Marlow Athletics', 'Nov 12', 'Active', 4500, 0], [this.props.demo ? 'Halcyon Skincare' : 'CeraVe', 'Oct 15', 'Active', 8000, 1], ['Pocket Pantry', 'Nov 18', 'Negotiating', 1800, 0], ['Golden Hour Travel', 'Dec 1', 'Active', 0, 0], ['Juniper Skin', 'Dec 6', 'Active', 3200, 0]];
     var csvN = (st.skipDup ? 15 : 18) - (st.issues ? 1 : 0), csvBooked = st.skipDup ? 41750 : 57750;
+    if (st.csvData) {
+      CSV_ROWS = (st.csvData.rows || []).map(function (r) { return [r.brand, self.ioDate(r.post), r.status || 'Active', Number(r.amount) || 0, r.repeat ? 1 : 0, !!r.noDate || !r.post]; });
+      var ioKeep = CSV_ROWS.filter(function (r) { return !(st.skipDup && r[4]); });
+      csvN = ioKeep.length; csvBooked = ioKeep.filter(function (r) { return r[2] === 'Active'; }).reduce(function (a, r) { return a + r[3]; }, 0);
+    }
+    var ioRep = CSV_ROWS.filter(function (r) { return r[4]; }).length, ioZero = CSV_ROWS.filter(function (r) { return !r[3]; }).length;
 
     var NPROPS = [['Name', '', 'Title'], ['Deal Value', '', 'Number'], ['Stage', '', 'Select', [{ from: 'Signed', to: 'Active' }, { from: 'Talking', to: 'Negotiating' }, { from: 'Wrapped', to: 'Active' }]], ['Post Date', '', 'Date'], ['Payment', '', 'Select', [{ from: 'Paid', to: 'Paid' }, { from: 'Invoiced', to: 'Invoiced' }, { from: 'Waiting', to: 'Not invoiced' }]], ['Due', '', 'Date'], ['Brand Contact', '', 'Text']];
+    if (st.nprops) NPROPS = st.nprops.map(function (x) { return [x.name, '', x.type || 'Text', x.values && x.values.length ? x.values.map(function (v) { return typeof v === 'string' ? { from: v, to: v } : v; }) : undefined]; });
     var nmapRows = mapRowsFor(NPROPS.map(function (x) { return [x[0], '', x[2], x[3]]; }), 'nmap', 'n');
     var NR = this.NROWS();
     var newRows = NR.filter(function (r) { return !r[5]; });
     var nSelN = this.selN(), allSel = nSelN === newRows.length;
     var nBooked = NR.filter(function (r) { return st.nsel[r[0]] && !r[5] && r[3] === 'Active'; }).reduce(function (a, r) { return a + r[4]; }, 0);
     var DBS = [['deals', 'Brand Deals 2026', '8 pages · Edited yesterday', true], ['content', 'Content Calendar', '64 pages · Edited today', false], ['contacts', 'Brand Contacts', '41 pages · Edited last week', false], ['invoices', 'Invoices', '19 pages · Edited Oct 2', false]];
+    if (st.dbs) DBS = st.dbs.map(function (d) { return [d.id, d.name, d.meta || '', !!d.looksLikeDeals]; });
+    var ioDb = st.dbs ? (st.dbs.filter(function (d) { return d.id === st.db; })[0] || {}).name || '' : '';
     var dq = (st.dbQ || '').trim().toLowerCase();
     var dbs = DBS.filter(function (d) { return !dq || d[1].toLowerCase().indexOf(dq) !== -1; }).map(function (d) {
       var on = st.db === d[0];
@@ -366,12 +501,12 @@ class Component extends DCLogic {
     var impTotal = impList.length || 1;
 
     // Error and recovery panels. One shape for all: an optional file or connection tile, a block, then help.
-    function tryRead() { self.go('reading'); }
-    function byHand() { self.clear(); self.setState({ kind: 'new', step: 'form', f: Object.assign({}, D.F0), att: 'Signed_agreement_scan.pdf', tried: false, saveErr: false, pop: null }); }
+    function tryRead() { if (self.io() && self._file) { self.gotFile(self._file); return; } self.go('reading'); }
+    function byHand() { self.clear(); self.setState({ kind: 'new', step: 'form', f: Object.assign({}, D.F0), att: st.fileInfo && self.io() ? st.fileInfo.name : 'Signed_agreement_scan.pdf', tried: false, saveErr: false, pop: null }); }
     function toCsv() { self.clear(); self.setState({ kind: 'upload', src: 'csv', step: 'pick', zerr: '', busy: false, pop: null }); }
-    function connectGo() { if (!self.state.busy) self.setState({ busy: true }); }
+    function connectGo() { if (self.state.busy) return; self.setState({ busy: true }); if (self.io()) self.connectIO(false); }
     function connectBack() { if (self.state.busy) { self.clear(); self.setState({ busy: false, step: 'connectDenied' }); } else close(); }
-    function retryFailed() { var D2 = self.data(); self.go('importing', { retry: (self.state.kind === 'upload' ? D2.CSV_FAIL : D2.NOTION_FAIL).map(function (r) { return r.slice(0, 7); }) }); }
+    function retryFailed() { if (self.io() && self.state.res) { self.go('importing', { retry: (self.state.res.failed || []).map(function (x) { return [x.id, x.brand, '', 'Active', Number(x.amount) || 0, 0, '', x.id]; }) }); return; } var D2 = self.data(); self.go('importing', { retry: (self.state.kind === 'upload' ? D2.CSV_FAIL : D2.NOTION_FAIL).map(function (r) { return r.slice(0, 7); }) }); }
     function E(o) {
       var err = o.tone === 'error';
       return Object.assign({ hasFile: false, badge: '', badgeBg: t.tile, badgeFg: t.fg, fileName: '', fileMeta: '', hasTag: false, tag: '', hasChange: false, change: noop, hasConn: false,
@@ -380,10 +515,10 @@ class Component extends DCLogic {
         steps: (o.steps || []).map(function (x, i) { return { n: String(i + 1), text: x }; }) });
     }
     var EPS = {
-      readFail: E({ tone: 'error', hasFile: true, badge: 'PDF', badgeBg: t.pdfBg, badgeFg: t.pdfFg, fileName: 'Signed_agreement_scan.pdf', fileMeta: '8.1 MB · 6 pages', hasTag: true, tag: 'Not read',
+      readFail: E({ tone: 'error', hasFile: true, badge: 'PDF', badgeBg: t.pdfBg, badgeFg: t.pdfFg, fileName: (self.io() && st.fileInfo ? st.fileInfo.name : 'Signed_agreement_scan.pdf'), fileMeta: self.io() && st.fileInfo ? st.fileInfo.size : '8.1 MB · 6 pages', hasTag: true, tag: 'Not read',
         icon: ICA, title: 'This looks like a scanned image', sub: 'Talby reads the words in a contract, and this PDF is only pictures of pages. Try again, or fill in the details by hand. The file stays attached either way.',
         cta: 'Try again', act: tryRead, cta2: 'Fill it in by hand', act2: byHand }),
-      csvEmpty: E({ tone: 'error', hasFile: true, badge: 'CSV', badgeBg: t.csvBg, badgeFg: t.csvFg, fileName: 'Brand deals 2026.csv', fileMeta: '0 rows found', hasChange: true, change: function () { self.go('pick'); },
+      csvEmpty: E({ tone: 'error', hasFile: true, badge: 'CSV', badgeBg: t.csvBg, badgeFg: t.csvFg, fileName: (self.io() && st.fileInfo ? st.fileInfo.name : 'Brand deals 2026.csv'), fileMeta: '0 rows found', hasChange: true, change: function () { self.go('pick'); },
         icon: ICT, title: 'No deals found in this file', sub: 'It looks empty, or it was saved in a way Talby cannot open. Check that your deals are on the first sheet, save it as CSV, then upload it again.',
         cta: 'Choose another file', act: function () { self.go('pick'); }, cta2: 'Sample CSV', act2: noop }),
       notionSetup: E({ tone: 'neutral', icon: ICA, title: 'Notion import is not ready yet', sub: 'This is on our side, not yours, and we are working on it. For now, export your database from Notion as a CSV and upload it here. The same deals come in.',
@@ -394,48 +529,54 @@ class Component extends DCLogic {
       dbNone: E({ tone: 'neutral', hasConn: true, icon: ICT, title: 'Talby cannot see any databases yet', sub: 'Notion only shows Talby the pages you share with it. Share your deals database, then check again.',
         cta: 'Check again', act: function () { self.go('db'); }, hasSteps: true, stepsTitle: 'Share a database with Talby',
         steps: ['Open your deals database in Notion.', 'Click the three dots at the top right, then Connections.', 'Find Talby in the list and confirm.'] }),
-      dbEmpty: E({ tone: 'neutral', hasConn: true, icon: ICT, title: 'Brand Deals 2027 is empty', sub: 'There are no pages in it yet, so there is nothing to bring in. Pick another database, or add your deals in Notion and check again.',
+      dbEmpty: E({ tone: 'neutral', hasConn: true, icon: ICT, title: (ioDb || 'Brand Deals 2027') + ' is empty', sub: 'There are no pages in it yet, so there is nothing to bring in. Pick another database, or add your deals in Notion and check again.',
         cta: 'Pick another database', act: function () { self.go('db'); }, cta2: 'Check again', act2: function () { self.go('map'); } }),
-      fetchFail: E({ tone: 'error', hasConn: true, icon: ICW, title: 'Talby could not load Brand Deals 2026', sub: 'Notion did not answer this time. Nothing changed in Notion or in Talby. Try again in a moment.',
+      fetchFail: E({ tone: 'error', hasConn: true, icon: ICW, title: 'Talby could not load ' + (ioDb || (self.io() ? 'your databases' : 'Brand Deals 2026')), sub: 'Notion did not answer this time. Nothing changed in Notion or in Talby. Try again in a moment.',
         cta: 'Try again', act: function () { self.go('map'); }, cta2: 'Pick another database', act2: function () { self.go('db'); } })
     };
     var ep = EPS[vs] || E({ tone: 'neutral', icon: ICA, title: '', sub: '' });
     var csvPart = kind === 'upload';
-    var PF = csvPart ? D.CSV_FAIL : D.NOTION_FAIL;
-    var pt = { title: csvPart ? '12 of 15 deals imported' : '4 of 6 deals imported',
-      sub: csvPart ? 'The connection dropped while saving 3 deals. Try again to bring them in.' : 'Notion stopped answering partway, so 2 deals did not save. Try again to bring them in.',
-      note: (csvPart ? 'The 12' : 'The 4') + ' that came in are on your Deals page. Trying again will not add them twice.',
+    var PF = ioRes ? (ioRes.failed || []).map(function (x) { return [x.id, x.brand, '', 'Active', Number(x.amount) || 0, 0, '', x.reason || 'It did not save']; }) : (csvPart ? D.CSV_FAIL : D.NOTION_FAIL);
+    var ioDl = ioNF === 1 ? ' deal' : ' deals';
+    var pt = { title: ioRes ? ioRes.imported + ' of ' + (ioRes.imported + ioNF) + ' deals imported' : csvPart ? '12 of 15 deals imported' : '4 of 6 deals imported',
+      sub: ioRes ? (csvPart ? 'The connection dropped while saving ' + ioNF + ioDl + '. Try again to bring ' + (ioNF === 1 ? 'it' : 'them') + ' in.' : 'Notion stopped answering partway, so ' + ioNF + ioDl + ' did not save. Try again to bring ' + (ioNF === 1 ? 'it' : 'them') + ' in.')
+        : csvPart ? 'The connection dropped while saving 3 deals. Try again to bring them in.' : 'Notion stopped answering partway, so 2 deals did not save. Try again to bring them in.',
+      note: (ioRes ? 'The ' + ioRes.imported : csvPart ? 'The 12' : 'The 4') + ' that came in are on your Deals page. Trying again will not add them twice.',
       rows: PF.map(function (r, i) { return { brand: r[1], why: r[7], amount: fmt(r[4]), rowStyle: i ? k.rowT : k.row }; }) };
     var ZE = {
       big: { icon: ICA, title: 'This file is over 20 MB', sub: 'Lumen_and_Lark_Full_Packet.pdf is 34.2 MB. Save a copy with just the contract pages, then drop it here.', cta: 'Choose another file' },
       type: { icon: ICF, title: 'Talby needs a PDF or Word file', sub: 'Partnership_Agreement.pages is a Pages file. Export it as a PDF or Word file, then drop it here.', cta: 'Choose another file' },
       offline: { icon: ICW, title: 'You are offline', sub: 'Talby needs the internet to read your file. Check your connection, then try again. Nothing was sent.', cta: 'Try again' }
     };
+    if (this.io() && st.fileInfo) {
+      ZE.big = Object.assign({}, ZE.big, { sub: st.fileInfo.name + ' is ' + st.fileInfo.size + '. Save a copy with just the contract pages, then drop it here.' });
+      ZE.type = Object.assign({}, ZE.type, { sub: st.fileInfo.name + ' is not a PDF or Word file. Export it as a PDF or Word file, then drop it here.' });
+    }
     var zerr = ZE[st.zerr] || ZE.big;
 
     var FILE = 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7zM14 2v4a2 2 0 0 0 2 2h4', CHECK = 'M20 6 9 17l-5-5', UPL = 'M12 3v12M17 8l-5-5-5 5M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', EYE = 'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z';
     var FOOT = {
       form: [st.att ? FILE : '', st.att ? 'Your contract is saved to this deal' : '', true, 'Cancel', close, true, 'Create deal', createDeal, formInvalid],
       pick: ['M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4', 'Your file stays private to your account', true, 'Cancel', close, false, '', null, false],
-      reading: [FILE, 'Lumen_and_Lark_Partnership_Agreement.pdf', true, 'Cancel', function () { self.clear(); self.go('pick'); }, false, '', null, false],
+      reading: [FILE, (self.io() && st.fileInfo ? st.fileInfo.name : 'Lumen_and_Lark_Partnership_Agreement.pdf'), true, 'Cancel', function () { self.clear(); self.go('pick'); }, false, '', null, false],
       review: [FILE, 'The contract is saved to this deal', true, 'Back', function () { self.go('pick'); }, true, 'Create deal', createDeal, formInvalid],
-      csvMap: [CHECK, matched + ' of 7 columns matched', true, 'Back', function () { self.go('pick'); }, true, 'Next', function () { if (!noBrand) self.go('csvPreview'); }, noBrand],
-      csvPreview: [UPL, csvN + ' deals will be added', true, 'Back', function () { self.go('csvMap'); }, true, 'Import ' + csvN + ' deals', function () { self.done({ kind: 'import', count: csvN, deals: [], title: csvN + ' deals imported', chip: '+' + fmt(csvBooked) + ' booked', line: 'They are on your Deals page with dates and amounts.' }); }, false],
+      csvMap: [CHECK, matched + ' of ' + CSV_COLS.length + ' columns matched', true, 'Back', function () { self.go('pick'); }, true, 'Next', function () { if (!noBrand) self.go('csvPreview'); }, noBrand],
+      csvPreview: [UPL, csvN + ' deals will be added', true, 'Back', function () { self.go('csvMap'); }, true, 'Import ' + csvN + ' deals', function () { if (self.io()) { self.go('importing'); return; } self.done({ kind: 'import', count: csvN, deals: [], title: csvN + ' deals imported', chip: '+' + fmt(csvBooked) + ' booked', line: 'They are on your Deals page with dates and amounts.' }); }, false],
       connect: [EYE, 'Talby only reads what you pick', true, 'Cancel', connectBack, true, st.busy ? 'Waiting for Notion' : 'Connect Notion', connectGo, false],
       db: [CHECK, 'Connected to Notion', true, 'Back', function () { self.go('connect'); }, true, 'Next', function () { if (self.state.db) self.go('map'); }, !st.db],
-      map: [CHECK, Object.keys(st.nmap).filter(function (x) { return st.nmap[x] !== 'skip'; }).length + ' of 7 fields matched', true, 'Back', function () { self.go('db'); }, true, 'Next', function () { self.go('preview'); }, false],
+      map: [CHECK, Object.keys(st.nmap).filter(function (x) { return st.nmap[x] !== 'skip'; }).length + ' of ' + NPROPS.length + ' fields matched', true, 'Back', function () { self.go('db'); }, true, 'Next', function () { self.go('preview'); }, false],
       preview: [CHECK, nSelN + ' of ' + newRows.length + ' new deals selected', true, 'Back', function () { self.go('map'); }, true, 'Import ' + nSelN + (nSelN === 1 ? ' deal' : ' deals'), function () { if (nSelN) self.go('importing'); }, nSelN === 0],
       importing: [UPL, Math.min(st.prog, impTotal) + ' of ' + impTotal + ' imported', false, '', null, false, '', null, false],
-      readFail: [FILE, 'Signed_agreement_scan.pdf', true, 'Back', function () { self.go('pick'); }, false, '', null, false],
-      csvEmpty: [FILE, 'Brand deals 2026.csv', true, 'Back', function () { self.go('pick'); }, false, '', null, false],
-      csvPartial: [UPL, '12 of 15 imported', true, 'Done', function () { self.partialDone(); }, true, 'Try again', retryFailed, false],
+      readFail: [FILE, (self.io() && st.fileInfo ? st.fileInfo.name : 'Signed_agreement_scan.pdf'), true, 'Back', function () { self.go('pick'); }, false, '', null, false],
+      csvEmpty: [FILE, (self.io() && st.fileInfo ? st.fileInfo.name : 'Brand deals 2026.csv'), true, 'Back', function () { self.go('pick'); }, false, '', null, false],
+      csvPartial: [UPL, ioRes ? ioRes.imported + ' of ' + (ioRes.imported + ioNF) + ' imported' : '12 of 15 imported', true, 'Done', function () { self.partialDone(); }, true, 'Try again', retryFailed, false],
       notionSetup: ['', '', true, 'Cancel', close, false, '', null, false],
       connectDenied: [EYE, 'Talby only reads what you pick', true, 'Cancel', connectBack, true, st.busy ? 'Waiting for Notion' : 'Connect Notion', connectGo, false],
       notionLost: [EYE, 'Talby only reads what you pick', true, 'Cancel', connectBack, true, st.busy ? 'Waiting for Notion' : 'Reconnect', connectGo, false],
       dbNone: [CHECK, 'Connected to Notion', true, 'Back', function () { self.go('connect'); }, true, 'Next', noop, true],
       dbEmpty: [CHECK, 'Connected to Notion', true, 'Back', function () { self.go('db'); }, false, '', null, false],
       fetchFail: [CHECK, 'Connected to Notion', true, 'Back', function () { self.go('db'); }, false, '', null, false],
-      importPartial: [UPL, '4 of 6 imported', true, 'Done', function () { self.partialDone(); }, true, 'Try again', retryFailed, false]
+      importPartial: [UPL, ioRes ? ioRes.imported + ' of ' + (ioRes.imported + ioNF) + ' imported' : '4 of 6 imported', true, 'Done', function () { self.partialDone(); }, true, 'Try again', retryFailed, false]
     };
     var F = FOOT[step] || FOOT.form;
     var connLike = step === 'connect' || step === 'connectDenied' || step === 'notionLost';
@@ -443,6 +584,7 @@ class Component extends DCLogic {
     var footBare = !F[2] && !F[5];
 
     var readRowsDef = [['Brand and rep', 'Lumen and Lark Skincare Co., Danielle Ortiz'], ['Amount and payment terms', '$6,000, half when you sign, half Net 30'], ['Post date and deliverables', 'Nov 4, 1 TikTok video and 1 Instagram Reel'], ['Bonus and commission', '$1,000 at 100K views, 10% with code ' + (this.props.demo ? 'JUNO15' : 'CAMQ15') + '']];
+    if (st.rd) readRowsDef = readRowsDef.map(function (r, i) { var x = (st.rd.found || [])[i]; x = Array.isArray(x) ? x[1] : x; return [r[0], x || 'Not in this contract']; });
     var readN = Math.min(st.read, 4);
     var swOn = st.sync;
     var nowrap = 'white-space: nowrap; overflow: hidden; text-overflow: ellipsis', wrap = 'white-space: normal';
@@ -472,12 +614,14 @@ class Component extends DCLogic {
       isCsvMap: vs === 'csvMap', isCsvPreview: vs === 'csvPreview', isConnect: vs === 'connect', isDb: vs === 'db', isMap: vs === 'map', isPreview: vs === 'preview', isImporting: vs === 'importing',
       isErrPanel: !!EPS[vs], ep: ep, isPartial: vs === 'csvPartial' || vs === 'importPartial', pt: pt,
       saveErr: !!st.saveErr && (vs === 'form' || vs === 'review'), retrySave: createDeal, hasAtt: !!st.att && vs === 'form', att: st.att, dropAtt: function () { self.setState({ att: '' }); },
-      switchWs: function () { self.setState({ step: 'connect', busy: true, pop: null }); }, sampleCsv: noop,
+      switchWs: function () { self.setState({ step: 'connect', busy: true, pop: null }); if (self.io()) self.connectIO(true); },
+      dragOver: function (e) { if (self.io()) e.preventDefault(); },
+      dropFile: function (e) { if (!self.io()) return; e.preventDefault(); var fl = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (fl) self.gotFile(fl); }, sampleCsv: noop,
       srcTabs: [['contract', 'Contract', 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7zM14 2v4a2 2 0 0 0 2 2h4'], ['csv', 'CSV or Excel', 'M12 3v18M3 9h18M3 15h18M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z']].map(function (x) { var on = st.src === x[0]; return { label: x[1], icon: x[2], on: on, style: tabStyle(t, on), pick: function () { self.setState({ src: x[0], zerr: '' }); } }; }),
       isContractSrc: st.src === 'contract', isCsvSrc: st.src === 'csv',
       zone: st.src === 'csv' ? { icon: 'M12 3v18M3 9h18M3 15h18M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', title: 'Drop a CSV or Excel file', sub: 'You match the columns on the next step.' } : { icon: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12', title: 'Drop your contract here', sub: 'PDF or Word, up to 20 MB' },
       zoneOk: !st.zerr, zoneErr: !!st.zerr, zerr: zerr,
-      choose: function () { if (!online()) { self.setState({ zerr: 'offline', pop: null }); return; } self.go(self.state.src === 'csv' ? 'csvMap' : 'reading', { zerr: '' }); },
+      choose: function () { if (!online()) { self.setState({ zerr: 'offline', pop: null }); return; } if (self.io()) { self.pickFile(); return; } self.go(self.state.src === 'csv' ? 'csvMap' : 'reading', { zerr: '' }); },
       findCols: mob ? 'minmax(0, 1fr)' : 'repeat(2, minmax(0, 1fr))',
       finds: [['Brand, rep and contact', 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z'], ['Amount and how you get paid', 'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'], ['Post dates and deliverables', 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18'], ['Bonus, commission and usage', 'M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z']].map(function (x) { return { label: x[0], icon: x[1] }; }),
       readPct: Math.round(readN / 4 * 100) + '%', readNum: String(Math.round(readN / 4 * 100)),
@@ -492,15 +636,34 @@ class Component extends DCLogic {
       amtLabel: P === 'monthly' ? 'Amount per month' : 'Total amount',
       payOpts: NDO.map(function (o) { var on = P === o[0]; return { label: o[1], on: on, style: tabStyle(t, on), pick: function () { setF({ paid: o[0] }); } }; }),
       howHint: NDO.filter(function (o) { return o[0] === P; })[0][2], payRows: payRows, plan: plan,
-      extras: [['Bonus', 'If the Reel passes 100K views', '$1,000'], ['Commission', 'Sales with code ' + (this.props.demo ? 'JUNO15' : 'CAMQ15') + '', '10%'], ['Deliverables', '1 TikTok video, 1 Instagram Reel', '2 posts'], ['Usage', 'Brand can repost for 90 days', '90 days']].map(function (x, i) { return { tag: x[0], text: x[1], value: x[2], rowStyle: i ? k.rowT : k.row }; }),
+      reviewExtras: vs === 'review' && !st.few && !(st.rd && !(st.rd.extras && st.rd.extras.length)),
+      extras: (st.rd ? st.rd.extras || [] : [['Bonus', 'If the Reel passes 100K views', '$1,000'], ['Commission', 'Sales with code ' + (this.props.demo ? 'JUNO15' : 'CAMQ15') + '', '10%'], ['Deliverables', '1 TikTok video, 1 Instagram Reel', '2 posts'], ['Usage', 'Brand can repost for 90 days', '90 days']]).map(function (x, i) { return { tag: x[0], text: x[1], value: x[2], rowStyle: i ? k.rowT : k.row }; }),
+      ioT: (function () {
+        var io = self.io(), fi = io ? st.fileInfo : null, rd = io ? st.rd : null, cd = io ? st.csvData : null, nR = CSV_ROWS.length;
+        var rc = rd ? (rd.count != null ? rd.count : (rd.found || []).filter(Boolean).length) : 0, ni = cd ? (cd.issues || []).length : 0;
+        return {
+          file: fi ? fi.name : 'Lumen_and_Lark_Partnership_Agreement.pdf',
+          fileMeta: fi ? fi.size + (rd && rd.pages ? ' · ' + rd.pages + (rd.pages === 1 ? ' page' : ' pages') : '') : '2.4 MB · 6 pages',
+          found: rd ? rc + (rc === 1 ? ' detail' : ' details') + ' found in the contract' : '11 details found in the contract',
+          few: rd ? 'Only ' + rc + (rc === 1 ? ' detail' : ' details') + ' found in the contract' : 'Only 3 details found in the contract',
+          saved: (fi ? fi.name : 'Lumen_and_Lark_Partnership_Agreement.pdf') + ' is saved to this deal',
+          csvFile: fi && cd ? fi.name : 'Brand deals 2026.csv',
+          csvMeta: cd ? (cd.total != null ? cd.total : nR) + ' rows · ' + (cd.cols || []).length + ' columns' : '18 rows · 7 columns',
+          hasMore: cd ? nR > 6 : true, more: cd ? 'And ' + (nR - 6) + ' more rows' : 'And 12 more rows',
+          look: cd ? ni + (ni === 1 ? ' row needs' : ' rows need') + ' a look' : '3 rows need a look',
+          noAmt: cd ? ioZero + (ioZero === 1 ? ' row has no amount. It comes' : ' rows have no amount. They come') + ' in as $0 so you can add it later.' : '1 row has no amount. It comes in as $0 so you can add it later.',
+          skip: cd ? (ioRep ? 'Skip the ' + ioRep + (ioRep === 1 ? ' deal' : ' deals') + ' already in Talby' : 'Skip deals already in Talby') : 'Skip the 3 deals already in Talby',
+          ws: io ? st.ws || 'your Notion' : "Chanelica's Notion"
+        };
+      })(),
       mapCols: mob ? 'minmax(0, 4fr) minmax(0, 5fr)' : 'minmax(0, 1fr) minmax(0, 1fr) 200px', mapRows: mapRows,
       mapNote: skipped.length ? 'Talby matched ' + matched + ' columns. ' + skipped.join(', ') + ' will be skipped.' : 'All ' + matched + ' columns are matched.',
       brandMapped: !noBrand, noBrand: noBrand,
-      csvStats: [{ value: '18', label: 'rows in your file', fg: t.fg }, { value: String(csvN), label: 'new deals', fg: t.fg }, { value: st.skipDup ? '3' : '0', label: 'skipped as repeats', fg: t.mutedFg }],
+      csvStats: [{ value: st.csvData ? String(st.csvData.total != null ? st.csvData.total : CSV_ROWS.length) : '18', label: 'rows in your file', fg: t.fg }, { value: String(csvN), label: 'new deals', fg: t.fg }, { value: st.skipDup ? (st.csvData ? String(ioRep) : '3') : '0', label: 'skipped as repeats', fg: t.mutedFg }],
       skipDup: st.skipDup, dupBox: box(t, st.skipDup), dupCheck: st.skipDup ? 'visible' : 'hidden', toggleDup: function () { self.setState({ skipDup: !self.state.skipDup }); },
-      oneWarn: !st.issues, rowIssues: !!st.issues,
-      issues: ['Row 11 has no brand, so it stays out. Add one in your file to bring it in.', 'Juniper Skin has a post date Talby cannot read, so it comes in without one.', 'Golden Hour Travel has no amount, so it comes in as $0.'],
-      csvRows: CSV_ROWS.map(function (r, i) { var dup = !!r[4], fix = !!st.issues && r[0] === 'Juniper Skin'; return { brand: r[0], l: r[0].charAt(0), sub: (fix ? 'No post date' : 'Posts ' + r[1]) + ' · ' + r[2], amount: r[3] ? fmt(r[3]) : '$0', amtFg: r[3] ? t.fg : '#D97706', isDup: dup, dupLabel: mob ? (st.skipDup ? 'Skipped' : 'In Talby') : (st.skipDup ? 'In Talby, skipped' : 'In Talby'), isFix: fix && !mob, fixLabel: 'No date', op: dup && st.skipDup ? '0.5' : '1', rowStyle: i ? k.rowT : k.row }; }),
+      oneWarn: st.csvData && this.io() ? !st.issues && ioZero > 0 : !st.issues, rowIssues: !!st.issues,
+      issues: st.csvData && this.io() ? st.csvData.issues || [] : ['Row 11 has no brand, so it stays out. Add one in your file to bring it in.', 'Juniper Skin has a post date Talby cannot read, so it comes in without one.', 'Golden Hour Travel has no amount, so it comes in as $0.'],
+      csvRows: (st.csvData ? CSV_ROWS.slice(0, 6) : CSV_ROWS).map(function (r, i) { var dup = !!r[4], fix = st.csvData ? !!r[5] : !!st.issues && r[0] === 'Juniper Skin'; return { brand: r[0], l: r[0].charAt(0), sub: (fix ? 'No post date' : 'Posts ' + r[1]) + ' · ' + r[2], amount: r[3] ? fmt(r[3]) : '$0', amtFg: r[3] ? t.fg : '#D97706', isDup: dup, dupLabel: mob ? (st.skipDup ? 'Skipped' : 'In Talby') : (st.skipDup ? 'In Talby, skipped' : 'In Talby'), isFix: fix && !mob, fixLabel: 'No date', op: dup && st.skipDup ? '0.5' : '1', rowStyle: i ? k.rowT : k.row }; }),
       perms: [['M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'Reads only the database you pick', 'Talby never sees the rest of your workspace'], ['M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z', 'Never changes anything in Notion', 'Nothing is edited, moved or deleted'], ['M18.84 12.25 20.56 10.54a5 5 0 0 0-7.07-7.07L11.76 5.18M5.17 11.75 3.45 13.46a5 5 0 0 0 7.07 7.07l1.71-1.71M8 2v3M2 8h3M16 22v-3M22 16h-3', 'Disconnect any time', 'In Settings, under Connections']].map(function (x, i) { return { icon: x[0], title: x[1], sub: x[2], rowStyle: i ? k.rowT : k.row }; }),
       dbQ: st.dbQ, setDbQ: function (e) { self.setState({ dbQ: e.target.value }); }, dbs: dbs, noDb: dbs.length === 0,
       nmapCols: 'minmax(0, ' + (mob ? '7fr) minmax(0, 8fr)' : '1fr) 220px'), nmapRows: nmapRows,
@@ -599,7 +762,7 @@ function render($s0, host) {
                       </React.Fragment>);
                     })}
                   </div>
-                  <button type={"button"} className={"tb tz"} onClick={$s0?.choose} {...S(`--hvz: ${I($s0?.t?.zoneHover)}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 220px; padding: 28px 20px; box-sizing: border-box; border: 1.5px dashed ${I($s0?.t?.borderStrong)}; border-radius: ${I($s0?.t?.rCard)}; background: ${I($s0?.t?.zone)}; color: ${I($s0?.t?.fg)}; font: inherit; text-align: center; cursor: pointer`)}>
+                  <button type={"button"} className={"tb tz"} onClick={$s0?.choose} onDragOver={$s0?.dragOver} onDrop={$s0?.dropFile} {...S(`--hvz: ${I($s0?.t?.zoneHover)}; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 220px; padding: 28px 20px; box-sizing: border-box; border: 1.5px dashed ${I($s0?.t?.borderStrong)}; border-radius: ${I($s0?.t?.rCard)}; background: ${I($s0?.t?.zone)}; color: ${I($s0?.t?.fg)}; font: inherit; text-align: center; cursor: pointer`)}>
                     {$s0?.zoneOk ? (<>
                       <span className={"a-float"} {...S(`width: 52px; height: 52px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.card)}; box-shadow: 0 0 0 1px ${I($s0?.t?.border)}, 0 6px 16px -8px rgba(0,0,0,0.2); color: ${I($s0?.t?.primary)}; display: inline-flex; align-items: center; justify-content: center`)}>
                         <svg width={"22"} height={"22"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
@@ -690,10 +853,10 @@ function render($s0, host) {
                       </span>
                       <span {...S("flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px")}>
                         <span {...S("font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
-                          {"Lumen_and_Lark_Partnership_Agreement.pdf"}
+                          {$s0?.ioT?.file}
                         </span>
                         <span {...S(`font-size: 13px; color: ${I($s0?.t?.mutedFg)}; white-space: nowrap`)}>
-                          {"2.4 MB · 6 pages"}
+                          {$s0?.ioT?.fileMeta}
                         </span>
                       </span>
                       <span {...S("font-weight: 600; font-variant-numeric: tabular-nums")}>
@@ -989,10 +1152,10 @@ function render($s0, host) {
                       </svg>
                       <span {...S(`${I($s0?.bn?.col)}; display: flex; flex-direction: column; gap: 2px`)}>
                         <span {...S(`font-weight: 500; ${I($s0?.bn?.text)}`)}>
-                          {"11 details found in the contract"}
+                          {$s0?.ioT?.found}
                         </span>
                         <span {...S(`font-size: 13px; color: ${I($s0?.t?.mutedFg)}; ${I($s0?.bn?.text)}`)}>
-                          {"Lumen_and_Lark_Partnership_Agreement.pdf is saved to this deal"}
+                          {$s0?.ioT?.saved}
                         </span>
                       </span>
                       <button type={"button"} className={"tb tg"} onClick={$s0?.backToPick} {...S(`--hv: ${I($s0?.t?.hoverCard)}; ${I($s0?.k?.oSm)}${I($s0?.bn?.btnR)}`)}>
@@ -1008,7 +1171,7 @@ function render($s0, host) {
                       </svg>
                       <span {...S(`${I($s0?.bn?.col)}; display: flex; flex-direction: column; gap: 2px`)}>
                         <span {...S(`font-weight: 500; ${I($s0?.bn?.text)}`)}>
-                          {"Only 3 details found in the contract"}
+                          {$s0?.ioT?.few}
                         </span>
                         <span {...S(`font-size: 13px; color: ${I($s0?.t?.mutedFg)}; ${I($s0?.bn?.text)}`)}>
                           {"Add the rest below. The contract is still saved to this deal."}
@@ -1237,7 +1400,7 @@ function render($s0, host) {
                       })}
                     </div>
                   </div>
-                  {$s0?.reviewAll ? (<>
+                  {$s0?.reviewExtras ? (<>
                     <div {...S("display: flex; flex-direction: column; gap: 8px")}>
                       <span {...S($s0?.k?.secLabel)}>
                         {"Also in the contract"}
@@ -1294,10 +1457,10 @@ function render($s0, host) {
                     </span>
                     <span {...S("flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px")}>
                       <span {...S("font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
-                        {"Brand deals 2026.csv"}
+                        {$s0?.ioT?.csvFile}
                       </span>
                       <span {...S(`font-size: 13px; color: ${I($s0?.t?.mutedFg)}; white-space: nowrap`)}>
-                        {"18 rows · 7 columns"}
+                        {$s0?.ioT?.csvMeta}
                       </span>
                     </span>
                     <button type={"button"} className={"tb tg"} onClick={$s0?.backToPick} {...S(`--hv: ${I($s0?.t?.fill)}; ${I($s0?.k?.gSm)}`)}>
@@ -1416,7 +1579,7 @@ function render($s0, host) {
                         <path d={"M20 6 9 17l-5-5"} />
                       </svg>
                     </span>
-                    {"Skip the 3 deals already in Talby"}
+                    {$s0?.ioT?.skip}
                   </button>
                   {$s0?.oneWarn ? (<>
                     <div {...S(`display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.warnBg)}; color: ${I($s0?.t?.warnFg)}`)}>
@@ -1424,7 +1587,7 @@ function render($s0, host) {
                         <path d={"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"} />
                       </svg>
                       <span {...S(`min-width: 0; ${I($s0?.subSt)}`)}>
-                        {"1 row has no amount. It comes in as $0 so you can add it later."}
+                        {$s0?.ioT?.noAmt}
                       </span>
                     </div>
                   </>) : null}
@@ -1435,7 +1598,7 @@ function render($s0, host) {
                       </svg>
                       <span {...S("flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px")}>
                         <span {...S("font-weight: 600")}>
-                          {"3 rows need a look"}
+                          {$s0?.ioT?.look}
                         </span>
                         {A($s0?.issues).map((it, i) => {
                           const $s1 = { ...$s0, "iss": it, $index: i };
@@ -1483,9 +1646,11 @@ function render($s0, host) {
                         </div>
                       </React.Fragment>);
                     })}
+                    {$s0?.ioT?.hasMore ? (<>
                     <div {...S(`padding: 12px 14px; border-top: 1px solid ${I($s0?.t?.line)}; color: ${I($s0?.t?.mutedFg)}; font-size: 13px`)}>
-                      {"And 12 more rows"}
+                      {$s0?.ioT?.more}
                     </div>
+                    </>) : null}
                   </div>
                 </div>
               </>) : null}
@@ -1537,7 +1702,7 @@ function render($s0, host) {
                     <span {...S("flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
                       {"Connected to "}
                       <b {...S("font-weight: 600")}>
-                        {"Chanelica's Notion"}
+                        {$s0?.ioT?.ws}
                       </b>
                     </span>
                     <button type={"button"} className={"tb tg"} onClick={$s0?.switchWs} {...S(`--hv: ${I($s0?.t?.card)}; ${I($s0?.k?.gSm)}`)}>

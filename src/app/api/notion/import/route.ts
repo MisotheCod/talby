@@ -76,7 +76,6 @@ export async function POST(req: Request) {
     const notesOf = new Map(wanted.map((r, i) => [mapped[i].notionId, at(r, "notes")]));
     const paybyOf = new Map(wanted.map((r, i) => [mapped[i].notionId, at(r, "payby")]));
 
-    const skippedIds = new Set<string>();
     const totals = await runImport(mapped, known, async (row) => {
       const post = row.post;
       const patch: Record<string, unknown> = {
@@ -93,22 +92,16 @@ export async function POST(req: Request) {
       if (notes) patch.notes = notes;
       if (row.rep) patch.rep_name = row.rep;
 
-      // sync=false: ON CONFLICT DO NOTHING (a repeat is a skip).
-      // sync=true : a repeat is updated in place instead.
-      if (sync && known.has(row.notionId)) {
-        skippedIds.add(row.notionId);
-        const { error } = await supabase.from("deals").update(patch).eq("user_id", user.id).eq("notion_page_id", row.notionId);
-        return { error: error ? { code: error.code } : null };
-      }
+      // A repeat is ALWAYS skipped, sync or not — an imported deal is never
+      // overwritten. `sync` only means later Notion rows keep coming in.
       const { error } = await supabase
         .from("deals")
         .upsert(patch, { onConflict: "user_id,notion_page_id", ignoreDuplicates: true });
       return { error: error ? { code: error.code } : null };
     });
 
-    // On a sync run an updated row counts as handled, not imported.
-    const imported = sync ? totals.imported - skippedIds.size : totals.imported;
-    const skipped = sync ? totals.skipped + skippedIds.size : totals.skipped;
+    const imported = totals.imported;
+    const skipped = totals.skipped;
 
     if (runId) {
       await supabase.from("import_runs").update({
