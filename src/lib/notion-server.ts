@@ -88,7 +88,16 @@ const AUTH_HEADERS = (token: string) => ({
   "Content-Type": "application/json",
 });
 
-export type NotionDatabase = { id: string; title: string };
+/** Notion failures carry a machine code the routes return as { code }. */
+export class NotionError extends Error {
+  code: string;
+  constructor(code: string, message?: string) {
+    super(message ?? code);
+    this.code = code;
+  }
+}
+
+export type NotionDatabase = { id: string; title: string; edited?: string };
 
 /** List databases the user's connection can access. */
 export async function listDatabases(token: string): Promise<NotionDatabase[]> {
@@ -97,13 +106,34 @@ export async function listDatabases(token: string): Promise<NotionDatabase[]> {
     headers: AUTH_HEADERS(token),
     body: JSON.stringify({ filter: { value: "database", property: "object" }, page_size: 50 }),
   });
-  if (!res.ok) throw new Error(`Notion search failed (${res.status})`);
+  if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion search failed (${res.status})`);
   const data = await res.json();
-  const results: Array<{ id: string; title?: Array<{ plain_text?: string }> }> = data?.results ?? [];
+  const results: Array<{ id: string; title?: Array<{ plain_text?: string }>; last_edited_time?: string }> = data?.results ?? [];
   return results.map((r) => ({
     id: r.id,
     title: (r.title ?? []).map((t) => t.plain_text ?? "").join("") || "Untitled database",
+    edited: r.last_edited_time,
   }));
+}
+
+/** Page count for a database — paginates with page_size 1 per page of 100. */
+export async function countDatabaseRows(token: string, databaseId: string): Promise<number> {
+  let total = 0;
+  let cursor: string | undefined;
+  for (let page = 0; page < 200; page++) {
+    const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+      method: "POST",
+      headers: AUTH_HEADERS(token),
+      body: JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }),
+    });
+    if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion query failed (${res.status})`);
+    const data = await res.json();
+    total += (data?.results ?? []).length;
+    if (!data?.has_more) break;
+    cursor = data?.next_cursor ?? undefined;
+    if (!cursor) break;
+  }
+  return total;
 }
 
 /**
@@ -122,7 +152,7 @@ export async function fetchDatabaseRows(token: string, databaseId: string, sourc
       headers: AUTH_HEADERS(token),
       body: JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }),
     });
-    if (!res.ok) throw new Error(`Notion query failed (${res.status})`);
+    if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion query failed (${res.status})`);
     const data = await res.json();
     results.push(...(data?.results ?? []));
     if (!data?.has_more) break;
