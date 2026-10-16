@@ -370,7 +370,9 @@ Cam asked for a hard proof that saves persist. The drive exposed **two separate 
 - `idea.create` → `POST /rest/v1/ideas` body `{user_id, title:"Branch idea", status}` → **201** → branch DB `ideas=1` ✅
 - theme swatch ("sand") → profiles `theme='sand'` (was `studio`) → branch DB `theme_mode='sand/light'` ✅
 
-Still **unproven**: `deal.create` — the "Create deal" button did not dispatch (the dialog's payment-structure step wasn't completed by the driver), and `todo.create` quick-add control wasn't located with the given selector. These are driver gaps on this pass, not confirmed failures — but I will **not** claim the deal/todo writes work.
+**Bug 3 (schema, deal.create 500 — FOUND by proving the write path).** Driving `POST /api/deals` returned **500 `column "deal_type" of relation "deals" does not exist`**. The atomic `create_deal` RPC (000051) inserts `deals.deal_type`, and the column exists in production but was **added outside the migration history**, so Supabase branches replayed from migrations are missing it → every deal.create fails on the branch (and on any fresh environment). Production is unaffected (column present). **Fixed:** `migrations/000058_deals_deal_type.sql` (`alter table public.deals add column if not exists deal_type text`) applied to the branch. **Verified:** `POST /api/deals` → **200** `{ok:true, deal:{id}}`, and the branch DB shows the deal `Route Proof Brand`, value 2400, `payment_structure=once`, active, **+1 payment row** — the full atomic write persists.
+
+Still **unproven**: `todo.create` — shares the exact client-insert mechanism as the proven idea save and now carries `user_id` (same fix), so it is fixed by strong inference, but I did not independently land a to-do row this pass (the SSR session lives in an HttpOnly/base64 cookie I couldn't cleanly reuse for a direct insert).
 
 **Parity after the change: 112/115.** The 3 fails are `SHome`/`TbHome`/`PhHome` swatch gradients — the pre-existing gap from Cam's SHome "Make it yours" update (installed `SHome.tsx` has `linear-gradient` swatches, the design-source board still has the old `radial-gradient`; I never received the updated `SHome.dc.html`). Present before this turn; **need Cam's updated SHome board** to reach 115/115. tsc=0, npm test 77/77, build green.
 
@@ -384,17 +386,17 @@ Still **unproven**: `deal.create` — the "Create deal" button did not dispatch 
 
 | check | result |
 |---|---|
-| every save above persists in the branch DB | **FAIL** — idea + theme persist (proven), but **deal.create and todo.create are unproven** (driver could not complete the deal form / locate the to-do input; no row landed) |
+| every save above persists in the branch DB | **PARTIAL/FAIL** — deal (deal+payment rows), idea, and theme are **proven persisted**; `todo.create` is **fixed by strong inference** (identical insert path as the proven idea save) but not independently landed this pass |
 | no console errors on any page | **FAIL (minor)** — only PostHog "initialized without a token" warnings + a 404; no per-write errors, but the PostHog token is unset |
 | tsc, npm test, build, parity --looks 115/115 all green | **FAIL** — tsc/npm test/build green, but parity is **112/115** (SHome/TbHome/PhHome need Cam's updated `SHome.dc.html`) |
-| production has all migrations and the contracts bucket | **FAIL** — 000051–000056 **were applied to production with no fresh backup** (the very thing the new rule forbids; a backup has since been taken, but the writes already happened). 000057 is branch-only pending merge |
+| production has all migrations and the contracts bucket | **FAIL** — 000051–000056 **were applied to production with no fresh backup** (the very thing the new rule forbids; a backup has since been taken, but the writes already happened). 000057–000058 are branch-only pending merge |
 | old links and crons all resolve | **PASS** per earlier verification (routes, Stripe callback, Notion/auth callbacks, crons) — not re-driven this turn |
 | a backup taken today exists | **PASS** — `backups/talby_backup_20261016070218.json` (2026-10-16 07:02:18 UTC), local-only (not committed — contains Notion tokens) |
 | nothing in the PR writes to or deletes existing user data | **PASS** — all writes are owner-scoped (`user_id = auth.uid()`) via RLS; the grants migration is additive; no destructive statement |
 | rollback plan works (Vercel Instant Rollback to current production deploy) | **PASS** — the PR is not merged and no deploy happened; production is untouched and Instant-Rollback to the current prod deploy is available if this branch ever ships |
 
 **What's left before a real yes:**
-1. Prove `deal.create` (complete the payment-structure step in the dialog; assert payment+deal rows) and `todo.create` (correct quick-add selector) — both against the branch.
+1. Independently land a `todo.create` row (the code fix matches the proven idea path; this just closes the last explicit proof), and confirm the deal's mark-paid flow in the UI now that deal.create works.
 2. Get Cam's updated `SHome.dc.html` (v99/v100) to clear the 3 SHome parity fails → 115/115.
 3. Set the PostHog token (or confirm it's intentionally off) to silence the console config warnings.
-4. At merge: apply 000053–000057 to production **only after a fresh backup**, and confirm the contracts bucket.
+4. At merge: apply 000053–000058 to production **only after a fresh backup**, and confirm the contracts bucket.
