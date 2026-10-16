@@ -302,7 +302,7 @@ class Component extends DCLogic {
       stats: stats, stripCols: wide ? 'repeat(4, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', statPad: mob ? '14px 16px' : '18px 22px', statFs: mob ? '22px' : '28px',
       rowCols: wide ? 'minmax(0, 2fr) minmax(320px, 1fr)' : 'minmax(0, 1fr)',
       attn: attn, hasAttn: attn.length > 0, noAttn: isSample && attn.length === 0, attnCount: String(attn.length),
-      week: week, weekItems: weekItems, upcoming: upcoming,
+      week: week, weekItems: weekItems, weekNone: isEmpty || (isSample && weekItems.length === 0), upcoming: upcoming,
       tabs: tabs, rows: rows, footLabel: 'Showing ' + shown.length + ' of ' + list.length,
       todos: todos, hasTodos: todos.length > 0, noTodos: isSample && todos.length === 0, todoCount: String(todos.length),
       todoDraft: st.todoDraft, setTodoDraft: function (e2) { self.setState({ todoDraft: e2.target.value }); }, todoKey: function (e2) { if (e2.key === 'Enter') addTodo(); }, addTodo: addTodo,
@@ -316,7 +316,8 @@ class Component extends DCLogic {
       skBox: sk('16px', '16px', t.rBox), skTodo: sk('84%', '12px'), skChip: sk('92px', '22px', t.rCtl),
       errBlk: blk('error', IC.wifi, 'We could not load your overview', 'Check your connection and try again. Nothing was lost.', 'Try again', function () { self.retryLoad(); }),
       attnBlk: blk('empty', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', 'Nothing needs you yet', 'Late payments and deals with no pay by date show up here, so nothing slips.'),
-      weekBlk: blk('empty', 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18', 'Nothing this week', 'Posts and payments due this week show up here.'),
+      weekBlk: isEmpty ? blk('empty', 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18', 'Nothing this week', 'Posts and payments due this week show up here.')
+        : blk('empty', 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18M9 16l2 2 4-4', 'A quiet week', 'Nothing posts or comes due through Saturday.'),
       dealsBlk: blk('empty', 'M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z', 'No deals yet', 'Add your first deal by hand, upload a contract or CSV, or import from Notion.', 'Add deal', goAdd('new'), 'Upload', goAdd('upload')),
       upBlk: blk('empty', IC.clock, 'No payments coming up', 'Give a deal a pay by date and it shows up here.'),
       todoBlk: blk('empty', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', 'No to-dos yet', 'Add one below when something comes up.')
@@ -620,7 +621,7 @@ function render($s0, host) {
                       </React.Fragment>);
                     })}
                   </>) : null}
-                  {$s0?.isEmpty ? (<>
+                  {$s0?.weekNone ? (<>
                     <div {...S(`flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; border-top: 1px solid ${I($s0?.t?.line)}`)}>
                       <div className={"a-fade"} {...S("display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px 16px; box-sizing: border-box; text-align: center")}>
                         <span {...S(`display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.weekBlk?.tileBg)}; color: ${I($s0?.weekBlk?.tileFg)}`)}>

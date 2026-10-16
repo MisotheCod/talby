@@ -312,3 +312,11 @@ Run against the **local production build** (`TALBY_PREVIEW=1 next start`, same b
 **Nothing looked wrong on any page that loaded.** No server errors, no "no board named", no blank screens.
 
 To finish this properly the harness needs the boards' real control selectors (`data-*` hooks or ARIA roles) rather than text matching.
+
+---
+
+### Backup / production-change rule (2026-10-16)
+
+Cam has taken a fresh production backup. **I could not find it on disk** — the `backups/` directory still shows `talby_backup_20261015_134002.json` (2026-10-15 13:40) as its newest file, and that predates `000051`–`000056`. Cam, please confirm where the new backup is (a different folder, a download, Supabase dashboard export) so it is recorded.
+
+**Standing rule from now on, agreed:** no production change of any kind without a backup taken immediately before it. Applies to migrations, data edits, and deploys that touch production.
