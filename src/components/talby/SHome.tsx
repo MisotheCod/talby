@@ -148,7 +148,18 @@ class Component extends DCLogic {
     var ICONS = { Overview: 'M4 3h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM15 3h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM15 12h5a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1zM4 16h5a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z', Deals: 'M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z', Calendar: 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18', Payments: 'M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4', Ideas: 'M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4', 'To-dos': 'm3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8' };
     var mockNav = ['Overview', 'Deals', 'Calendar', 'Payments', 'Ideas', 'To-dos'].map(function (n, i) { return { label: n, icon: ICONS[n], bg: i === 0 ? x.navOn : 'transparent', fg: i === 0 ? x.fg : x.mutedFg, ic: i === 0 ? x.accent : x.mutedFg, fw: i === 0 ? '600' : '500', hasCount: n === 'Deals', count: '19' }; });
     var THEMES = ['studio', 'sand', 'mac', 'stationery', 'editorial'];
-    var themeOpts = THEMES.map(function (id) { var y = talby(id, st.dark), on = st.theme === id; return { label: y.name, on: on, swatch: id === 'studio' ? ('linear-gradient(135deg, ' + y.primary + ' 50%, ' + y.accent + ' 50%)') : y.primary, bg: on ? c.primary : 'transparent', fg: on ? c.primaryFg : c.fg, hv: on ? c.primary : c.hv, pick: function () { self.setState({ theme: id }); } }; });
+    // Swatches: an edgy gradient per theme, built only from that theme's own colors.
+    // c: base a, base b, big blob, low blob, corner blob. f: how soft the blob edges are.
+    var EDGY = { studio: { c: ['#A9CCF5', '#171717', '#1F7AE0', '#F5F5F5', '#171717'], f: 1 }, sand: { c: ['#B08968', '#8A7466', '#D9B89C', '#6E4B39', '#F5EFE8'], f: 1.25 },
+      mac: { c: ['#86868B', '#D1D1D6', '#CACACF', '#3A3A3C', '#F5F5F7'], f: 1 }, stationery: { c: ['#857B6B', '#CBBFA8', '#F2ECDF', '#2E2A24', '#2B3A55'], f: 0.9 },
+      editorial: { c: ['#6B6B6B', '#FFFFFF', '#111111', '#FFFFFF', '#111111'], f: 0.35 } };
+    function edgy(id) {
+      var t = EDGY[id] || EDGY.studio, c = t.c;
+      function e(a, b) { return a + '%, transparent ' + Math.round(a + (b - a) * t.f) + '%'; }
+      return 'radial-gradient(64% 56% at 60% 36%, ' + c[2] + ' 0 ' + e(42, 70) + '), radial-gradient(58% 52% at 20% 70%, ' + c[3] + ' 0 ' + e(46, 74) + '), '
+        + 'radial-gradient(44% 40% at 86% 76%, ' + c[4] + ' 0 ' + e(44, 76) + '), conic-gradient(from 210deg at 50% 50%, ' + c[0] + ', ' + c[1] + ', ' + c[0] + ')';
+    }
+    var themeOpts = THEMES.map(function (id) { var y = talby(id, st.dark), on = st.theme === id; return { label: y.name, on: on, swatch: edgy(id), bg: on ? c.primary : 'transparent', fg: on ? c.primaryFg : c.fg, hv: on ? c.primary : c.hv, pick: function () { self.setState({ theme: id }); } }; });
     function tabSt(on, z) { return { bg: on ? z.tabOn : 'transparent', sh: on ? z.tabSh : 'none', fg: on ? z.fg : z.mutedFg }; }
     var STORY = {
       contract: { n: '01', label: 'Contract', eyebrow: 'Step 1, the contract', title: 'The contract shows up. Talby reads it.', body: 'Drop in the signed PDF. Talby pulls out the brand, rate, deliverables, post date and payment terms.', bullets: ['Brand, rate, deliverables and dates filled in', 'Every field stays editable', 'The PDF stays on the deal'], hint: 'Click the box to try it', hintM: 'Tap the box to try it' },
