@@ -140,7 +140,11 @@ Pulled read-only from production on 2026-10-16. Originals: `profiles` + `auth.us
 | misothecod@protonmail.com | 2026-08-26 | 2026-10-14 | 1 | trialing | yes | NoCodeNoir | **REAL** |
 | camqdesigns@gmail.com | 2026-08-27 | 2026-10-13 | 19 | active | yes | Blair4Wellness | **REAL** |
 | aerolune@protonmail.com | 2026-08-27 | 2026-10-05 | 0 | trialing | yes | Aerolune | **REAL** |
-| approvedbybre@gmail.com | 2026-09-04 | 2026-09-04 | 1 | active | yes | Approvedbybre | **REAL** |
+| approvedbybre@gmail.com | 2026-09-04 | 2026-09-04 | 1 | active | yes | Approvedbybre | **REAL — Breanna** |
+
+Named real accounts so far: **Chanelica** (chanelicarobinson@gmail.com / `chanelica.r`), **Breanna** (approvedbybre@gmail.com / `Approvedbybre`), **Blair4Wellness** (camqdesigns@gmail.com).
+
+Checked specifically for Breanna: a case-insensitive search on `%bre%` / `%approv%` across email and handler returns **exactly one account** — `approvedbybre@gmail.com`. There is no second Breanna account, no duplicate, and none hiding in the `@talby.test` set.
 
 ### Recount — real accounts only
 
