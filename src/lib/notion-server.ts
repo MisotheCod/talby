@@ -112,14 +112,23 @@ export async function listDatabases(token: string): Promise<NotionDatabase[]> {
  * into the existing AI import-mapping pipeline (same as CSV).
  */
 export async function fetchDatabaseRows(token: string, databaseId: string, sourceName: string) {
-  const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-    method: "POST",
-    headers: AUTH_HEADERS(token),
-    body: JSON.stringify({ page_size: 100 }),
-  });
-  if (!res.ok) throw new Error(`Notion query failed (${res.status})`);
-  const data = await res.json();
-  const results: Array<{ properties: Record<string, unknown> }> = data?.results ?? [];
+  // Full pagination: Notion caps each query at 100 rows, so walk next_cursor
+  // until has_more is false. Guarded against a bad cursor looping forever.
+  const results: Array<{ id?: string; properties: Record<string, unknown> }> = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 200; page++) {
+    const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
+      method: "POST",
+      headers: AUTH_HEADERS(token),
+      body: JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }),
+    });
+    if (!res.ok) throw new Error(`Notion query failed (${res.status})`);
+    const data = await res.json();
+    results.push(...(data?.results ?? []));
+    if (!data?.has_more) break;
+    cursor = data?.next_cursor ?? undefined;
+    if (!cursor) break;
+  }
 
   // Column order from the first non-empty row (fall back to insertion order).
   const columns: string[] = [];
@@ -138,6 +147,8 @@ export async function fetchDatabaseRows(token: string, databaseId: string, sourc
     for (const col of columns) {
       obj[col] = propToText(page.properties?.[col]);
     }
+    // Page id carried through so the import can skip repeats by Notion page id.
+    obj._notion_id = page.id ?? "";
     return obj;
   });
 
