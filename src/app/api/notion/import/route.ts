@@ -78,12 +78,14 @@ export async function POST(req: Request) {
 
     const totals = await runImport(mapped, known, async (row) => {
       const post = row.post;
+      const postDate = /^\d{4}-\d{2}-\d{2}/.test(post) ? post.slice(0, 10) : null;
       const patch: Record<string, unknown> = {
         user_id: user.id,
         brand: row.brand,
         notion_page_id: row.notionId,
         value: Number.isFinite(row.amount) ? row.amount : null,
-        post_date: /^\d{4}-\d{2}-\d{2}/.test(post) ? post.slice(0, 10) : null,
+        // NOTE: do NOT set deals.post_date — it is read-only (guard trigger). Post dates
+        // are written as content rows below, same as manual create and CSV import.
         status: row.status,
       };
       const payby = paybyOf.get(row.notionId) ?? "";
@@ -94,9 +96,16 @@ export async function POST(req: Request) {
 
       // A repeat is ALWAYS skipped, sync or not — an imported deal is never
       // overwritten. `sync` only means later Notion rows keep coming in.
-      const { error } = await supabase
+      const { data: created, error } = await supabase
         .from("deals")
-        .upsert(patch, { onConflict: "user_id,notion_page_id", ignoreDuplicates: true });
+        .upsert(patch, { onConflict: "user_id,notion_page_id", ignoreDuplicates: true })
+        .select("id").maybeSingle();
+      if (!error && postDate && (created as { id?: string } | null)?.id) {
+        await supabase.from("content").insert({
+          user_id: user.id, linked_deal_id: (created as { id: string }).id,
+          event_date: postDate, title: row.brand, status: "planned",
+        });
+      }
       return { error: error ? { code: error.code } : null };
     });
 

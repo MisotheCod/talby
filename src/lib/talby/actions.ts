@@ -45,7 +45,8 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           if (f.paid !== undefined) payload.payment_structure = String(f.paid);
           if (f.rep) payload.rep_name = String(f.rep);
           if (f.repEmail) payload.rep_email = String(f.repEmail);
-          if (f.post) payload.post_date = String(f.post);
+          // Post dates are content rows, never deals.post_date (guard trigger rejects it).
+          if (f.post) payload.post_dates = [{ date: String(f.post), label: "Post", post_type: "" }];
           const s = String(f.status ?? "active").toLowerCase();
           payload.status = ["active", "archived", "negotiating", "past_due", "paid"].includes(s) ? s : "active";
           if (plan) payload.payment_schedule = plan;

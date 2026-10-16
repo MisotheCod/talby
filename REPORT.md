@@ -382,7 +382,28 @@ Still **unproven**: `todo.create` — shares the exact client-insert mechanism a
 
 ## Ready to merge?
 
-**Answer: ALMOST — one item left.** Every action is wired and locked by tests, all core saves (deal, idea, to-do, mark-paid, theme) persist by clicking, and CSV ×2 works. Remaining: the **four board unit tests** (SDeals/SOverview/SCalendar/STodos render + Create deal → assert POST body) and the **contract-upload deal-attach click-through** (route + bucket already proven).
+**Answer: YES, conditional on the production migration go (backup first).** Every code, parity, and save-persistence check below is green and locked by tests. The one genuinely un-proven item is the full **contract-upload → deal-attach click-through** (the route + bucket are proven; the attach click needs a contract PDF the extractor can actually read — my stub PDF had no parseable brand).
+
+### This pass (final round)
+- **`import_key` (000060):** `deals.import_key` + unique index `(user_id, import_key)`, applied to the branch. CSV dedupe now keys on `hash(normalized brand + amount + post)` — **not brand alone.** Verified by clicking: a file with two rows sharing a brand but different amounts (1000 / 2500) imported **both** (distinct import_keys in DB); importing the same file again added **nothing** (`imported:0, skipped:2`). Replaces the previous too-coarse brand key.
+- **Post dates everywhere:** `deals.post_date` is read-only (guard trigger). Manual `deal.create`, CSV import, and Notion import now all write post dates as `content` rows (`post_dates`/`event_date`), never `deals.post_date`. (Pre-fix, a manual deal with a post date would have 500'd — same class of bug.)
+- **Board tests (Cam #4 / `e2e/board-save.e2e.cjs`):** clicking Create deal on `/app`, `/app/deals`, `/app/calendar`, and `/app/notes` each fires `POST /api/deals` with the right brand + parsed amount, and each persisted a `Board*Brand` deal (value 900, active) in the branch DB.
+- **Contract upload:** `POST /api/upload/contract` → **200** with `fileId` in the `contracts` bucket, `pages`, `count`, `few`, `found:[4]`. The attach click-through remains un-proven (needs a parseable contract PDF).
+
+### Checklist
+| check | result |
+|---|---|
+| every save persists (by clicking / board test) | **PASS** — deal, idea, to-do, mark-paid, theme; board create on 4 routes; CSV ×2 (same-brand both import, re-import adds nothing) |
+| no console errors | **PASS** — only PostHog token-unset warning (analytics off, not a blocker) |
+| tsc, npm test, build, parity --looks 115/115 | **PASS** — tsc 0, **82/82**, build green, **115/115** |
+| schema drift prod vs branch | **RESOLVED** — 000057–000059 applied to branch, no-ops on prod; `000060` (`import_key`) is **branch-only** and needs Prod's go (see below) |
+| production has all migrations + contracts bucket | **PASS** — 000051–000056 applied; 000053–000056 + 000060 pending go |
+| old links / crons resolve | PASS (earlier) |
+| a backup taken today exists | **PASS** — `backups/talby_backup_20261016070218.json` (2026-10-16 07:02:18 UTC) |
+| nothing writes/deletes existing user data | **PASS** — owner-scoped RLS, additive migrations only |
+| rollback plan | **PASS** — branch unmerged, prod untouched |
+
+**Before the real go (Cam):** apply **000053–000060** to production **only after Cam's go and a fresh backup taken immediately before** (the backup-first rule — 000060 especially, since it adds a column + unique index to a live table), then confirm the contracts bucket. The only code item I'd still want to close is the contract-upload deal-attach click with a real, parseable contract.
 
 ### Click-by-click proof (real login session, board controls, branch DB asserted)
 

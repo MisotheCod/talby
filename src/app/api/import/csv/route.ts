@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { userIsReadOnly } from "@/lib/write-access";
 import { parseCsv, buildPreview, selectRows, applyMap, dealKey, knownKeys, type CsvPreviewRow } from "@/lib/csv-import";
@@ -79,6 +80,13 @@ async function stepOne(req: Request, supabase: Supa, userId: string) {
   });
 }
 
+/** Stable per-row key: normalized brand + amount + post. Two real deals sharing a brand
+ *  but differing in amount/date get different keys and both import. */
+function importKey(brand: string, amount: number, post: string): string {
+  const norm = [String(brand).trim().toLowerCase(), Number.isFinite(amount) ? String(amount) : "", String(post ?? "").trim()].join("|");
+  return createHash("sha1").update(norm).digest("hex").slice(0, 32);
+}
+
 /** Step two — save the previewed rows with the user's column mapping. */
 async function stepTwo(req: Request, supabase: Supa, userId: string) {
   const body = await req.json().catch(() => ({}));
@@ -121,10 +129,10 @@ async function stepTwo(req: Request, supabase: Supa, userId: string) {
   let booked = 0;
 
   try {
-    const { data: deals } = await supabase.from("deals").select("brand, post_date");
-    // Dedupe on brand (case-insensitive): imported deals cannot carry deals.post_date
-    // (read-only), so post-based keys never match a re-import.
-    const seenBrands = new Set(((deals ?? []) as Array<{ brand: string | null }>).map((d) => String(d.brand ?? "").trim().toLowerCase()));
+    const { data: deals } = await supabase.from("deals").select("import_key").eq("user_id", userId);
+    // Dedupe on import_key = hash(normalized brand + amount + post). Two real deals with the
+    // same brand but different amounts must BOTH import; the same file twice must add nothing.
+    const seenKeys = new Set(((deals ?? []) as Array<{ import_key: string | null }>).map((d) => d.import_key).filter(Boolean));
 
     for (const row of todo) {
       const raw = rawRows[Number(row.id) - 2] ?? [];
@@ -137,13 +145,14 @@ async function stepTwo(req: Request, supabase: Supa, userId: string) {
         continue;
       }
       const post = f.post || row.post;
-      const brandKey = brand.trim().toLowerCase();
-      if (skipRepeats && seenBrands.has(brandKey)) { skipped++; continue; }
+      const key = importKey(brand, amount, post);
+      if (skipRepeats && seenKeys.has(key)) { skipped++; continue; }
 
       const patch: Record<string, unknown> = {
         user_id: userId,
         brand,
         value: Number.isFinite(amount) ? amount : null,
+        import_key: key,
         // NOTE: do NOT set post_date here — deals.post_date is read-only (guard trigger
         // raises "write content.event_date instead"). Post dates become content rows below.
         status: /pipeline|negotiat/i.test(f.status) ? "pipeline" : "active",
@@ -164,7 +173,7 @@ async function stepTwo(req: Request, supabase: Supa, userId: string) {
         });
         if (perr) failed.push({ id: row.id, brand, amount, reason: "Deal saved, but its post date could not be added." });
       }
-      seenBrands.add(brandKey);
+      seenKeys.add(key);
       imported++;
       if (patch.status === "active" && Number.isFinite(amount)) booked += amount;
     }
