@@ -38,7 +38,7 @@ Installed Claude's **talby-ui v3** (`SAddDeal.tsx`, `_data.ts`, `src/lib/talby/i
 | Check | Result |
 |---|---|
 | `npx tsc --noEmit` | exit 0 |
-| `npm test` | **49 passing, 0 failing** |
+| `npm test` | **58 passing, 0 failing** |
 | `TALBY_PREVIEW=1 npm run build` | compiled successfully |
 | parity, touched boards (`SAssistant,AsLimit,AsError,AsEmpty,AsOffline,SAddDeal,SFlowUpload,SFlowNotion,SFlowStates`) | **9/9 at 0.0000%** |
 | parity `--looks` (115 cases) | result recorded in `PROGRESS.md` for this run |
@@ -71,3 +71,50 @@ Nothing below was done — all of it is production-side and deliberately untouch
 ## Safety
 
 Test accounts only. Chanelica's account (`f887b19c`) and Cam's accounts were never touched. No production database change, no deploy, no merge to `main`. Every migration in this work was applied to the branch only.
+
+---
+
+# Round 2 — pre-review checks
+
+## 1. The preview was talking to PRODUCTION Supabase (fixed)
+
+Vercel had **one** `NEXT_PUBLIC_SUPABASE_URL` — and one anon key — shared across **Production, Preview and Development**. A single shared value means the preview build inlines the production Supabase URL, so anything done on a preview deployment read and wrote production data.
+
+**It was production.** Stopped and fixed with branch-scoped overrides:
+
+| Variable | Before | After |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Production, Preview, Development (production project) | + **Preview (talby-redesign-v2)** → `onngocpwfoeqyqmuuglq.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Production, Preview, Development | + **Preview (talby-redesign-v2)** → branch publishable key |
+
+Other branches keep the old values. `SUPABASE_SERVICE_ROLE_KEY` stays Production-only, so previews never hold service-role. **A redeploy is required for the override to take effect** — the push for this round triggers one.
+
+Caveat worth knowing: the preview is also behind **Vercel Authentication (SSO)**, so it can't be opened without a Vercel login or an automation-bypass token.
+
+## 2. `/api/upload/contract` and `deal.create` (done + tested)
+
+Returns `fileId` (stored in the new **`contracts`** bucket), `pages`, `fields`, `found` as four ordered strings — brand and rep, amount and terms, post date and deliverables, bonus and commission, `''` when missing — plus `count`, `few` and `extras`. `deal.create` carrying `contract` inserts the row into `deal_files (deal_id, name, path)`.
+
+The shaping moved into a pure `src/lib/contract-shape.ts` with **10 tests**. Those tests caught a real bug: `grouped(null)` returned `"0"` — because `Number(null)` is `0` — so a contract with **no stated amount would have shown "$0"** instead of a blank field. That is exactly the fake-data failure this project is built to avoid. Fixed in the code, not by weakening the test.
+
+Migration `000055_contracts_bucket.sql` creates the `contracts` bucket with owner-scoped read/write/delete policies — **applied to the branch only**.
+
+## 3. Click-through on the preview — NOT done
+
+Two blockers, both environmental rather than code:
+
+1. **The preview is behind Vercel Authentication**, so signing in as a test account needs either a Vercel SSO login (Cam's, which I must not use) or an automation-bypass token added to the project.
+2. Until this round's redeploy lands, opening the preview would have meant driving the walkthrough **against production data** — the exact thing item 1 just stopped.
+
+It could safely run now on the redeployed preview *if* a bypass token is provided. I did not want to work around either blocker by using a real login or by writing to production.
+
+## 4. Re-verification
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | exit 0 |
+| `npm test` | **58 passing, 0 failing** |
+| `next build` (TALBY_PREVIEW=1) | compiled |
+| parity `--only SAddDeal,SFlowUpload,SFlowStates` | **3/3 at 0.0000%** |
+
+Pushed to the same PR (#2). Not merged.
