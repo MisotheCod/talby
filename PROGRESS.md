@@ -202,3 +202,5 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
 
 ## Blocked / notes
 - `assets/ad/*.json` changes are from the parallel session, left untouched.
+
+- **C. Overview on /app**: query+map+pass wired — client /app fetches rows, maps via toOverviewData/toAccountData, passes data/account/onAction/view/plan through TalbyPage. Prod renders real data (sidebar 26/3late/1/1, greeting+3 payments overdue) with fixture.sample; parity --only SOverview = 0.0000- **C. Overview on /app**: query→map→pass wired — client /app fetches rows, maps via toOverviewData/toAccountData, passes data/account/onAction/view/plan through TalbyPage. Prod renders real data (sidebar 26/3late/1/1, greeting + 3 payments overdue) with fixture.sample; parity --only SOverview = 0.0000% (preview sample unchanged). Earlier prod 500 was a stale-build artifact, not a code bug (fresh build+start renders; only benign Sentry diagnostic-channel warning in log).
