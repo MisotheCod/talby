@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import TalbyPage from "@/components/talby-app/TalbyPage";
 import { toOverviewData, toAccountData } from "@/lib/talby/to-board";
 import { TalbyDates } from "@/components/talby/_data";
+import { showWelcome, deriveIdentity } from "@/lib/talby/account-gate";
 import type { OverviewData, AccountData, WelcomeData } from "@/components/talby/_data";
 import type { DealRow, PaymentRow, ContentRow, TodoRow, ProfileRow } from "@/lib/talby/queries";
 
@@ -47,8 +48,14 @@ export default function OverviewPage() {
       const dealsThisYear = deals.filter((x) => (x.created_at ?? "").slice(0, 4) === today.slice(0, 4)).length;
 
       setData(toOverviewData({ deals, payments, content, todos: todoRows, today }));
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+      const identity = deriveIdentity({
+        handler: profile?.handler ?? null,
+        fullName: (meta.full_name as string) ?? (meta.name as string) ?? null,
+        email: user.email ?? null,
+      });
       setAccount(toAccountData({
-        profile: profile as ProfileRow, today,
+        profile: { ...(profile ?? {}), handler: identity.handle } as ProfileRow, today,
         counts: { deals: deals.length, late, ideas: ideas.length, todos: openTodos.length },
         dealsThisYear, notifications: [],
       }));
@@ -68,7 +75,7 @@ export default function OverviewPage() {
         ask: !!pr?.assistant_used,
         remind: !!pr?.digest_enabled,
       } });
-      setFirstVisit(!!profile && !pr?.tour_seen);
+      setFirstVisit(showWelcome({ deals: deals.length, tourSeen: (pr?.tour_seen as boolean) ?? null }));
       setView(deals.length === 0 ? "empty" : "sample");
     } catch (e) {
       console.error("overview load", e);

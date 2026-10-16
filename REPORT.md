@@ -118,3 +118,73 @@ It could safely run now on the redeployed preview *if* a bypass token is provide
 | parity `--only SAddDeal,SFlowUpload,SFlowStates` | **3/3 at 0.0000%** |
 
 Pushed to the same PR (#2). Not merged.
+
+---
+
+# Production account inventory (read-only — nothing was written, edited or deleted)
+
+Pulled read-only from production on 2026-10-16. Originals: `profiles` + `auth.users` + a count of `deals` per user.
+
+**Totals:** 44 profiles · 44 have a matching auth user (0 orphans) · 36 are `@talby.test` (test by construction) · **8 are non-test and need Cam's call**.
+
+**Correction to my earlier report:** I said "29 of 44 users would hit the Welcome screen". That was the raw count and it was misleading — 27 of those 29 are `@talby.test` fixtures. **Only 2 non-test accounts have `tour_seen` unset**, and both look like August live-probe accounts. The deploy risk is far smaller than I first stated.
+
+### A. Non-test accounts — mark "real?" (this is the set that matters)
+
+| email | created | last sign-in | deals | plan_status | tour_seen | handler | real? |
+|---|---|---|---|---|---|---|---|
+| stranger1786131955@gmail.com | 2026-08-07 | 2026-08-07 | 1 | trialing | **no** | talbycreator | |
+| live1786133466@gmail.com | 2026-08-07 | 2026-08-13 | 1 | active | **no** | livecreator | |
+| camquint@gmail.com | 2026-08-07 | 2026-10-14 | 33 | active | yes | cambo | |
+| chanelicarobinson@gmail.com | 2026-08-11 | 2026-10-13 | 27 | active | yes | chanelica.r | |
+| misothecod@protonmail.com | 2026-08-26 | 2026-10-14 | 1 | trialing | yes | NoCodeNoir | |
+| camqdesigns@gmail.com | 2026-08-27 | 2026-10-13 | 19 | active | yes | Blair4Wellness | |
+| aerolune@protonmail.com | 2026-08-27 | 2026-10-05 | 0 | trialing | yes | Aerolune | |
+| approvedbybre@gmail.com | 2026-09-04 | 2026-09-04 | 1 | active | yes | Approvedbybre | |
+
+Known real: **chanelica.r** (chanelicarobinson@gmail.com) and **camqdesigns** (Blair4Wellness). Cam to mark the rest.
+
+Of these 8, only **stranger1786131955@gmail.com** and **live1786133466@gmail.com** have `tour_seen` unset — and each holds a single deal from August, so they read as probes rather than customers.
+
+### B. Test accounts (36, `@talby.test` — listed for completeness)
+
+| email | created | last sign-in | deals | plan | tour_seen | handler |
+|---|---|---|---|---|---|---|
+| app.1792079356886@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | no | appuser |
+| asst.1792079052004@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | asstuser |
+| asst2.1792079244456@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | no | asst2 |
+| dbg.1792082792639@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | no | dbg |
+| diag1791951940832@talby.test | 2026-10-14 | 2026-10-14 | 0 | trialing | no | diag |
+| diag21791951971745@talby.test | 2026-10-14 | 2026-10-14 | 0 | trialing | no | diag2 |
+| dv.1792082919356@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | dv |
+| fixture.canceled@talby.test | 2026-10-15 | 2026-10-15 | 0 | canceled | no | (unset) |
+| fixture.empty@talby.test | 2026-10-15 | 2026-10-15 | 0 | none | no | (unset) |
+| fixture.pastdue@talby.test | 2026-10-15 | 2026-10-15 | 0 | past_due | no | (unset) |
+| fixture.readonly@talby.test | 2026-10-15 | 2026-10-15 | 0 | none | no | (unset) |
+| fixture.sample@talby.test | 2026-10-15 | 2026-10-16 | 26 | active | no | demo.creator |
+| fixture.trial@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | no | (unset) |
+| hover1791952763995@talby.test | 2026-10-14 | 2026-10-14 | 1 | trialing | no | hover |
+| menu.1792077900429@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | menuuser |
+| menu.1792078092531@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | (unset) |
+| menu.1792078245207@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | (unset) |
+| menu.1792078325975@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | (unset) |
+| pmcheck.1791948610062@talby.test | 2026-10-14 | 2026-10-14 | 1 | trialing | no | pmcheck |
+| pmcheck.1791949076527@talby.test | 2026-10-14 | 2026-10-14 | 1 | trialing | no | (unset) |
+| pmdbg.1791949003557@talby.test | 2026-10-14 | 2026-10-14 | 1 | active | no | pmdbg |
+| pmdbg.1791949030227@talby.test | 2026-10-14 | 2026-10-14 | 1 | active | no | (unset) |
+| save.1792082736609@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | no | saveuser |
+| search.1792078635091@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | searchuser |
+| sf.1792082972590@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | sf |
+| shell.1792077687365@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | no | shelluser |
+| shell.1792078435496@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | no | (unset) |
+| shot.1791956719868@talby.test | 2026-10-14 | 2026-10-14 | 2 | trialing | no | shotuser |
+| shot.1791956903103@talby.test | 2026-10-14 | 2026-10-14 | 2 | trialing | no | (unset) |
+| shot.1791957246769@talby.test | 2026-10-14 | 2026-10-14 | 2 | trialing | no | (unset) |
+| shot.1791957319089@talby.test | 2026-10-14 | 2026-10-14 | 2 | trialing | no | (unset) |
+| shot.1791957534636@talby.test | 2026-10-14 | 2026-10-14 | 2 | trialing | no | (unset) |
+| shot.1791994078368@talby.test | 2026-10-14 | 2026-10-14 | 2 | trialing | no | (unset) |
+| shot.1791994986484@talby.test | 2026-10-14 | 2026-10-14 | 2 | trialing | no | (unset) |
+| shotprobe.1791957511417@talby.test | 2026-10-14 | 2026-10-14 | 0 | trialing | no | shotprobe |
+| sv2.1792082853200@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | sv2 |
+
+No deletes, edits or merges were performed. Real-account counts will be recounted once Cam marks table A.

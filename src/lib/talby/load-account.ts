@@ -2,6 +2,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { TalbyDates } from "@/components/talby/_data";
 import { toAccountData } from "@/lib/talby/to-board";
+import { deriveIdentity } from "@/lib/talby/account-gate";
 import type { AccountData } from "@/components/talby/_data";
 import type { ProfileRow } from "@/lib/talby/queries";
 
@@ -28,8 +29,16 @@ export async function loadAccountContext(supabase: SupabaseClient): Promise<{
   const readOnly = profileStatus === "canceled" || profileStatus === "readonly";
 
   const plan = profileStatus === "trialing" ? "trial" : profileStatus === "past_due" ? "pastdue" : profileStatus === "canceled" ? "canceled" : "active";
+  // Never hand a board an empty handle: it would fall back to the design's sample
+  // name. Derive from the handler, then the display name, then the email.
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const identity = deriveIdentity({
+    handler: profile?.handler ?? null,
+    fullName: (meta.full_name as string) ?? (meta.name as string) ?? null,
+    email: user?.email ?? null,
+  });
   const account = toAccountData({
-    profile: (profile ?? { handler: null, trial_end: null }) as ProfileRow,
+    profile: { ...(profile ?? {}), handler: identity.handle } as ProfileRow,
     today,
     counts: {
       deals: dealRows.length,
