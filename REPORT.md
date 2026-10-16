@@ -127,24 +127,41 @@ Pulled read-only from production on 2026-10-16. Originals: `profiles` + `auth.us
 
 **Totals:** 44 profiles · 44 have a matching auth user (0 orphans) · 36 are `@talby.test` (test by construction) · **8 are non-test and need Cam's call**.
 
-**Correction to my earlier report:** I said "29 of 44 users would hit the Welcome screen". That was the raw count and it was misleading — 27 of those 29 are `@talby.test` fixtures. **Only 2 non-test accounts have `tour_seen` unset**, and both look like August live-probe accounts. The deploy risk is far smaller than I first stated.
+**Correction to my earlier report:** I said "29 of 44 users would hit the Welcome screen". That was the raw count and it was misleading — 27 of those 29 are `@talby.test` fixtures. **Only 2 real accounts have `tour_seen` unset.** I then guessed those two "look like August live-probe accounts"; Cam has since confirmed **all 8 non-test accounts are real**, so that guess was wrong too — the correct real-account exposure is 2 accounts (25% of the real base), now closed by the gate fix below.
 
-### A. Non-test accounts — mark "real?" (this is the set that matters)
+### A. Non-test accounts — CONFIRMED REAL by Cam (2026-10-16)
 
 | email | created | last sign-in | deals | plan_status | tour_seen | handler | real? |
 |---|---|---|---|---|---|---|---|
-| stranger1786131955@gmail.com | 2026-08-07 | 2026-08-07 | 1 | trialing | **no** | talbycreator | |
-| live1786133466@gmail.com | 2026-08-07 | 2026-08-13 | 1 | active | **no** | livecreator | |
-| camquint@gmail.com | 2026-08-07 | 2026-10-14 | 33 | active | yes | cambo | |
-| chanelicarobinson@gmail.com | 2026-08-11 | 2026-10-13 | 27 | active | yes | chanelica.r | |
-| misothecod@protonmail.com | 2026-08-26 | 2026-10-14 | 1 | trialing | yes | NoCodeNoir | |
-| camqdesigns@gmail.com | 2026-08-27 | 2026-10-13 | 19 | active | yes | Blair4Wellness | |
-| aerolune@protonmail.com | 2026-08-27 | 2026-10-05 | 0 | trialing | yes | Aerolune | |
-| approvedbybre@gmail.com | 2026-09-04 | 2026-09-04 | 1 | active | yes | Approvedbybre | |
+| stranger1786131955@gmail.com | 2026-08-07 | 2026-08-07 | 1 | trialing | **no** | talbycreator | **REAL** |
+| live1786133466@gmail.com | 2026-08-07 | 2026-08-13 | 1 | active | **no** | livecreator | **REAL** |
+| camquint@gmail.com | 2026-08-07 | 2026-10-14 | 33 | active | yes | cambo | **REAL** |
+| chanelicarobinson@gmail.com | 2026-08-11 | 2026-10-13 | 27 | active | yes | chanelica.r | **REAL** |
+| misothecod@protonmail.com | 2026-08-26 | 2026-10-14 | 1 | trialing | yes | NoCodeNoir | **REAL** |
+| camqdesigns@gmail.com | 2026-08-27 | 2026-10-13 | 19 | active | yes | Blair4Wellness | **REAL** |
+| aerolune@protonmail.com | 2026-08-27 | 2026-10-05 | 0 | trialing | yes | Aerolune | **REAL** |
+| approvedbybre@gmail.com | 2026-09-04 | 2026-09-04 | 1 | active | yes | Approvedbybre | **REAL** |
 
-Known real: **chanelica.r** (chanelicarobinson@gmail.com) and **camqdesigns** (Blair4Wellness). Cam to mark the rest.
+### Recount — real accounts only
 
-Of these 8, only **stranger1786131955@gmail.com** and **live1786133466@gmail.com** have `tour_seen` unset — and each holds a single deal from August, so they read as probes rather than customers.
+| metric | count |
+|---|---|
+| **real accounts** | **8** |
+| with at least one deal | 7 |
+| with zero deals | 1 (aerolune, but `tour_seen` = yes → Overview) |
+| `tour_seen` unset | **2** (stranger1786131955, live1786133466) |
+| **no `handler` set** | **0** |
+| plan_status active / trialing | 5 / 3 |
+| largest book | 33 deals (camquint), then 27 (chanelica.r), 19 (camqdesigns) |
+
+**What this means for the two bugs I found:**
+
+- **Welcome board — 0 real accounts affected now.** Before the gate fix, those 2 `tour_seen`-unset accounts would each have landed on first-run Welcome instead of their dashboard. Both hold a deal, so the new `deals === 0 && !tour_seen` gate sends them straight to Overview. **No data backfill was needed and none was done.**
+- **Name fallback — 0 real accounts affected.** All 8 real accounts have a handler set. The earlier "17 profiles with no handler" figure was **entirely test accounts**; the fix is defensive, not corrective.
+
+### Residual risk that testing cannot remove
+
+The redesigned boards have never rendered against a real account's actual data, because verifying that would mean logging into a real account (not allowed). The closest proxy is `fixture.sample@talby.test`, which holds 26 deals and renders correctly at 0.0000% parity — and the largest real books (33, 27, 19) sit in that same range. This is the one risk I am not able to close from here.
 
 ### B. Test accounts (36, `@talby.test` — listed for completeness)
 
