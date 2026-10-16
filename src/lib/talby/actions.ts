@@ -13,6 +13,7 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
 
   return async function onAction(type: string, p: Record<string, unknown>): Promise<boolean> {
     try {
+      console.log("[onAction]", type, JSON.stringify(p)?.slice(0, 400));
       if (type === "look.update") {
         const t = p as { theme?: string; mode?: string; sidebar?: string };
         const { data: { user } } = await supabase.auth.getUser();
@@ -30,11 +31,27 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
       switch (type) {
         case "deal.create": {
           const { form, plan, contract } = p as { form?: Record<string, unknown>; plan?: unknown; contract?: string | null };
-          const payload = { ...(form ?? {}), ...(plan ? { payment_schedule: plan } : {}) } as Record<string, unknown>;
-          const brand = String((form as { brand?: string } | undefined)?.brand ?? payload.brand ?? "").trim();
+          const f = (form ?? {}) as Record<string, unknown>;
+          const brand = String(f["brand"] ?? "").trim();
           if (!brand) return false;
+          const num = (v: unknown): number | string => {
+            if (typeof v === "number") return v;
+            const n = parseFloat(String(v ?? "").replace(/[,$\\s]/g, ""));
+            return Number.isFinite(n) ? n : String(v ?? "");
+          };
+          // The board's form uses amt as a string like "2,400"; the route/RPC need a number,
+          // and form.status is the display value "Active" while deals_status_check wants lowercase.
+          const payload: Record<string, unknown> = { ...f, brand };
+          if (f.amt !== undefined) payload.value = num(f.amt);
+          if (f.paid !== undefined) payload.payment_structure = String(f.paid);
+          if (f.rep) payload.rep_name = String(f.rep);
+          if (f.repEmail) payload.rep_email = String(f.repEmail);
+          if (f.post) payload.post_date = String(f.post);
+          const s = String(f.status ?? "active").toLowerCase();
+          payload.status = ["active", "archived", "negotiating", "past_due", "paid"].includes(s) ? s : "active";
+          if (plan) payload.payment_schedule = plan;
           const res = await fetch("/api/deals", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ brand, payload, idempotencyKey: `manual:${brand}:${Date.now()}` }) });
-          if (!res.ok) return false;
+          if (!res.ok) throw new Error("Could not create the deal."); // reject -> board shows its error toast
           // A deal read from a contract keeps that file attached to it.
           if (contract) {
             const j = (await res.json().catch(() => ({}))) as { deal?: { id?: string } };

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import TalbyPage from "@/components/talby-app/TalbyPage";
 import { toOverviewData, toAccountData } from "@/lib/talby/to-board";
+import { makeOnAction } from "@/lib/talby/actions";
 import { TalbyDates } from "@/components/talby/_data";
 import { showWelcome, deriveIdentity } from "@/lib/talby/account-gate";
 import type { OverviewData, AccountData, WelcomeData } from "@/components/talby/_data";
@@ -85,31 +86,8 @@ export default function OverviewPage() {
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  /** Board saves: it updates optimistically, then we persist; reject -> Try again. */
-  const onAction = async (type: string, payload: Record<string, unknown>) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return false;
-      if (type === "look.update") {
-        const t = payload as { theme?: string; mode?: string; sidebar?: string };
-        await supabase.from("profiles").update({
-          theme: t.theme ?? "studio", mode: t.mode ?? "light", sidebar: t.sidebar ?? "expanded",
-        }).eq("id", user.id);
-        return true;
-      }
-      if (type === "data.reload") { await load(); return true; }
-      if (type === "payment.markPaid") {
-        const { brand } = payload as { brand?: string };
-        const { data: deals } = await supabase.from("deals").select("id").eq("brand", brand ?? "");
-        const ids = ((deals as Array<{ id: string }> | null) ?? []).map((x) => x.id);
-        if (ids.length) await supabase.from("payments").update({ status: "received", pay_status: "paid" }).in("deal_id", ids).neq("status", "received");
-        return true;
-      }
-      if (type === "todo.setDone") { const { id, done } = payload as { id?: string | number; done?: boolean }; await supabase.from("todos").update({ done: done ?? true }).eq("id", String(id)); return true; }
-      if (type === "todo.create") { const { text } = payload as { text?: string }; await supabase.from("todos").insert({ title: text ?? "" }); await load(); return true; }
-      return false; // not wired yet -> Try again (never a silent save)
-    } catch { return false; }
-  };
+  /** Board saves via the shared dispatcher (deal.create, idea, todo, mark-paid, theme, …). */
+  const onAction = makeOnAction(supabase, load);
 
   return <TalbyPage key={account ? "ready" : "loading"} board={firstVisit ? "SWelcome" : "SOverview"} props={{ view, plan, data: (firstVisit ? welcome : data) as never, account, onAction }} look={look} />;
 }

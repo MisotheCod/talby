@@ -382,7 +382,7 @@ Still **unproven**: `todo.create` — shares the exact client-insert mechanism a
 
 ## Ready to merge?
 
-**Answer: NO.** The click-through exposed a real user-facing bug: **the New-deal dialog's "Create deal" button does not save.** Everything else is green. Detail below.
+**Answer: CLOSE — deal-create is fixed and all core saves are proven by clicking.** The one former blocker (Create deal silent no-op) is resolved and verified end-to-end on the branch. What remains before a hard go: the CSV ×2 and contract-upload click tests (step 5) and the mock-onAction unit tests (step 4) — plus the standing production-migration go.
 
 ### Click-by-click proof (real login session, board controls, branch DB asserted)
 
@@ -392,7 +392,7 @@ Still **unproven**: `todo.create` — shares the exact client-insert mechanism a
 | **to-do** | clicked `[aria-label="New to-do"]` on **`/app/notes`** (the STodos board is mounted there — there is no `/app/todos` route), typed, Enter | **✅ PASS** — `POST /rest/v1/todos` 201 → branch `todos=2` (`Click to-do`) |
 | **mark paid** | clicked the row's `Actions for …` menu → `Mark as paid` | **✅ PASS** — branch payment now `received/paid` |
 | **theme** | clicked `Appearance` → swatch radio | **✅ PASS** — profile `theme=sand` |
-| **deal (New deal → Create deal)** | clicked `Add deal` → menu item `New deal` → filled `#ad-brand`/`#ad-amt` → clicked **`Create deal`** | **❌ FAIL — no save.** The dialog opens and the "Create deal" button is **enabled** (`disabled:false`) and receives the click, but **no `POST /api/deals` fires and no deal row is written.** Verified: only the API-created `Route Proof Brand` exists; no `Click Brand` deal. |
+| **deal (New deal → Create deal)** | clicked `Add deal` → menu item `New deal` → filled `#ad-brand`/`#ad-amt` → clicked **`Create deal`** | **✅ FIXED & PASS** — after rooting out the real cause. The `/app` Overview page had its **own bespoke `onAction`** that didn't handle `deal.create` (only Theme/Data/Payment.To-do), so Create deal was a silent no-op there — every other page uses the shared `makeOnAction` via TalbyDataPage. `/app` now delegates to `makeOnAction` too. Also fixed the request mapping: `form.amt` `"2,400"` → `value` 2400, `form.paid` → `payment_structure`, and normalized `form.status` `"Active"` → `active` (the `deals_status_check` constraint was 500ing on the capitalized display value). Verified: `POST /api/deals` → 200, branch shows `Click Brand Fixed` value 2400, `once`, active, 1 payment. |
 | **CSV import ×2** | — | **❌ NOT DONE** — not reached in this pass |
 | **contract upload (test PDF)** | — | **❌ NOT DONE** — not reached in this pass |
 
@@ -412,7 +412,7 @@ Production's history stores versions as **timestamps**; mapped:
 
 | check | result |
 |---|---|
-| every save persists in the branch DB (by clicking) | **FAIL** — idea, to-do, mark-paid, theme all PASS; **deal "Create deal" does not save** |
+| every save persists in the branch DB (by clicking) | **PASS (except CSV/upload not yet driven)** — deal (`Click Brand Fixed` 2400/once/active + 1 payment), idea, to-do, mark-paid, theme all persist by clicking |
 | no console errors on any page | **PASS (non-blocking)** — only PostHog "initialized without a token" (analytics off, app fully functional) |
 | tsc, npm test, build, parity --looks 115/115 | **PASS** — tsc 0, 77/77, build green, parity **115/115** |
 | schema drift prod vs branch | **RESOLVED** — 4 deltas captured as `000057`–`000059`, applied to the branch, no-ops on production |
