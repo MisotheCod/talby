@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client";
 import TalbyPage from "@/components/talby-app/TalbyPage";
 import { toOverviewData, toAccountData } from "@/lib/talby/to-board";
 import { TalbyDates } from "@/components/talby/_data";
-import type { OverviewData, AccountData } from "@/components/talby/_data";
+import type { OverviewData, AccountData, WelcomeData } from "@/components/talby/_data";
 import type { DealRow, PaymentRow, ContentRow, TodoRow, ProfileRow } from "@/lib/talby/queries";
 
 type View = "loading" | "sample" | "empty" | "error";
@@ -17,6 +17,8 @@ export default function OverviewPage() {
   const [account, setAccount] = useState<AccountData | null>(null);
   const [plan, setPlan] = useState("active");
   const [look, setLook] = useState<{ theme: string; mode: string; sidebar: string } | null>(null);
+  const [welcome, setWelcome] = useState<WelcomeData | null>(null);
+  const [firstVisit, setFirstVisit] = useState(false);
 
   const load = async () => {
     setView("loading");
@@ -57,6 +59,16 @@ export default function OverviewPage() {
         case "past_due": setPlan("pastdue"); break;
         case "canceled": setPlan("canceled"); break;
       }
+      const pr = profile as unknown as Record<string, unknown> | null;
+      setWelcome({ done: {
+        profile: !!profile?.handler,
+        deal: deals.length > 0,
+        import: deals.length > 1,
+        payby: payments.some((x) => !!x.expected_date),
+        ask: !!pr?.assistant_used,
+        remind: !!pr?.digest_enabled,
+      } });
+      setFirstVisit(!!profile && !pr?.tour_seen);
       setView(deals.length === 0 ? "empty" : "sample");
     } catch (e) {
       console.error("overview load", e);
@@ -92,5 +104,5 @@ export default function OverviewPage() {
     } catch { return false; }
   };
 
-  return <TalbyPage board="SOverview" props={{ view, plan, data, account, onAction }} look={look} />;
+  return <TalbyPage board={firstVisit ? "SWelcome" : "SOverview"} props={{ view, plan, data: (firstVisit ? welcome : data) as never, account, onAction }} look={look} />;
 }

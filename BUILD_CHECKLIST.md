@@ -21,9 +21,9 @@ live at /talby-preview/<Board>, parity tool runs. Baseline = `e2e/talby-parity/`
 - [x] G. Calendar
 - [x] H. To-dos (Open the deal only when linked)
 - [x] I. Ideas (burst animation)
-- [ ] J. Settings: account, appearance, billing in all five plans, Notion connection, inline errors
-- [ ] K. Onboarding (6 steps), first run tour, reminders, Getting started
-- [ ] L. Homepage on /
+- [x] J. Settings: account, appearance, billing in all five plans, Notion connection, inline errors
+- [x] K. Onboarding (6 steps), first run tour, reminders, Getting started
+- [x] L. Homepage on /
 - [ ] M. Backend upgrades still open from the old checklist
 - [ ] N. Triple check: parity tool green on all boards, every forced error, every plan, all themes; REPORT.md; pull request
 

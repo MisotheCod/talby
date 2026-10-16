@@ -97,6 +97,70 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
         case "idea.star": { await refresh(); return true; }
         case "idea.delete": { const { id } = p as { id: string }; const { error } = await supabase.from("ideas").update({ status: "archived" }).eq("id", String(id)); if (error) return false; await refresh(); return true; }
         case "idea.restore": { await refresh(); return true; }
+        case "profile.update": {
+          const { displayName, handle } = p as { displayName?: string; handle?: string };
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return false;
+          const patch: Record<string, unknown> = {};
+          if (displayName !== undefined) patch.handler = String(displayName).toLowerCase().replace(/\s+/g, ".").replace(/[^a-z0-9._-]/g, "");
+          if (handle !== undefined) patch.handler = String(handle).replace(/^@/, "").toLowerCase();
+          if (!Object.keys(patch).length) return true;
+          const { error } = await supabase.from("profiles").update(patch).eq("id", user.id);
+          if (error) return false; await refresh(); return true;
+        }
+        case "photo.update": {
+          const { dataUrl } = p as { dataUrl?: string };
+          if (!dataUrl) return false;
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return false;
+          const blob = await (await fetch(dataUrl)).blob();
+          const path = `${user.id}/avatar-${Date.now()}.png`;
+          const up = await supabase.storage.from("avatars").upload(path, blob, { upsert: true, contentType: blob.type || "image/png" });
+          if (up.error) return false;
+          await supabase.from("profiles").update({ avatar_url: path }).eq("id", user.id);
+          await refresh(); return true;
+        }
+        case "photo.remove": {
+          await supabase.from("profiles").update({ avatar_url: null }).eq("id", (await supabase.auth.getUser()).data.user?.id ?? "");
+          await refresh(); return true;
+        }
+        case "notifications.update": {
+          const { inapp, digest, overdue, posts } = p as { inapp?: boolean; digest?: boolean; overdue?: boolean; posts?: boolean };
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return false;
+          const { error } = await supabase.from("profiles").update({ notify_calendar_inapp: !!inapp, digest_enabled: !!digest }).eq("id", user.id);
+          if (error) return false; await refresh(); return true;
+        }
+        case "password.update": {
+          const { next } = p as { current?: string; next?: string };
+          if (!next) return false;
+          const { error } = await supabase.auth.updateUser({ password: next });
+          if (error) return false; return true;
+        }
+        case "notion.disconnect": {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return false;
+          const { error } = await supabase.from("notion_connections").delete().eq("user_id", user.id);
+          if (error) return false; await refresh(); return true;
+        }
+        case "billing.open": {
+          const res = await fetch("/api/stripe/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+          if (!res.ok) return false;
+          const j = (await res.json().catch(() => ({}))) as { url?: string };
+          if (j.url) { window.location.href = j.url; return true; }
+          return false;
+        }
+        case "data.deleteAll": {
+          const res = await fetch("/api/account/delete-data", { method: "POST" });
+          if (!res.ok) return false; await refresh(); return true;
+        }
+        case "account.delete": {
+          const res = await fetch("/api/account/delete-account", { method: "POST" });
+          if (!res.ok) return false;
+          await supabase.auth.signOut();
+          window.location.href = "/";
+          return true;
+        }
         default:
           return false; // not wired -> Try again (never a silent save)
       }

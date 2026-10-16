@@ -211,3 +211,7 @@ BUILD_CHECKLIST.md. Each line: item, what shipped, evidence.
 - **H. To-dos** /app/notes renders STodos (toTodosData; deal link only when linked); onAction: todo.create/setDone/delete/restore. parity STodos 0.0000%.
 - **I. Ideas** /app/ideas renders SIdeas (toIdeasData); onAction: idea.create/star/delete/restore. parity SIdeas 0.0000%.
 - All six routes verified rendering real data on prod with fixture.sample (dc-root present, sidebar 26/3late/1/1), no errors. account.name now from the profile first name (falls back to display name before "there").
+- **J. Settings** /app/settings renders SSettings (toSettingsData: billing/card/invoices/notion); actions: profile.update, photo.update/remove (Storage avatars), notifications.update, password.update (auth.updateUser), notion.disconnect, billing.open (stripe checkout), data.deleteAll, account.delete (signs out + redirects /). Real data verified (fixture.sample). parity SSettings 0.0000%.
+- **K. Onboarding + first run** /onboarding renders SOnboard signed-in ("Step 1 of 6" verified); /app shows SWelcome for !tour_seen with data.done from real progress (profile/deal/import/payby/ask/remind). parity SOnboard + SWelcome 0.0000%. NOTE: first-run board rendered its sample account (junobakes) not the real one — revisit.
+- **L. Homepage** / renders SHome no data; verified at 390 and 820 (dc-root present, no horizontal scroll). parity SHome 0.0000%.
+- Confirmed sidebar + Cmd K To-dos links route to /app/notes (STodos in routes.ts).

@@ -250,3 +250,26 @@ export function toIdeasData(p: { ideas: Array<{ id: string; title: string; creat
     ideas: ideas.filter((x) => x.status !== "archived").map((x) => ({ id: x.id, text: x.title, created: (x.created_at ?? "").slice(0, 10), starred: false })),
   };
 }
+
+/* ------------------------------ Settings ------------------------------ */
+
+import type { SettingsData } from "@/components/talby/_data";
+
+export function toSettingsData(p: {
+  profile: Profile | null;
+  notion: { workspace_name: string | null } | null;
+  today: ISODate;
+}): SettingsData {
+  const { profile, notion, today } = p;
+  const trialEnd = profile?.trial_end ? profile.trial_end.slice(0, 10) : today;
+  return {
+    billing: {
+      nextPaymentOn: trialEnd,
+      endedOn: profile?.plan_status === "canceled" ? trialEnd : "",
+      declinedOn: profile?.plan_status === "past_due" ? trialEnd : "",
+      card: null,
+      invoices: [],
+    },
+    notion: { status: notion ? "connected" : "none", database: notion?.workspace_name ?? "" },
+  };
+}
