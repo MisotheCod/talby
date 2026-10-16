@@ -41,6 +41,7 @@ export default function TalbyDataPage({ board, load }: { board: string; load: Lo
 
   return (
     <TalbyPage
+      key={result ? "ready" : "loading"}
       board={board}
       props={{ view, plan: result?.plan ?? "active", data: result?.data ?? null, account: result?.account ?? null, onAction }}
       look={result?.look ?? null}

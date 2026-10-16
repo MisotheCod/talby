@@ -104,5 +104,5 @@ export default function OverviewPage() {
     } catch { return false; }
   };
 
-  return <TalbyPage board={firstVisit ? "SWelcome" : "SOverview"} props={{ view, plan, data: (firstVisit ? welcome : data) as never, account, onAction }} look={look} />;
+  return <TalbyPage key={account ? "ready" : "loading"} board={firstVisit ? "SWelcome" : "SOverview"} props={{ view, plan, data: (firstVisit ? welcome : data) as never, account, onAction }} look={look} />;
 }
