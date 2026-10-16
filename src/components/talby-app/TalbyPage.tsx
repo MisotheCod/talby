@@ -8,6 +8,7 @@
  * mismatch (boards read localStorage). NEVER edits a board's render().
  */
 import * as React from 'react';
+import { resolveLook, parseStored } from "@/lib/talby/look";
 import * as Boards from '@/components/talby/_index';
 import { TalbyRoot } from '@/components/talby/_runtime';
 import { initTalbyRoutes } from '@/components/talby-app/routes';
@@ -37,10 +38,11 @@ export default function TalbyPage({
   // board reads it, before it ever renders. Merge, don't clobber, existing.
   React.useEffect(() => {
     try {
-      const raw = localStorage.getItem('talby.look');
-      const cur = raw ? JSON.parse(raw) : {};
-      const merged = { ...cur, ...(look || {}) };
-      if (look) localStorage.setItem('talby.look', JSON.stringify(merged));
+      // Resolve against the profile and write back a VALIDATED look, so an old or
+      // unknown talby.look left in the browser is corrected to Studio rather than
+      // carried forward.
+      const resolved = resolveLook(parseStored(localStorage.getItem('talby.look')), look ?? null);
+      localStorage.setItem('talby.look', JSON.stringify(resolved));
     } catch { /* ignore */ }
     setMounted(true);
   }, []);
