@@ -29,10 +29,19 @@ class Component extends DCLogic {
     var self = this, q = (text || '').trim(); if (!q || this.state.typing) return;
     this.setState({ open: true, msgs: this.state.msgs.concat([{ me: true, text: q }]), draft: '', typing: true });
     clearTimeout(this._t);
-    this._t = setTimeout(function () {
+    this._t = setTimeout(async function () {
       var fail = self.props.state && self.props.state !== 'normal' && !self._retried;
       if (fail) { var E = { error: 'Talby could not answer that right now. Your data is fine. Try again in a moment.', limit: 'You have asked a lot of questions today. Talby can answer more tomorrow morning.', offline: 'You are offline. Talby will answer once you are back online.' }; self.setState({ typing: false, msgs: self.state.msgs.concat([{ me: false, err: self.props.state, text: E[self.props.state], retry: self.props.state === 'limit' ? '' : q }]) }); return; }
-      var a = self.answer(q); self.setState({ typing: false, msgs: self.state.msgs.concat([{ me: false, text: a.text, label: a.label, href: a.href }]) }); }, 900);
+      try {
+        var res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: q }) });
+        if (res.status === 429 || res.status === 402) { self.setState({ typing: false, msgs: self.state.msgs.concat([{ me: false, err: 'limit', text: 'You have asked a lot of questions today. Talby can answer more tomorrow morning.' }]) }); return; }
+        if (!res.ok) { self.setState({ typing: false, msgs: self.state.msgs.concat([{ me: false, err: 'error', text: 'Talby could not answer that right now. Your data is fine. Try again in a moment.', retry: q }]) }); return; }
+        var reader = res.body.getReader(); var decoder = new TextDecoder(); var buffer = ''; var answer = ''; var citations = [];
+        while (true) { var chunk = await reader.read(); if (chunk.done) break; buffer += decoder.decode(chunk.value, { stream: true }); var lines = buffer.split('\n'); buffer = lines.pop() || ''; for (var i = 0; i < lines.length; i++) { var line = lines[i]; if (!line.startsWith('data: ')) continue; var json = JSON.parse(line.slice(6)); if (json.type === 'done') { answer = json.answer || ''; citations = json.citations || []; } else if (json.type === 'error') { throw new Error(json.error); } } }
+        var label = citations[0] ? citations[0].brand : ''; var href = citations[0] ? 'SDeal.dc.html?id=' + citations[0].dealId : '';
+        self.setState({ typing: false, msgs: self.state.msgs.concat([{ me: false, text: answer || "I don't see that in your Talby data.", label: label, href: href }]) });
+      } catch (e) { var isOffline = !navigator.onLine; self.setState({ typing: false, msgs: self.state.msgs.concat([{ me: false, err: isOffline ? 'offline' : 'error', text: isOffline ? 'You are offline. Talby will answer once you are back online.' : 'Talby could not answer that right now. Your data is fine. Try again in a moment.', retry: q }]) }); }
+    }, 900);
   }
   retry(q) { this._retried = true; this.setState({ msgs: this.state.msgs.filter(function (m) { return !m.err; }).slice(0, -1) }); var self = this; setTimeout(function () { self.ask(q); }, 0); }
   answer(q) {
