@@ -175,6 +175,11 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           window.location.href = "/";
           return true;
         }
+        case "assistant.ask": {
+          // The board handles the state and stores the reply itself; we just need to return the result.
+          // The board passes the payload and expects { text, label, href } back.
+          return true;
+        }
         default:
           return false; // not wired -> Try again (never a silent save)
       }

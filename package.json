@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test src/lib/pay-status.test.ts src/lib/save.test.ts src/lib/notion-import.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/pay-status.test.ts src/lib/save.test.ts src/lib/notion-import.test.ts src/lib/talby/assistant.test.ts",
     "check:drawer": "node scripts/drawer-save-regression.cjs"
   },
   "dependencies": {
