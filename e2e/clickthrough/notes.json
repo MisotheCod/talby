@@ -1,0 +1,6 @@
+[
+  "sign in -> http://localhost:3000/app",
+  "new deal dialog: Manage Overview Deals 26 Calendar Payments 3 late Create Ideas 1 To-dos 1 Settings FI Fixture.Sample @fixture.sample Deals Search everything",
+  "appearance: locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByText(/app",
+  "sign out: locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByText(/sig"
+]
