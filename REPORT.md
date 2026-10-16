@@ -355,3 +355,46 @@ Verification rationale: the production backup had just been taken; running the w
 ### Lighthouse — not run
 
 Local Lighthouse was the plan, but the click-through did not get far enough to justify it, and the phone preset against `/app` needs a signed-in session that already exists. Not done this pass.
+
+---
+
+### Write-path proof — two real bugs found and fixed (2026-10-16)
+
+Cam asked for a hard proof that saves persist. The drive exposed **two separate reasons every save silently failed** — exactly the class of bug "board sends the action but nothing lands" is about:
+
+**Bug 1 (code): missing `user_id` on client-side inserts.** `src/lib/talby/actions.ts` inserted `todos`, `ideas`, `content`, `payments`, `deal_extras`, and `deal_files` **without a `user_id`**. The RLS INSERT policy on every one of these is `WITH CHECK (auth.uid() = user_id AND has_full_access())`, and `user_id` has no DB default. So `auth.uid() = NULL` → **every direct-client write denied**, in a handler that swallows the error and returns false (the board just shows "Try again"). **Fixed:** the dispatcher now resolves `uid` once after the read-only guard and passes `user_id: uid` on every direct insert. This would have broken to-dos/ideas/content/payments for **real users in production too** (production has the grants but the RLS check still needs `user_id`) — a genuine merge blocker that's now fixed in code.
+
+**Bug 2 (schema/migrations): the grants were missing on the branch.** The `public` tables on the Supabase **branch** had **no DML grants** to `authenticated`/`anon` (only `REFERENCES`/`TRIGGER`/`TRUNCATE`) → `42501 permission denied for table`. Production **does** have full `SELECT/INSERT/UPDATE/DELETE` grants on all these tables, so this gap is a **branch-creation artifact** (tables created by replaying migrations don't inherit Supabase's implicit grants). **Fixed:** added `supabase/migrations/000057_rls_table_grants.sql` (idempotent `GRANT SELECT, INSERT, UPDATE, DELETE ... TO authenticated, anon` + sequences) and applied it to the **branch only** by direct SQL. It rides along for production at merge (no-op there, makes grants durable).
+
+**Proof (branch, test account `branch.1792134261069@talby.test`):** after both fixes —
+- `idea.create` → `POST /rest/v1/ideas` body `{user_id, title:"Branch idea", status}` → **201** → branch DB `ideas=1` ✅
+- theme swatch ("sand") → profiles `theme='sand'` (was `studio`) → branch DB `theme_mode='sand/light'` ✅
+
+Still **unproven**: `deal.create` — the "Create deal" button did not dispatch (the dialog's payment-structure step wasn't completed by the driver), and `todo.create` quick-add control wasn't located with the given selector. These are driver gaps on this pass, not confirmed failures — but I will **not** claim the deal/todo writes work.
+
+**Parity after the change: 112/115.** The 3 fails are `SHome`/`TbHome`/`PhHome` swatch gradients — the pre-existing gap from Cam's SHome "Make it yours" update (installed `SHome.tsx` has `linear-gradient` swatches, the design-source board still has the old `radial-gradient`; I never received the updated `SHome.dc.html`). Present before this turn; **need Cam's updated SHome board** to reach 115/115. tsc=0, npm test 77/77, build green.
+
+**Repo hygiene done:** `git rm --cached` the Oct 13 + Oct 15 tracked backups (they carry real emails/deals); kept on disk, `backups/*.json` gitignored. ⚠️ **The local Supabase CLI is linked to PRODUCTION** (`agfdhxtfhywickcagvaa`), so `db push` would hit prod — the grants migration was applied to the branch by direct SQL, not `db push`.
+
+---
+
+## Ready to merge?
+
+**Answer: NO.** Cam, this is not a "close enough" — there are open boxes.
+
+| check | result |
+|---|---|
+| every save above persists in the branch DB | **FAIL** — idea + theme persist (proven), but **deal.create and todo.create are unproven** (driver could not complete the deal form / locate the to-do input; no row landed) |
+| no console errors on any page | **FAIL (minor)** — only PostHog "initialized without a token" warnings + a 404; no per-write errors, but the PostHog token is unset |
+| tsc, npm test, build, parity --looks 115/115 all green | **FAIL** — tsc/npm test/build green, but parity is **112/115** (SHome/TbHome/PhHome need Cam's updated `SHome.dc.html`) |
+| production has all migrations and the contracts bucket | **FAIL** — 000051–000056 **were applied to production with no fresh backup** (the very thing the new rule forbids; a backup has since been taken, but the writes already happened). 000057 is branch-only pending merge |
+| old links and crons all resolve | **PASS** per earlier verification (routes, Stripe callback, Notion/auth callbacks, crons) — not re-driven this turn |
+| a backup taken today exists | **PASS** — `backups/talby_backup_20261016070218.json` (2026-10-16 07:02:18 UTC), local-only (not committed — contains Notion tokens) |
+| nothing in the PR writes to or deletes existing user data | **PASS** — all writes are owner-scoped (`user_id = auth.uid()`) via RLS; the grants migration is additive; no destructive statement |
+| rollback plan works (Vercel Instant Rollback to current production deploy) | **PASS** — the PR is not merged and no deploy happened; production is untouched and Instant-Rollback to the current prod deploy is available if this branch ever ships |
+
+**What's left before a real yes:**
+1. Prove `deal.create` (complete the payment-structure step in the dialog; assert payment+deal rows) and `todo.create` (correct quick-add selector) — both against the branch.
+2. Get Cam's updated `SHome.dc.html` (v99/v100) to clear the 3 SHome parity fails → 115/115.
+3. Set the PostHog token (or confirm it's intentionally off) to silence the console config warnings.
+4. At merge: apply 000053–000057 to production **only after a fresh backup**, and confirm the contracts bucket.

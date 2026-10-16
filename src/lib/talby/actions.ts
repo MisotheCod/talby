@@ -23,6 +23,10 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
       if (type === "data.reload") { await refresh(); return true; }
       if (!guard()) return false;
 
+      const { data: { user } } = await supabase.auth.getUser();
+      const uid = user?.id ?? null;
+      if (!uid) return false; // no session -> RLS rejects every owner-scoped write
+
       switch (type) {
         case "deal.create": {
           const { form, plan, contract } = p as { form?: Record<string, unknown>; plan?: unknown; contract?: string | null };
@@ -37,6 +41,7 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
             const dealId = j?.deal?.id;
             if (dealId) {
               await supabase.from("deal_files").insert({
+                user_id: uid,
                 deal_id: dealId,
                 name: String(contract).split("/").pop() || "contract",
                 path: contract,
@@ -60,7 +65,7 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           if (changes && Object.keys(changes).length) { const { error } = await supabase.from("deals").update(changes).eq("id", String(id)); if (error) return false; }
           if (Array.isArray(extras)) {
             await supabase.from("deal_extras").delete().eq("deal_id", String(id));
-            for (const e of extras as Array<Record<string, unknown>>) await supabase.from("deal_extras").insert({ deal_id: String(id), kind: e.kind, amount: e.amount ?? null, condition: e.condition ?? null, rate: e.rate ?? null, on_text: e.on ?? null, earned: false });
+            for (const e of extras as Array<Record<string, unknown>>) await supabase.from("deal_extras").insert({ user_id: uid, deal_id: String(id), kind: e.kind, amount: e.amount ?? null, condition: e.condition ?? null, rate: e.rate ?? null, on_text: e.on ?? null, earned: false });
           }
           await refresh(); return true;
         }
@@ -97,17 +102,17 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
         }
         case "event.create": {
           const { date, kind, title, amount } = p as { date: string; kind: string; title: string; amount?: number };
-          if (kind === "post") { const { error } = await supabase.from("content").insert({ title, event_date: date, status: "planned" }); if (error) return false; }
-          else if (kind === "pay") { const { error } = await supabase.from("payments").insert({ amount: amount ?? 0, expected_date: date, status: "expected", pay_status: "not_invoiced" }); if (error) return false; }
-          else { const { error } = await supabase.from("todos").insert({ title, due_date: date, done: false }); if (error) return false; }
+          if (kind === "post") { const { error } = await supabase.from("content").insert({ user_id: uid, title, event_date: date, status: "planned" }); if (error) return false; }
+          else if (kind === "pay") { const { error } = await supabase.from("payments").insert({ user_id: uid, amount: amount ?? 0, expected_date: date, status: "expected", pay_status: "not_invoiced" }); if (error) return false; }
+          else { const { error } = await supabase.from("todos").insert({ user_id: uid, title, due_date: date, done: false }); if (error) return false; }
           await refresh(); return true;
         }
         case "event.setDone": { const { id, done } = p as { id: string; done: boolean }; const { error } = await supabase.from("todos").update({ done }).eq("id", String(id)); if (error) return false; await refresh(); return true; }
-        case "todo.create": { const { text, due } = p as { text: string; due?: string }; const { error } = await supabase.from("todos").insert({ title: text, due_date: due || null, done: false }); if (error) return false; await refresh(); return true; }
+        case "todo.create": { const { text, due } = p as { text: string; due?: string }; const { error } = await supabase.from("todos").insert({ user_id: uid, title: text, due_date: due || null, done: false }); if (error) return false; await refresh(); return true; }
         case "todo.setDone": { const { id, done } = p as { id: string; done: boolean }; const { error } = await supabase.from("todos").update({ done }).eq("id", String(id)); if (error) return false; await refresh(); return true; }
         case "todo.delete": { const { id } = p as { id: string }; const { error } = await supabase.from("todos").delete().eq("id", String(id)); if (error) return false; await refresh(); return true; }
         case "todo.restore": { await refresh(); return true; }
-        case "idea.create": { const { text } = p as { text: string }; const { error } = await supabase.from("ideas").insert({ title: text, status: "unsorted" }); if (error) return false; await refresh(); return true; }
+        case "idea.create": { const { text } = p as { text: string }; const { error } = await supabase.from("ideas").insert({ user_id: uid, title: text, status: "unsorted" }); if (error) return false; await refresh(); return true; }
         case "idea.star": { await refresh(); return true; }
         case "idea.delete": { const { id } = p as { id: string }; const { error } = await supabase.from("ideas").update({ status: "archived" }).eq("id", String(id)); if (error) return false; await refresh(); return true; }
         case "idea.restore": { await refresh(); return true; }

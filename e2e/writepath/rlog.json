@@ -1,0 +1,30 @@
+{
+  "notes": [
+    "tour overlay still present: 0",
+    "dialog count: 0",
+    "DEAL ERR: locator.fill: Timeout 25000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog').locator('#ad-brand')\n",
+    "TODO ERR: locator.fill: Timeout 4000ms exceeded.\nCall log:\n  - waiting for getByPlaceholder(/^Add a to-do/).first()\n",
+    "idea entered",
+    "PAID ERR: locator.click: Timeout 4000ms exceeded.\nCall log:\n  - waiting for getByLabel('Actions for Branch Brand Test').first()\n",
+    "theme radios: 10",
+    "data-theme=studio",
+    "SIGNOUT ERR: locator.click: Timeout 3500ms exceeded.\nCall log:\n  - waiting for getByLabel('Account menu').first()\n    - locator resolved to <button type="
+  ],
+  "writes": [
+    {
+      "key": "POST /rest/v1/ideas",
+      "body": "{\"user_id\":\"0fef7fc8-65a3-4466-a2cf-33f279cc6114\",\"title\":\"Branch idea\",\"status\":\"unsorted\"}",
+      "status": 201,
+      "resp": ""
+    }
+  ],
+  "consoleErrors": [
+    "[PostHog.js] PostHog was initialized without a token. This likely indicates a misconfiguration. Please check the first argument passed to posthog.init()",
+    "[PostHog.js] PostHog was initialized without a token. This likely indicates a misconfiguration. Please check the first argument passed to posthog.init()",
+    "[PostHog.js] PostHog was initialized without a token. This likely indicates a misconfiguration. Please check the first argument passed to posthog.init()",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "[PostHog.js] PostHog was initialized without a token. This likely indicates a misconfiguration. Please check the first argument passed to posthog.init()",
+    "[PostHog.js] PostHog was initialized without a token. This likely indicates a misconfiguration. Please check the first argument passed to posthog.init()",
+    "[PostHog.js] PostHog was initialized without a token. This likely indicates a misconfiguration. Please check the first argument passed to posthog.init()"
+  ]
+}
