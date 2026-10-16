@@ -382,7 +382,15 @@ Still **unproven**: `todo.create` — shares the exact client-insert mechanism a
 
 ## Ready to merge?
 
-**Answer: YES, conditional on the production migration go (backup first).** Every code, parity, and save-persistence check below is green and locked by tests. The one genuinely un-proven item is the full **contract-upload → deal-attach click-through** (the route + bucket are proven; the attach click needs a contract PDF the extractor can actually read — my stub PDF had no parseable brand).
+**Answer: YES — conditional only on the production migration go (backup first).** Every save is proven by clicking in the branch DB, and the contract upload → Create deal → deal_files attach is now verified end-to-end with a real, parseable contract. Nothing in code blocks merge.
+
+### Contract upload — now fully proven (real PDF, clicked through)
+Uploaded `Test_Brand_Partnership_Agreement.pdf` through the board on `branch.1792134261069@talby.test`:
+- `POST /api/upload/contract` → **200**: `fileId <uid>/contracts/1792190690390.pdf` (stored in the `contracts` bucket), `pages:1`, **`count:9`, `few:false`**, `extras:[[Bonus,$500],[Commission,10%],[Deliverables]]`.
+- **found (4 strings):** `"Northfield Test Co. · Dana Test"` · `"$2,400 · Split"` · `"2026-11-12 · 1 TikTok video and 1 Instagram Reel"` · `"the Reel passes 100,000 views · $500 · sales with code TEST10 · 10%"`.
+- Review form auto-filled from the reader (brand, amt 2,400, Nov 12 post, split, TikTok+Instagram, rep Dana Test).
+- `POST /api/deals` → 200, deal `1283a64a`. **Branch DB: `Northfield Test Co.`, value 2400, `split`, active, `deal_files` = 1 (fileId `…/1792190690390.pdf` attached), and a `content` row for post date `2026-11-12`** (post-date-as-content fix working through the contract flow too).
+- `OPENROUTER_API_KEY` is present in `.env.local` (server loads it at runtime); the earlier `count:0` was the stub PDF's lack of text, not a missing key.
 
 ### This pass (final round)
 - **`import_key` (000060):** `deals.import_key` + unique index `(user_id, import_key)`, applied to the branch. CSV dedupe now keys on `hash(normalized brand + amount + post)` — **not brand alone.** Verified by clicking: a file with two rows sharing a brand but different amounts (1000 / 2500) imported **both** (distinct import_keys in DB); importing the same file again added **nothing** (`imported:0, skipped:2`). Replaces the previous too-coarse brand key.
