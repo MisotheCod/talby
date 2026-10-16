@@ -122,7 +122,9 @@ async function stepTwo(req: Request, supabase: Supa, userId: string) {
 
   try {
     const { data: deals } = await supabase.from("deals").select("brand, post_date");
-    const seen = knownKeys((deals ?? []) as Array<{ brand: string | null; post_date: string | null }>);
+    // Dedupe on brand (case-insensitive): imported deals cannot carry deals.post_date
+    // (read-only), so post-based keys never match a re-import.
+    const seenBrands = new Set(((deals ?? []) as Array<{ brand: string | null }>).map((d) => String(d.brand ?? "").trim().toLowerCase()));
 
     for (const row of todo) {
       const raw = rawRows[Number(row.id) - 2] ?? [];
@@ -135,25 +137,34 @@ async function stepTwo(req: Request, supabase: Supa, userId: string) {
         continue;
       }
       const post = f.post || row.post;
-      const key = dealKey(brand, post);
-      if (skipRepeats && seen.has(key)) { skipped++; continue; }
+      const brandKey = brand.trim().toLowerCase();
+      if (skipRepeats && seenBrands.has(brandKey)) { skipped++; continue; }
 
       const patch: Record<string, unknown> = {
         user_id: userId,
         brand,
         value: Number.isFinite(amount) ? amount : null,
-        post_date: post || null,
+        // NOTE: do NOT set post_date here — deals.post_date is read-only (guard trigger
+        // raises "write content.event_date instead"). Post dates become content rows below.
         status: /pipeline|negotiat/i.test(f.status) ? "pipeline" : "active",
       };
       if (f.rep) patch.rep_name = f.rep;
       if (f.notes) patch.notes = f.notes;
 
-      const { error } = await supabase.from("deals").insert(patch);
+      const { data: created, error } = await supabase.from("deals").insert(patch).select("id").single();
       if (error) {
         failed.push({ id: row.id, brand, amount, reason: "Talby could not save that row." });
         continue;
       }
-      seen.add(key);
+      // Post dates are content rows, not deals.post_date.
+      if (post && (created as { id?: string } | null)?.id) {
+        const { error: perr } = await supabase.from("content").insert({
+          user_id: userId, linked_deal_id: (created as { id: string }).id,
+          event_date: post, title: brand, status: "planned",
+        });
+        if (perr) failed.push({ id: row.id, brand, amount, reason: "Deal saved, but its post date could not be added." });
+      }
+      seenBrands.add(brandKey);
       imported++;
       if (patch.status === "active" && Number.isFinite(amount)) booked += amount;
     }

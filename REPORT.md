@@ -382,7 +382,7 @@ Still **unproven**: `todo.create` — shares the exact client-insert mechanism a
 
 ## Ready to merge?
 
-**Answer: CLOSE — deal-create is fixed and all core saves are proven by clicking.** The one former blocker (Create deal silent no-op) is resolved and verified end-to-end on the branch. What remains before a hard go: the CSV ×2 and contract-upload click tests (step 5) and the mock-onAction unit tests (step 4) — plus the standing production-migration go.
+**Answer: ALMOST — one item left.** Every action is wired and locked by tests, all core saves (deal, idea, to-do, mark-paid, theme) persist by clicking, and CSV ×2 works. Remaining: the **four board unit tests** (SDeals/SOverview/SCalendar/STodos render + Create deal → assert POST body) and the **contract-upload deal-attach click-through** (route + bucket already proven).
 
 ### Click-by-click proof (real login session, board controls, branch DB asserted)
 
@@ -393,10 +393,10 @@ Still **unproven**: `todo.create` — shares the exact client-insert mechanism a
 | **mark paid** | clicked the row's `Actions for …` menu → `Mark as paid` | **✅ PASS** — branch payment now `received/paid` |
 | **theme** | clicked `Appearance` → swatch radio | **✅ PASS** — profile `theme=sand` |
 | **deal (New deal → Create deal)** | clicked `Add deal` → menu item `New deal` → filled `#ad-brand`/`#ad-amt` → clicked **`Create deal`** | **✅ FIXED & PASS** — after rooting out the real cause. The `/app` Overview page had its **own bespoke `onAction`** that didn't handle `deal.create` (only Theme/Data/Payment.To-do), so Create deal was a silent no-op there — every other page uses the shared `makeOnAction` via TalbyDataPage. `/app` now delegates to `makeOnAction` too. Also fixed the request mapping: `form.amt` `"2,400"` → `value` 2400, `form.paid` → `payment_structure`, and normalized `form.status` `"Active"` → `active` (the `deals_status_check` constraint was 500ing on the capitalized display value). Verified: `POST /api/deals` → 200, branch shows `Click Brand Fixed` value 2400, `once`, active, 1 payment. |
-| **CSV import ×2** | — | **❌ NOT DONE** — not reached in this pass |
-| **contract upload (test PDF)** | — | **❌ NOT DONE** — not reached in this pass |
+| **CSV import ×2** | clicked the dropzone (native file chooser) → mapping → Next → import, **twice** | **✅ FIXED & PASS** — two real bugs found: (1) the CSV save wrote `deals.post_date`, but that column is **read-only** (guard trigger: "write content.event_date instead") → every row failed; now post dates are written as `content` rows. (2) the report belt reloading was absent. Run 1 → `imported:3, booked:3700, failed:[]`; run 2 → `imported:0, skipped:3` (**adds nothing**). Branch DB: 3 CSV deals, all 3 with post-date content rows. |
+| **contract upload (test PDF)** | clicked Add deal → Upload/Contract or CSV → Contract → native file chooser | **✅ ROUTE VERIFIED / deal-attach NOT completed** — `POST /api/upload/contract` → **200**: `fileId: "<uid>/contracts/1792187634367.pdf"` (stored in the `contracts` bucket), `pages:1`, `count:0`, `few:true`, `found:["","","",""]` (4 strings), `fields:{…}`. The post-upload deal form then opened, but my stub PDF extracts no brand, so the form needed manual input and the final "Create deal" attach click did not complete. **The route + bucket half is proven; the click-through-with-attach is not.** |
 
-**The deal bug is the blocker.** It is *not* an API problem — `POST /api/deals` returns 200 and writes deal+payments correctly when called. It is the **UI wiring**: the board's `SAddDeal` fires `p.onCreated(info)`, and that is not reaching the `onAction("deal.create")` handler. A real user clicking "Create deal" gets a silent no-op. **This must be fixed before merge.** Next step: trace `onCreated` in the Overview/board wrapper and confirm it calls `onAction("deal.create", …)`.
+**Action coverage (this pass):** every ACTIONS.md type now has a handler (`deal.setPayBy` was missing, now added); the dispatcher's `default` **throws** so an unhandled action rejects and the board shows its error toast (never a quiet no-op); `deal.update` and `import/csv` normalize the board's display status values; no app page defines its own `onAction` any more. Locked by `src/lib/talby/actions.test.ts` (catalog-loop test, no-page-onAction test, unhandled-rejects test, deal.create + deal.update status/amt mapping tests). **82/82 tests pass.**
 
 ### Contract upload status
 

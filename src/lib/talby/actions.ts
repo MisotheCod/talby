@@ -13,7 +13,6 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
 
   return async function onAction(type: string, p: Record<string, unknown>): Promise<boolean> {
     try {
-      console.log("[onAction]", type, JSON.stringify(p)?.slice(0, 400));
       if (type === "look.update") {
         const t = p as { theme?: string; mode?: string; sidebar?: string };
         const { data: { user } } = await supabase.auth.getUser();
@@ -79,7 +78,15 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
         }
         case "deal.update": {
           const { id, changes, extras } = p as { id: string; changes?: Record<string, unknown>; extras?: unknown };
-          if (changes && Object.keys(changes).length) { const { error } = await supabase.from("deals").update(changes).eq("id", String(id)); if (error) return false; }
+          if (changes && Object.keys(changes).length) {
+            // Normalize the board's display status value ("Active"/"Negotiating") to the DB value.
+            const c = { ...changes };
+            if (c.status !== undefined) {
+              const s = String(c.status).toLowerCase();
+              c.status = ["active", "archived", "negotiating", "past_due", "paid"].includes(s) ? s : "active";
+            }
+            const { error } = await supabase.from("deals").update(c).eq("id", String(id)); if (error) return false;
+          }
           if (Array.isArray(extras)) {
             await supabase.from("deal_extras").delete().eq("deal_id", String(id));
             for (const e of extras as Array<Record<string, unknown>>) await supabase.from("deal_extras").insert({ user_id: uid, deal_id: String(id), kind: e.kind, amount: e.amount ?? null, condition: e.condition ?? null, rate: e.rate ?? null, on_text: e.on ?? null, earned: false });
@@ -103,6 +110,14 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
         }
         case "deal.archive": { const { error } = await supabase.from("deals").update({ status: "archived", active: false }).eq("id", String((p as { id: string }).id)); if (error) return false; await refresh(); return true; }
         case "deal.unarchive": { const { error } = await supabase.from("deals").update({ status: "active", active: true }).eq("id", String((p as { id: string }).id)); if (error) return false; await refresh(); return true; }
+        case "deal.setPayBy": {
+          const { brand, date } = p as { brand?: string; date?: string };
+          if (!brand) return false;
+          const { data: deals } = await supabase.from("deals").select("id").eq("brand", brand);
+          const ids = ((deals as Array<{ id: string }> | null) ?? []).map((x) => x.id);
+          if (ids.length) { const { error } = await supabase.from("payments").update({ expected_date: date || null }).in("deal_id", ids); if (error) return false; }
+          await refresh(); return true;
+        }
         case "deal.delete": { const { error } = await supabase.from("deals").update({ active: false }).eq("id", String((p as { id: string }).id)); if (error) return false; await refresh(); return true; }
         case "deal.restore": { const { error } = await supabase.from("deals").update({ active: true }).eq("id", String((p as { id: string }).id)); if (error) return false; await refresh(); return true; }
         case "deals.bulk": {
@@ -203,8 +218,12 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           return true;
         }
         default:
-          return false; // not wired -> Try again (never a silent save)
+          { const e = new Error("Unhandled onAction type: " + type) as Error & { __unhandled?: boolean }; e.__unhandled = true; throw e; }
       }
-    } catch { return false; }
+    } catch (e) {
+      // Unhandled actions REJECT so the board shows its error toast (never a quiet no-op).
+      if ((e as Error & { __unhandled?: boolean })?.__unhandled) throw e;
+      return false; // real handler errors -> Try again
+    }
   };
 }
