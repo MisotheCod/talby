@@ -111,6 +111,34 @@ export async function listDatabases(token: string): Promise<NotionDatabase[]> {
   }));
 }
 
+/** Property names of a database, for the "Looks like deals" badge and field guesses. */
+export async function databasePropertyNames(token: string, databaseId: string): Promise<string[]> {
+  const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
+    method: "GET",
+    headers: AUTH_HEADERS(token),
+  });
+  if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion database read failed (${res.status})`);
+  const data = await res.json();
+  return Object.keys((data?.properties ?? {}) as Record<string, unknown>);
+}
+
+/** Guess the Talby field a column supplies. Field keys are fixed by the board. */
+export function guessField(name: string): string {
+  const n = name.toLowerCase();
+  if (/skip|ignore/.test(n)) return "skip";
+  if (/brand|company|client|campaign|partner|\bname\b/.test(n)) return "brand";
+  if (/amount|value|fee|total|price|rate|comp|\$/.test(n)) return "amt";
+  if (/pay\s*by|due|invoice/.test(n)) return "payby";
+  if (/post|publish|live|date|when/.test(n)) return "post";
+  if (/status|stage|state/.test(n)) return "status";
+  if (/paid|payment|terms|schedule/.test(n)) return "pay";
+  if (/platform|channel|where/.test(n)) return "plats";
+  if (/rep|contact|email|manager/.test(n)) return "repEmail";
+  if (/rep|contact|manager|owner/.test(n)) return "rep";
+  if (/note|comment|remark|detail/.test(n)) return "notes";
+  return "skip";
+}
+
 /** Page count for a database — the same paginated walk, counted. */
 export async function countDatabaseRows(token: string, databaseId: string): Promise<number> {
   return (await paginate(token, databaseId)).length;

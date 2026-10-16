@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getNotionToken, fetchDatabaseRows, NotionError } from "@/lib/notion-server";
+import { getNotionToken, fetchDatabaseRows, guessField, NotionError } from "@/lib/notion-server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,16 @@ function guessType(values: string[]): string {
   if (v.every((x) => /^\d{4}-\d{2}-\d{2}/.test(x))) return "date";
   if (v.every((x) => Number.isFinite(Number(x.replace(/[$,]/g, ""))))) return "number";
   return "text";
+}
+
+/** Guess the Talby value a column's own value maps to. */
+function guessValue(v: string): string {
+  const s = v.toLowerCase();
+  if (/negotiat|pipeline|talk|lead|prospect|outreach/.test(s)) return "Negotiating";
+  if (/active|in progress|live|ongoing|posted|confirmed/.test(s)) return "Active";
+  if (/paid|complete|done|closed/.test(s)) return "Paid";
+  if (/cancel|archiv|lost|declined/.test(s)) return "Archived";
+  return v;
 }
 
 /**
@@ -35,9 +45,12 @@ export async function GET(req: Request) {
     const props = columns.map((name) => {
       const values = Array.from(new Set(rows.map((r) => r[name] ?? "").filter((v) => v.trim() !== "")));
       const type = guessType(values);
-      const p: { name: string; type: string; values?: string[] } = { name, type };
-      // Select-like columns carry their distinct values for the mapping step.
-      if (type === "text" && values.length > 1 && values.length <= 20) p.values = values;
+      const field = guessField(name);
+      const p: { name: string; type: string; field: string; values?: Array<{ from: string; to: string }> } = { name, type, field };
+      // Select-like columns carry their distinct values, each with Talby's guess.
+      if (type === "text" && values.length > 1 && values.length <= 20) {
+        p.values = values.map((v) => ({ from: v, to: guessValue(v) }));
+      }
       return p;
     });
 
@@ -52,6 +65,7 @@ export async function GET(req: Request) {
     const dateCol = columns.find((c) => /post|date|publish/i.test(c) && guessType(rows.map((r) => r[c] ?? "")) === "date") ?? "";
     const statusCol = columns.find((c) => /status|stage|state/i.test(c)) ?? "";
     const amountCol = columns.find((c) => /amount|value|fee|total|rate|comp/i.test(c)) ?? "";
+    const payCol = columns.find((c) => /paid|payment|terms|schedule|split|installment/i.test(c)) ?? "";
 
     return NextResponse.json({
       props,
@@ -61,6 +75,8 @@ export async function GET(req: Request) {
         post: dateCol ? (r[dateCol] ?? "").slice(0, 10) : "",
         status: statusCol ? (r[statusCol] ?? "") : "",
         amount: amountCol ? (r[amountCol] ?? "") : "",
+        // How the deal is paid, in the board's own two words.
+        how: /split|50|half|installment|milestone|upfront|deposit|net/i.test(payCol ? (r[payCol] ?? "") : "") ? "Split" : "All at once",
         repeat: !!(r._notion_id && known.has(r._notion_id)),
       })),
     });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getNotionToken, listDatabases, countDatabaseRows, NotionError } from "@/lib/notion-server";
+import { getNotionToken, listDatabases, countDatabaseRows, databasePropertyNames, NotionError } from "@/lib/notion-server";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,15 @@ export async function GET() {
         try { pages = await countDatabaseRows(token.access_token, d.id); } catch { pages = null; }
         const meta = [pages != null ? `${pages} page${pages === 1 ? "" : "s"}` : null, editedLabel(d.edited)]
           .filter(Boolean).join(" · ");
-        return { id: d.id, name: d.title, meta };
+        // "Looks like deals" — it has something brand-ish AND something amount-ish.
+        let looksLikeDeals = false;
+        try {
+          const props = await databasePropertyNames(token.access_token, d.id);
+          looksLikeDeals =
+            props.some((p) => /brand|company|client|campaign|partner/i.test(p)) &&
+            props.some((p) => /amount|value|fee|total|price|rate|comp/i.test(p));
+        } catch { looksLikeDeals = false; }
+        return { id: d.id, name: d.title, meta, looksLikeDeals };
       })
     );
     return NextResponse.json(out);
