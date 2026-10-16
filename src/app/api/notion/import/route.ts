@@ -1,25 +1,19 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getNotionToken, fetchDatabaseRows, NotionError } from "@/lib/notion-server";
+import { runImport, money, type ImportRow } from "@/lib/notion-import";
 import { userIsReadOnly } from "@/lib/write-access";
 
 export const dynamic = "force-dynamic";
 
-type Failed = { id: string; brand: string; amount: number; reason: string };
-
-/** Parse "$6,000" / "6000" / "6,000.50" to a number; NaN when not a number. */
-function money(v: string | undefined): number {
-  if (!v) return NaN;
-  const n = Number(String(v).replace(/[^0-9.\-]/g, ""));
-  return Number.isFinite(n) ? n : NaN;
-}
-
 /**
  * POST /api/notion/import
- * body { databaseId, map: { [notionProperty]: field }, pageIds?: string[] }
+ * body { databaseId, map: { [notionProperty]: field }, pageIds?: string[], sync?: boolean }
  * -> { imported, skipped, failed: [{ id, brand, amount, reason }], booked }
  *
  * booked = sum of the ACTIVE amounts that imported.
+ * Field keys: brand, amt, post, payby, status, pay, plats, rep, repEmail, notes, skip.
+ * sync: when true, a row that is already a deal is updated instead of skipped.
  * One import_runs row per run — written even when the run fails, with the error.
  */
 export async function POST(req: Request) {
@@ -35,6 +29,7 @@ export async function POST(req: Request) {
   const databaseId: string = body?.databaseId || "";
   const map: Record<string, string> = body?.map && typeof body.map === "object" ? body.map : {};
   const pageIds: string[] = Array.isArray(body?.pageIds) ? body.pageIds : [];
+  const sync: boolean = body?.sync === true;
   if (!databaseId) return NextResponse.json({ code: "fetch_failed" }, { status: 400 });
 
   const token = await getNotionToken(user.id);
@@ -48,10 +43,6 @@ export async function POST(req: Request) {
     .single();
   const runId = (run as { id?: string } | null)?.id ?? null;
 
-  const failed: Failed[] = [];
-  let imported = 0;
-  let skipped = 0;
-  let booked = 0;
   let total = 0;
 
   try {
@@ -69,58 +60,69 @@ export async function POST(req: Request) {
       for (const x of (existing ?? []) as Array<{ notion_page_id: string | null }>) if (x.notion_page_id) known.add(x.notion_page_id);
     }
 
-    // Field name -> the Notion property that supplies it.
+    // Field key -> the Notion property that supplies it.
     const source: Record<string, string> = {};
     for (const [prop, field] of Object.entries(map)) if (field) source[field] = prop;
+    const at = (r: Record<string, string>, field: string) => (source[field] ? (r[source[field]] ?? "").trim() : "");
 
-    for (const r of wanted) {
-      const nid = r._notion_id ?? "";
-      const brand = (r[source.brand ?? ""] ?? "").trim();
-      const amountRaw = r[source.amount ?? ""] ?? "";
-      const amount = money(amountRaw);
+    const mapped: ImportRow[] = wanted.map((r) => ({
+      notionId: r._notion_id ?? "",
+      brand: at(r, "brand"),
+      amount: money(at(r, "amt")),
+      post: at(r, "post"),
+      status: /pipeline|negotiat/i.test(at(r, "status")) ? "pipeline" : "active",
+      rep: at(r, "rep"),
+    }));
+    const notesOf = new Map(wanted.map((r, i) => [mapped[i].notionId, at(r, "notes")]));
+    const paybyOf = new Map(wanted.map((r, i) => [mapped[i].notionId, at(r, "payby")]));
 
-      if (!nid) { failed.push({ id: "", brand, amount: Number.isFinite(amount) ? amount : 0, reason: "That row had no Notion id." }); continue; }
-      if (known.has(nid)) { skipped++; continue; }
-      if (!brand) { failed.push({ id: nid, brand: "", amount: Number.isFinite(amount) ? amount : 0, reason: "No brand name on that row." }); continue; }
-
-      const postRaw = (r[source.post ?? ""] ?? "").trim();
-      const statusRaw = (r[source.status ?? ""] ?? "").trim();
-      const row: Record<string, unknown> = {
+    const skippedIds = new Set<string>();
+    const totals = await runImport(mapped, known, async (row) => {
+      const post = row.post;
+      const patch: Record<string, unknown> = {
         user_id: user.id,
-        brand,
-        notion_page_id: nid,
-        value: Number.isFinite(amount) ? amount : null,
-        post_date: /^\d{4}-\d{2}-\d{2}/.test(postRaw) ? postRaw.slice(0, 10) : null,
-        status: /active/i.test(statusRaw) ? "active" : /pipeline|negotiat/i.test(statusRaw) ? "pipeline" : "active",
+        brand: row.brand,
+        notion_page_id: row.notionId,
+        value: Number.isFinite(row.amount) ? row.amount : null,
+        post_date: /^\d{4}-\d{2}-\d{2}/.test(post) ? post.slice(0, 10) : null,
+        status: row.status,
       };
-      if (source.rep) { const rep = (r[source.rep] ?? "").trim(); if (rep) row.rep_name = rep; }
+      const payby = paybyOf.get(row.notionId) ?? "";
+      if (/^\d{4}-\d{2}-\d{2}/.test(payby)) patch.due_date = payby.slice(0, 10);
+      const notes = notesOf.get(row.notionId) ?? "";
+      if (notes) patch.notes = notes;
+      if (row.rep) patch.rep_name = row.rep;
 
-      // ON CONFLICT (user_id, notion_page_id) DO NOTHING — two runs at once cannot duplicate.
+      // sync=false: ON CONFLICT DO NOTHING (a repeat is a skip).
+      // sync=true : a repeat is updated in place instead.
+      if (sync && known.has(row.notionId)) {
+        skippedIds.add(row.notionId);
+        const { error } = await supabase.from("deals").update(patch).eq("user_id", user.id).eq("notion_page_id", row.notionId);
+        return { error: error ? { code: error.code } : null };
+      }
       const { error } = await supabase
         .from("deals")
-        .upsert(row, { onConflict: "user_id,notion_page_id", ignoreDuplicates: true });
+        .upsert(patch, { onConflict: "user_id,notion_page_id", ignoreDuplicates: true });
+      return { error: error ? { code: error.code } : null };
+    });
 
-      if (error) {
-        failed.push({ id: nid, brand, amount: Number.isFinite(amount) ? amount : 0, reason: "Talby could not save that row." });
-        continue;
-      }
-      imported++;
-      if (row.status === "active" && Number.isFinite(amount)) booked += amount;
-    }
+    // On a sync run an updated row counts as handled, not imported.
+    const imported = sync ? totals.imported - skippedIds.size : totals.imported;
+    const skipped = sync ? totals.skipped + skippedIds.size : totals.skipped;
 
     if (runId) {
       await supabase.from("import_runs").update({
-        finished_at: new Date().toISOString(), total, imported, skipped, failed: failed.length,
+        finished_at: new Date().toISOString(), total, imported, skipped, failed: totals.failed.length,
       }).eq("id", runId);
     }
-    return NextResponse.json({ imported, skipped, failed, booked });
+    return NextResponse.json({ imported, skipped, failed: totals.failed, booked: totals.booked });
   } catch (e) {
     const code = e instanceof NotionError ? e.code : "fetch_failed";
-    const reason = code === "notion_lost" ? "Notion did not answer in time" : "Notion did not answer in time";
+    const reason = "Notion did not answer in time";
     console.error("notion import error", e);
     if (runId) {
       await supabase.from("import_runs").update({
-        finished_at: new Date().toISOString(), total, imported, skipped, failed: failed.length + 1, error: reason,
+        finished_at: new Date().toISOString(), total, imported: 0, skipped: 0, failed: 1, error: reason,
       }).eq("id", runId);
     }
     return NextResponse.json({ code }, { status: code === "notion_lost" ? 401 : 502 });

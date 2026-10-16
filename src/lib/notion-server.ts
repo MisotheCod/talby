@@ -89,13 +89,8 @@ const AUTH_HEADERS = (token: string) => ({
 });
 
 /** Notion failures carry a machine code the routes return as { code }. */
-export class NotionError extends Error {
-  code: string;
-  constructor(code: string, message?: string) {
-    super(message ?? code);
-    this.code = code;
-  }
-}
+import { paginate, NotionError } from "./notion-import";
+export { NotionError };
 
 export type NotionDatabase = { id: string; title: string; edited?: string };
 
@@ -116,24 +111,9 @@ export async function listDatabases(token: string): Promise<NotionDatabase[]> {
   }));
 }
 
-/** Page count for a database — paginates with page_size 1 per page of 100. */
+/** Page count for a database — the same paginated walk, counted. */
 export async function countDatabaseRows(token: string, databaseId: string): Promise<number> {
-  let total = 0;
-  let cursor: string | undefined;
-  for (let page = 0; page < 200; page++) {
-    const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-      method: "POST",
-      headers: AUTH_HEADERS(token),
-      body: JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }),
-    });
-    if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion query failed (${res.status})`);
-    const data = await res.json();
-    total += (data?.results ?? []).length;
-    if (!data?.has_more) break;
-    cursor = data?.next_cursor ?? undefined;
-    if (!cursor) break;
-  }
-  return total;
+  return (await paginate(token, databaseId)).length;
 }
 
 /**
@@ -142,23 +122,8 @@ export async function countDatabaseRows(token: string, databaseId: string): Prom
  * into the existing AI import-mapping pipeline (same as CSV).
  */
 export async function fetchDatabaseRows(token: string, databaseId: string, sourceName: string) {
-  // Full pagination: Notion caps each query at 100 rows, so walk next_cursor
-  // until has_more is false. Guarded against a bad cursor looping forever.
-  const results: Array<{ id?: string; properties: Record<string, unknown> }> = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < 200; page++) {
-    const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-      method: "POST",
-      headers: AUTH_HEADERS(token),
-      body: JSON.stringify({ page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }),
-    });
-    if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion query failed (${res.status})`);
-    const data = await res.json();
-    results.push(...(data?.results ?? []));
-    if (!data?.has_more) break;
-    cursor = data?.next_cursor ?? undefined;
-    if (!cursor) break;
-  }
+  // Full pagination lives in notion-import.ts, where it is unit-tested.
+  const results = await paginate(token, databaseId);
 
   // Column order from the first non-empty row (fall back to insertion order).
   const columns: string[] = [];
