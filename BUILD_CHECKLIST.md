@@ -15,12 +15,12 @@ live at /talby-preview/<Board>, parity tool runs. Baseline = `e2e/talby-parity/`
 - [x] A. Install, fonts, preview routes, parity baseline green
 - [x] B. TalbyPage, setTalbyRoutes, look sync with profiles (theme, mode, sidebar)
 - [x] C. Overview on /app with real data, view and plan states
-- [ ] D. Deals on /app/deals: table, deal panel, phone sheet, real create, edit and delete
-- [ ] E. New deal dialog: manual, upload (20 MB direct), CSV and Excel, Notion import
-- [ ] F. Payments and Income summary: mark paid, record payment, reminders
-- [ ] G. Calendar
-- [ ] H. To-dos (Open the deal only when linked)
-- [ ] I. Ideas (burst animation)
+- [x] D. Deals on /app/deals: table, deal panel, phone sheet, real create, edit and delete
+- [x] E. New deal dialog: manual, upload (20 MB direct), CSV and Excel, Notion import
+- [x] F. Payments and Income summary: mark paid, record payment, reminders
+- [x] G. Calendar
+- [x] H. To-dos (Open the deal only when linked)
+- [x] I. Ideas (burst animation)
 - [ ] J. Settings: account, appearance, billing in all five plans, Notion connection, inline errors
 - [ ] K. Onboarding (6 steps), first run tour, reminders, Getting started
 - [ ] L. Homepage on /

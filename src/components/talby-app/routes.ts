@@ -13,7 +13,7 @@ const ROUTES: Record<string, string> = {
   SPayments: '/app/payments',
   SIncome: '/app/payments?income=1',
   SIdeas: '/app/ideas',
-  STodos: '/app/todos',
+  STodos: '/app/notes',
   SSettings: '/app/settings',
   SOnboard: '/onboarding',
   SWelcome: '/app',
