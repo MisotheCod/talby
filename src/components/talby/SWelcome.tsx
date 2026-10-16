@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import { SAMPLE_ACCOUNT, TalbyDates } from './_data';
 import SSidebar from './SSidebar';
 import STopbar from './STopbar';
 import SPraise from './SPraise';
@@ -59,6 +60,12 @@ class Component extends DCLogic {
   retryLoad() {
     var self = this; clearTimeout(this._rt);
     this.setState({ dv: 'loading' });
+    if (typeof this.props.onAction === 'function') {
+      Promise.resolve().then(function () { return self.props.onAction('data.reload', {}); })
+        .then(function (ok) { if (ok === false) throw new Error('reload'); if (self.state.dv === 'loading') self.setState({ dv: self.props.view === 'error' || !self.props.view ? 'sample' : self.props.view }); })
+        .catch(function () { self.setState({ dv: 'error' }); });
+      return;
+    }
     this._rt = setTimeout(function () { self.setState({ dv: 'sample' }); }, 900);
   }
   guard() {
@@ -73,6 +80,7 @@ class Component extends DCLogic {
     if (key !== 'reset' && key !== 'all') L[key] = val;
     this.setState({ look: L });
     try { window.localStorage.setItem('talby.look', JSON.stringify(L)); } catch (e) {}
+    this.emit('look.update', L, 'Could not save your look');
   }
   toast(title, desc, undo, extra) {
     var self = this, id = Date.now() + Math.random(), x = extra || {};
@@ -90,10 +98,10 @@ class Component extends DCLogic {
   startState(p, first) {
     var s = { notif: p.start === 'notify' || p.err === 'blocked' || p.err === 'offline', rem: p.err === 'blocked' ? 'blocked' : (p.err === 'offline' ? 'offline' : ''), remBlocked: p.err === 'blocked' };
     var all = p.start === 'complete', most = p.start === 'done' || all;
-    s.done = { profile: true, deal: most, import: most, payby: most, ask: most, remind: all };
+    s.done = p.data && p.data.done ? Object.assign({}, p.data.done) : { profile: true, deal: most, import: most, payby: most, ask: most, remind: all };
     var v = null;
     if (first) {
-      s.handle = (function () { var h = ''; try { h = window.localStorage.getItem('talby.handle') || ''; } catch (e) {} return h || 'junobakes'; })();
+      s.handle = (function () { var h = ''; try { h = window.localStorage.getItem('talby.handle') || ''; } catch (e) {} return (p.account && p.account.handle) || h || 'junobakes'; })();
       try { v = window.localStorage.getItem('talby.tour'); window.localStorage.removeItem('talby.tour'); } catch (e) {}
       s.copied = false; s.gs = null; s.ad = null; s.fb = null; s.tch = 0;
       s.h = (function () { try { return window.innerHeight || 900; } catch (e) { return 900; } })();
@@ -204,6 +212,7 @@ class Component extends DCLogic {
     function md(iso) { return iso ? MS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)) : ''; }
     function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
     var self = this, p = this.props, st = this.state;
+    var ACC = p.account || SAMPLE_ACCOUNT;
     var L = st.look, sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
     var dark = L.mode === 'dark' || (L.mode === 'system' && sysDark);
     var eff = L.theme || 'studio';
@@ -343,6 +352,7 @@ class Component extends DCLogic {
       notNow: function () { self.setState({ notif: false }); }
     };
     var shell = {
+      account: ACC,
       t: t, k: k, dark: dark, look: L, collapsed: collapsed, mob: mob, notMob: !mob, wide: wide, eff: eff, titleFam: t.titleFam, numFam: t.numFam,
       vars: '--hv: ' + t.hv + '; --hvr: ' + t.hvr + '; --bd2: ' + t.borderStrong + '; --fg: ' + t.fg + '; --ring: ' + t.ring + '; --shh: ' + t.shHover,
       showRail: !mob, sbW: collapsed ? '72px' : '256px', mainPad: mob ? '0 12px 104px' : (tabW ? '0 20px 48px 12px' : '0 24px 56px 16px'), h1Fs: Math.round((mob ? 24 : 28) * t.hScale) + 'px',
@@ -358,9 +368,9 @@ class Component extends DCLogic {
         else if (a === 'ask') self.setState({ askId: Date.now(), askText: payload || '', cmd: false });
       },
       add: st.add, openAdd: function (kind) { self.setState({ add: kind, nav: false }); }, closeAdd: function () { self.setState({ add: '' }); },
-      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); var dn = Object.assign({}, self.state.done, { deal: true }); if (info && info.kind === 'import') dn.import = true; self.setState({ done: dn }); if (Object.keys(dn).filter(function (x) { return dn[x]; }).length === 6 && Object.keys(self.state.done).filter(function (x) { return self.state.done[x]; }).length < 6) setTimeout(function () { self.celebrate({ title: 'You are all set up', line: 'Talby is ready for your next deal.', chip: '6 of 6' }); }, 5400); },
+      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); if (info) self.emit(info.kind === 'deal' ? 'deal.create' : 'deals.import', info, info.kind === 'deal' ? 'Could not save the deal' : 'Could not import the deals'); var dn = Object.assign({}, self.state.done, { deal: true }); if (info && info.kind === 'import') dn.import = true; self.setState({ done: dn }); if (Object.keys(dn).filter(function (x) { return dn[x]; }).length === 6 && Object.keys(self.state.done).filter(function (x) { return self.state.done[x]; }).length < 6) setTimeout(function () { self.celebrate({ title: 'You are all set up', line: 'Talby is ready for your next deal.', chip: '6 of 6' }); }, 5400); },
       praise: st.praise, closePraise: function () { clearTimeout(self._pz2); self.setState({ praise: null }); },
-      askId: st.askId, askText: st.askText, asstName: 'Chanelica',
+      askId: st.askId, askText: st.askText, asstName: ACC.name,
       toastR: mob ? '12px' : '24px', toastL: mob ? '12px' : 'auto', toastB: mob ? 'auto' : '84px', toastT: mob ? '12px' : 'auto', toastW: mob ? 'auto' : '340px',
       toasts: st.toasts.map(function (x) { var drop = function () { self.setState({ toasts: self.state.toasts.filter(function (y) { return y.id !== x.id; }) }); };
         return { title: x.title, desc: x.desc, hasDesc: !!x.desc, hasUndo: !!x.undo, undo: function () { if (x.undo) x.undo(); drop(); }, isErr: x.kind === 'error', hasCta: !!x.cta, cta: x.cta, doCta: function () { drop(); if (x.act) x.act(); } }; }),
@@ -368,7 +378,7 @@ class Component extends DCLogic {
       plan: plan, locked: locked, lockedKind: locked ? plan : '', quietBell: !isSample, sbFresh: !isSample,
       hasBanner: plan === 'pastdue' || locked, bn: (function () {
         var go = function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} };
-        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by Oct 21.' : 'Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', act: go };
+        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + '.' : 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + ' to keep adding and changing deals.', cta: 'Update card', act: go };
         if (plan === 'canceled') return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Plan canceled.' : 'Your plan is canceled.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Restart your plan to add or change deals.', cta: 'Restart plan', act: go };
         return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Trial ended.' : 'Your free trial ended.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Upgrade to add or change deals.', cta: 'Upgrade', act: go };
       })()
@@ -388,12 +398,12 @@ function render($s0, host) {
         {$s0?.showRail ? (<>
           <div {...S(`position: relative; z-index: 30; flex: 0 0 ${I($s0?.sbW)}; width: ${I($s0?.sbW)}; align-self: stretch; transition: flex-basis 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1)`)}>
             <div {...S("position: sticky; top: 0; height: 100vh")}>
-              <SSidebar active={"overview"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} user={$s0?.handle} handle={$s0?.handle} />
+              <SSidebar account={$s0?.account} active={"overview"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} user={$s0?.handle} handle={$s0?.handle} />
             </div>
           </div>
         </>) : null}
         <main {...S(`flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: ${I($s0?.mainPad)}; box-sizing: border-box`)}>
-          <STopbar title={"Overview"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
+          <STopbar account={$s0?.account} title={"Overview"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
           {$s0?.hasBanner ? (<>
             <div role={"status"} className={"a-fade"} {...S(`display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 8px 8px 14px; box-sizing: border-box; border: 1px solid ${I($s0?.bn?.bd)}; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.bn?.bg)}; color: ${I($s0?.bn?.fg)}`)}>
               <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 16px")}>
@@ -746,7 +756,7 @@ function render($s0, host) {
           <div {...S("position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 88")}>
             <button type={"button"} aria-label={"Close menu"} className={"a-fade"} onClick={$s0?.closeNav} {...S(`position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: ${I($s0?.t?.overlay)}; cursor: default`)} />
             <div className={"a-drawer"} {...S(`position: absolute; top: 0; bottom: 0; left: 0; width: 288px; max-width: 86%; overflow-y: auto; box-shadow: ${I($s0?.t?.shPop)}`)}>
-              <SSidebar active={"overview"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} user={$s0?.handle} handle={$s0?.handle} />
+              <SSidebar account={$s0?.account} active={"overview"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} user={$s0?.handle} handle={$s0?.handle} />
             </div>
           </div>
         </>) : null}
@@ -785,8 +795,8 @@ function render($s0, host) {
           })}
         </div>
         <SPraise data={$s0?.praise} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closePraise} />
-        <SAddDeal open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
-        <SCommand open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
+        <SAddDeal dealsThisYear={$s0?.account?.dealsThisYear} open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
+        <SCommand account={$s0?.account} open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
         <SAppearance open={$s0?.appear} theme={$s0?.look?.theme} mode={$s0?.look?.mode} sidebar={$s0?.look?.sidebar} dark={$s0?.dark} onSet={$s0?.setLook} onClose={$s0?.closeAppear} />
         <SAssistant embedded={true} nameFirst={$s0?.asstName} empty={$s0?.isEmpty} hidden={$s0?.chatHidden} askId={$s0?.askId} askText={$s0?.askText} color={$s0?.eff} dark={$s0?.dark} />
       </div>

@@ -1,114 +1,124 @@
-/**
- * to-board.ts — map real Supabase rows into each board's exact sample shape.
- *
- * One function per page. Field names, formatted strings (`$4,000`, `Pay by Oct 19`)
- * and array shapes must match what the board's renderVals() builds, so the board
- * can render real data without touching render(). Each function returns the shape
- * the board reads from `this.props.data`. The board keeps its sample as the
- * fallback when `data` is absent (the preview route passes none).
- *
- * === SOverview sample shape (from renderVals, item C) ===
- *  deals:  [brand, statusKey, dateISO, amount][]   statusKey: over|inv|not|paid|neg
- *  late:   Record<brand, daysLate>                 for 'over' rows
- *  over:   [brand, amount, dueISO][]               overdue (drives Late tile + attn)
- *  attn:   {pay rows: brand/amt/days} + {date row} + {link row}
- *  week:   Sun..Sat strip (7)                       (weekItems: payment/post rows)
- *  upcoming: [brand, dateISO, amount, whenLabel][] "In N days"
- *  stats:  [{label, value:'$..', line:'Across N signed deals', fg, warn}]  x4 (Booked/Received/Still owed/Late)
- *  todos:  [{text, deal, done}]
- *  name:   greeting first name; handle for the sidebar user block
- */
-
-/** Number formatting the boards use: '$' + toLocaleString(). */
-export function fmt(n: number): string {
-  return "$" + Math.round(n).toLocaleString("en-US");
-}
-
-const MS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-/** 'YYYY-MM-DD' -> 'Oct 19' (empty stays empty). */
-export function md(iso?: string | null): string {
-  return iso ? MS[+iso.slice(5, 7) - 1] + " " + +iso.slice(8, 10) : "";
-}
-
-export type StatusKey = "over" | "inv" | "not" | "paid" | "neg";
-export type OverviewDeal = [string, StatusKey, string, number];
-
-interface DBDeal {
-  id: string; brand: string; value: number | null; status: string; active: boolean;
-  due_date: string | null; created_at: string;
-}
-interface DBPayment {
-  id: string; deal_id: string | null; amount: number; status: string; pay_status: string | null;
-  expected_date: string | null; deal?: { brand: string } | { id: string; brand: string } | null;
-}
-interface DBTodo { id: string; title: string; done: boolean; due_date: string | null }
+import { TalbyDates } from "@/components/talby/_data";
+import type { OverviewData, OverviewDealStatus, AccountData, SearchData, ISODate } from "@/components/talby/_data";
+import type { DealRow, PaymentRow, ContentRow, TodoRow, NoteRow, ProfileRow as Profile } from "@/lib/talby/queries";
 
 /**
- * Map deals + payments into the SOverview `D` list and its derived pieces.
- * statusKey: prev/past-due -> 'over', paid/'received' -> 'paid', invoiced -> 'inv',
- * negotiating/pipeline -> 'neg', else 'not'. dateISO = expected_date for unpaid,
- * paid date for paid (fall back to created_at).
+ * to-board.ts — map real Supabase rows into each board's exact data shape.
+ * Typed with the types in src/components/talby/_data.ts so tsc flags any field
+ * the board needs that we forgot. Dates are YYYY-MM-DD in the user's time zone;
+ * amounts are whole dollars. The boards format everything themselves.
  */
-export function toOverview(
-  deals: DBDeal[], payments: DBPayment[], todos: DBTodo[], now = new Date()
-): {
-  deals: OverviewDeal[]; late: Record<string, number>; over: [string, number, string][];
-  stats: { label: string; value: string; line: string; fg: string; warn: boolean }[];
-  todos: { text: string; deal: string; done: boolean }[];
-} {
-  const today = now.toISOString().slice(0, 10);
-  const byDeal = new Map<string, DBPayment[]>();
-  for (const p of payments.filter((x) => x.deal_id)) {
-    const arr = byDeal.get(p.deal_id!) ?? [];
-    arr.push(p);
-    byDeal.set(p.deal_id!, arr);
+
+/* ----------------------------- Overview ----------------------------- */
+
+export function toOverviewData(p: {
+  deals: DealRow[]; payments: PaymentRow[]; content: ContentRow[];
+  todos: TodoRow[]; today: ISODate;
+}): OverviewData {
+  const { deals, payments, content, todos, today } = p;
+  const active = deals.filter((d) => d.active && d.status !== "archived");
+  const byDeal = new Map<string, PaymentRow[]>();
+  for (const pm of payments.filter((x) => x.deal_id)) {
+    const arr = byDeal.get(pm.deal_id!) ?? [];
+    arr.push(pm);
+    byDeal.set(pm.deal_id!, arr);
   }
-  const late: Record<string, number> = {};
-  const over: [string, number, string][] = [];
-  const dealsOut: OverviewDeal[] = [];
-  let receivedSum = 0;
-  let outstandingSum = 0;
-  let expectedCount = 0;
 
-  for (const d of deals) {
+  const outDeals: OverviewData["deals"] = [];
+  const overdue: OverviewData["overdue"] = [];
+  let receivedSum = 0, receivedCount = 0;
+  let owedSum = 0, owedCount = 0;
+
+  for (const d of active) {
     const ps = byDeal.get(d.id) ?? [];
     const amount = d.value ?? 0;
-    let key: StatusKey = "not";
-    let dateISO = "";
-    const unpaid = ps.filter((p) => p.status !== "received" && p.pay_status !== "paid");
-    const paidRs = ps.filter((p) => p.status === "received" || p.pay_status === "paid");
-    if (d.status === "pipeline" || d.status === "negotiating" || d.status === "neg") key = "neg";
-    else if (paidRs.length >= (ps.length || 1)) { key = "paid"; receivedSum += amount; dateISO = paidRs[0].expected_date || d.created_at; }
-    else {
-      receivedSum += amount * 0; // not received
-      outstandingSum += amount;
-      expectedCount++;
-      if (unpaid.some((p) => p.pay_status === "invoiced")) key = "inv";
-      const due = (unpaid[0]?.expected_date ?? d.due_date ?? "");
-      dateISO = due;
-      if (due && due < today) {
-        key = "over";
-        late[d.brand] = Math.max(0, Math.round((+new Date(today) - +new Date(due)) / 86400000));
-        over.push([d.brand, amount, due]);
-      }
+    const unpaid = ps.filter((x) => x.status !== "received" && x.pay_status !== "paid");
+    const paidRows = ps.filter((x) => x.status === "received" || x.pay_status === "paid");
+    let status: OverviewDealStatus = "not";
+    let date: ISODate | "" = "";
+    const due = unpaid[0]?.expected_date ?? d.due_date ?? "";
+    if (d.status === "pipeline" || d.status === "negotiating") {
+      status = "neg";
+    } else if (paidRows.length && ps.length && paidRows.length >= ps.length) {
+      status = "paid"; receivedSum += amount; receivedCount++;
+      date = paidRows[0].expected_date || d.created_at.slice(0, 10);
+    } else {
+      owedSum += amount; owedCount++;
+      if (unpaid.some((x) => x.pay_status === "invoiced")) status = "inv";
+      date = due;
+      if (due && due < today) { status = "over"; overdue.push([d.brand, amount, due]); }
     }
-    dealsOut.push([d.brand, key, dateISO, amount]);
+    outDeals.push([d.brand, status, date, amount]);
   }
 
-  const live = deals.filter((d) => d.active && d.status !== "archived");
-  const stats = [
-    { label: "Booked this year", value: fmt(live.reduce((s, d) => s + (d.value ?? 0), 0)), line: `Across ${live.length} signed deals`, fg: "#0A0A0A", warn: false },
-    { label: "Received", value: fmt(receivedSum), line: `${paidCount(payments)} payments this year`, fg: "#0A0A0A", warn: false },
-    { label: "Still owed", value: fmt(outstandingSum), line: `${expectedCount} payments expected`, fg: "#0A0A0A", warn: false },
-    { label: "Late", value: fmt(over.reduce((s, o) => s + o[1], 0)), line: over.length ? `${over.length} payment${over.length === 1 ? "" : "s"} past due` : "Nothing is late", fg: over.length ? "#DC2626" : "#0A0A0A", warn: over.length > 0 },
-  ];
+  const needsPayBy: OverviewData["needsPayBy"] = content
+    .filter((c) => c.event_date && c.event_date <= today)
+    .map((c) => ({ brand: c.title, liveOn: c.event_date! }));
+
+  const noPayDates = active.filter((d) => {
+    const ps = byDeal.get(d.id) ?? [];
+    return ps.length === 0 || !ps.some((x) => x.expected_date);
+  });
+  const noPayBy = { count: noPayDates.length, amount: noPayDates.reduce((s, d) => s + (d.value ?? 0), 0) };
+
+  const week: OverviewData["week"] = [];
+  for (let i = -TalbyDates.weekday(today); i < 7 - TalbyDates.weekday(today); i++) {
+    const date = TalbyDates.iso(TalbyDates.num(today) + i);
+    for (const pm of payments.filter((x) => x.expected_date === date && x.status !== "received" && x.pay_status !== "paid"))
+      week.push({ date, kind: "late", title: `${pm.deal?.brand ?? "Payment"} payment`, brand: pm.deal?.brand, amount: pm.amount });
+    for (const pm of payments.filter((x) => x.expected_date === date && (x.status === "received" || x.pay_status === "paid")))
+      week.push({ date, kind: "paid", title: `${pm.deal?.brand ?? "Payment"} paid`, brand: pm.deal?.brand, amount: pm.amount });
+    for (const c of content.filter((x) => x.event_date === date))
+      week.push({ date, kind: c.status === "posted" ? "posted" : "post", title: c.title });
+  }
+
+  const horizon = TalbyDates.num(today) + 60;
+  const upcoming: OverviewData["upcoming"] = payments
+    .filter((x) => x.status !== "received" && x.pay_status !== "paid" && x.expected_date
+      && TalbyDates.num(x.expected_date) > TalbyDates.num(today) && TalbyDates.num(x.expected_date) <= horizon)
+    .sort((a, b) => (a.expected_date! < b.expected_date! ? -1 : 1))
+    .map((x) => [x.deal?.brand ?? "Payment", x.expected_date!, x.amount]);
 
   return {
-    deals: dealsOut, late, over, stats,
-    todos: todos.map((t) => ({ text: t.title, deal: "No deal", done: t.done })),
+    today,
+    deals: outDeals, overdue, needsPayBy, noPayBy, week, upcoming,
+    booked: { amount: active.reduce((s, d) => s + (d.value ?? 0), 0), deals: active.length },
+    received: { amount: receivedSum, count: receivedCount },
+    owed: { amount: owedSum, count: owedCount },
+    todos: todos.filter((t) => !t.done).map((t) => ({ id: t.id, text: t.title, deal: "", done: false })),
   };
 }
 
-function paidCount(payments: DBPayment[]): number {
-  return payments.filter((p) => p.status === "received" || p.pay_status === "paid").length;
+/* ------------------------------ Account ------------------------------ */
+
+export function toAccountData(p: {
+  profile: Profile;
+  today: ISODate;
+  counts: { deals: number; late: number; ideas: number; todos: number };
+  dealsThisYear: number;
+  notifications: AccountData["notifications"];
+  search?: SearchData;
+  trialTotalDays?: number;
+}): AccountData {
+  const { profile, counts, dealsThisYear, notifications, search, today } = p;
+  const total = p.trialTotalDays ?? 14;
+  let trial: AccountData["trial"] = { endsOn: today, daysLeft: 0, usedPct: 0 };
+  if (profile.trial_end) {
+    const endsOn = profile.trial_end.slice(0, 10);
+    const daysLeft = Math.max(0, TalbyDates.diff(today, endsOn));
+    trial = { endsOn, daysLeft, usedPct: Math.max(0, Math.min(100, Math.round(((total - daysLeft) / total) * 100))) };
+  }
+  const base = (profile.handler ?? "").replace(/[_-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  return {
+    name: base.split(" ")[0] || "there",
+    displayName: base || "Creator",
+    handle: profile.handler ?? "",
+    email: "",
+    dealsThisYear,
+    counts,
+    trial,
+    pastDueBy: today,
+    notifications,
+    ...(search ? { search } : {}),
+  };
 }

@@ -33,6 +33,28 @@ export class DCLogic {
   forceUpdate() {
     this.__host && this.__host.forceUpdate();
   }
+  /**
+   * Save hook. Boards call this after they update the screen (the change is
+   * shown right away). It calls props.onAction(type, payload). If that throws,
+   * rejects or resolves to false, the board shows its error toast with
+   * Try again, which sends the same action again.
+   * Every type and payload is listed in ACTIONS.md.
+   */
+  emit(type: string, payload?: any, failTitle?: string) {
+    const p = this.props || {};
+    if (typeof p.onAction !== 'function') return;
+    const self: any = this;
+    const title = failTitle || self._wt || 'Could not save that';
+    const run = () => {
+      let r: any;
+      try { r = p.onAction(type, payload); } catch (e) { r = Promise.reject(e); }
+      Promise.resolve(r).then((ok) => { if (ok === false) throw new Error('rejected'); }).catch(() => {
+        if (typeof self.toastErr === 'function') self.toastErr(title, 'Check your connection and try again.', run);
+        else if (typeof self.toast === 'function') self.toast(title, 'Check your connection and try again.');
+      });
+    };
+    run();
+  }
   componentDidMount() {}
   componentDidUpdate(_prevProps: any) {}
   componentWillUnmount() {}

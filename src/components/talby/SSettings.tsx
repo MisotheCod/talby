@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import { SAMPLE_ACCOUNT, TalbyDates, SAMPLE_SETTINGS } from './_data';
 import SSidebar from './SSidebar';
 import STopbar from './STopbar';
 import SAppearance from './SAppearance';
@@ -33,11 +34,11 @@ class Component extends DCLogic {
     }, {
       sec: (function () { var s = null; try { s = window.localStorage.getItem('talby.settingsTab'); window.localStorage.removeItem('talby.settingsTab'); } catch (e) {} var ok = ['account', 'appearance', 'notifications', 'connections', 'billing']; return ok.indexOf(s) !== -1 ? s : (ok.indexOf(props.tab) !== -1 ? props.tab : 'account'); })(),
       secFor: props.tab || '', secSheet: false,
-      name: 'Chanelica.R', handle: 'chanelica.r', savedName: 'Chanelica.R', savedHandle: 'chanelica.r', pw1: '', pw2: '', draftLook: null,
+      name: (props.account || SAMPLE_ACCOUNT).displayName, handle: (props.account || SAMPLE_ACCOUNT).handle, savedName: (props.account || SAMPLE_ACCOUNT).displayName, savedHandle: (props.account || SAMPLE_ACCOUNT).handle, pw1: '', pw2: '', draftLook: null,
       dlg: '', confirm: '', prefs: { inapp: true, digest: false, overdue: true, posts: true }, savedPrefs: { inapp: true, digest: false, overdue: true, posts: true },
-      notionS: props.notion || 'connected', notionFor: props.notion || '',
+      notionS: props.notion || (props.data && props.data.notion ? (props.data.notion.status === 'none' ? 'off' : props.data.notion.status) : 'connected'), notionFor: props.notion || '',
       pvBrand: 'Lumen and Lark', pvCheck: false, pvSwitch: true, pvTab: 'month',
-      photo: '', photoBusy: false, photoErr: '', photoPending: '', pwTouched: false, pwWrong: false, pwBusy: false, profBusy: false, prefBusy: false, discBusy: false, dlgBusy: false, dlgErr: false, failed: {}
+      photo: (props.account && props.account.photoUrl) || '', photoBusy: false, photoErr: '', photoPending: '', pwTouched: false, pwWrong: false, pwBusy: false, profBusy: false, prefBusy: false, discBusy: false, dlgBusy: false, dlgErr: false, failed: {}
     });
   }
   componentDidMount() {
@@ -63,6 +64,12 @@ class Component extends DCLogic {
   retryLoad() {
     var self = this; clearTimeout(this._rt);
     this.setState({ dv: 'loading' });
+    if (typeof this.props.onAction === 'function') {
+      Promise.resolve().then(function () { return self.props.onAction('data.reload', {}); })
+        .then(function (ok) { if (ok === false) throw new Error('reload'); if (self.state.dv === 'loading') self.setState({ dv: self.props.view === 'error' || !self.props.view ? 'sample' : self.props.view }); })
+        .catch(function () { self.setState({ dv: 'error' }); });
+      return;
+    }
     this._rt = setTimeout(function () { self.setState({ dv: 'sample' }); }, 900);
   }
   guard() {
@@ -77,6 +84,7 @@ class Component extends DCLogic {
     if (key !== 'reset' && key !== 'all') L[key] = val;
     this.setState({ look: L });
     try { window.localStorage.setItem('talby.look', JSON.stringify(L)); } catch (e) {}
+    this.emit('look.update', L, 'Could not save your look');
   }
   toast(title, desc, undo, extra) {
     var self = this, id = Date.now() + Math.random(), x = extra || {};
@@ -104,7 +112,7 @@ class Component extends DCLogic {
     this.setState({ photoBusy: true, photoErr: '', photoPending: url });
     this.later(function () {
       if (self.failOnce('photo')) { self.setState({ photoBusy: false, photoErr: 'upload' }); return; }
-      self.setState({ photoBusy: false, photo: url, photoPending: '' }); self.toast('Photo updated', 'It shows next to your name across Talby.');
+      self.setState({ photoBusy: false, photo: url, photoPending: '' }); self.emit('photo.update', { dataUrl: url }, 'Could not update your photo'); self.toast('Photo updated', 'It shows next to your name across Talby.');
     }, 900);
   }
   saveProfileNow() {
@@ -112,7 +120,7 @@ class Component extends DCLogic {
     this.setState({ profBusy: true });
     this.later(function () {
       if (self.failOnce('profile')) { self.setState({ profBusy: false }); self.toastErr('Could not save', 'Check your connection and try again.', function () { self.saveProfileNow(); }); return; }
-      self.setState({ profBusy: false, savedName: self.state.name, savedHandle: self.state.handle }); self.toast('Profile saved', '');
+      self.setState({ profBusy: false, savedName: self.state.name, savedHandle: self.state.handle }); self.emit('profile.update', { displayName: self.state.name, handle: self.state.handle }, 'Could not save'); self.toast('Profile saved', '');
     }, 600);
   }
   savePrefsNow() {
@@ -120,7 +128,7 @@ class Component extends DCLogic {
     this.setState({ prefBusy: true });
     this.later(function () {
       if (self.failOnce('prefs')) { self.setState({ prefBusy: false }); self.toastErr('Could not save', 'Check your connection and try again.', function () { self.savePrefsNow(); }); return; }
-      self.setState({ prefBusy: false, savedPrefs: Object.assign({}, self.state.prefs) }); self.toast('Preferences saved', '');
+      self.setState({ prefBusy: false, savedPrefs: Object.assign({}, self.state.prefs) }); self.emit('notifications.update', Object.assign({}, self.state.prefs), 'Could not save'); self.toast('Preferences saved', '');
     }, 600);
   }
   updatePwNow() {
@@ -128,7 +136,7 @@ class Component extends DCLogic {
     this.setState({ pwBusy: true, pwWrong: false });
     this.later(function () {
       if (self.failOnce('password')) { self.setState({ pwBusy: false, pwWrong: true }); try { self.pwCur && self.pwCur.focus(); } catch (e) {} return; }
-      self.setState({ pwBusy: false, pw1: '', pw2: '', pwTouched: false }); self.toast('Password updated', 'Use it next time you log in.');
+      self.emit('password.update', { current: self.state.pw1, next: self.state.pw2 }, 'Could not update your password'); self.setState({ pwBusy: false, pw1: '', pw2: '', pwTouched: false }); self.toast('Password updated', 'Use it next time you log in.');
     }, 700);
   }
   disconnectNow() {
@@ -136,7 +144,7 @@ class Component extends DCLogic {
     this.setState({ discBusy: true });
     this.later(function () {
       if (self.failOnce('notion')) { self.setState({ discBusy: false }); self.toastErr('Could not disconnect', 'Check your connection and try again.', function () { self.disconnectNow(); }); return; }
-      self.setState({ discBusy: false, notionS: 'off', notionFor: p.notion || '' }); self.toast('Notion disconnected', 'Deals you already imported stay in Talby.');
+      self.setState({ discBusy: false, notionS: 'off', notionFor: p.notion || '' }); self.emit('notion.disconnect', {}, 'Could not disconnect Notion'); self.toast('Notion disconnected', 'Deals you already imported stay in Talby.');
     }, 600);
   }
   deleteNow() {
@@ -144,7 +152,9 @@ class Component extends DCLogic {
     this.setState({ dlgBusy: true, dlgErr: false });
     this.later(function () {
       if (self.failOnce('delete')) { self.setState({ dlgBusy: false, dlgErr: true }); return; }
-      self.setState({ dlgBusy: false, dlg: '', confirm: '' }); self.toast('Demo only', 'Nothing was deleted.');
+      var kind = self.state.dlg === 'data' ? 'data.deleteAll' : 'account.delete';
+      self.setState({ dlgBusy: false, dlg: '', confirm: '' });
+      if (typeof self.props.onAction === 'function') self.emit(kind, {}, 'Could not delete'); else self.toast('Demo only', 'Nothing was deleted.');
       try { self._opener && self._opener.focus(); } catch (e) {}
     }, 900);
   }
@@ -218,6 +228,9 @@ class Component extends DCLogic {
     function md(iso) { return iso ? MS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)) : ''; }
     function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
     var self = this, p = this.props, st = this.state;
+    var ACC = p.account || SAMPLE_ACCOUNT;
+    // Real data comes in as props.data (see _data.ts). Without it the board shows its design sample.
+    var DATA = (p.data && typeof p.data === 'object') ? p.data : SAMPLE_SETTINGS, BILL = DATA.billing, MDY = function (iso) { return TalbyDates.md(iso) + ', ' + iso.slice(0, 4); };
     var L = st.look, sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
     var dark = L.mode === 'dark' || (L.mode === 'system' && sysDark);
     var eff = L.theme || 'studio';
@@ -307,20 +320,21 @@ class Component extends DCLogic {
     var isData = st.dlg === 'data';
     // Billing: one card layout for every plan state, only the words, pill and button change.
     var PLANS = {
-      active: { pill: 'Active', pBg: t.okBg, pFg: t.okFg, line: '$9 a month. Next payment on Nov 2.', cta: 'Change plan', primary: false, tileBg: t.primary, tileFg: t.primaryFg, meter: false },
-      trial: { pill: 'Free trial', pBg: t.fill, pFg: t.fg, line: '9 days left. Your trial ends on Oct 23, then it is $9 a month.', cta: 'Upgrade', primary: true, tileBg: t.primary, tileFg: t.primaryFg, meter: true },
-      pastdue: { pill: 'Past due', pBg: t.warnBg, pFg: t.warnFg, line: 'Your last payment did not go through. Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', primary: true, tileBg: t.primary, tileFg: t.primaryFg, meter: false },
-      canceled: { pill: 'Canceled', pBg: t.fill, pFg: t.mutedFg, line: 'Your access ended on Oct 2. Everything you added is safe. Restart to add or change deals.', cta: 'Restart plan', primary: true, tileBg: t.fill, tileFg: t.mutedFg, meter: false },
+      active: { pill: 'Active', pBg: t.okBg, pFg: t.okFg, line: '$9 a month. Next payment on ' + TalbyDates.md(BILL.nextPaymentOn) + '.', cta: 'Change plan', primary: false, tileBg: t.primary, tileFg: t.primaryFg, meter: false },
+      trial: { pill: 'Free trial', pBg: t.fill, pFg: t.fg, line: ACC.trial.daysLeft + (ACC.trial.daysLeft === 1 ? ' day left' : ' days left') + '. Your trial ends on ' + TalbyDates.md(ACC.trial.endsOn) + ', then it is $9 a month.', cta: 'Upgrade', primary: true, tileBg: t.primary, tileFg: t.primaryFg, meter: true },
+      pastdue: { pill: 'Past due', pBg: t.warnBg, pFg: t.warnFg, line: 'Your last payment did not go through. Update your card by ' + TalbyDates.md(ACC.pastDueBy) + ' to keep adding and changing deals.', cta: 'Update card', primary: true, tileBg: t.primary, tileFg: t.primaryFg, meter: false },
+      canceled: { pill: 'Canceled', pBg: t.fill, pFg: t.mutedFg, line: 'Your access ended on ' + TalbyDates.md(BILL.endedOn) + '. Everything you added is safe. Restart to add or change deals.', cta: 'Restart plan', primary: true, tileBg: t.fill, tileFg: t.mutedFg, meter: false },
       readonly: { pill: 'Trial ended', pBg: t.fill, pFg: t.mutedFg, line: 'You can still see everything. Upgrade to add or change deals.', cta: 'Upgrade', primary: true, tileBg: t.fill, tileFg: t.mutedFg, meter: false }
     };
     var pl = PLANS[plan] || PLANS.active; pl.outline = !pl.primary; pl.dot = plan === 'trial' ? t.accent : 'currentColor';
-    var noCard = plan === 'trial' || plan === 'readonly';
-    var pm = noCard ? { has: false, none: true, title: 'No card yet', sub: plan === 'trial' ? 'Add one to keep Talby after Oct 23.' : 'Add one to upgrade and pick up where you left off.', subFg: t.mutedFg, cta: 'Add card' }
-      : { has: true, none: false, title: 'Visa ending in 4242', sub: plan === 'pastdue' ? 'The Oct 2 payment was declined.' : 'Expires 08/28', subFg: plan === 'pastdue' ? t.warnFg : t.mutedFg, cta: 'Update' };
-    var IVD = plan === 'canceled' ? ['Sep 2, 2026', 'Aug 2, 2026', 'Jul 2, 2026'] : noCard ? [] : ['Oct 2, 2026', 'Sep 2, 2026', 'Aug 2, 2026'];
-    var invoices = IVD.map(function (d, i) { var due = plan === 'pastdue' && i === 0; return { date: d, aria: 'Download invoice for ' + d, rowStyle: i ? k.rowT : k.row, pill: due ? 'Past due' : 'Paid', pBg: due ? t.warnBg : t.okBg, pFg: due ? t.warnFg : t.okFg }; });
+    var noCard = p.data ? !BILL.card : (plan === 'trial' || plan === 'readonly');
+    var pm = noCard ? { has: false, none: true, title: 'No card yet', sub: plan === 'trial' ? 'Add one to keep Talby after ' + TalbyDates.md(ACC.trial.endsOn) + '.' : 'Add one to upgrade and pick up where you left off.', subFg: t.mutedFg, cta: 'Add card' }
+      : { has: true, none: false, title: (BILL.card ? BILL.card.brand + ' ending in ' + BILL.card.last4 : ''), sub: plan === 'pastdue' ? 'The ' + TalbyDates.md(BILL.declinedOn) + ' payment was declined.' : 'Expires ' + (BILL.card ? BILL.card.exp : ''), subFg: plan === 'pastdue' ? t.warnFg : t.mutedFg, cta: 'Update' };
+    var IVA = p.data ? BILL.invoices : null;
+    var IVD = IVA ? IVA.map(function (x) { return MDY(x.date); }) : plan === 'canceled' ? ['Sep 2, 2026', 'Aug 2, 2026', 'Jul 2, 2026'] : noCard ? [] : ['Oct 2, 2026', 'Sep 2, 2026', 'Aug 2, 2026'];
+    var invoices = IVD.map(function (d, i) { var due = plan === 'pastdue' && i === 0; return { date: d, amount: '$' + (IVA ? IVA[i].amount : 9).toFixed(2), url: IVA ? IVA[i].url || '' : '', aria: 'Download invoice for ' + d, rowStyle: i ? k.rowT : k.row, pill: due ? 'Past due' : 'Paid', pBg: due ? t.warnBg : t.okBg, pFg: due ? t.warnFg : t.okFg }; });
     var IVF = { active: 'You keep read only access to your data if you cancel.', pastdue: 'You keep read only access to your data if you cancel.', trial: 'Nothing is charged until you upgrade.', canceled: 'Your data stays safe. Restart any time to pick up where you left off.', readonly: 'Your data stays safe. Upgrade any time to pick up where you left off.' };
-    function demoBill() { if (self.failOnce('billing')) { self.toastErr('Could not open billing', 'Check your connection and try again.', function () { self.toast('Demo only', 'Billing opens in Stripe in the real app.'); }); return; } self.toast('Demo only', 'Billing opens in Stripe in the real app.'); }
+    function demoBill() { if (typeof p.onAction === 'function') { self.emit('billing.open', { plan: plan }, 'Could not open billing'); return; } if (self.failOnce('billing')) { self.toastErr('Could not open billing', 'Check your connection and try again.', function () { self.toast('Demo only', 'Billing opens in Stripe in the real app.'); }); return; } self.toast('Demo only', 'Billing opens in Stripe in the real app.'); }
     function openDlg(kind) { try { self._opener = document.activeElement; } catch (e) {} self.setState({ dlg: kind, confirm: '', dlgErr: false, dlgBusy: false }); setTimeout(function () { try { self.dlgIn && self.dlgIn.focus(); } catch (e) {} }, 60); }
     function closeDlg() { if (self.state.dlgBusy) return; self.setState({ dlg: '', confirm: '', dlgErr: false }); try { self._opener && self._opener.focus(); } catch (e) {} }
     function doDelete() { if (!match || self.state.dlgBusy) return; self.deleteNow(); }
@@ -371,6 +385,7 @@ class Component extends DCLogic {
       fRowT: mob ? 'position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px; box-sizing: border-box; border-top: 1px solid ' + t.line : k.rowT,
       fLabel: mob ? 'font-size: 13px; font-weight: 500; color: ' + t.mutedFg : k.rowLabel,
       fCtl: mob ? fieldCtl : k.ctlW, inFs: mob ? '16px' : '14px',
+      email: ACC.email, initial: (st.savedName || ACC.displayName || 'T').replace(/[^A-Za-z]/g, '').charAt(0).toUpperCase() || 'T',
       emailSt: mob ? 'min-width: 0; font-size: 15px; color: ' + t.fg + '; white-space: nowrap; overflow: hidden; text-overflow: ellipsis' : 'flex: 0 1 300px; min-width: 0; color: ' + t.mutedFg + '; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis',
       errLine: mob ? 'display: flex; padding: 0 14px 12px; margin-top: -2px' : 'display: flex; justify-content: flex-end; padding: 0 10px 10px 14px; margin-top: -2px',
       errText: 'flex: ' + (mob ? '1 1 auto' : '0 1 300px') + '; min-width: 0; display: flex; align-items: center; gap: 6px; color: ' + t.destr + '; font-size: 13px; line-height: 1.4',
@@ -385,7 +400,7 @@ class Component extends DCLogic {
       hasPhoto: !!st.photo && !st.photoBusy, noPhoto: !st.photo, photoBusy: st.photoBusy, photoBtn: st.photoBusy ? 'Uploading' : 'Change photo',
       fileRef: function (el) { self.fileEl = el; }, pickPhoto: readPhoto,
       choosePhoto: function () { if (st.photoBusy) return; self.setState({ photoErr: '' }); try { self.fileEl && self.fileEl.click(); } catch (e) {} },
-      removePhoto: function () { var was = st.photo; self.setState({ photo: '' }); self.toast('Photo removed', '', function () { self.setState({ photo: was }); }); },
+      removePhoto: function () { var was = st.photo; self.setState({ photo: '' }); self.emit('photo.remove', {}, 'Could not remove your photo'); self.toast('Photo removed', '', function () { self.setState({ photo: was }); }); },
       photoErrOn: !!st.photoErr, photoErrText: PHERR[st.photoErr] || '', photoRetry: st.photoErr === 'upload' && !!st.photoPending,
       retryPhoto: function () { if (st.photoPending) self.uploadPhoto(st.photoPending); }, dismissPhoto: function () { self.setState({ photoErr: '', photoPending: '' }); },
       pw1: st.pw1, pw2: st.pw2, setPw1: function (e) { self.setState({ pw1: e.target.value, pwWrong: false }); }, setPw2: function (e) { self.setState({ pw2: e.target.value }); },
@@ -417,7 +432,7 @@ class Component extends DCLogic {
       savePrefs: function () { if (!prefDirty || st.prefBusy) return; self.savePrefsNow(); },
       notionOn: notionS === 'connected', notionLost: notionS === 'lost', notionOff: notionS === 'off',
       notionLabel: notionS === 'connected' ? 'Connected' : notionS === 'lost' ? 'Connection lost' : 'Not connected',
-      notionSub: notionS === 'connected' ? 'Brand Deals 2026 syncs into Talby.' : notionS === 'lost' ? 'Talby lost access to Brand Deals 2026.' : 'Bring in the deals you track in Notion.',
+      notionSub: notionS === 'connected' ? DATA.notion.database + ' syncs into Talby.' : notionS === 'lost' ? 'Talby lost access to ' + DATA.notion.database + '.' : 'Bring in the deals you track in Notion.',
       notionBg: notionS === 'connected' ? t.okBg : notionS === 'lost' ? t.warnBg : t.fill, notionFg: notionS === 'connected' ? t.okFg : notionS === 'lost' ? t.warnFg : t.mutedFg,
       actS: k.btnS + (mob ? '; flex: 1 1 0; height: 40px' : ''), actO: k.btnO + (mob ? '; flex: 1 1 0; height: 40px' : ''), actP: k.btnP + (mob ? '; flex: 1 1 0; height: 40px' : ''),
       planO: k.btnO + (mob ? '; width: 100%; height: 40px' : ''), planP: k.btnP + (mob ? '; width: 100%; height: 40px' : ''),
@@ -438,6 +453,7 @@ class Component extends DCLogic {
       setErr: blk('error', IC.wifi, ERR[sec] || ERR.appearance, 'Check your connection and try again. Nothing was lost.', 'Try again', function () { self.retryLoad(); })
     };
     var shell = {
+      account: ACC,
       t: t, k: k, dark: dark, look: L, collapsed: collapsed, mob: mob, notMob: !mob, wide: wide, eff: eff, titleFam: t.titleFam, numFam: t.numFam,
       vars: '--hv: ' + t.hv + '; --hvr: ' + t.hvr + '; --bd2: ' + t.borderStrong + '; --fg: ' + t.fg + '; --ring: ' + t.ring + '; --shh: ' + t.shHover,
       showRail: !mob, sbW: collapsed ? '72px' : '256px', mainPad: mob ? '0 12px 104px' : (tabW ? '0 20px 48px 12px' : '0 24px 56px 16px'), h1Fs: Math.round((mob ? 24 : 28) * t.hScale) + 'px',
@@ -453,9 +469,9 @@ class Component extends DCLogic {
         else if (a === 'ask') self.setState({ askId: Date.now(), askText: payload || '', cmd: false });
       },
       add: st.add, openAdd: function (kind) { self.setState({ add: kind, nav: false }); }, closeAdd: function () { self.setState({ add: '' }); },
-      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); if (st.add === 'notion') self.setState({ notionS: 'connected', notionFor: p.notion || '' }); },
+      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); if (info) self.emit(info.kind === 'deal' ? 'deal.create' : 'deals.import', info, info.kind === 'deal' ? 'Could not save the deal' : 'Could not import the deals'); if (st.add === 'notion') self.setState({ notionS: 'connected', notionFor: p.notion || '' }); },
       praise: st.praise, closePraise: function () { clearTimeout(self._pz2); self.setState({ praise: null }); },
-      askId: st.askId, askText: st.askText, asstName: 'Chanelica',
+      askId: st.askId, askText: st.askText, asstName: ACC.name,
       toastR: mob ? '12px' : '24px', toastL: mob ? '12px' : 'auto', toastB: mob ? 'auto' : '84px', toastT: mob ? '12px' : 'auto', toastW: mob ? 'auto' : '340px',
       toasts: st.toasts.map(function (x) { var drop = function () { self.setState({ toasts: self.state.toasts.filter(function (y) { return y.id !== x.id; }) }); };
         return { title: x.title, desc: x.desc, hasDesc: !!x.desc, hasUndo: !!x.undo, undo: function () { if (x.undo) x.undo(); drop(); }, isErr: x.kind === 'error', hasCta: !!x.cta, cta: x.cta, doCta: function () { drop(); if (x.act) x.act(); } }; }),
@@ -463,7 +479,7 @@ class Component extends DCLogic {
       plan: plan, locked: locked, lockedKind: locked ? plan : '', quietBell: !isSample, sbFresh: !isSample,
       hasBanner: plan === 'pastdue' || locked, bn: (function () {
         var go = function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} };
-        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by Oct 21.' : 'Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', act: go };
+        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + '.' : 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + ' to keep adding and changing deals.', cta: 'Update card', act: go };
         if (plan === 'canceled') return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Plan canceled.' : 'Your plan is canceled.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Restart your plan to add or change deals.', cta: 'Restart plan', act: go };
         return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Trial ended.' : 'Your free trial ended.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Upgrade to add or change deals.', cta: 'Upgrade', act: go };
       })()
@@ -483,12 +499,12 @@ function render($s0, host) {
         {$s0?.showRail ? (<>
           <div {...S(`position: relative; z-index: 30; flex: 0 0 ${I($s0?.sbW)}; width: ${I($s0?.sbW)}; align-self: stretch; transition: flex-basis 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1)`)}>
             <div {...S("position: sticky; top: 0; height: 100vh")}>
-              <SSidebar active={"settings"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} onSettings={$s0?.goTab} />
+              <SSidebar account={$s0?.account} active={"settings"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} onSettings={$s0?.goTab} />
             </div>
           </div>
         </>) : null}
         <main {...S(`flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: ${I($s0?.mainPad)}; box-sizing: border-box`)}>
-          <STopbar title={"Settings"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
+          <STopbar account={$s0?.account} title={"Settings"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
           {$s0?.hasBanner ? (<>
             <div role={"status"} className={"a-fade"} {...S(`display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 8px 8px 14px; box-sizing: border-box; border: 1px solid ${I($s0?.bn?.bd)}; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.bn?.bg)}; color: ${I($s0?.bn?.fg)}`)}>
               <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 16px")}>
@@ -794,7 +810,7 @@ function render($s0, host) {
                     <input type={"file"} accept={"image/*"} tabIndex={"-1"} aria-hidden={"true"} onChange={$s0?.pickPhoto} {...S("position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none", $s0?.fileRef)} />
                     <span {...S($s0?.avatarSt)}>
                       {$s0?.noPhoto ? (<>
-                        {"C"}
+                        {$s0?.initial}
                       </>) : null}
                       {$s0?.photoBusy ? (<>
                         <span {...S("position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; border-radius: 28px; background: rgba(0,0,0,0.45); color: #FFFFFF")}>
@@ -866,7 +882,7 @@ function render($s0, host) {
                         {"Email"}
                       </span>
                       <span {...S($s0?.emailSt)}>
-                        {"chanelica•••@gmail.com"}
+                        {$s0?.email}
                       </span>
                     </div>
                   </div>
@@ -1243,7 +1259,7 @@ function render($s0, host) {
                             </span>
                           </>) : null}
                           <span {...S("width: 56px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums")}>
-                            {"$9.00"}
+                            {$s1?.iv?.amount}
                           </span>
                           <button className={"tb tg"} type={"button"} onClick={$s1?.demoBill} aria-label={$s1?.iv?.aria} {...S(`--hv: ${I($s1?.t?.fill)}; ${I($s1?.icoDl)}`)}>
                             <svg width={"15"} height={"15"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
@@ -1378,7 +1394,7 @@ function render($s0, host) {
           <div {...S("position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 88")}>
             <button type={"button"} aria-label={"Close menu"} className={"a-fade"} onClick={$s0?.closeNav} {...S(`position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: ${I($s0?.t?.overlay)}; cursor: default`)} />
             <div className={"a-drawer"} {...S(`position: absolute; top: 0; bottom: 0; left: 0; width: 288px; max-width: 86%; overflow-y: auto; box-shadow: ${I($s0?.t?.shPop)}`)}>
-              <SSidebar active={"settings"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} onSettings={$s0?.goTab} />
+              <SSidebar account={$s0?.account} active={"settings"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} onSettings={$s0?.goTab} />
             </div>
           </div>
         </>) : null}
@@ -1417,8 +1433,8 @@ function render($s0, host) {
           })}
         </div>
         <SPraise data={$s0?.praise} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closePraise} />
-        <SAddDeal open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
-        <SCommand open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
+        <SAddDeal dealsThisYear={$s0?.account?.dealsThisYear} open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
+        <SCommand account={$s0?.account} open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
         <SAppearance open={$s0?.appear} theme={$s0?.look?.theme} mode={$s0?.look?.mode} sidebar={$s0?.look?.sidebar} dark={$s0?.dark} onSet={$s0?.setLook} onClose={$s0?.closeAppear} />
         <SAssistant embedded={true} nameFirst={$s0?.asstName} empty={$s0?.isEmpty} hidden={$s0?.chatHidden} askId={$s0?.askId} askText={$s0?.askText} color={$s0?.eff} dark={$s0?.dark} />
       </div>

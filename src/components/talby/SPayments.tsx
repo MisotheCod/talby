@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import { SAMPLE_ACCOUNT, TalbyDates, SAMPLE_PAYMENTS } from './_data';
 import SSidebar from './SSidebar';
 import STopbar from './STopbar';
 import SDatePicker from './SDatePicker';
@@ -33,7 +34,7 @@ class Component extends DCLogic {
       w: w, nav: false, appear: false, cmd: false, add: '', toasts: [], praise: null, askId: 0, askText: '', dv: props.view || 'sample'
     }, {
       view: props.start === 'income' ? 'income' : 'schedule', filter: 'upcoming', q: '', range: 'month', hBar: -1, rowMenu: -1, rmTop: 0, rmLeft: 0, remind: -1, rmText: null,
-      paidNow: {}, leaving: {}, periodOpen: false, period: 'Year to date', rec: false, recPick: false, recQ: '', recI: 0, recAmt: '10,550', recDate: '2026-10-14'
+      paidNow: {}, leaving: {}, periodOpen: false, period: 'Year to date', rec: false, recPick: false, recQ: '', recI: 0, recAmt: '10,550', recDate: (props.data && props.data.today) || SAMPLE_PAYMENTS.today
     });
   }
   componentDidMount() {
@@ -53,10 +54,17 @@ class Component extends DCLogic {
     if (prev.color !== p.color && p.color) { ch = Object.assign({}, ch || L, { theme: p.color }); }
     if (ch) this.setState({ look: ch });
     if (prev.view !== p.view) this.setState({ dv: p.view || 'sample' });
+    if (prev.data !== p.data && p.data) this.setState({ paidNow: {}, leaving: {} });
   }
   retryLoad() {
     var self = this; clearTimeout(this._rt);
     this.setState({ dv: 'loading' });
+    if (typeof this.props.onAction === 'function') {
+      Promise.resolve().then(function () { return self.props.onAction('data.reload', {}); })
+        .then(function (ok) { if (ok === false) throw new Error('reload'); if (self.state.dv === 'loading') self.setState({ dv: self.props.view === 'error' || !self.props.view ? 'sample' : self.props.view }); })
+        .catch(function () { self.setState({ dv: 'error' }); });
+      return;
+    }
     this._rt = setTimeout(function () { self.setState({ dv: 'sample' }); }, 900);
   }
   guard() {
@@ -71,6 +79,7 @@ class Component extends DCLogic {
     if (key !== 'reset' && key !== 'all') L[key] = val;
     this.setState({ look: L });
     try { window.localStorage.setItem('talby.look', JSON.stringify(L)); } catch (e) {}
+    this.emit('look.update', L, 'Could not save your look');
   }
   toast(title, desc, undo, extra) {
     var self = this, id = Date.now() + Math.random(), x = extra || {};
@@ -103,6 +112,8 @@ class Component extends DCLogic {
       return false;
     }
     if (after) after();
+    var row = ((this.props.data && this.props.data.payments) ? this.props.data : SAMPLE_PAYMENTS).payments[i];
+    this.emit(kind === 'rec' ? 'payment.record' : 'payment.markPaid', { id: row ? row.id : i, brand: brand, amount: amt, date: kind === 'rec' ? this.state.recDate : undefined }, kind === 'rec' ? 'Could not record payment' : 'Could not mark as paid');
     var lv = Object.assign({}, this.state.leaving); lv[i] = true;
     this.setState({ leaving: lv, rowMenu: -1 });
     this._tt = this._tt || [];
@@ -112,7 +123,7 @@ class Component extends DCLogic {
       self.setState({ paidNow: o, leaving: l2 });
     }, 320));
     var extra = 0; Object.keys(this.state.paidNow).forEach(function (x) { extra += self._amts[x] || 0; });
-    this.celebrate({ title: 'You got paid', chip: '+$' + Math.round(amt).toLocaleString('en-US'), line: brand + ' paid. $' + (46150 + extra + amt).toLocaleString('en-US') + ' received this year.' });
+    this.celebrate({ title: 'You got paid', chip: '+$' + Math.round(amt).toLocaleString('en-US'), line: brand + ' paid. $' + ((self._recBase || 0) + extra + amt).toLocaleString('en-US') + ' received this year.' });
     return true;
   }
   renderVals() {
@@ -185,6 +196,9 @@ class Component extends DCLogic {
     function md(iso) { return iso ? MS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)) : ''; }
     function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
     var self = this, p = this.props, st = this.state;
+    var ACC = p.account || SAMPLE_ACCOUNT;
+    // Real data comes in as props.data (see _data.ts). Without it the board shows its design sample.
+    var DATA = (p.data && typeof p.data === 'object') ? p.data : SAMPLE_PAYMENTS, TODAY = DATA.today, DD = TalbyDates;
     var L = st.look, sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
     var dark = L.mode === 'dark' || (L.mode === 'system' && sysDark);
     var eff = L.theme || 'studio';
@@ -217,17 +231,18 @@ class Component extends DCLogic {
     };
 
     var MON = MONTHS;
-    var P0 = [
-      ['2026-09-28','Haleon Centrum','Full payment','over',10550,16],['2026-10-05','Golden Corral','Full payment','over',10000,9],['2026-10-11','Tums','Full payment','over',8500,3],
-      ['2026-10-19','Nioxin','Full payment','inv',1200],['2026-11-05','Sprouts','Full payment','inv',4000],['2026-11-09','Dulcolax','Full payment','inv',8500],['2026-11-30','Liquid I.V. Q3 Campaign','Full payment','inv',6500],
-      ['','Milan Laser Q4 Campaign','Full payment','not',1000],['','Biotene','Full payment','not',12050],['','Liquid I.V. Q4 Campaign','Full payment','not',8500],['','CeraVe','Full payment','not',8000],['','Dramamine','Full payment','not',10000],
-      ['2026-03-20','Smoothie King','Full payment','paid',5000],['2026-04-23','Clio','Full payment','paid',3000],['2026-05-15','Personal Care GLP-1 Session','Full payment','paid',1000],['2026-05-16','Tula','Full payment','paid',1000],
-      ['2026-05-30','Breyers','Full payment','paid',4000],['2026-07-06','Oikos','Full payment','paid',5350],['2026-08-08','Milan Laser Atlanta','Full payment','paid',3000],['2026-08-14','Planet Fitness','Full payment','paid',9000],
-      ['2026-08-16','Liquid I.V. Q2 Campaign','Full payment','paid',4500],['2026-08-21','Replenza','Full payment','paid',500],['2026-09-05','Gruns','Payment 1 of 2','paid',500],['2026-09-18','Hidden Valley Ranch','Full payment','paid',1000],
-      ['2026-09-26','Panera','Full payment','paid',8000],['2026-10-06','Gruns','Payment 2 of 2','paid',300]
-    ];
+    var P0 = DATA.payments;
     // Only the sample view has payments. Empty starts at zero; loading and error show no rows.
-    var P = (isSample ? P0 : []).map(function (x, i) { return { i: i, date: x[0], brand: x[1], part: x[2], st: st.paidNow[i] ? 'paid' : x[3], amt: x[4], late: x[5] || 0, orig: x[3] }; });
+    var P = (isSample ? P0 : []).map(function (x, i) { return { i: i, dbId: x.id, date: x.date || '', brand: x.brand, part: x.part, st: st.paidNow[i] ? 'paid' : x.state, amt: x.amount, late: x.state === 'over' && x.date ? Math.max(0, DD.diff(x.date, TODAY)) : 0, orig: x.state, inv: !!x.invoice }; });
+    // Summaries worked out from the payments, the same way the design sample was written.
+    var PAIDO = P.filter(function (x) { return x.orig === 'paid'; }), recBase = PAIDO.reduce(function (a, x) { return a + x.amt; }, 0); self._recBase = recBase;
+    var byMonth = {}; P.filter(function (x) { return x.st === 'paid' && x.date; }).forEach(function (x) { var k2 = x.date.slice(0, 7); byMonth[k2] = (byMonth[k2] || 0) + x.amt; });
+    var bestK = Object.keys(byMonth).sort(function (a2, b2) { return byMonth[b2] - byMonth[a2] || (a2 < b2 ? -1 : 1); })[0];
+    var due30 = P.filter(function (x) { if (x.st === 'paid' || x.st === 'over' || !x.date) return false; var n = DD.diff(TODAY, x.date); return n >= 0 && n <= 30; }).sort(function (a2, b2) { return a2.date < b2.date ? -1 : 1; });
+    function names(a2) { var n2 = a2.map(function (x) { return x.brand; }); return n2.length <= 1 ? (n2[0] || '') : n2.slice(0, -1).join(', ') + ' and ' + n2[n2.length - 1]; }
+    var noDue = P.filter(function (x) { return x.st !== 'paid' && !x.date; }).reduce(function (a2, x) { return a2 + x.amt; }, 0);
+    var recNow = P.filter(function (x) { return x.st === 'paid'; }), biggest = recNow.slice().sort(function (a2, b2) { return b2.amt - a2.amt; })[0];
+    var NEG = DATA.negotiating || { count: 0, amount: 0 };
     self._amts = {}; P.forEach(function (x) { self._amts[x.i] = x.amt; });
     function inF(x, f) { if (f === 'upcoming') return x.st !== 'paid'; if (f === 'overdue') return x.st === 'over'; if (f === 'received') return x.st === 'paid'; return true; }
     var f = st.filter, q = (st.q || '').trim().toLowerCase();
@@ -267,22 +282,26 @@ class Component extends DCLogic {
       { label: 'Deals completed', value: '0', badge: 'This year', line1: 'No deals paid in full yet', line2: 'Counts once fully paid' },
       { label: 'Average payment', value: '$0', badge: 'Per payment', line1: 'No payments yet', line2: 'Shows after your first payment' }
     ]) : isSchedule ? [
-      { label: 'Received this year', value: fmt(sum(rec)), badge: rec.length + ' payments', line1: 'Best month was August', line2: '$17,000 came in that month' },
-      { label: 'Expected', value: fmt(sum(exp)), badge: exp.length + ' payments', line1: '$39,550 has no due date', line2: 'Add dates so Talby can remind you' },
+      { label: 'Received this year', value: fmt(sum(rec)), badge: rec.length + (rec.length === 1 ? ' payment' : ' payments'), line1: bestK ? 'Best month was ' + MON[+bestK.slice(5, 7) - 1] : 'Nothing received yet', line2: bestK ? fmt(byMonth[bestK]) + ' came in that month' : 'Mark a payment paid to see it here' },
+      { label: 'Expected', value: fmt(sum(exp)), badge: exp.length + (exp.length === 1 ? ' payment' : ' payments'), line1: noDue ? fmt(noDue) + ' has no due date' : 'Every payment has a due date', line2: noDue ? 'Add dates so Talby can remind you' : 'Talby will remind you before each one' },
       { label: 'Overdue', value: fmt(sum(ov)), badge: ov.length + ' late', dot: ov.length > 0, valueFg: ov.length ? t.destr : t.fg, badgeFg: ov.length ? t.destr : t.fg, line1: ov.length ? 'Oldest is ' + oldest + ' days late' : 'Nothing is late', line2: 'Draft a reminder from the row menu' },
-      { label: mob ? 'Due in 30 days' : 'Due in the next 30 days', value: '$13,700', badge: '3 payments', line1: 'Nioxin, Sprouts and Dulcolax', line2: 'Next one is due Oct 19' }
+      { label: mob ? 'Due in 30 days' : 'Due in the next 30 days', value: fmt(sum(due30)), badge: due30.length + (due30.length === 1 ? ' payment' : ' payments'), line1: due30.length ? names(due30) : 'Nothing due soon', line2: due30.length ? 'Next one is due ' + md(due30[0].date) : 'Upcoming due dates show here' }
     ] : [
-      { label: 'Total received', value: '$46,150', badge: '14 payments', line1: 'Year to date', line2: 'Grouped by the date you marked it paid' },
-      { label: 'Gifted value', value: '$0', badge: '0 gifts', line1: 'Kept separate from money received', line2: 'Log free product on a deal' },
-      { label: 'Deals completed', value: '14', badge: 'This year', line1: 'Paid in full', line2: '12 more are still open' },
-      { label: 'Average payment', value: '$3,296', badge: 'Per payment', line1: 'Across 14 payments', line2: 'Largest was Planet Fitness' }
+      { label: 'Total received', value: fmt(sum(rec)), badge: rec.length + (rec.length === 1 ? ' payment' : ' payments'), line1: 'Year to date', line2: 'Grouped by the date you marked it paid' },
+      { label: 'Gifted value', value: fmt(DATA.gifted.amount), badge: DATA.gifted.count + (DATA.gifted.count === 1 ? ' gift' : ' gifts'), line1: 'Kept separate from money received', line2: 'Log free product on a deal' },
+      { label: 'Deals completed', value: String(DATA.dealsCompleted), badge: 'This year', line1: 'Paid in full', line2: DATA.dealsOpen + (DATA.dealsOpen === 1 ? ' more is still open' : ' more are still open') },
+      { label: 'Average payment', value: fmt(rec.length ? sum(rec) / rec.length : 0), badge: 'Per payment', line1: 'Across ' + rec.length + (rec.length === 1 ? ' payment' : ' payments'), line2: biggest ? 'Largest was ' + biggest.brand : 'No payments yet' }
     ];
     stats = stats.map(function (s, i) { return Object.assign({ dot: false, valueFg: t.fg, badgeFg: t.fg, delay: (0.03 + i * 0.04).toFixed(2) + 's' }, s); });
-    var INC = {
-      month: [['Mar', 'March 2026', 5000], ['Apr', 'April 2026', 3000], ['May', 'May 2026', 6000], ['Jun', 'June 2026', 0], ['Jul', 'July 2026', 5350], ['Aug', 'August 2026', 17000], ['Sep', 'September 2026', 9500], ['Oct', 'October 2026', 300]],
-      quarter: [['Q1', 'January to March', 5000], ['Q2', 'April to June', 9000], ['Q3', 'July to September', 31850], ['Q4', 'October so far', 300]],
-      year: [['2026', '2026 so far', 46150]]
-    };
+    var INC = (function () {
+      var y = +TODAY.slice(0, 4), m = +TODAY.slice(5, 7) - 1, month = [], quarter = [];
+      for (var i2 = 7; i2 >= 0; i2--) { var mm = m - i2, yy = y; while (mm < 0) { mm += 12; yy--; } var key = yy + '-' + (mm < 9 ? '0' : '') + (mm + 1); month.push([MS[mm], MONTHS[mm] + ' ' + yy, byMonth[key] || 0]); }
+      for (var q2 = 0; q2 <= Math.floor(m / 3); q2++) { var s0 = q2 * 3, cur2 = q2 === Math.floor(m / 3), e0 = cur2 ? m : s0 + 2, tot = 0;
+        for (var j2 = s0; j2 <= e0; j2++) tot += byMonth[y + '-' + (j2 < 9 ? '0' : '') + (j2 + 1)] || 0;
+        quarter.push(['Q' + (q2 + 1), cur2 ? MONTHS[s0] + (e0 > s0 ? ' to ' + MONTHS[e0] : '') + ' so far' : MONTHS[s0] + ' to ' + MONTHS[s0 + 2], tot]); }
+      var ytot = 0; Object.keys(byMonth).forEach(function (k3) { if (+k3.slice(0, 4) === y) ytot += byMonth[k3]; });
+      return { month: month, quarter: quarter, year: [[String(y), y + ' so far', ytot]] };
+    })();
     var data = isSchedule ? INC[st.range] : INC.month;
     var max = Math.max.apply(null, data.map(function (d) { return d[2]; })) || 1;
     var chartPx = mob ? 150 : 200;
@@ -297,7 +316,8 @@ class Component extends DCLogic {
     var rmP = P.filter(function (x) { return x.i === st.rowMenu; })[0];
     var remP = P.filter(function (x) { return x.i === st.remind; })[0];
     function body(x) { return x ? 'Hi, I hope you are doing well. I wanted to check on the ' + fmt(x.amt) + ' payment for ' + x.brand + ', which was due ' + MON[+x.date.slice(5, 7) - 1] + ' ' + (+x.date.slice(8)) + '. Could you share when it will be sent? Thank you so much.' : ''; }
-    var B = isSample ? [['Planet Fitness', 9000, 1], ['Panera', 8000, 1], ['Oikos', 5350, 1], ['Smoothie King', 5000, 1], ['Liquid I.V. Q2 Campaign', 4500, 1], ['Breyers', 4000, 1], ['Clio', 3000, 1], ['Milan Laser Atlanta', 3000, 1], ['Personal Care GLP-1 Session', 1000, 1], ['Tula', 1000, 1], ['Hidden Valley Ranch', 1000, 1], ['Gruns', 800, 1], ['Replenza', 500, 0]] : [];
+    var B = (function () { var o2 = {}, order = []; P.filter(function (x) { return x.orig === 'paid'; }).sort(function (a2, b2) { return a2.date < b2.date ? -1 : a2.date > b2.date ? 1 : 0; }).forEach(function (x) { if (!o2[x.brand]) { o2[x.brand] = [x.brand, 0, 0]; order.push(o2[x.brand]); } o2[x.brand][1] += x.amt; if (x.inv) o2[x.brand][2] = 1; }); return order.sort(function (a2, b2) { return b2[1] - a2[1]; }); })();
+    var Bmax = B.reduce(function (a2, b2) { return Math.max(a2, b2[1]); }, 0) || 1;
     var unpaid = P.filter(function (x) { return x.st !== 'paid'; });
     var rq = (st.recQ || '').trim().toLowerCase();
     var recSel = unpaid.filter(function (x) { return x.i === st.recI; })[0] || unpaid[0];
@@ -348,7 +368,7 @@ class Component extends DCLogic {
       skBrands: isLoading ? [62, 48, 70, 40, 56, 66, 44, 52].map(function (w, i) { return { w: sk(w + '%', '12px'), line: i < 7 ? '1px solid ' + t.line : 'none' }; }) : [],
       skTrack: sk('100%', '6px', t.rCtl), skIco: sk('36px', '36px', t.rCtl), skNi1: sk('96px', '12px'), skNi2: sk('80%', '12px'),
       brandBlk: blk('empty', IC.card, 'No brands have paid you yet', 'When you mark a payment as received, the brand shows up here with what it paid you this year.', 'Add deal', function () { self.setState({ add: 'new', nav: false }); }),
-      expCount: isSample ? '14' : '0', expTotal: isSample ? '$46,150' : '$0',
+      expCount: String(PAIDO.length), expTotal: fmt(recBase), negNote: NEG.count ? NEG.count + (NEG.count === 1 ? ' deal in negotiation is worth ' : ' deals in negotiation are worth ') + fmt(NEG.amount) + '. It is not counted above.' : 'No deals in negotiation right now.',
       errBlk: blk('error', IC.wifi, isSchedule ? 'We could not load your payments' : 'We could not load your income summary', 'Check your connection and try again. Nothing was lost.', 'Try again', function () { self.retryLoad(); }),
       rowMenuOpen: !!rmP && !mob, rowSheetOpen: !!rmP && mob, rowMenuTop: st.rmTop + 'px', rowMenuLeft: st.rmLeft + 'px', closeRowMenu: function () { self.setState({ rowMenu: -1 }); },
       sheetR: t.rDialog + ' ' + t.rDialog + ' 0 0',
@@ -368,7 +388,7 @@ class Component extends DCLogic {
       rmBrand: remP ? remP.brand : '', rmAmount: remP ? fmt(remP.amt) : '', rmLate: remP ? remP.late + ' days late' : '',
       rmSubject: remP ? 'Checking in on the ' + remP.brand + ' payment' : '', rmText: st.rmText != null ? st.rmText : body(remP), setRmText: function (ev) { self.setState({ rmText: ev.target.value }); },
       copyRemind: function () { var txt = st.rmText || body(remP); try { navigator.clipboard.writeText(txt); } catch (e) {} self.setState({ remind: -1 }); self.toast('Message copied', 'Paste it into an email to the brand.'); },
-      recOpen: st.rec, openRecord: function () { if (isLoading) return; if (!self.guard()) return; var first = unpaid[0]; self.setState({ rec: true, recPick: false, recQ: '', recI: first ? first.i : 0, recAmt: first ? Math.round(first.amt).toLocaleString('en-US') : '', recDate: '2026-10-14' }); },
+      recOpen: st.rec, openRecord: function () { if (isLoading) return; if (!self.guard()) return; var first = unpaid[0]; self.setState({ rec: true, recPick: false, recQ: '', recI: first ? first.i : 0, recAmt: first ? Math.round(first.amt).toLocaleString('en-US') : '', recDate: TODAY }); },
       closeRecord: function () { self.setState({ rec: false, recPick: false }); },
       recRow: mob ? 'position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px; box-sizing: border-box' : k.row,
       recRowT: mob ? 'position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px; box-sizing: border-box; border-top: 1px solid ' + t.line : k.rowT,
@@ -379,13 +399,14 @@ class Component extends DCLogic {
       recRef: function (el) { self.recInput = el; }, recQ: st.recQ, setRecQ: function (ev) { self.setState({ recQ: ev.target.value }); },
       recOpts: recOpts, recNone: recOpts.length === 0, rec: { brand: recSel ? recSel.brand : 'Pick a payment', l: recSel ? recSel.brand.charAt(0) : '?' },
       recAmt: st.recAmt, setRecAmt: function (ev) { self.setState({ recAmt: ev.target.value }); },
-      recDate: st.recDate, setRecDate: function (v) { self.setState({ recDate: v || '2026-10-14' }); },
-      recAfter: recOk ? fmt(46150 + extraPaid + recAmtN) + ' received this year' : 'Enter an amount',
+      recDate: st.recDate, setRecDate: function (v) { self.setState({ recDate: v || TODAY }); },
+      recAfter: recOk ? fmt(recBase + extraPaid + recAmtN) + ' received this year' : 'Enter an amount',
       recOff: !recOk, recOp: recOk ? '1' : '0.4',
       saveRecord: function () { if (!recOk) return; self.markPaid(recSel.i, recSel.brand, recAmtN, function () { self.setState({ rec: false, recPick: false }); }, 'rec'); },
-      brands: B.map(function (b, i) { return { name: b[0], amount: fmt(b[1]), w: Math.max(3, Math.round(b[1] / 9000 * 100)) + '%', delay: (0.2 + i * 0.03).toFixed(2) + 's', inv: !!b[2], noInv: !b[2], invLabel: 'Open invoice for ' + b[0], line: i < B.length - 1 ? '1px solid ' + t.line : 'none' }; })
+      brands: B.map(function (b, i) { return { name: b[0], amount: fmt(b[1]), w: Math.max(3, Math.round(b[1] / Bmax * 100)) + '%', delay: (0.2 + i * 0.03).toFixed(2) + 's', inv: !!b[2], noInv: !b[2], invLabel: 'Open invoice for ' + b[0], line: i < B.length - 1 ? '1px solid ' + t.line : 'none' }; })
     };
     var shell = {
+      account: ACC,
       t: t, k: k, dark: dark, look: L, collapsed: collapsed, mob: mob, notMob: !mob, wide: wide, eff: eff, titleFam: t.titleFam, numFam: t.numFam,
       vars: '--hv: ' + t.hv + '; --hvr: ' + t.hvr + '; --bd2: ' + t.borderStrong + '; --fg: ' + t.fg + '; --ring: ' + t.ring + '; --shh: ' + t.shHover,
       showRail: !mob, sbW: collapsed ? '72px' : '256px', mainPad: mob ? '0 12px 104px' : (tabW ? '0 20px 48px 12px' : '0 24px 56px 16px'), h1Fs: Math.round((mob ? 24 : 28) * t.hScale) + 'px',
@@ -401,9 +422,9 @@ class Component extends DCLogic {
         else if (a === 'ask') self.setState({ askId: Date.now(), askText: payload || '', cmd: false });
       },
       add: st.add, openAdd: function (kind) { self.setState({ add: kind, nav: false }); }, closeAdd: function () { self.setState({ add: '' }); },
-      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); },
+      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); if (info) self.emit(info.kind === 'deal' ? 'deal.create' : 'deals.import', info, info.kind === 'deal' ? 'Could not save the deal' : 'Could not import the deals'); },
       praise: st.praise, closePraise: function () { clearTimeout(self._pz2); self.setState({ praise: null }); },
-      askId: st.askId, askText: st.askText, asstName: 'Chanelica',
+      askId: st.askId, askText: st.askText, asstName: ACC.name,
       toastR: mob ? '12px' : '24px', toastL: mob ? '12px' : 'auto', toastB: mob ? 'auto' : '84px', toastT: mob ? '12px' : 'auto', toastW: mob ? 'auto' : '340px',
       toasts: st.toasts.map(function (x) { var drop = function () { self.setState({ toasts: self.state.toasts.filter(function (y) { return y.id !== x.id; }) }); };
         return { title: x.title, desc: x.desc, hasDesc: !!x.desc, hasUndo: !!x.undo, undo: function () { if (x.undo) x.undo(); drop(); }, isErr: x.kind === 'error', hasCta: !!x.cta, cta: x.cta, doCta: function () { drop(); if (x.act) x.act(); } }; }),
@@ -411,7 +432,7 @@ class Component extends DCLogic {
       plan: plan, locked: locked, lockedKind: locked ? plan : '', quietBell: !isSample, sbFresh: !isSample,
       hasBanner: plan === 'pastdue' || locked, bn: (function () {
         var go = function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} };
-        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by Oct 21.' : 'Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', act: go };
+        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + '.' : 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + ' to keep adding and changing deals.', cta: 'Update card', act: go };
         if (plan === 'canceled') return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Plan canceled.' : 'Your plan is canceled.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Restart your plan to add or change deals.', cta: 'Restart plan', act: go };
         return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Trial ended.' : 'Your free trial ended.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Upgrade to add or change deals.', cta: 'Upgrade', act: go };
       })()
@@ -431,12 +452,12 @@ function render($s0, host) {
         {$s0?.showRail ? (<>
           <div {...S(`position: relative; z-index: 30; flex: 0 0 ${I($s0?.sbW)}; width: ${I($s0?.sbW)}; align-self: stretch; transition: flex-basis 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1)`)}>
             <div {...S("position: sticky; top: 0; height: 100vh")}>
-              <SSidebar active={"payments"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} />
+              <SSidebar account={$s0?.account} active={"payments"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} />
             </div>
           </div>
         </>) : null}
         <main {...S(`flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: ${I($s0?.mainPad)}; box-sizing: border-box`)}>
-          <STopbar title={"Payments"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
+          <STopbar account={$s0?.account} title={"Payments"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
           {$s0?.hasBanner ? (<>
             <div role={"status"} className={"a-fade"} {...S(`display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 8px 8px 14px; box-sizing: border-box; border: 1px solid ${I($s0?.bn?.bd)}; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.bn?.bg)}; color: ${I($s0?.bn?.fg)}`)}>
               <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 16px")}>
@@ -1110,7 +1131,7 @@ function render($s0, host) {
                           {"Not included"}
                         </span>
                         <span {...S(`color: ${I($s0?.t?.mutedFg)}`)}>
-                          {"1 deal in negotiation is worth $500. It is not counted above."}
+                          {$s0?.negNote}
                         </span>
                       </span>
                       <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={$s0?.t?.mutedFg} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 16px")}>
@@ -1523,7 +1544,7 @@ function render($s0, host) {
           <div {...S("position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 88")}>
             <button type={"button"} aria-label={"Close menu"} className={"a-fade"} onClick={$s0?.closeNav} {...S(`position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: ${I($s0?.t?.overlay)}; cursor: default`)} />
             <div className={"a-drawer"} {...S(`position: absolute; top: 0; bottom: 0; left: 0; width: 288px; max-width: 86%; overflow-y: auto; box-shadow: ${I($s0?.t?.shPop)}`)}>
-              <SSidebar active={"payments"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} />
+              <SSidebar account={$s0?.account} active={"payments"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} />
             </div>
           </div>
         </>) : null}
@@ -1562,8 +1583,8 @@ function render($s0, host) {
           })}
         </div>
         <SPraise data={$s0?.praise} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closePraise} />
-        <SAddDeal open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
-        <SCommand open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
+        <SAddDeal dealsThisYear={$s0?.account?.dealsThisYear} open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
+        <SCommand account={$s0?.account} open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
         <SAppearance open={$s0?.appear} theme={$s0?.look?.theme} mode={$s0?.look?.mode} sidebar={$s0?.look?.sidebar} dark={$s0?.dark} onSet={$s0?.setLook} onClose={$s0?.closeAppear} />
         <SAssistant embedded={true} nameFirst={$s0?.asstName} empty={$s0?.isEmpty} hidden={$s0?.chatHidden} askId={$s0?.askId} askText={$s0?.askText} color={$s0?.eff} dark={$s0?.dark} />
       </div>

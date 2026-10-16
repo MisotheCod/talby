@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import { SAMPLE_ACCOUNT, TalbyDates } from './_data';
 
 
 const CSS = "body, #dc-root{margin:0;font-synthesis:none}#dc-root .tb{transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease,opacity .15s ease,transform .12s ease}#dc-root .tb:active{transform:scale(.97)}#dc-root .tg:hover{background-color:var(--hv)!important}#dc-root .tb:focus-visible{outline:2px solid var(--ring);outline-offset:2px}#dc-root .a-fade{animation:tFade .16s ease backwards}#dc-root .a-drop{animation:tDrop .16s cubic-bezier(.2,.8,.3,1) backwards}@keyframes tFade{from{opacity:0}to{opacity:1}}@keyframes tDrop{from{opacity:0;transform:translateY(4px) scale(.98)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){#dc-root *, #dc-root *::before, #dc-root *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}\n";
@@ -53,6 +54,7 @@ class Component extends DCLogic {
     }
     function theme(color,dark){var t=talby(color,dark);t.hover=t.navHv;t.icOn=t.accent;t.shSide=t.dark?'none':t.shCard;t.tipBg=t.fg;t.tipFg=t.card;t.rAvatar=t.r?'16px':'0px';return t;}
     var self = this, p = this.props, st = this.state;
+    var ACC = p.account || SAMPLE_ACCOUNT, CNT = ACC.counts || {}, TR = ACC.trial || {};
     var t = theme(p.color, !!p.dark, p.radius);
     var drawer = !!p.drawer, open = drawer || !p.collapsed, active = p.active || 'deals';
     var k = { ico: 'display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; box-sizing: border-box; border: none; border-radius: ' + t.rItem + '; background: transparent; color: ' + t.fg + '; cursor: pointer' };
@@ -88,14 +90,14 @@ class Component extends DCLogic {
     ];
     var plan = p.plan || 'active', goBill = function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); } catch (e) {} };
     var PL = {
-      trial: { title: 'Free trial', right: '9 days left', sub: 'Your trial ends Oct 23. Upgrade to keep adding deals.', cta: 'Upgrade', dot: t.accent, hasBar: true, pct: '36%', icon: 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', icFg: t.mutedFg, name: 'Free trial, 9 days left' },
-      pastdue: { title: 'Payment failed', right: '', sub: 'Update your card by Oct 21 to keep full access.', cta: 'Update card', dot: '#F59E0B', hasBar: false, pct: '0%', icon: 'M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM2 10h20', icFg: t.warnFg, name: 'Unlimited, payment due' },
+      trial: { title: 'Free trial', right: TR.daysLeft + (TR.daysLeft === 1 ? ' day left' : ' days left'), sub: 'Your trial ends ' + TalbyDates.md(TR.endsOn) + '. Upgrade to keep adding deals.', cta: 'Upgrade', dot: t.accent, hasBar: true, pct: TR.usedPct + '%', icon: 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', icFg: t.mutedFg, name: 'Free trial, ' + TR.daysLeft + (TR.daysLeft === 1 ? ' day left' : ' days left') },
+      pastdue: { title: 'Payment failed', right: '', sub: 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + ' to keep full access.', cta: 'Update card', dot: '#F59E0B', hasBar: false, pct: '0%', icon: 'M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM2 10h20', icFg: t.warnFg, name: 'Unlimited, payment due' },
       readonly: { title: 'Trial ended', right: '', sub: 'You can still see everything. Upgrade to add or change deals.', cta: 'Upgrade', dot: t.mutedFg, hasBar: false, pct: '0%', icon: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4', icFg: t.mutedFg, name: 'Trial ended' },
       canceled: { title: 'Plan canceled', right: '', sub: 'You can still see everything. Restart to add or change deals.', cta: 'Restart plan', dot: t.mutedFg, hasBar: false, pct: '0%', icon: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4', icFg: t.mutedFg, name: 'Canceled' }
     };
     var pl = plan === 'trial' ? PL.trial : null, plName = PL[plan] ? PL[plan].name : 'Talby Unlimited';
-    var uName = p.user || 'Chanelica.R', uHandle = p.handle || 'chanelica.r', uInit = uName.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || 'T';
-    if (p.user && uName.indexOf('.') < 0) uInit = uName.slice(0, 1).toUpperCase();
+    var uName = p.user || ACC.displayName, uHandle = p.handle || ACC.handle, uInit = uName.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || 'T';
+    if ((p.user || p.account) && uName.indexOf('.') < 0) uInit = uName.slice(0, 1).toUpperCase();
     return {
       userName: uName, userHandle: uHandle, userInit: uInit,
       planCard: !!pl && open, planIcon: !!pl && !open, planName: plName,
@@ -107,8 +109,8 @@ class Component extends DCLogic {
       ovf: open ? 'auto' : 'visible', groupGap: open ? '18px' : '6px',
       close: function () { if (typeof p.onClose === 'function') p.onClose(); },
       groups: [
-        { label: 'Manage', rule: false, items: [item('overview', 'Overview', 'SOverview.dc.html'), item('deals', 'Deals', 'SDeals.dc.html', '26'), item('calendar', 'Calendar', 'SCalendar.dc.html'), item('payments', 'Payments', 'SPayments.dc.html', '3 late', true)] },
-        { label: 'Create', rule: !open, items: [item('ideas', 'Ideas', 'SIdeas.dc.html', '1'), item('todos', 'To-dos', 'STodos.dc.html', '1')] }
+        { label: 'Manage', rule: false, items: [item('overview', 'Overview', 'SOverview.dc.html'), item('deals', 'Deals', 'SDeals.dc.html', CNT.deals ? String(CNT.deals) : ''), item('calendar', 'Calendar', 'SCalendar.dc.html'), item('payments', 'Payments', 'SPayments.dc.html', CNT.late ? CNT.late + ' late' : '', !!CNT.late)] },
+        { label: 'Create', rule: !open, items: [item('ideas', 'Ideas', 'SIdeas.dc.html', CNT.ideas ? String(CNT.ideas) : ''), item('todos', 'To-dos', 'STodos.dc.html', CNT.todos ? String(CNT.todos) : '')] }
       ],
       settings: { cur: setOn ? 'page' : null, bg: setOn ? t.navOn : 'transparent', hv: setOn ? t.navOn : t.hover, fw: setOn ? '500' : '400', ic: setOn ? t.icOn : t.mutedFg, enter: tipAt('Settings') },
       userOpen: st.user, userBg: st.user ? t.hover : 'transparent', menuLeft: open ? '8px' : '68px',

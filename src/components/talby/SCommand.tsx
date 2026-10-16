@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import { SAMPLE_SEARCH } from './_data';
 
 
 const CSS = "body, #dc-root{margin:0;font-synthesis:none}#dc-root .tb{transition:background-color .12s ease,color .12s ease,border-color .12s ease,opacity .12s ease,transform .12s ease}#dc-root .tb:active{transform:scale(.98)}#dc-root .tg:hover{background-color:var(--hv)!important}#dc-root .tt:hover{color:var(--fg)!important}#dc-root .tb:focus-visible{outline:2px solid var(--ring);outline-offset:2px}#dc-root .a-fade{animation:tFade .18s ease backwards}#dc-root .a-pop{animation:tPop .2s cubic-bezier(.2,.8,.3,1) backwards}#dc-root .a-in{animation:tIn .22s cubic-bezier(.2,.7,.2,1) backwards}@keyframes tFade{from{opacity:0}to{opacity:1}}@keyframes tPop{from{opacity:0;transform:translateY(-6px) scale(.985)}to{opacity:1;transform:none}}@keyframes tIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}@media (prefers-reduced-motion:reduce){#dc-root *, #dc-root *::before, #dc-root *::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}\n";
@@ -92,20 +93,9 @@ class Component extends DCLogic {
       link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
       card: 'M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM2 10h20', user: 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0z'
     };
-    var DEALS = [
-      ['Haleon Centrum', 10550, 'over', 'Overdue, 16 days late'], ['Golden Corral', 10000, 'over', 'Overdue, 9 days late'], ['Tums', 8500, 'over', 'Overdue, 3 days late'],
-      ['Biotene', 12050, 'not', 'Not invoiced, no pay by date'], ['Dramamine', 10000, 'not', 'Posted Oct 13, not invoiced'], ['CeraVe', 8000, 'not', 'Posts tomorrow, Oct 15'],
-      ['Liquid I.V. Q4 Campaign', 8500, 'not', 'Not invoiced'], ['Dulcolax', 8500, 'inv', 'Invoiced, due Nov 9'], ['Liquid I.V. Q3 Campaign', 6500, 'inv', 'Invoiced, due Nov 30'],
-      ['Sprouts', 4000, 'inv', 'Invoiced, due Nov 5'], ['Nioxin', 1200, 'inv', 'Invoiced, due Oct 19'], ['Milan Laser Q4 Campaign', 1000, 'not', 'Not invoiced'],
-      ['Planet Fitness', 9000, 'paid', 'Paid Aug 14'], ['Panera', 8000, 'paid', 'Paid Sep 26'], ['Oikos', 5350, 'paid', 'Paid Jul 6'], ['Smoothie King', 5000, 'paid', 'Paid'],
-      ['Liquid I.V. Q2 Campaign', 4500, 'paid', 'Paid Aug 16'], ['Breyers', 4000, 'paid', 'Paid May 30'], ['Clio', 3000, 'paid', 'Paid Apr 23'], ['Milan Laser Atlanta', 3000, 'paid', 'Paid Aug 8'],
-      ['Hidden Valley Ranch', 1000, 'paid', 'Paid Sep 18'], ['Tula', 1000, 'paid', 'Paid May 16'], ['Personal Care GLP-1 Session', 1000, 'paid', 'Paid May 15'], ['Gruns', 800, 'paid', 'Paid in full Oct 6'],
-      ['Replenza', 500, 'paid', 'Paid Aug 21'], ['Milan Laser Atlanta', 500, 'neg', 'Negotiating']
-    ];
-    var PAYS = [['Haleon Centrum', 10550, 'over', 'Due Sep 28'], ['Golden Corral', 10000, 'over', 'Due Oct 5'], ['Tums', 8500, 'over', 'Due Oct 11'], ['Nioxin', 1200, 'inv', 'Due Oct 19'], ['Sprouts', 4000, 'inv', 'Due Nov 5'], ['Dulcolax', 8500, 'inv', 'Due Nov 9'], ['Liquid I.V. Q3 Campaign', 6500, 'inv', 'Due Nov 30'], ['Gruns', 300, 'paid', 'Received Oct 6'], ['Panera', 8000, 'paid', 'Received Sep 26']];
-    var CAL = [['CeraVe post', 'Thursday, Oct 15', 'post'], ['Dramamine Video 1 post', 'Tuesday, Oct 13, done', 'post'], ['Tums payment due', 'Sunday, Oct 11, late', 'over'], ['Nioxin payment due', 'Monday, Oct 19', 'pay'], ['Submit video for CeraVe', 'Oct 7, done', 'del']];
-    var TODOS = [['Send the vendor form and your W9', 'Dramamine, no due date']];
-    var IDEAS = [['Before and after video: this is for the girls that struggled with XYZ', 'Saved Sep 23']];
+    // Search data comes in as props.account.search (see _data.ts). Without it search shows the design sample.
+    var SRCH = (p.account && p.account.search) || SAMPLE_SEARCH;
+    var DEALS = SRCH.deals, PAYS = SRCH.payments, CAL = SRCH.calendar, TODOS = SRCH.todos, IDEAS = SRCH.ideas;
     var PAGES = [['Overview', I.grid, 'SOverview.dc.html'], ['Deals', I.deals, 'SDeals.dc.html'], ['Calendar', I.cal, 'SCalendar.dc.html'], ['Payments', I.wallet, 'SPayments.dc.html'], ['Income summary', I.trend, 'SIncome.dc.html'], ['Ideas', I.idea, 'SIdeas.dc.html'], ['To-dos', I.todo, 'STodos.dc.html'], ['Settings', I.gear, 'SSettings.dc.html']];
     var ACTIONS = [['New deal', I.plus, '', 'new', 'Start from scratch'], ['Upload a contract or CSV', I.upload, '', 'upload', 'Talby fills in the deal'], ['Import from Notion', '', '', 'notion', 'Connect and pull deals'], ['Record a payment', I.wallet, 'SPayments.dc.html', '', 'Mark money as received'], ['Add a to-do', I.todo, 'STodos.dc.html', '', ''], ['Save an idea', I.idea, 'SIdeas.dc.html', '', ''], ['Change theme', I.half, '', 'appearance', 'Studio, Sand, Mac and more'], [dark ? 'Switch to light mode' : 'Switch to dark mode', I.moon, '', 'mode', '']];
     var SETS = [['Account settings', I.user, 'account'], ['Notification settings', I.bell, 'notifications'], ['Connections', I.link, 'connections'], ['Billing and plan', I.card, 'billing']];
@@ -148,10 +138,11 @@ class Component extends DCLogic {
     var ans = null, ansOn = false;
     if (q) {
       var A = null;
-      if (/late|overdue|behind/.test(q)) A = { icon: I.alert, title: '3 payments are late, $29,050', sub: 'Haleon Centrum, Golden Corral and Tums', cta: 'Open payments', href: 'SPayments.dc.html', bg: t.badBg, fg: t.badFg };
-      else if (/week|today|tomorrow|coming up|next/.test(q)) A = { icon: I.cal, title: 'CeraVe posts tomorrow', sub: 'Then Nioxin pays $1,200 on Monday, Oct 19', cta: 'Open calendar', href: 'SCalendar.dc.html', bg: t.postBg, fg: t.postFg };
-      else if (/owe|owed|unpaid|coming in|expected/.test(q)) A = { icon: I.wallet, title: '$88,800 still owed to you', sub: '12 payments, $29,050 of it is late', cta: 'Open payments', href: 'SPayments.dc.html', bg: t.soft, fg: t.primary };
-      else if (/paid|received|income|made|earn/.test(q)) A = { icon: I.trend, title: '$46,150 received this year', sub: '14 payments. August was your best month at $17,000', cta: 'Income summary', href: 'SIncome.dc.html', bg: t.okBg, fg: t.okFg };
+      var AN = SRCH.answers || {};
+      if (/late|overdue|behind/.test(q) && AN.late) A = { icon: I.alert, title: AN.late.title, sub: AN.late.sub, cta: 'Open payments', href: 'SPayments.dc.html', bg: t.badBg, fg: t.badFg };
+      else if (/week|today|tomorrow|coming up|next/.test(q) && AN.week) A = { icon: I.cal, title: AN.week.title, sub: AN.week.sub, cta: 'Open calendar', href: 'SCalendar.dc.html', bg: t.postBg, fg: t.postFg };
+      else if (/owe|owed|unpaid|coming in|expected/.test(q) && AN.owed) A = { icon: I.wallet, title: AN.owed.title, sub: AN.owed.sub, cta: 'Open payments', href: 'SPayments.dc.html', bg: t.soft, fg: t.primary };
+      else if (/paid|received|income|made|earn/.test(q) && AN.paid) A = { icon: I.trend, title: AN.paid.title, sub: AN.paid.sub, cta: 'Income summary', href: 'SIncome.dc.html', bg: t.okBg, fg: t.okFg };
       if (A) {
         var my = idx++; ansOn = st.hi === my;
         ans = { icon: A.icon, title: A.title, sub: A.sub, cta: A.cta, href: A.href, iconBg: A.bg, iconFg: A.fg, bg: ansOn ? t.hover : t.card, ring: 'inset 0 0 0 1px ' + (ansOn ? t.border : t.line),
@@ -161,11 +152,10 @@ class Component extends DCLogic {
     }
     if (!q) {
       if (scope === 'all') {
-        addGroup('attention', 'Needs attention', [
-          { label: 'Haleon Centrum payment', sub: '16 days late', subFg: t.destr, meta: '$10,550', isAvatar: true, isIcon: false, l: 'H', avBg: t.badBg, avFg: t.badFg, href: 'SPayments.dc.html' },
-          { label: 'Golden Corral payment', sub: '9 days late', subFg: t.destr, meta: '$10,000', isAvatar: true, isIcon: false, l: 'G', avBg: t.badBg, avFg: t.badFg, href: 'SPayments.dc.html' },
-          { label: 'CeraVe posts tomorrow', sub: 'Thursday, Oct 15', icon: I.video, avBg: t.postBg, avFg: t.postFg, href: 'SCalendar.dc.html' }
-        ], 3);
+        addGroup('attention', 'Needs attention', (SRCH.attention || []).map(function (x) {
+          if (x.kind === 'late') return { label: x.label, sub: x.sub, subFg: t.destr, meta: x.amount ? fmt(x.amount) : '', isAvatar: true, isIcon: false, l: x.label.charAt(0), avBg: t.badBg, avFg: t.badFg, href: x.href };
+          return { label: x.label, sub: x.sub, icon: I.video, avBg: t.postBg, avFg: t.postFg, href: x.href };
+        }), 3);
         addGroup('actions', 'Quick actions', ACTIONS.map(function (a) { return { label: a[0], icon: a[1], href: a[2] || null, action: a[3], sub: a[4], isNotion: a[3] === 'notion', isIcon: a[3] !== 'notion' }; }), 8);
         addGroup('pages', 'Jump to', PAGES.map(function (x) { return { label: x[0], icon: x[1], href: x[2] }; }), 8);
       } else if (scope === 'deals') addGroup('deals', 'Recent deals', DEALS.map(function (d) { var pz = PAY[d[2]]; return { label: d[0], sub: d[3], subFg: d[2] === 'over' ? t.destr : t.mutedFg, meta: fmt(d[1]), isAvatar: true, isIcon: false, l: d[0].charAt(0), href: 'SDeal.dc.html', badge: pz[0], badgeDot: pz[1], badgeFg: pz[2] }; }));

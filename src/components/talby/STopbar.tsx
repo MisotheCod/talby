@@ -87,7 +87,7 @@ class Component extends DCLogic {
       paid: ['#E9F8EE', '#16A34A', 'M20 6 9 17l-5-5'],
       todo: ['#F5F5F5', '#0A0A0A', 'm3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8']
     };
-    var N = p.quiet ? [] : [
+    var N = p.quiet ? [] : p.account ? (p.account.notifications || []).map(function (n) { return [n.id, n.group, n.kind, n.title, n.body, n.time, n.href, n.read ? 1 : 0]; }) : [
       [1, 'Today', 'late', 'Tums payment is 3 days late', '$8,500 was due Oct 11. Draft a reminder to send.', '9:02 AM', 'SPayments.dc.html', 0],
       [2, 'Today', 'post', 'CeraVe posts tomorrow', 'Your video goes live Thursday, Oct 15.', '8:30 AM', 'SCalendar.dc.html', 0],
       [3, 'Today', 'due', 'Nioxin pays in 5 days', '$1,200 is due Monday, Oct 19.', '8:30 AM', 'SPayments.dc.html', 0],

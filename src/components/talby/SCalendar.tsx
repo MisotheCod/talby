@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import { SAMPLE_ACCOUNT, TalbyDates, SAMPLE_CALENDAR, toCalendarState } from './_data';
 import SSidebar from './SSidebar';
 import STopbar from './STopbar';
 import SPraise from './SPraise';
@@ -31,25 +32,8 @@ class Component extends DCLogic {
       look: { theme: th, mode: md, sidebar: L.sidebar || 'expanded' },
       w: w, nav: false, appear: false, cmd: false, add: '', toasts: [], praise: null, askId: 0, askText: '', dv: props.view || 'sample'
     }, {
-      view: 'month', show: { post: true, del: true, pay: true }, sel: '2026-10-14', month: 9, addType: 'del', draft: '', amt: '', day: '', pvTop: 0, pvLeft: 0, fresh: {},
-      events: [
-        { id: 1, d: '2026-09-28', k: 'pay', title: 'Haleon Centrum', amt: 10550, over: true },
-        { id: 2, d: '2026-10-02', k: 'del', title: 'Submit concept for CeraVe', done: true },
-        { id: 3, d: '2026-10-02', k: 'del', title: 'Resubmit changes for Dramamine', done: true },
-        { id: 4, d: '2026-10-05', k: 'pay', title: 'Golden Corral', amt: 10000, over: true },
-        { id: 5, d: '2026-10-05', k: 'del', title: 'Get connected to Creator IQ for Dramamine', done: true },
-        { id: 6, d: '2026-10-07', k: 'del', title: 'Submit video for CeraVe', done: true },
-        { id: 7, d: '2026-10-08', k: 'del', title: 'Submit revised Liquid I.V. content', done: true },
-        { id: 8, d: '2026-10-08', k: 'del', title: 'Submit concept for oon', done: true },
-        { id: 9, d: '2026-10-09', k: 'del', title: 'Submit concept for Milan Laser', done: true },
-        { id: 10, d: '2026-10-11', k: 'pay', title: 'Tums', amt: 8500, over: true },
-        { id: 11, d: '2026-10-13', k: 'post', title: 'Dramamine Video 1' },
-        { id: 12, d: '2026-10-15', k: 'post', title: 'CeraVe' },
-        { id: 13, d: '2026-10-19', k: 'pay', title: 'Nioxin', amt: 1200 },
-        { id: 14, d: '2026-11-05', k: 'pay', title: 'Sprouts', amt: 4000 },
-        { id: 15, d: '2026-11-09', k: 'pay', title: 'Dulcolax', amt: 8500 },
-        { id: 16, d: '2026-11-30', k: 'pay', title: 'Liquid I.V. Q3 Campaign', amt: 6500 }
-      ]
+      view: 'month', show: { post: true, del: true, pay: true }, sel: (props.data || SAMPLE_CALENDAR).today, month: +(props.data || SAMPLE_CALENDAR).today.slice(5, 7) - 1, addType: 'del', draft: '', amt: '', day: '', pvTop: 0, pvLeft: 0, fresh: {},
+      events: toCalendarState(props.data || SAMPLE_CALENDAR)
     });
   }
   componentDidMount() {
@@ -69,10 +53,17 @@ class Component extends DCLogic {
     if (prev.color !== p.color && p.color) { ch = Object.assign({}, ch || L, { theme: p.color }); }
     if (ch) this.setState({ look: ch });
     if (prev.view !== p.view) this.setState({ dv: p.view || 'sample' });
+    if (prev.data !== p.data && p.data) this.setState({ events: toCalendarState(p.data) });
   }
   retryLoad() {
     var self = this; clearTimeout(this._rt);
     this.setState({ dv: 'loading' });
+    if (typeof this.props.onAction === 'function') {
+      Promise.resolve().then(function () { return self.props.onAction('data.reload', {}); })
+        .then(function (ok) { if (ok === false) throw new Error('reload'); if (self.state.dv === 'loading') self.setState({ dv: self.props.view === 'error' || !self.props.view ? 'sample' : self.props.view }); })
+        .catch(function () { self.setState({ dv: 'error' }); });
+      return;
+    }
     this._rt = setTimeout(function () { self.setState({ dv: 'sample' }); }, 900);
   }
   guard() {
@@ -87,6 +78,7 @@ class Component extends DCLogic {
     if (key !== 'reset' && key !== 'all') L[key] = val;
     this.setState({ look: L });
     try { window.localStorage.setItem('talby.look', JSON.stringify(L)); } catch (e) {}
+    this.emit('look.update', L, 'Could not save your look');
   }
   toast(title, desc, undo, extra) {
     var self = this, id = Date.now() + Math.random(), x = extra || {};
@@ -191,6 +183,7 @@ class Component extends DCLogic {
     function md(iso) { return iso ? MS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)) : ''; }
     function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
     var self = this, p = this.props, st = this.state;
+    var ACC = p.account || SAMPLE_ACCOUNT;
     var L = st.look, sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
     var dark = L.mode === 'dark' || (L.mode === 'system' && sysDark);
     var eff = L.theme || 'studio';
@@ -234,19 +227,20 @@ class Component extends DCLogic {
     };
     function cat(e) { if (e.k === 'del' && e.done) return CAT.done; if (e.over) return CAT.over; return CAT[e.k]; }
     function iso(y, m, d) { var dt = new Date(y, m, d); return dt.getFullYear() + '-' + ('0' + (dt.getMonth() + 1)).slice(-2) + '-' + ('0' + dt.getDate()).slice(-2); }
-    var TODAY = '2026-10-14';
+    // Real data comes in as props.data (see _data.ts). Without it the board shows its design sample.
+    var DATA = (p.data && typeof p.data === 'object') ? p.data : SAMPLE_CALENDAR, TODAY = DATA.today, Y0 = +TODAY.slice(0, 4), TM = +TODAY.slice(5, 7) - 1;
     // Data for the current data view. Empty shows only items the viewer adds; loading and error show none.
     var evAll = isSample ? st.events : (isEmpty ? st.events.filter(function (e) { return e.u; }) : []);
     var noItems = isEmpty && evAll.length === 0;
     var vis = evAll.filter(function (e) { return st.show[e.k]; });
-    var m = st.month, first = new Date(2026, m, 1).getDay(), dim = new Date(2026, m + 1, 0).getDate();
+    var m = st.month, first = new Date(Y0, m, 1).getDay(), dim = new Date(Y0, m + 1, 0).getDate();
     var n = Math.ceil((first + dim) / 7) * 7, rowsN = n / 7, cells = [];
     var line = '1px solid ' + t.border;
     var selKey = mob ? st.sel : st.day;
     var SKC = { 1: [88], 5: [82, 58], 8: [70], 10: [86, 62], 12: [74], 15: [66], 18: [80], 22: [72], 26: [60], 29: [76] };
     for (var i = 0; i < n; i++) {
       (function (i) {
-        var dt = new Date(2026, m, 1 - first + i), key = iso(dt.getFullYear(), dt.getMonth(), dt.getDate());
+        var dt = new Date(Y0, m, 1 - first + i), key = iso(dt.getFullYear(), dt.getMonth(), dt.getDate());
         var out = dt.getMonth() !== m, today = key === TODAY, sel = key === selKey;
         var mine = vis.filter(function (e) { return e.d === key; });
         var skw = isLoading ? (SKC[i] || []) : [];
@@ -264,8 +258,9 @@ class Component extends DCLogic {
         });
       })(i);
     }
-    var monthEvents = vis.filter(function (e) { return +e.d.slice(5, 7) === m + 1; });
-    var keys = {}; monthEvents.forEach(function (e) { keys[e.d] = true; }); if (m === 9) keys[TODAY] = true;
+    var YM = Y0 + '-' + ('0' + (m + 1)).slice(-2);
+    var monthEvents = vis.filter(function (e) { return e.d.slice(0, 7) === YM; });
+    var keys = {}; monthEvents.forEach(function (e) { keys[e.d] = true; }); if (m === TM) keys[TODAY] = true;
     var akeys = (isSample || (isEmpty && !noItems)) ? Object.keys(keys).sort() : [];
     var agenda = akeys.map(function (key, j) {
       var evs = monthEvents.filter(function (e) { return e.d === key; }), today = key === TODAY, sel = key === st.day;
@@ -286,7 +281,7 @@ class Component extends DCLogic {
         return { title: e.title, isDel: isDel, isDot: !isDel, done: !!e.done, box: box(t, !!e.done) + (mob ? '; width: 20px; height: 20px; flex: 0 0 20px' : ''), dotBox: mob ? '20px' : '16px', aria: (e.done ? 'Mark not done: ' : 'Mark done: ') + e.title, sw: c2.sw,
           titleFg: isDel && e.done ? t.mutedFg : t.fg, sub: e.over ? 'Payment overdue' : (isDel ? (e.done ? 'Deliverable, done' : 'Deliverable') : c2.label), fg2: e.over ? t.destr : t.mutedFg,
           amount: e.amt ? fmt(e.amt) : '', amtFg: e.over ? t.destr : t.fg, rowStyle: j ? k.rowT : k.row, cls: st.fresh[e.id] ? 'a-in' : '',
-          toggle: function () { if (!self.guard()) return; self.setState({ events: self.state.events.map(function (x) { return x.id === e.id ? Object.assign({}, x, { done: !x.done }) : x; }) }); } };
+          toggle: function () { if (!self.guard()) return; self.setState({ events: self.state.events.map(function (x) { return x.id === e.id ? Object.assign({}, x, { done: !x.done }) : x; }) }); self.emit('event.setDone', { id: e.dbId !== undefined ? e.dbId : e.id, done: !e.done }, 'Could not update it'); } };
       });
       return { title: WDL[sd2.getDay()] + ', ' + MONTHS[sd2.getMonth()] + ' ' + sd2.getDate(), mon: MS[sd2.getMonth()], day: String(sd2.getDate()), today: isT,
         badgeBg: isT ? t.primary : t.tile, badgeFg: isT ? t.primaryFg : t.fg,
@@ -296,8 +291,8 @@ class Component extends DCLogic {
     }
     var dayKey = st.day || st.sel, sd = new Date(dayKey + 'T00:00:00');
     var pv = dayData(dayKey), dc = dayData(st.sel);
-    var cnt = { post: 0, del: 0, pay: 0 }; evAll.forEach(function (e) { if (+e.d.slice(5, 7) === m + 1) cnt[e.k]++; });
-    var payDue = evAll.filter(function (e) { return e.k === 'pay' && +e.d.slice(5, 7) === m + 1; });
+    var cnt = { post: 0, del: 0, pay: 0 }; evAll.forEach(function (e) { if (e.d.slice(0, 7) === YM) cnt[e.k]++; });
+    var payDue = evAll.filter(function (e) { return e.k === 'pay' && e.d.slice(0, 7) === YM; });
     var payTotal = payDue.reduce(function (a, e) { return a + (e.amt || 0); }, 0);
     // Writes: check the plan, then save. A failed save keeps the draft and offers Try again.
     function commit(item, label) {
@@ -309,6 +304,7 @@ class Component extends DCLogic {
       self.setState({ events: s.events.concat([Object.assign({ id: id, u: true }, item)]), draft: '', amt: '', show: sh, fresh: fr });
       var d2 = new Date(item.d + 'T00:00:00');
       self.toast(label + ' added', item.title + ', ' + MS[d2.getMonth()] + ' ' + d2.getDate());
+      self.emit('event.create', { date: item.d, kind: item.k, title: item.title, amount: item.amt || 0 }, 'Could not add ' + label.toLowerCase());
     }
     function add() {
       var tx = (st.draft || '').trim(); if (!tx) return;
@@ -318,19 +314,19 @@ class Component extends DCLogic {
     var hasDraft = !!(st.draft || '').trim();
     function chipStyle(on) { return 'display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px 0 10px; box-sizing: border-box; border: 1px solid ' + t.border + '; border-radius: ' + t.rCtl + '; background: ' + (on ? t.card : 'transparent') + '; color: ' + (on ? t.fg : t.mutedFg) + '; font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; --hv: ' + t.fill; }
     var navB = 'display: inline-flex; align-items: center; justify-content: center; height: 100%; box-sizing: border-box; border: none; border-radius: 0; background: transparent; color: ' + t.fg + '; font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; --hv: ' + t.hv;
-    function phoneSel(mo) { return mo === 9 ? TODAY : iso(2026, mo, 1); }
+    function phoneSel(mo) { return mo === TM ? TODAY : iso(Y0, mo, 1); }
     var emptyBlk = blk('empty', 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18', 'Nothing on your calendar yet', 'Posts, deliverables and payment dates show up here once you add a deal.', 'Add deal', function () { self.setState({ add: 'new', nav: false }); });
     var page = {
       minH: !wide ? '100vh' : '960px',
-      monthTitle: MONTHS[m] + ' 2026',
+      monthTitle: MONTHS[m] + ' ' + Y0,
       monthSub: noItems ? 'Nothing scheduled yet' : payDue.length + (payDue.length === 1 ? ' payment' : ' payments') + ' due, ' + fmt(payTotal) + ' · ' + cnt.post + (cnt.post === 1 ? ' post' : ' posts') + ' · ' + cnt.del + (cnt.del === 1 ? ' deliverable' : ' deliverables'),
       showSub: !isLoading && !isError, subWs: mob ? 'normal' : 'nowrap', skSub: sk(mob ? '220px' : '320px', '12px') + '; margin: 4px 0',
       showAddBtn: !isError, addOff: isLoading, addBtnH: mob ? '36px' : '32px', addBtnOp: isLoading ? '0.5' : '1',
       notErr: !isError,
       prevMonth: function () { var mo = Math.max(0, st.month - 1); self.setState(mob ? { month: mo, day: '', sel: phoneSel(mo) } : { month: mo, day: '' }); },
       nextMonth: function () { var mo = Math.min(11, st.month + 1); self.setState(mob ? { month: mo, day: '', sel: phoneSel(mo) } : { month: mo, day: '' }); },
-      goToday: function () { self.setState({ month: 9, sel: TODAY, day: '' }); },
-      addToday: function () { if (isLoading) return; if (!self.guard()) return; var key = st.sel || TODAY; if (+key.slice(5, 7) !== st.month + 1) key = TODAY; var go = function () { self.openDay(key, mob ? null : self.cellEls[key]); }; if (st.view !== 'month' || st.month !== 9 && key === TODAY) { self.setState({ view: 'month', month: +key.slice(5, 7) - 1 }); setTimeout(go, 30); } else go(); },
+      goToday: function () { self.setState({ month: TM, sel: TODAY, day: '' }); },
+      addToday: function () { if (isLoading) return; if (!self.guard()) return; var key = st.sel || TODAY; if (+key.slice(5, 7) !== st.month + 1) key = TODAY; var go = function () { self.openDay(key, mob ? null : self.cellEls[key]); }; if (st.view !== 'month' || st.month !== TM && key === TODAY) { self.setState({ view: 'month', month: +key.slice(5, 7) - 1 }); setTimeout(go, 30); } else go(); },
       addSel: function () { if (isLoading) return; if (!self.guard()) return; self.openDay(st.sel, null); },
       views: [['month', 'Month'], ['agenda', 'Agenda']].map(function (x) { var on = st.view === x[0]; return { label: x[1], on: on, style: tabStyle(t, on), pick: function () { self.setState({ view: x[0], day: '' }); } }; }),
       isMonth: st.view === 'month', isAgenda: st.view === 'agenda',
@@ -361,6 +357,7 @@ class Component extends DCLogic {
       inputRef: function (el) { self.input = el; }
     };
     var shell = {
+      account: ACC,
       t: t, k: k, dark: dark, look: L, collapsed: collapsed, mob: mob, notMob: !mob, wide: wide, eff: eff, titleFam: t.titleFam, numFam: t.numFam,
       vars: '--hv: ' + t.hv + '; --hvr: ' + t.hvr + '; --bd2: ' + t.borderStrong + '; --fg: ' + t.fg + '; --ring: ' + t.ring + '; --shh: ' + t.shHover,
       showRail: !mob, sbW: collapsed ? '72px' : '256px', mainPad: mob ? '0 12px 104px' : (tabW ? '0 20px 48px 12px' : '0 24px 56px 16px'), h1Fs: Math.round((mob ? 24 : 28) * t.hScale) + 'px',
@@ -376,9 +373,9 @@ class Component extends DCLogic {
         else if (a === 'ask') self.setState({ askId: Date.now(), askText: payload || '', cmd: false });
       },
       add: st.add, openAdd: function (kind) { self.setState({ add: kind, nav: false }); }, closeAdd: function () { self.setState({ add: '' }); },
-      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); },
+      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); if (info) self.emit(info.kind === 'deal' ? 'deal.create' : 'deals.import', info, info.kind === 'deal' ? 'Could not save the deal' : 'Could not import the deals'); },
       praise: st.praise, closePraise: function () { clearTimeout(self._pz2); self.setState({ praise: null }); },
-      askId: st.askId, askText: st.askText, asstName: 'Chanelica',
+      askId: st.askId, askText: st.askText, asstName: ACC.name,
       toastR: mob ? '12px' : '24px', toastL: mob ? '12px' : 'auto', toastB: mob ? 'auto' : '84px', toastT: mob ? '12px' : 'auto', toastW: mob ? 'auto' : '340px',
       toasts: st.toasts.map(function (x) { var drop = function () { self.setState({ toasts: self.state.toasts.filter(function (y) { return y.id !== x.id; }) }); };
         return { title: x.title, desc: x.desc, hasDesc: !!x.desc, hasUndo: !!x.undo, undo: function () { if (x.undo) x.undo(); drop(); }, isErr: x.kind === 'error', hasCta: !!x.cta, cta: x.cta, doCta: function () { drop(); if (x.act) x.act(); } }; }),
@@ -386,7 +383,7 @@ class Component extends DCLogic {
       plan: plan, locked: locked, lockedKind: locked ? plan : '', quietBell: !isSample, sbFresh: !isSample,
       hasBanner: plan === 'pastdue' || locked, bn: (function () {
         var go = function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} };
-        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by Oct 21.' : 'Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', act: go };
+        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + '.' : 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + ' to keep adding and changing deals.', cta: 'Update card', act: go };
         if (plan === 'canceled') return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Plan canceled.' : 'Your plan is canceled.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Restart your plan to add or change deals.', cta: 'Restart plan', act: go };
         return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Trial ended.' : 'Your free trial ended.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Upgrade to add or change deals.', cta: 'Upgrade', act: go };
       })()
@@ -406,12 +403,12 @@ function render($s0, host) {
         {$s0?.showRail ? (<>
           <div {...S(`position: relative; z-index: 30; flex: 0 0 ${I($s0?.sbW)}; width: ${I($s0?.sbW)}; align-self: stretch; transition: flex-basis 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1)`)}>
             <div {...S("position: sticky; top: 0; height: 100vh")}>
-              <SSidebar active={"calendar"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} />
+              <SSidebar account={$s0?.account} active={"calendar"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} />
             </div>
           </div>
         </>) : null}
         <main {...S(`flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: ${I($s0?.mainPad)}; box-sizing: border-box`)}>
-          <STopbar title={"Calendar"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
+          <STopbar account={$s0?.account} title={"Calendar"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
           {$s0?.hasBanner ? (<>
             <div role={"status"} className={"a-fade"} {...S(`display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 8px 8px 14px; box-sizing: border-box; border: 1px solid ${I($s0?.bn?.bd)}; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.bn?.bg)}; color: ${I($s0?.bn?.fg)}`)}>
               <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 16px")}>
@@ -1072,7 +1069,7 @@ function render($s0, host) {
           <div {...S("position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 88")}>
             <button type={"button"} aria-label={"Close menu"} className={"a-fade"} onClick={$s0?.closeNav} {...S(`position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: ${I($s0?.t?.overlay)}; cursor: default`)} />
             <div className={"a-drawer"} {...S(`position: absolute; top: 0; bottom: 0; left: 0; width: 288px; max-width: 86%; overflow-y: auto; box-shadow: ${I($s0?.t?.shPop)}`)}>
-              <SSidebar active={"calendar"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} />
+              <SSidebar account={$s0?.account} active={"calendar"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} />
             </div>
           </div>
         </>) : null}
@@ -1111,8 +1108,8 @@ function render($s0, host) {
           })}
         </div>
         <SPraise data={$s0?.praise} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closePraise} />
-        <SAddDeal open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
-        <SCommand open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
+        <SAddDeal dealsThisYear={$s0?.account?.dealsThisYear} open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
+        <SCommand account={$s0?.account} open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
         <SAppearance open={$s0?.appear} theme={$s0?.look?.theme} mode={$s0?.look?.mode} sidebar={$s0?.look?.sidebar} dark={$s0?.dark} onSet={$s0?.setLook} onClose={$s0?.closeAppear} />
         <SAssistant embedded={true} nameFirst={$s0?.asstName} empty={$s0?.isEmpty} hidden={$s0?.chatHidden} askId={$s0?.askId} askText={$s0?.askText} color={$s0?.eff} dark={$s0?.dark} />
       </div>

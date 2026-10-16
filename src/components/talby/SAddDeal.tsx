@@ -318,9 +318,9 @@ class Component extends DCLogic {
       if (formInvalid) { if (!self.state.tried) self.setState({ tried: true, pop: null }); return; }
       if (!online()) { self.setState({ saveErr: true, pop: null }); return; }
       var total = P === 'monthly' ? amt * f.months : amt, active = f.status === 'Active';
-      self.done({ kind: 'deal', count: 1, deals: [{ brand: f.brand.trim(), amt: total, status: f.status, post: f.post || '' }],
+      self.done({ kind: 'deal', count: 1, form: Object.assign({}, f), plan: plan, deals: [{ brand: f.brand.trim(), amt: total, status: f.status, post: f.post || '' }],
         title: 'Deal added', chip: active ? '+' + fmt(total) + ' booked' : 'Negotiating',
-        line: f.brand.trim() + (active ? ' is in. That makes 27 deals this year.' : ' is saved. It counts once it is signed.') });
+        line: f.brand.trim() + (active ? ' is in. That makes ' + ((typeof p.dealsThisYear === 'number' ? p.dealsThisYear : 26) + 1) + ' deals this year.' : ' is saved. It counts once it is signed.') });
     }
     var brandBad = !!st.tried && !(f.brand || '').trim();
     var amtMsg = amtBad ? 'Use numbers only, like 2500.' : (st.tried && !hasAmt ? (P === 'monthly' ? 'Add the amount per month, like 500.' : 'Add the amount, like 2500.') : '');

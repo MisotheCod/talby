@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import { SAMPLE_OVERVIEW, TalbyDates, SAMPLE_ACCOUNT } from './_data';
 import SSidebar from './SSidebar';
 import STopbar from './STopbar';
 import SDatePicker from './SDatePicker';
@@ -31,7 +32,7 @@ class Component extends DCLogic {
     this.state = Object.assign({
       look: { theme: th, mode: md, sidebar: L.sidebar || 'expanded' },
       w: w, nav: false, appear: false, cmd: false, add: '', toasts: [], praise: null, askId: 0, askText: '', dv: props.view || 'sample'
-    }, { tab: 'active', resolved: {}, leaving: {}, paidNow: {}, todos: [{ id: 1, text: 'Complete the vendor form and send over your W9', deal: 'Dramamine', done: false }], ticking: {}, todoDraft: '' });
+    }, { tab: 'active', resolved: {}, leaving: {}, paidNow: {}, todos: ((props.data && props.data.todos) || SAMPLE_OVERVIEW.todos).map(function (x) { return Object.assign({}, x); }), ticking: {}, todoDraft: '' });
   }
   componentDidMount() {
     var self = this;
@@ -50,10 +51,17 @@ class Component extends DCLogic {
     if (prev.color !== p.color && p.color) { ch = Object.assign({}, ch || L, { theme: p.color }); }
     if (ch) this.setState({ look: ch });
     if (prev.view !== p.view) this.setState({ dv: p.view || 'sample' });
+    if (prev.data !== p.data && p.data && p.data.todos) this.setState({ todos: p.data.todos.map(function (x) { return Object.assign({}, x); }), paidNow: {}, resolved: {}, leaving: {} });
   }
   retryLoad() {
     var self = this; clearTimeout(this._rt);
     this.setState({ dv: 'loading' });
+    if (typeof this.props.onAction === 'function') {
+      Promise.resolve().then(function () { return self.props.onAction('data.reload', {}); })
+        .then(function (ok) { if (ok === false) throw new Error('reload'); if (self.state.dv === 'loading') self.setState({ dv: self.props.view === 'error' || !self.props.view ? 'sample' : self.props.view }); })
+        .catch(function () { self.setState({ dv: 'error' }); });
+      return;
+    }
     this._rt = setTimeout(function () { self.setState({ dv: 'sample' }); }, 900);
   }
   guard() {
@@ -68,6 +76,7 @@ class Component extends DCLogic {
     if (key !== 'reset' && key !== 'all') L[key] = val;
     this.setState({ look: L });
     try { window.localStorage.setItem('talby.look', JSON.stringify(L)); } catch (e) {}
+    this.emit('look.update', L, 'Could not save your look');
   }
   toast(title, desc, undo, extra) {
     var self = this, id = Date.now() + Math.random(), x = extra || {};
@@ -87,7 +96,7 @@ class Component extends DCLogic {
     var self = this;
     if (!this.guard()) return false;
     if (this.props.writes === 'fail') { this.toastErr(title, 'Check your connection and try again.', function () { if (self.guard()) fn(); }); return false; }
-    fn(); return true;
+    this._wt = title; try { fn(); } finally { this._wt = null; } return true;
   }
   resolve(id, after) {
     var self = this, lv = Object.assign({}, this.state.leaving); lv[id] = true;
@@ -175,6 +184,10 @@ class Component extends DCLogic {
     function md(iso) { return iso ? MS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)) : ''; }
     function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
     var self = this, p = this.props, st = this.state;
+    var ACC = p.account || SAMPLE_ACCOUNT;
+    // Real data comes in as props.data (see _data.ts). Without it the board shows its design sample.
+    var DATA = (p.data && typeof p.data === 'object') ? p.data : SAMPLE_OVERVIEW, isDemo = DATA === SAMPLE_OVERVIEW, TODAY = DATA.today;
+    var DD = TalbyDates;
     var L = st.look, sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
     var dark = L.mode === 'dark' || (L.mode === 'system' && sysDark);
     var eff = L.theme || 'studio';
@@ -206,33 +219,27 @@ class Component extends DCLogic {
       clock: 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z'
     };
 
-    var D = [
-      ['Haleon Centrum','over','2026-09-28',10550],['Golden Corral','over','2026-10-05',10000],['Tums','over','2026-10-11',8500],['Nioxin','inv','2026-10-19',1200],
-      ['Sprouts','inv','2026-11-05',4000],['Dulcolax','inv','2026-11-09',8500],['Liquid I.V. Q3 Campaign','inv','2026-11-30',6500],['CeraVe','not','',8000],
-      ['Dramamine','not','',10000],['Biotene','not','',12050],['Liquid I.V. Q4 Campaign','not','',8500],['Milan Laser Q4 Campaign','not','',1000],
-      ['Planet Fitness','paid','2026-08-14',9000],['Panera','paid','2026-09-26',8000],['Oikos','paid','2026-07-06',5350],['Smoothie King','paid','',5000],['Liquid I.V. Q2 Campaign','paid','2026-08-16',4500],
-      ['Breyers','paid','2026-05-30',4000],['Clio','paid','2026-04-23',3000],['Milan Laser Atlanta','paid','2026-08-08',3000],['Hidden Valley Ranch','paid','2026-09-18',1000],['Tula','paid','2026-05-16',1000],
-      ['Personal Care GLP-1 Session','paid','2026-05-15',1000],['Gruns','paid','2026-10-06',800],['Replenza','paid','2026-08-21',500],['Milan Laser Atlanta','neg','',500]
-    ].map(function (d) { return st.paidNow[d[0]] ? [d[0], 'paid', '2026-10-14', d[3]] : d; });
-    var LATE = { 'Haleon Centrum': 16, 'Golden Corral': 9, 'Tums': 3 };
-    var OVER = [['Haleon Centrum', 10550, '2026-09-28'], ['Golden Corral', 10000, '2026-10-05'], ['Tums', 8500, '2026-10-11']];
+    var D = DATA.deals.map(function (d) { return st.paidNow[d[0]] ? [d[0], 'paid', TODAY, d[3]] : d; });
+    var OVER = DATA.overdue, LATE = {};
+    OVER.forEach(function (o) { LATE[o[0]] = DD.diff(o[2], TODAY); });
     var paidSum = OVER.filter(function (o) { return st.paidNow[o[0]]; }).reduce(function (a, o) { return a + o[1]; }, 0);
     var lateLeft = OVER.filter(function (o) { return !st.paidNow[o[0]]; });
     var lateSum = lateLeft.reduce(function (a, o) { return a + o[1]; }, 0);
-    var ATT = [
-      { id: 'h', kind: 'pay', brand: 'Haleon Centrum', amt: 10550 }, { id: 'g', kind: 'pay', brand: 'Golden Corral', amt: 10000 }, { id: 'tm', kind: 'pay', brand: 'Tums', amt: 8500 },
-      { id: 'dr', kind: 'date' }, { id: 'nd', kind: 'link' }
-    ].filter(function (a) { return isSample && !st.resolved[a.id]; });
+    var NEED = DATA.needsPayBy[0], NOD = DATA.noPayBy;
+    var ATT = OVER.map(function (o) { return { id: 'pay:' + o[0], kind: 'pay', brand: o[0], amt: o[1] }; })
+      .concat(NEED ? [{ id: 'date:' + NEED.brand, kind: 'date', brand: NEED.brand, live: NEED.liveOn }] : [])
+      .concat(NOD && NOD.count > 0 ? [{ id: 'nodate', kind: 'link' }] : [])
+      .filter(function (a) { return isSample && !st.resolved[a.id]; });
     var attn = ATT.map(function (a) {
       var wrapRow = mob && a.kind !== 'pay';
       var base = { cls: st.leaving[a.id] ? 'a-out' : 'a-in', isPay: false, isDate: false, isLink: false, isLetter: false, isIcon: true, l: '', icon: '', paid: null, paidLabel: '', setDate: null, subFg: t.mutedFg,
         wrap: wrapRow ? '; flex-wrap: wrap; row-gap: 10px' : '', tFlex: wrapRow ? '1 1 calc(100% - 46px)' : '1 1 auto', ml: wrapRow ? '46px' : '0px', dw: wrapRow ? '156px' : '132px' };
-      if (a.kind === 'pay') return Object.assign(base, { isPay: true, isLetter: true, isIcon: false, l: a.brand.charAt(0), avBg: t.badBg, avFg: t.badFg, title: a.brand + ' payment is late', sub: fmt(a.amt) + ', ' + LATE[a.brand] + ' days past due', subFg: t.destr,
+      if (a.kind === 'pay') return Object.assign(base, { isPay: true, isLetter: true, isIcon: false, l: a.brand.charAt(0), avBg: t.badBg, avFg: t.badFg, title: a.brand + ' payment is late', sub: fmt(a.amt) + ', ' + LATE[a.brand] + (LATE[a.brand] === 1 ? ' day' : ' days') + ' past due', subFg: t.destr,
         paidLabel: 'Mark ' + a.brand + ' as paid',
-        paid: function () { self.write('Could not mark it paid', function () { self.resolve(a.id, function () { var pn = Object.assign({}, self.state.paidNow); pn[a.brand] = true; self.setState({ paidNow: pn }); var got = 46150 + OVER.filter(function (o) { return pn[o[0]]; }).reduce(function (s, o) { return s + o[1]; }, 0); self.celebrate({ title: 'You got paid', chip: '+' + fmt(a.amt), line: a.brand + ' paid. ' + fmt(got) + ' received this year.' }); }); }); } });
-      if (a.kind === 'date') return Object.assign(base, { isDate: true, avBg: t.postBg, avFg: t.postFg, icon: 'm16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.94a.5.5 0 0 0-.78-.42L16 11M4 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z', title: 'Dramamine went live Oct 13', sub: 'Add a pay by date so Talby can remind you',
-        setDate: function (v) { if (!v) return; self.write('Could not add the date', function () { self.resolve(a.id); self.toast('Pay by date added', 'Dramamine, ' + md(v) + '. Talby will remind you.'); }); } });
-      return Object.assign(base, { isLink: true, avBg: t.fill, avFg: t.fg, icon: 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18M10 14h4', title: '4 more deals have no pay by date', sub: '$29,550 Talby cannot remind you about yet' });
+        paid: function () { self.write('Could not mark it paid', function () { self.emit('payment.markPaid', { brand: a.brand, amount: a.amt }); self.resolve(a.id, function () { var pn = Object.assign({}, self.state.paidNow); pn[a.brand] = true; self.setState({ paidNow: pn }); var got = DATA.received.amount + OVER.filter(function (o) { return pn[o[0]]; }).reduce(function (s, o) { return s + o[1]; }, 0); self.celebrate({ title: 'You got paid', chip: '+' + fmt(a.amt), line: a.brand + ' paid. ' + fmt(got) + ' received this year.' }); }); }); } });
+      if (a.kind === 'date') return Object.assign(base, { isDate: true, avBg: t.postBg, avFg: t.postFg, icon: 'm16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.94a.5.5 0 0 0-.78-.42L16 11M4 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z', title: a.brand + ' went live ' + md(a.live), sub: 'Add a pay by date so Talby can remind you', dateLabel: a.brand + ' pay by date',
+        setDate: function (v) { if (!v) return; self.write('Could not add the date', function () { self.emit('deal.setPayBy', { brand: a.brand, date: v }); self.resolve(a.id); self.toast('Pay by date added', a.brand + ', ' + md(v) + '. Talby will remind you.'); }); } });
+      return Object.assign(base, { isLink: true, avBg: t.fill, avFg: t.fg, icon: 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18M10 14h4', title: NOD.count + (NEED ? ' more' : '') + (NOD.count === 1 ? ' deal has no pay by date' : ' deals have no pay by date'), sub: fmt(NOD.amount) + ' Talby cannot remind you about yet' });
     });
     function inTab(d, tb) { if (tb === 'active') return d[1] !== 'paid' && d[1] !== 'neg'; if (tb === 'paid') return d[1] === 'paid'; return true; }
     var list = D.filter(function (d) { return inTab(d, st.tab); });
@@ -244,25 +251,30 @@ class Component extends DCLogic {
     });
     var TABS = [['active', 'Active'], ['paid', 'Paid'], ['all', 'All']];
     var tabs = TABS.map(function (x) { var on = st.tab === x[0]; return { label: x[1], on: on, count: isSample ? String(D.filter(function (d) { return inTab(d, x[0]); }).length) : '', style: tabStyle(t, on), pick: function () { self.setState({ tab: x[0] }); } }; });
-    var W = [['S', 11, 'Sunday, Oct 11', 1], ['M', 12, 'Monday, Oct 12', 0], ['T', 13, 'Tuesday, Oct 13', 1], ['W', 14, 'Today, Oct 14', 0], ['T', 15, 'Thursday, Oct 15', 1], ['F', 16, 'Friday, Oct 16', 0], ['S', 17, 'Saturday, Oct 17', 0]];
-    var week = W.map(function (d) { var today = d[1] === 14; return { wd: d[0], num: String(d[1]), aria: d[2], bg: today ? t.primary : 'transparent', hv: today ? t.primary : t.fill, fg: today ? t.primaryFg : t.fg, wdFg: today ? t.primaryFg : t.mutedFg, dot: d[3] && isSample ? (today ? t.primaryFg : t.borderStrong) : 'transparent' }; });
-    var tumsPaid = !!st.paidNow['Tums'];
-    var weekItems = !isSample ? [] : [
-      { day: 'Sun', bg: tumsPaid ? t.okBg : t.badBg, fg: tumsPaid ? t.okFg : t.badFg, type: tumsPaid ? 'Paid' : 'Late', title: 'Tums payment', titleFg: t.fg, amount: '$8,500', amtFg: tumsPaid ? t.fg : t.destr },
-      { day: 'Tue', bg: t.postBg, fg: t.postFg, type: 'Posted', title: 'Dramamine Video 1', titleFg: t.mutedFg, amount: '', amtFg: t.fg },
-      { day: 'Thu', bg: t.postBg, fg: t.postFg, type: 'Post', title: 'CeraVe, tomorrow', titleFg: t.fg, amount: '', amtFg: t.fg }
-    ];
-    var UP = [['Nioxin', '2026-10-19', 1200, 'In 5 days'], ['Sprouts', '2026-11-05', 4000, 'In 22 days'], ['Dulcolax', '2026-11-09', 8500, 'In 26 days'], ['Liquid I.V. Q3 Campaign', '2026-11-30', 6500, 'In 47 days']];
+    var WK0 = DD.num(TODAY) - DD.weekday(TODAY), WDOT = {};
+    DATA.week.forEach(function (x) { WDOT[x.date] = 1; });
+    var W = [0, 1, 2, 3, 4, 5, 6].map(function (i) { var iso = DD.iso(WK0 + i); return ['SMTWTFS'.charAt(i), +iso.slice(8, 10), (iso === TODAY ? 'Today' : DD.DAYS[i]) + ', ' + md(iso), WDOT[iso] ? 1 : 0, iso]; });
+    var week = W.map(function (d) { var today = d[4] === TODAY; return { wd: d[0], num: String(d[1]), aria: d[2], bg: today ? t.primary : 'transparent', hv: today ? t.primary : t.fill, fg: today ? t.primaryFg : t.fg, wdFg: today ? t.primaryFg : t.mutedFg, dot: d[3] && isSample ? (today ? t.primaryFg : t.borderStrong) : 'transparent' }; });
+    var weekItems = !isSample ? [] : DATA.week.map(function (x) {
+      var day = DD.DAYS[DD.weekday(x.date)].slice(0, 3), amt = x.amount ? fmt(x.amount) : '';
+      var paid = x.kind === 'paid' || (x.kind === 'late' && !!st.paidNow[x.brand || '']);
+      if (x.kind === 'late' || x.kind === 'paid') return { day: day, bg: paid ? t.okBg : t.badBg, fg: paid ? t.okFg : t.badFg, type: paid ? 'Paid' : 'Late', title: x.title, titleFg: t.fg, amount: amt, amtFg: paid ? t.fg : t.destr };
+      return { day: day, bg: t.postBg, fg: t.postFg, type: x.kind === 'posted' ? 'Posted' : 'Post', title: x.title, titleFg: x.kind === 'posted' ? t.mutedFg : t.fg, amount: amt, amtFg: t.fg };
+    });
+    var UP = DATA.upcoming.map(function (u) { var n = DD.diff(TODAY, u[1]); return [u[0], u[1], u[2], n <= 0 ? 'Today' : n === 1 ? 'Tomorrow' : 'In ' + n + ' days']; });
+    var upSum = DATA.upcoming.reduce(function (a, u) { return a + u[2]; }, 0);
+    var weekHint = (function () { var u = DATA.upcoming[0]; if (!u) return ''; var wk = Math.floor((DD.num(u[1]) - WK0) / 7), what = u[0] + ' pays ' + fmt(u[2]) + ' on ';
+      return wk <= 0 ? 'This week, ' + what + DD.DAYS[DD.weekday(u[1])] : wk === 1 ? 'Next week, ' + what + DD.DAYS[DD.weekday(u[1])] : what + md(u[1]); })();
     var upcoming = (isSample ? UP : []).map(function (u, j) { return { brand: u[0], mon: MS[+u[1].slice(5, 7) - 1], day: String(+u[1].slice(8)), amount: fmt(u[2]), when: u[3], whenFg: j === 0 ? t.fg : t.mutedFg, line: j ? ('1px solid ' + t.line) : 'none' }; });
     var openTodos = st.todos.filter(function (x) { return !x.done && (isSample || (isEmpty && x.id > 1)); });
     var todos = openTodos.map(function (x) { var tk = !!st.ticking[x.id]; return { text: x.text, deal: x.deal, dealL: x.deal.charAt(0), on: tk, box: box(t, tk), aria: 'Mark done: ' + x.text, fg: tk ? t.mutedFg : t.fg,
-      strike: tk ? 'a-strike' : '', size: tk ? '100% 1.5px' : '0% 1.5px', cls: tk ? 'a-gone' : 'a-in', toggle: function () { if (!self.state.ticking[x.id]) self.write('Could not update the to-do', function () { self.tickTodo(x.id); }); } }; });
-    function addTodo() { var tx = (st.todoDraft || '').trim(); if (!tx) return; self.write('Could not add the to-do', function () { var cur = self.state.todos; var id = cur.reduce(function (a, x) { return Math.max(a, x.id); }, 0) + 1; self.setState({ todos: cur.concat([{ id: id, text: tx, deal: 'No deal', done: false }]), todoDraft: '' }); self.toast('To-do added', tx); }); }
-    var owed = 88800 - paidSum, got = 46150 + paidSum;
+      strike: tk ? 'a-strike' : '', size: tk ? '100% 1.5px' : '0% 1.5px', cls: tk ? 'a-gone' : 'a-in', toggle: function () { if (!self.state.ticking[x.id]) self.write('Could not update the to-do', function () { self.emit('todo.setDone', { id: x.id, done: true }); self.tickTodo(x.id); }); } }; });
+    function addTodo() { var tx = (st.todoDraft || '').trim(); if (!tx) return; self.write('Could not add the to-do', function () { var cur = self.state.todos; var id = cur.reduce(function (a, x) { return Math.max(a, x.id); }, 0) + 1; self.setState({ todos: cur.concat([{ id: id, text: tx, deal: 'No deal', done: false }]), todoDraft: '' }); self.emit('todo.create', { text: tx, deal: '' }); self.toast('To-do added', tx); }); }
+    var owed = DATA.owed.amount - paidSum, got = DATA.received.amount + paidSum;
     var stats = [
-      { label: 'Booked this year', value: '$134,950', line: 'Across 25 signed deals', href: 'SDeals.dc.html', fg: t.fg, warn: false },
-      { label: 'Received', value: fmt(got), line: (14 + Object.keys(st.paidNow).length) + ' payments this year', href: 'SIncome.dc.html', fg: t.fg, warn: false },
-      { label: 'Still owed', value: fmt(owed), line: (12 - Object.keys(st.paidNow).length) + ' payments expected', href: 'SPayments.dc.html', fg: t.fg, warn: false },
+      { label: 'Booked this year', value: fmt(DATA.booked.amount), line: 'Across ' + DATA.booked.deals + (DATA.booked.deals === 1 ? ' signed deal' : ' signed deals'), href: 'SDeals.dc.html', fg: t.fg, warn: false },
+      { label: 'Received', value: fmt(got), line: (function (n) { return n + (n === 1 ? ' payment' : ' payments') + ' this year'; })(DATA.received.count + Object.keys(st.paidNow).length), href: 'SIncome.dc.html', fg: t.fg, warn: false },
+      { label: 'Still owed', value: fmt(owed), line: (function (n) { return n + (n === 1 ? ' payment' : ' payments') + ' expected'; })(DATA.owed.count - Object.keys(st.paidNow).length), href: 'SPayments.dc.html', fg: t.fg, warn: false },
       { label: 'Late', value: fmt(lateSum), line: lateLeft.length ? lateLeft.length + (lateLeft.length === 1 ? ' payment' : ' payments') + ' past due' : 'Nothing is late', href: 'SPayments.dc.html', fg: lateSum ? t.destr : t.fg, warn: lateSum > 0 }
     ];
     if (isEmpty) stats = [
@@ -284,7 +296,9 @@ class Component extends DCLogic {
     var hasTodo = !!(st.todoDraft || '').trim();
     var page = {
       minH: mob ? '100vh' : '1200px',
-      greetLine: 'Wednesday, October 14.' + (isEmpty ? ' Add a deal to begin.' : !isSample ? '' : ' ' + (lateLeft.length ? lateLeft.length + (lateLeft.length === 1 ? ' payment needs' : ' payments need') + ' a nudge.' : 'Nothing is late. Nice.')),
+      greeting: 'Good ' + (isDemo ? 'afternoon' : (function () { var h = new Date().getHours(); return h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening'; })()) + ', ' + ACC.name,
+      weekHint: weekHint, hasWeekHint: isSample && !!weekHint,
+      greetLine: DD.DAYS[DD.weekday(TODAY)] + ', ' + DD.MONTHS[+TODAY.slice(5, 7) - 1] + ' ' + (+TODAY.slice(8, 10)) + '.' + (isEmpty ? ' Add a deal to begin.' : !isSample ? '' : ' ' + (lateLeft.length ? lateLeft.length + (lateLeft.length === 1 ? ' payment needs' : ' payments need') + ' a nudge.' : 'Nothing is late. Nice.')),
       stats: stats, stripCols: wide ? 'repeat(4, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', statPad: mob ? '14px 16px' : '18px 22px', statFs: mob ? '22px' : '28px',
       rowCols: wide ? 'minmax(0, 2fr) minmax(320px, 1fr)' : 'minmax(0, 1fr)',
       attn: attn, hasAttn: attn.length > 0, noAttn: isSample && attn.length === 0, attnCount: String(attn.length),
@@ -297,7 +311,7 @@ class Component extends DCLogic {
       showData: !isError, notLoading: !isLoading, showTabs: isSample || isLoading, showFoot: isSample || isLoading,
       rightCol: !mob && !wide ? 'min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch' : 'min-width: 0; display: flex; flex-direction: column; gap: 16px',
       errPad: mob ? '56px 12px' : '72px 24px',
-      upList: 'display: flex; flex-direction: column; flex: 1 1 auto', upTotal: isEmpty ? '$0' : '$20,200',
+      upList: 'display: flex; flex-direction: column; flex: 1 1 auto', upTotal: isEmpty ? '$0' : fmt(upSum),
       skAttn: skAttn, skWeek: skWeek, skDeals: skDeals, skUp: skUp, skTile: sk('58%', '12px'), skFoot: sk('104px', '12px'), skTotal: sk('72px', '16px'),
       skBox: sk('16px', '16px', t.rBox), skTodo: sk('84%', '12px'), skChip: sk('92px', '22px', t.rCtl),
       errBlk: blk('error', IC.wifi, 'We could not load your overview', 'Check your connection and try again. Nothing was lost.', 'Try again', function () { self.retryLoad(); }),
@@ -308,6 +322,7 @@ class Component extends DCLogic {
       todoBlk: blk('empty', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', 'No to-dos yet', 'Add one below when something comes up.')
     };
     var shell = {
+      account: ACC,
       t: t, k: k, dark: dark, look: L, collapsed: collapsed, mob: mob, notMob: !mob, wide: wide, eff: eff, titleFam: t.titleFam, numFam: t.numFam,
       vars: '--hv: ' + t.hv + '; --hvr: ' + t.hvr + '; --bd2: ' + t.borderStrong + '; --fg: ' + t.fg + '; --ring: ' + t.ring + '; --shh: ' + t.shHover,
       showRail: !mob, sbW: collapsed ? '72px' : '256px', mainPad: mob ? '0 12px 104px' : (tabW ? '0 20px 48px 12px' : '0 24px 56px 16px'), h1Fs: Math.round((mob ? 24 : 28) * t.hScale) + 'px',
@@ -323,9 +338,9 @@ class Component extends DCLogic {
         else if (a === 'ask') self.setState({ askId: Date.now(), askText: payload || '', cmd: false });
       },
       add: st.add, openAdd: function (kind) { self.setState({ add: kind, nav: false }); }, closeAdd: function () { self.setState({ add: '' }); },
-      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); },
+      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); if (info) self.emit(info.kind === 'deal' ? 'deal.create' : 'deals.import', info, info.kind === 'deal' ? 'Could not save the deal' : 'Could not import the deals'); },
       praise: st.praise, closePraise: function () { clearTimeout(self._pz2); self.setState({ praise: null }); },
-      askId: st.askId, askText: st.askText, asstName: 'Chanelica',
+      askId: st.askId, askText: st.askText, asstName: ACC.name,
       toastR: mob ? '12px' : '24px', toastL: mob ? '12px' : 'auto', toastB: mob ? 'auto' : '84px', toastT: mob ? '12px' : 'auto', toastW: mob ? 'auto' : '340px',
       toasts: st.toasts.map(function (x) { var drop = function () { self.setState({ toasts: self.state.toasts.filter(function (y) { return y.id !== x.id; }) }); };
         return { title: x.title, desc: x.desc, hasDesc: !!x.desc, hasUndo: !!x.undo, undo: function () { if (x.undo) x.undo(); drop(); }, isErr: x.kind === 'error', hasCta: !!x.cta, cta: x.cta, doCta: function () { drop(); if (x.act) x.act(); } }; }),
@@ -333,7 +348,7 @@ class Component extends DCLogic {
       plan: plan, locked: locked, lockedKind: locked ? plan : '', quietBell: !isSample, sbFresh: !isSample,
       hasBanner: plan === 'pastdue' || locked, bn: (function () {
         var go = function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} };
-        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by Oct 21.' : 'Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', act: go };
+        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + '.' : 'Update your card by ' + TalbyDates.md(ACC.pastDueBy) + ' to keep adding and changing deals.', cta: 'Update card', act: go };
         if (plan === 'canceled') return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Plan canceled.' : 'Your plan is canceled.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Restart your plan to add or change deals.', cta: 'Restart plan', act: go };
         return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Trial ended.' : 'Your free trial ended.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Upgrade to add or change deals.', cta: 'Upgrade', act: go };
       })()
@@ -353,12 +368,12 @@ function render($s0, host) {
         {$s0?.showRail ? (<>
           <div {...S(`position: relative; z-index: 30; flex: 0 0 ${I($s0?.sbW)}; width: ${I($s0?.sbW)}; align-self: stretch; transition: flex-basis 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1)`)}>
             <div {...S("position: sticky; top: 0; height: 100vh")}>
-              <SSidebar active={"overview"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} />
+              <SSidebar account={$s0?.account} active={"overview"} color={$s0?.eff} dark={$s0?.dark} collapsed={$s0?.collapsed} plan={$s0?.plan} fresh={$s0?.sbFresh} />
             </div>
           </div>
         </>) : null}
         <main {...S(`flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: ${I($s0?.mainPad)}; box-sizing: border-box`)}>
-          <STopbar title={"Overview"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
+          <STopbar account={$s0?.account} title={"Overview"} mobile={$s0?.mob} quiet={$s0?.quietBell} color={$s0?.eff} dark={$s0?.dark} onNav={$s0?.toggleNav} onSearch={$s0?.openCmd} onAppearance={$s0?.openAppear} onAdd={$s0?.openAdd} />
           {$s0?.hasBanner ? (<>
             <div role={"status"} className={"a-fade"} {...S(`display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 8px 8px 14px; box-sizing: border-box; border: 1px solid ${I($s0?.bn?.bd)}; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.bn?.bg)}; color: ${I($s0?.bn?.fg)}`)}>
               <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 16px")}>
@@ -381,7 +396,7 @@ function render($s0, host) {
           <div className={"a-in"} {...S("display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 0 4px")}>
             <div {...S("display: flex; flex-direction: column; gap: 4px; min-width: 0")}>
               <h1 {...S(`margin: 0; font-family: ${I($s0?.titleFam)}; font-size: ${I($s0?.h1Fs)}; font-weight: 600; letter-spacing: ${I($s0?.t?.hTrack)}; text-transform: ${I($s0?.t?.hCase)}; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis`)}>
-                {"Good afternoon, Chanelica"}
+                {$s0?.greeting}
               </h1>
               <p {...S(`margin: 0; color: ${I($s0?.t?.mutedFg)}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis`)}>
                 {T($s0?.greetLine)}
@@ -472,7 +487,7 @@ function render($s0, host) {
                         </>) : null}
                         {$s1?.a?.isDate ? (<>
                           <div {...S(`width: ${I($s1?.a?.dw)}; flex: 0 0 ${I($s1?.a?.dw)}; margin-left: ${I($s1?.a?.ml)}`)}>
-                            <SDatePicker value={""} placeholder={"Add date"} size={"sm"} align={"end"} label={"Dramamine pay by date"} onChange={$s1?.a?.setDate} color={$s1?.eff} dark={$s1?.dark} />
+                            <SDatePicker value={""} placeholder={"Add date"} size={"sm"} align={"end"} label={$s1?.a?.dateLabel} onChange={$s1?.a?.setDate} color={$s1?.eff} dark={$s1?.dark} />
                           </div>
                         </>) : null}
                         {$s1?.a?.isLink ? (<>
@@ -644,13 +659,13 @@ function render($s0, host) {
                     <span className={"a-pulse"} {...S($s0?.skTile)} />
                   </div>
                 </>) : null}
-                {$s0?.isSample ? (<>
+                {$s0?.hasWeekHint ? (<>
                   <a href={H("SPayments.dc.html")} className={"tr"} {...S(`--hvr: ${I($s0?.t?.fillHover)}; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.tile)}; color: ${I($s0?.t?.fg)}; text-decoration: none`)}>
                     <svg width={"15"} height={"15"} viewBox={"0 0 24 24"} fill={"none"} stroke={$s0?.t?.mutedFg} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 15px")}>
                       <path d={"M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"} />
                     </svg>
                     <span {...S("flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
-                      {"Next week, Nioxin pays $1,200 on Monday"}
+                      {$s0?.weekHint}
                     </span>
                   </a>
                 </>) : null}
@@ -1034,7 +1049,7 @@ function render($s0, host) {
           <div {...S("position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 88")}>
             <button type={"button"} aria-label={"Close menu"} className={"a-fade"} onClick={$s0?.closeNav} {...S(`position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: ${I($s0?.t?.overlay)}; cursor: default`)} />
             <div className={"a-drawer"} {...S(`position: absolute; top: 0; bottom: 0; left: 0; width: 288px; max-width: 86%; overflow-y: auto; box-shadow: ${I($s0?.t?.shPop)}`)}>
-              <SSidebar active={"overview"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} />
+              <SSidebar account={$s0?.account} active={"overview"} color={$s0?.eff} dark={$s0?.dark} drawer={true} plan={$s0?.plan} fresh={$s0?.sbFresh} onClose={$s0?.closeNav} />
             </div>
           </div>
         </>) : null}
@@ -1073,8 +1088,8 @@ function render($s0, host) {
           })}
         </div>
         <SPraise data={$s0?.praise} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closePraise} />
-        <SAddDeal open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
-        <SCommand open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
+        <SAddDeal dealsThisYear={$s0?.account?.dealsThisYear} open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
+        <SCommand account={$s0?.account} open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
         <SAppearance open={$s0?.appear} theme={$s0?.look?.theme} mode={$s0?.look?.mode} sidebar={$s0?.look?.sidebar} dark={$s0?.dark} onSet={$s0?.setLook} onClose={$s0?.closeAppear} />
         <SAssistant embedded={true} nameFirst={$s0?.asstName} empty={$s0?.isEmpty} hidden={$s0?.chatHidden} askId={$s0?.askId} askText={$s0?.askText} color={$s0?.eff} dark={$s0?.dark} />
       </div>

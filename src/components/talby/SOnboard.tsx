@@ -278,7 +278,7 @@ class Component extends DCLogic {
       dealLineSt: phone ? 'flex: 1 1 auto; min-width: 0; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere' : 'flex: 1 1 auto; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis',
       dealBrand: hasDeal ? deal.brand : '', dealInit: hasDeal ? deal.brand.charAt(0).toUpperCase() : '', dealAmt: hasDeal ? fmt(deal.amt) : '',
       add: st.add, closeAdd: function () { self.setState({ add: '' }); },
-      onCreated: function (info) { var d0 = info && info.deals && info.deals[0]; self.setState({ add: '', deal: d0 ? { brand: d0.brand, amt: d0.amt || 0 } : { brand: 'Lumen and Lark', amt: 6000 } }); },
+      onCreated: function (info) { if (info) self.emit(info.kind === 'deal' ? 'deal.create' : 'deals.import', info, 'Could not save the deal'); var d0 = info && info.deals && info.deals[0]; self.setState({ add: '', deal: d0 ? { brand: d0.brand, amt: d0.amt || 0 } : { brand: 'Lumen and Lark', amt: 6000 } }); },
       how: HOW.map(function (h, i) { return { n: String(i + 1), title: h[0], sub: h[1], delay: (0.08 + i * 0.08).toFixed(2) + 's' }; }),
       howBox: phone ? 'min-height: 76px; padding: 12px 16px' : 'height: 76px; padding: 0 18px',
       howSubSt: phone ? 'font-size: 13px; line-height: 1.4; color: ' + t.mutedFg : 'font-size: 13px; color: ' + t.mutedFg + '; white-space: nowrap; overflow: hidden; text-overflow: ellipsis',
