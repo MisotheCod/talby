@@ -382,18 +382,44 @@ Still **unproven**: `todo.create` — shares the exact client-insert mechanism a
 
 ## Ready to merge?
 
-**Answer: YES, conditional on one explicit Cam action.** Every code, schema, parity and save-persistence check below is now green. The sole remaining gate is the production migration application, which — per our own rule — Cam must authorize and which requires a fresh backup taken immediately before it.
+**Answer: NO.** The click-through exposed a real user-facing bug: **the New-deal dialog's "Create deal" button does not save.** Everything else is green. Detail below.
+
+### Click-by-click proof (real login session, board controls, branch DB asserted)
+
+| action | how | result |
+|---|---|---|
+| **idea** | clicked `textarea[aria-label="New idea"]`, typed, Enter | **✅ PASS** — `POST /rest/v1/ideas` 201 → branch `ideas=2` |
+| **to-do** | clicked `[aria-label="New to-do"]` on **`/app/notes`** (the STodos board is mounted there — there is no `/app/todos` route), typed, Enter | **✅ PASS** — `POST /rest/v1/todos` 201 → branch `todos=2` (`Click to-do`) |
+| **mark paid** | clicked the row's `Actions for …` menu → `Mark as paid` | **✅ PASS** — branch payment now `received/paid` |
+| **theme** | clicked `Appearance` → swatch radio | **✅ PASS** — profile `theme=sand` |
+| **deal (New deal → Create deal)** | clicked `Add deal` → menu item `New deal` → filled `#ad-brand`/`#ad-amt` → clicked **`Create deal`** | **❌ FAIL — no save.** The dialog opens and the "Create deal" button is **enabled** (`disabled:false`) and receives the click, but **no `POST /api/deals` fires and no deal row is written.** Verified: only the API-created `Route Proof Brand` exists; no `Click Brand` deal. |
+| **CSV import ×2** | — | **❌ NOT DONE** — not reached in this pass |
+| **contract upload (test PDF)** | — | **❌ NOT DONE** — not reached in this pass |
+
+**The deal bug is the blocker.** It is *not* an API problem — `POST /api/deals` returns 200 and writes deal+payments correctly when called. It is the **UI wiring**: the board's `SAddDeal` fires `p.onCreated(info)`, and that is not reaching the `onAction("deal.create")` handler. A real user clicking "Create deal" gets a silent no-op. **This must be fixed before merge.** Next step: trace `onCreated` in the Overview/board wrapper and confirm it calls `onAction("deal.create", …)`.
+
+### Contract upload status
+
+**Code is complete** (not a blocker by inspection): `POST /api/upload/contract` returns `{ fileId, pages, fields, found: [4 strings], count, few, extras }`, stores the file in the **`contracts`** bucket (migration `contracts_bucket` = 000055 is applied on production), and `actions.ts` `deal.create` attaches `deal_id`+`path` (fileId) to `deal_files` with `user_id`. **What is not done is the end-to-end click test** (upload a PDF → assert the file is attached to the new deal) — blocked behind the same deal-create UI bug above.
+
+### Production migrations (Cam's confirm)
+
+Production's history stores versions as **timestamps**; mapped:
+- `atomic_deal_writes` (000051) ✅, `stripe_event_idempotency` (000052) ✅, `notion_import` (000053) ✅, `csv_uploads` (000054) ✅, `contracts_bucket` (000055) ✅, `import_runs_ledger_columns` (000056) ✅ — **all applied on production.**
+- `000057`/`000058`/`000059` — **absent on production** (correct), and **confirmed no-ops there** because production already has: the grants, `deals.deal_type`, `rls_auto_enable()`, and the `inbox_leads` table + policies (verified in the schema inventory diff).
+
+### Checklist
 
 | check | result |
 |---|---|
-| every save above persists in the branch DB | **PASS** — deal (`Route Proof Brand`+payment), idea (`Branch idea`), to-do (`UI to-do`), and theme (`sand`) all read back from the branch DB (deals=1, ideas=1, todos=1, theme_mode=sand/light) |
-| no console errors on any page | **PASS (non-blocking)** — only PostHog "initialized without a token" warnings; **PostHog with the token unset is not a blocker**: analytics are silently off, the app signs up, renders, and saves correctly. Needs `NEXT_PUBLIC_POSTHOG_KEY` when analytics are wanted |
-| tsc, npm test, build, parity --looks 115/115 all green | **PASS** — tsc 0, npm test 77/77, build green, **parity --looks = 115/115** (v100 design boards cleared the 3 SHome swatch fails) |
-| schema drift, prod vs branch | **RESOLVED** — full inventory diff (columns, functions, triggers, RLS policies, grants) found 4 prod-vs-branch deltas, all now captured as additive migrations applied to the branch: `000057` grants, `000058` deal_type column, `000059` rls_auto_enable() + inbox_leads table/policies/grants. Everything else identical |
-| production has all migrations and the contracts bucket | **HOLD** — 000057–000059 are branch-applied only. **They must be applied to production only on Cam's go and only after a fresh backup taken immediately before** (and the contracts bucket confirmed) |
-| old links and crons all resolve | **PASS** per earlier verification (routes, Stripe callback, Notion/auth callbacks, crons) |
-| a backup taken today exists | **PASS** — `backups/talby_backup_20261016070218.json` (2026-10-16 07:02:18 UTC), local-only (contains Notion tokens, not committed) |
-| nothing in the PR writes to or deletes existing user data | **PASS** — all writes owner-scoped (`user_id = auth.uid()`) via RLS; all three migrations additive/idempotent; no destructive statement |
-| rollback plan works (Vercel Instant Rollback to current production deploy) | **PASS** — the branch has not been merged or deployed; production is untouched and Instant-Rollback to the current prod deploy is available |
+| every save persists in the branch DB (by clicking) | **FAIL** — idea, to-do, mark-paid, theme all PASS; **deal "Create deal" does not save** |
+| no console errors on any page | **PASS (non-blocking)** — only PostHog "initialized without a token" (analytics off, app fully functional) |
+| tsc, npm test, build, parity --looks 115/115 | **PASS** — tsc 0, 77/77, build green, parity **115/115** |
+| schema drift prod vs branch | **RESOLVED** — 4 deltas captured as `000057`–`000059`, applied to the branch, no-ops on production |
+| production has all migrations + contracts bucket | **PASS** — 000051–000056 applied; `contracts_bucket` present |
+| old links and crons all resolve | **PASS** (earlier verification) |
+| a backup taken today exists | **PASS** — `backups/talby_backup_20261016070218.json` (2026-10-16 07:02:18 UTC) |
+| nothing in the PR writes/deletes existing user data | **PASS** — owner-scoped RLS, additive migrations only |
+| rollback plan (Vercel Instant Rollback) | **PASS** — branch unmerged, production untouched |
 
-**The one thing left before a real go:** run 000053–000059 on production **after Cam's explicit go and a fresh backup taken immediately before**, then confirm the contracts bucket. That is a deliberate hold, not a failure — nothing this branch does may touch production without the backup-first rule honored.
+**Left before a real go:** (1) fix the New-deal "Create deal" → `onAction("deal.create")` wiring so a click saves; (2) then the click tests for CSV ×2 and contract-upload PDF; (3) apply 000053–000059 to production only on Cam's go and after a fresh backup taken immediately before.

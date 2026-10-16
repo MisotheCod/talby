@@ -39,7 +39,8 @@
           "#sidehustletok",
           "#talby"
         ],
-        "uses": 4
+        "uses": 5,
+        "last_used": "2026-10-16"
       },
       {
         "id": "tik_niche_tools",
@@ -97,7 +98,8 @@
           "#moneycreator",
           "#sidehustle"
         ],
-        "uses": 4
+        "uses": 5,
+        "last_used": "2026-10-16"
       },
       {
         "id": "ig_tools_ops",
@@ -127,7 +129,8 @@
           "#contentcreators",
           "#uctips"
         ],
-        "uses": 8,
+        "uses": 9,
+        "last_used": "2026-10-16",
         "winner": true,
         "winner_note": "2026-10-11 weekly: attributable to the 10-01 YT Shorts post (id 6abe7671c4ee1d4d09e12289) = 273 views \u2014 the only YT hashtag-set with a clean three-digit attribution this week, and it rode the stop_forgetting_deliverables winner. The only lean that's defensible on YouTube right now."
       },

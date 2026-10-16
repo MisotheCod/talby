@@ -1,0 +1,16 @@
+{
+  "notes": [
+    "DEAL ERR: locator.fill: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByRole('dialog').first().locator('#ad-brand')\n",
+    "TODO ERR: locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByLabel('New to-do')\n",
+    "idea: typed + Enter",
+    "theme radios=10",
+    "PAID ERR: locator.click: Timeout 5000ms exceeded.\nCall log:\n  - waiting for getByLabel('Actions for Click Brand').first()\n"
+  ],
+  "posts": [
+    {
+      "key": "/rest/v1/ideas",
+      "body": "{\"user_id\":\"0fef7fc8-65a3-4466-a2cf-33f279cc6114\",\"title\":\"Click idea\",\"status\":\"unsorted\"}",
+      "status": 201
+    }
+  ]
+}

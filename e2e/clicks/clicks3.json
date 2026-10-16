@@ -1,0 +1,9 @@
+{
+  "notes": [
+    "CALENDAR dump: {\"inputs\":[],\"btns\":[\"B\",\"\",\"Search everythin\",\"\",\"\",\"Add deal\",\"Add to calendar\",\"Today\",\"\",\"\",\"Posts\",\"Deliverables\"]}",
+    "no to-do input on calendar",
+    "Create deal button state: {\"disabled\":false,\"cls\":\"tb tp\"}",
+    "mark paid clicked (Route Proof Brand)"
+  ],
+  "posts": []
+}

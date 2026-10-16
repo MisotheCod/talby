@@ -1,0 +1,11 @@
+{
+  "notes": [
+    "menuitems after Add deal: 3 -> [\"New dealStart from scratch\",\"UploadContract or CSV\",\"NImport from NotionConnect and pull deals\"]",
+    "deal dialog opened: true",
+    "deal: Create deal clicked",
+    "TODOS page dump: {\"inputs\":[],\"btns\":[],\"url\":\"/app/todos\"}",
+    "todo input used: null",
+    "no Actions for Click Brand; buttons: [{\"t\":\"B\",\"aria\":\"Account menu\"},{\"t\":\"\",\"aria\":\"Toggle sidebar\"},{\"t\":\"Search everything⌘K\",\"aria\":\"\"},{\"t\":\"\",\"aria\":\"Appearance\"},{\"t\":\"\",\"aria\":\"Notifications\"},{\"t\":\"Add deal\",\"aria\":\"\"},{\"t\":\"Export\",\"aria\":\"\"},{\"t\":\"All1\",\"aria\":\"\"},{\"t\":\"In progress1\",\"aria\":\"\"},{\"t\":\"Negotiating0\",\"aria\":\"\"},{\"t\":\"Paid0\",\"aria\":\"\"},{\"t\":\"Archived0\",\"aria\":\"\"},{\"t\":\"Payment\",\"aria\":\"Filter by payment\"},{\"t\":\"Columns3\",\"aria\":\"\"},{\"t\":\"\",\"aria\":\"Select all on this page\"},{\"t\":\"Brand\",\"aria\":\"\"},{\"t\":\"Amount\",\"aria\":\"\"},{\"t\":\"\",\"aria\":\"Select Route Proof Brand\"}]"
+  ],
+  "posts": []
+}
