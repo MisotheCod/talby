@@ -133,7 +133,8 @@ export function guessField(name: string): string {
   if (/status|stage|state/.test(n)) return "status";
   if (/paid|payment|terms|schedule/.test(n)) return "pay";
   if (/platform|channel|where/.test(n)) return "plats";
-  if (/rep|contact|email|manager/.test(n)) return "repEmail";
+  // Check repEmail first (more specific: includes "email")
+  if (/email/.test(n) && /rep|contact|manager/.test(n)) return "repEmail";
   if (/rep|contact|manager|owner/.test(n)) return "rep";
   if (/note|comment|remark|detail/.test(n)) return "notes";
   return "skip";

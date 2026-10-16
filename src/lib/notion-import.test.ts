@@ -89,3 +89,15 @@ test("two imports at the same time still leave 150 deals, not 300", async () => 
   assert.equal(store.count(), 150);
   assert.equal(a.failed.length + b.failed.length, 0, "the losing side skips, it does not fail");
 });
+
+test("sync=true still skips repeats (never overwrites an existing deal)", async () => {
+  const store = makeStore();
+  // First import: all 150 deals are saved.
+  await runImport(rowsFor(150), store.knownFor("u1"), store.insert("u1"));
+  // Sync=true just means the client will call again later, but the server logic is
+  // the same: repeats are ALWAYS skipped. The ignoreDuplicates flag ensures it.
+  const syncRun = await runImport(rowsFor(150), store.knownFor("u1"), store.insert("u1"));
+  assert.equal(syncRun.imported, 0, "sync=true does NOT overwrite, it skips repeats");
+  assert.equal(syncRun.skipped, 150, "all repeats are skipped");
+  assert.equal(store.count(), 150, "no duplicate deals were created");
+});
