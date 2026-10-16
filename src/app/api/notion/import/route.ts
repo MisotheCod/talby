@@ -105,7 +105,7 @@ export async function POST(req: Request) {
 
     if (runId) {
       await supabase.from("import_runs").update({
-        finished_at: new Date().toISOString(), total, imported, skipped, failed: totals.failed.length,
+        finished_at: new Date().toISOString(), total, imported, skipped, failed: totals.failed.length, status: "done",
       }).eq("id", runId);
     }
     return NextResponse.json({ imported, skipped, failed: totals.failed, booked: totals.booked });
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
     console.error("notion import error", e);
     if (runId) {
       await supabase.from("import_runs").update({
-        finished_at: new Date().toISOString(), total, imported: 0, skipped: 0, failed: 1, error: reason,
+        finished_at: new Date().toISOString(), total, imported: 0, skipped: 0, failed: 1, error: reason, status: "failed",
       }).eq("id", runId);
     }
     return NextResponse.json({ code }, { status: code === "notion_lost" ? 401 : 502 });

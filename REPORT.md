@@ -209,3 +209,63 @@ The redesigned boards have never rendered against a real account's actual data, 
 | sv2.1792082853200@talby.test | 2026-10-15 | 2026-10-15 | 0 | trialing | yes | sv2 |
 
 No deletes, edits or merges were performed. Real-account counts will be recounted once Cam marks table A.
+
+---
+
+# Production readiness — what to do before deploying
+
+Derived by reading production's **actual schema**, not by assuming it matches the branch. That check turned up a blocker that would otherwise have shipped silently.
+
+## A. Schema — the only hard blockers (all additive, all branch-only today)
+
+| # | Migration | What it adds | Why |
+|---|---|---|---|
+| 1 | `000053_notion_import.sql` | `deals.notion_page_id` + per-user unique index, `import_runs`, RLS | Notion repeats need to be remembered per page |
+| 2 | `000054_csv_uploads.sql` | `import_uploads` table + RLS | CSV step one keeps the parsed file server side |
+| 3 | `000055_contracts_bucket.sql` | `contracts` bucket + owner-scoped policies | contract upload stores the original file; its path is the `fileId` |
+| 4 | **`000056_import_runs_ledger_columns.sql`** | `import_runs.total`, `.imported`, `.skipped`, `.status` | **See below — this one is a trap** |
+
+### The trap (caught by checking, not assuming)
+
+Production **already has** an older `import_runs`: `added, error, failed, finished_at, id, idempotency_key, payments, posts, source, source_name, started_at, status, updated, user_id`. It has **no `total`, `imported` or `skipped`**.
+
+Because `000053` creates that table with `create table if not exists`, applying it to production is a **no-op** — it would not add the missing columns. The import routes write those three on completion, so without `000056` **every import run would silently stay `status='running'` with no totals**: the import works, the ledger lies. `000056` also adds `status` to the branch's copy (which lacked it), so both schemas now agree, and the routes set `status='done'` / `'failed'` explicitly.
+
+### Verified will NOT break
+
+- `deals` columns that are `NOT NULL` with no default: **only `brand` and `user_id`** — both are set by every import path.
+- `deal_files (deal_id, name, path, size_bytes, …)` matches what `deal.create` inserts.
+- `notion_connections` exists with `workspace_name`, so `/api/notion/status` and disconnect work.
+- Every `NOT NULL` on the existing `import_runs` has a default except `source` and `user_id`, both provided by our insert.
+- `profiles` already has every column the boards read (`tour_seen`, `theme`, `mode`, `sidebar`, `handler`, `plan_status`).
+
+## B. Config only you can do
+
+1. **Notion integration redirect URI** → the production domain, and `NOTION_CLIENT_ID` / `NOTION_CLIENT_SECRET` / `NOTION_REDIRECT_URI` present in Vercel **Production**. (They already are; the redirect URI must match the deployed host or the OAuth window returns `notion_denied`.)
+2. **Confirm the `contracts` and `deal-files` buckets** exist in production storage with the right policy (000055 creates `contracts`; `deal-files` is pre-existing).
+
+## C. Order of operations
+
+1. **Fresh production backup** (the standing rule; the last one predates 000051/000052).
+2. Apply **000053 → 000054 → 000055 → 000056** to production. All additive; no existing column changes shape.
+3. Deploy **one branch at a time, full suite first** (`tsc` 0 · `npm test` 68/68 · build · parity `--looks` 115/115).
+4. Smoke-test as below before telling anyone it's live.
+
+## D. Verify after deploy
+
+- Sign in with a **test account** first: pages load, a deal creates/edits/saves.
+- Check the two `tour_seen`-unset real accounts land on **Overview**, not Welcome.
+- **CSV import twice** — the first adds the rows, the second adds nothing.
+- **Contract upload** — deal is created *and* the file attaches (this is the one that fails silently without `000055`).
+- Watch `import_runs`: rows should reach `status='done'` with totals.
+
+## E. Rollback
+
+Revert the merge commit. The database changes are purely additive, so nothing needs undoing for the app to serve the old UI; drop the three new objects only if you want a clean slate.
+
+## F. Optional, to make it better than it is now
+
+1. **Surface a failed import.** The `import_runs` ledger now records failures but nothing reads it back. A one-line admin query (or a banner) would turn a silent failure into a visible one.
+2. **Two orphaned files** — `payments/income-summary.tsx` and `income-periods.ts` are no longer imported by anything. Dead code; safe to delete.
+3. **The assistant and Notion have never been exercised end-to-end in production.** Unit tests and route contracts are solid, but neither has run against a real Notion workspace or a real account.
+4. **Preview safety, permanently:** today only `talby-redesign-v2` is overridden to the branch database. Any *new* branch still inherits the shared production `NEXT_PUBLIC_SUPABASE_URL`. Worth making dev/preview use a non-production project by default rather than per-branch overrides.

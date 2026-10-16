@@ -160,7 +160,7 @@ async function stepTwo(req: Request, supabase: Supa, userId: string) {
 
     if (runId) {
       await supabase.from("import_runs").update({
-        finished_at: new Date().toISOString(), total: preview.length, imported, skipped, failed: failed.length,
+        finished_at: new Date().toISOString(), total: preview.length, imported, skipped, failed: failed.length, status: "done",
       }).eq("id", runId);
     }
     return NextResponse.json({ imported, skipped, booked, failed });
@@ -169,7 +169,7 @@ async function stepTwo(req: Request, supabase: Supa, userId: string) {
     if (runId) {
       await supabase.from("import_runs").update({
         finished_at: new Date().toISOString(), total: preview.length, imported, skipped,
-        failed: failed.length + 1, error: "Talby could not read that file.",
+        failed: failed.length + 1, error: "Talby could not read that file.", status: "failed",
       }).eq("id", runId);
     }
     return NextResponse.json({ code: "unreadable" }, { status: 502 });
