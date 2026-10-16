@@ -317,6 +317,41 @@ To finish this properly the harness needs the boards' real control selectors (`d
 
 ### Backup / production-change rule (2026-10-16)
 
-Cam has taken a fresh production backup. **I could not find it on disk** — the `backups/` directory still shows `talby_backup_20261015_134002.json` (2026-10-15 13:40) as its newest file, and that predates `000051`–`000056`. Cam, please confirm where the new backup is (a different folder, a download, Supabase dashboard export) so it is recorded.
+Earlier I was told a fresh production backup existed but could not find it on disk (`backups/` newest was 2026-10-15 13:40). That was then confirmed to be a wording error — no backup existed yet. **I took one myself** with the new `scripts/backup.cjs` — see below (`2026-10-16 07:02:18 UTC`). Cam is also checking the Supabase dashboard retentions and will give the latest platform-backup time separately.
 
 **Standing rule from now on, agreed:** no production change of any kind without a backup taken immediately before it. Applies to migrations, data edits, and deploys that touch production.
+
+---
+
+### Production backup taken (2026-10-16)
+
+Run against **production** (`agfdhxtfhywickcagvaa`) with a new read-only script, `scripts/backup.cjs` (service-role REST export, key read in-process and never printed):
+
+- **File:** `backups/talby_backup_20261016070218.json`
+- **Time:** 2026-10-16 **07:02:18 UTC**
+- **Contents:** profiles 44, deals 128, payments 211, content 143, deal_files 16, inbox_leads 82, todos 8, ideas 4, notion_connections 2, plus the other tracked tables.
+- This is the first backup taken since `000051`–`000056`, so the record now runs: **backup → then any future production change**, per the standing rule.
+
+### Branch click-through (2026-10-16) — local build pointed at the Supabase branch
+
+Built and started locally with `.env.branch` (URL `onngocpwfoeqyqmuuglq.supabase.co` + its publishable key). **Confirmed the running app targeted the branch before starting:** a grep of the served JS chunks found `onngocpwfoeqyqmuuglq.supabase.co` once and **zero** references to production. Screenshots: `e2e/clickthrough-branch/`.
+
+Verification rationale: the production backup had just been taken; running the walk against production data was off the table, and the preview is still Vercel-SSO gated (no bypass token reachable), so the branch build was the only safe target.
+
+| step | result |
+|---|---|
+| sign up (branch) | ✅ new account created on the branch, → `/onboarding` |
+| `/onboarding` | ✅ walked past step 1 (`#ob-handle` + Continue); coach tour reached `/app` |
+| Overview on `/app` | ✅ renders (`03-overview.png`, `20-app-with-tour.png`) |
+| **First-run coach tour** | ⚠️ appears for a new account and **covers the whole screen**; its "Skip tour" did not dismiss from my driver, and every top action was obscured until dealt with (`20` vs `21`) |
+| New deal dialog | ✅ opens with `role="dialog"`, `#ad-brand`, `#ad-amt` (`22-new-deal-open`, `23-deal-filled`) |
+| **Deal save** | ❌ **not verified — nothing persisted.** DB query on the branch for that account returned **deals=0**; my submit-button selection clicked but no row was written. Selector issue (which button is the real submit) or a real save-path failure — **unresolved, not assumed.** |
+| **To-do add** | ❌ **not verified — nothing persisted.** Earlier run showed the row in a screenshot (`09-todo-added.png`) but the branch shows **todos=0**. |
+| Theme / dark mode | ❌ Appearance control (`aria-label="Appearance"` exists) — driver timed out before the dialog opened. |
+| CSV ×2, contract upload, mark paid, add an idea, sign out | ❌ not driven — budget and selector coverage ran out before these. |
+
+**Bottom line:** the branch build signs up and renders the new UI correctly, and the New deal dialog's real inputs exist and accept text. But I could **not confirm any save** — no deal or to-do was written to the branch — so the write path is still **unproven** end-to-end. This needs a driven pass that clicks the exact submit control (or the board's real button hook) and then asserts the row in the branch DB.
+
+### Lighthouse — not run
+
+Local Lighthouse was the plan, but the click-through did not get far enough to justify it, and the phone preset against `/app` needs a signed-in session that already exists. Not done this pass.

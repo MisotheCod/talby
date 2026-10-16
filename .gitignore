@@ -53,3 +53,6 @@ next-env.d.ts
 # local desktop attachments
 .hermes/
 e2e/talby-parity/
+
+# production backups contain database secrets — never commit
+backups/*.json

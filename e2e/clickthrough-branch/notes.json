@@ -1,0 +1,7 @@
+[
+  "signup branch.1792134261069@talby.test -> http://localhost:3000/onboarding",
+  "post-onboarding url: http://localhost:3000/onboarding",
+  "theme: locator.click: Timeout 4000ms exceeded.\nCall log:\n  - waiting for getByText(/appearance/i).first()\n",
+  "new deal: locator.click: Timeout 4000ms exceeded.\nCall log:\n  - waiting for getByText(/add deal/i).first()\n    - locator resolved ",
+  "sign out -> http://localhost:3000/app/settings"
+]

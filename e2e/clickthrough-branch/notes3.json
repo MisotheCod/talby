@@ -1,0 +1,5 @@
+[
+  "skipped tour: false",
+  "dialog count: 1",
+  "appearance err: locator.click: Timeout 3000ms exceeded.\nCall log:\n  - waiting for getByLabel('Ap"
+]

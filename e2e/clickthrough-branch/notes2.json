@@ -1,0 +1,5 @@
+[
+  "signed in -> http://localhost:3000/app",
+  "BUTTONS: [{\"a\":\"Account menu\",\"t\":\"Bbranch@branch\"},{\"a\":\"Toggle sidebar\",\"t\":\"\"},{\"a\":\"\",\"t\":\"Search everything⌘\"},{\"a\":\"Appearance\",\"t\":\"\"},{\"a\":\"Notifications\",\"t\":\"\"},{\"a\":\"\",\"t\":\"Add deal\"},{\"a\":\"\",\"t\":\"Add deal\"},{\"a\":\"\",\"t\":\"Import\"},{\"a\":\"\",\"t\":\"Ask Talby\"},{\"a\":\"\",\"t\":\"Turn on\"},{\"a\":\"\",\"t\":\"Add one by handA b\"},{\"a\":\"\",\"t\":\"Upload a contract \"},{\"a\":\"\",\"t\":\"Import from Notion\"},{\"a\":\"\",\"t\":\"Replay the tour\"},{\"a\":\"\",\"t\":\"Ask Talby how some\"},{\"a\":\"\",\"t\":\"Change your theme\"},{\"a\":\"\",\"t\":\"Skip tour\"},{\"a\":\"\",\"t\":\"Next\"}]",
+  "new deal err: p.locator(...).evaluateAll?.catch is not a function"
+]
