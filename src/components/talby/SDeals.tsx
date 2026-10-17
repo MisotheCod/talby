@@ -356,26 +356,19 @@ class Component extends DCLogic {
       : [['Full payment', cur.amt, cur.pay === 'paid' ? (cur.payBy ? 'Received ' + md(cur.payBy) : 'Received') : (due ? 'Due ' + md(due) + (cur.pay === 'over' && lateDays > 0 ? ', ' + lateDays + ' days late' : '') : 'No due date yet'), cur.pay]];
     // Each payment's status can be changed from the panel. payOv holds the change until the page data reloads.
     sched = sched.map(function (s, j) {
-      var ov = st.payOv[cur.id + ':' + j];
+      var ov = (e.pays && e.pays[j]) || st.payOv[cur.id + ':' + j];
       if (ov) return [s[0], s[1], ov === 'paid' ? 'Received' : ov === 'inv' ? 'Invoiced' + (due ? ', due ' + md(due) : '') : (due ? 'Due ' + md(due) : 'No due date yet'), ov, s[4]];
       if (cur.pay === 'paid' && s[3] !== 'paid') return [s[0], s[1], 'Received', 'paid', s[4]];
       return s;
     });
-    var anyOv = sched.some(function (s, j) { return !!st.payOv[cur.id + ':' + j]; });
+    var anyOv = sched.some(function (s, j) { return !!((e.pays && e.pays[j]) || st.payOv[cur.id + ':' + j]); });
     var headPay = !anyOv ? cur.pay : sched.every(function (s) { return s[3] === 'paid'; }) ? 'paid' : sched.some(function (s) { return s[3] === 'over'; }) ? 'over' : sched.some(function (s) { return s[3] === 'inv' || s[3] === 'paid'; }) ? 'inv' : 'not';
     var PSO = [['not', 'Not invoiced'], ['inv', 'Invoiced'], ['paid', 'Paid']];
+    // A payment status change is an edit like any other: it shows right away and is saved with Save.
     function setPay(j, s, key) {
       self.setState({ pop: null });
       if (!self.guard() || s[3] === key) return;
-      self.write('Could not update the payment', function () {
-        self.emit('payment.setStatus', { dealId: cur.dbId, paymentId: s[4] !== undefined ? s[4] : null, index: j, state: key }, 'Could not update the payment');
-        var o = Object.assign({}, self.state.payOv); o[cur.id + ':' + j] = key;
-        var u = { payOv: o };
-        var allPaid = sched.every(function (x, y) { return y === j ? key === 'paid' : x[3] === 'paid'; });
-        if (allPaid) { var pi = Object.assign({}, self.state.paidIds); pi[cur.id] = true; u.paidIds = pi; }
-        self.setState(u);
-        self.toast(key === 'paid' ? 'Payment marked paid' : key === 'inv' ? 'Payment marked invoiced' : 'Payment marked not invoiced', s[0] + ', ' + cur.brand);
-      });
+      var pp = Object.assign({}, self.state.e.pays || {}); pp[j] = key; edit({ pays: pp });
     }
     var d = {
       brand: cur.brand, l: cur.brand.charAt(0), amount: fmt(cur.amt), statusNow: statusNow, pay: payIcon(headPay), stDot: statusNow === 'Negotiating' ? '#F59E0B' : (statusNow === 'Archived' ? t.mutedFg : '#22C55E'),
@@ -508,7 +501,14 @@ class Component extends DCLogic {
       dirty: st.dirty, notDirty: !st.dirty, saveOp: st.dirty ? '1' : '0.4', saveDot: locked ? t.mutedFg : (st.dirty ? '#F59E0B' : '#22C55E'), saveText: locked ? 'View only on your plan' : (st.dirty ? 'Unsaved changes' : 'All changes saved'),
       showMarkPaid: !st.dirty && cur.pay !== 'paid',
       cancelEdits: function () { var dp = dealParts(cur.id); self.setState({ e: {}, dirty: false, extras: dp.extras, items: dp.items, pop: null }); },
-      save: function () { if (!st.dirty) return; self.write('Could not save', function () { self.emit('deal.update', { id: cur.dbId, changes: Object.assign({}, st.e), extras: st.extras.slice(), checklist: st.items.slice() }); self.setState({ dirty: false, pop: null }); self.toast('Deal saved', cur.brand); }, 'Check your connection and try again. Your changes are still here.'); },
+      save: function () { if (!st.dirty) return; self.write('Could not save', function () {
+        var ch = Object.assign({}, st.e), epp = ch.pays || {}; delete ch.pays;
+        Object.keys(epp).forEach(function (j) { var sr = sched[+j] || []; self.emit('payment.setStatus', { dealId: cur.dbId, paymentId: sr[4] !== undefined ? sr[4] : null, index: +j, state: epp[j] }, 'Could not update the payment'); });
+        self.emit('deal.update', { id: cur.dbId, changes: ch, extras: st.extras.slice(), checklist: st.items.slice() });
+        var ep = st.e.pays || {}, u = { dirty: false, pop: null };
+        if (Object.keys(ep).length) { var o = Object.assign({}, self.state.payOv); Object.keys(ep).forEach(function (j) { o[cur.id + ':' + j] = ep[j]; }); u.payOv = o;
+          if (sched.every(function (x) { return x[3] === 'paid'; })) { var pi = Object.assign({}, self.state.paidIds); pi[cur.id] = true; u.paidIds = pi; } }
+        self.setState(u); self.toast('Deal saved', cur.brand); }, 'Check your connection and try again. Your changes are still here.'); },
       markPaid: function () { self.write('Could not mark it paid', function () { self.emit('deal.markPaid', { id: cur.dbId, amount: cur.amt }); var o = Object.assign({}, self.state.paidIds); o[cur.id] = true; self.setState({ paidIds: o, open: -1 }); self.paidPraise(cur.brand, cur.amt); }); }
     };
     var shell = {

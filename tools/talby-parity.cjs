@@ -84,6 +84,21 @@ const PROPS = ['display', 'position', 'font-family', 'font-size', 'font-weight',
       return route.abort();
     });
     await ctx.addInitScript((lk) => { try { localStorage.clear(); localStorage.setItem('talby.look', JSON.stringify(lk)); } catch (e) {} }, look);
+    if (args.now) {
+      const fixed = new Date(String(args.now)).getTime();
+      await ctx.addInitScript((FIXED) => {
+        const RealDate = Date;
+        function F() {
+          var a = arguments;
+          return a.length ? new (RealDate.bind.apply(RealDate, [null].concat(Array.prototype.slice.call(a))))() : new RealDate(FIXED);
+        }
+        F.now = function () { return FIXED; };
+        F.parse = RealDate.parse;
+        F.UTC = RealDate.UTC;
+        F.prototype = RealDate.prototype;
+        try { globalThis.Date = F; } catch (e) {}
+      }, fixed);
+    }
     const page = await ctx.newPage();
     const errs = [];
     page.on('pageerror', (e) => errs.push(e.message));

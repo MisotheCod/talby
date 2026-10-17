@@ -17,7 +17,7 @@ class Component extends DCLogic {
     super(props);
     var standalone = typeof props.onChange !== 'function';
     var v = props.value || (standalone ? '2026-11-04' : '');
-    var d = v ? new Date(v + 'T00:00:00') : new Date(2026, 9, 14);
+    var d = v ? new Date(v + 'T00:00:00') : new Date(new Date().toDateString());
     this.trig = null;
     this.state = { open: standalone, y: d.getFullYear(), m: d.getMonth(), top: 0, left: 0, val: v };
   }
@@ -68,7 +68,8 @@ class Component extends DCLogic {
     var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     var standalone = typeof p.onChange !== 'function';
     var val = standalone ? st.val : (p.value || '');
-    var TODAY = '2026-10-14';
+    function isoOf(dt) { return dt.getFullYear() + '-' + ('0' + (dt.getMonth() + 1)).slice(-2) + '-' + ('0' + dt.getDate()).slice(-2); }
+    var NOW = new Date(new Date().toDateString()), TODAY = isoOf(NOW);
     function iso(y, m, d) { var dt = new Date(y, m, d); return dt.getFullYear() + '-' + ('0' + (dt.getMonth() + 1)).slice(-2) + '-' + ('0' + dt.getDate()).slice(-2); }
     function pick(v) { if (standalone) self.setState({ val: v, open: true }); else { self.setState({ open: false }); p.onChange(v); } }
     var y = st.y, m = st.m, first = new Date(y, m, 1).getDay();
@@ -85,7 +86,7 @@ class Component extends DCLogic {
     }
     var sm = p.size === 'sm';
     var dv = val ? new Date(val + 'T00:00:00') : null;
-    var label = dv ? (MS[dv.getMonth()] + ' ' + dv.getDate() + (sm && dv.getFullYear() === 2026 ? '' : ', ' + dv.getFullYear())) : (p.placeholder || 'Pick a date');
+    var label = dv ? (MS[dv.getMonth()] + ' ' + dv.getDate() + (sm && dv.getFullYear() === new Date().getFullYear() ? '' : ', ' + dv.getFullYear())) : (p.placeholder || 'Pick a date');
     var outline = p.tone === 'outline';
     var clearable = p.clearable !== false;
     function shift(dm) { var d = new Date(self.state.y, self.state.m + dm, 1); self.setState({ y: d.getFullYear(), m: d.getMonth() }); }
@@ -106,7 +107,7 @@ class Component extends DCLogic {
           left = p.align === 'end' ? rc.right - W : rc.left; left = Math.max(8, Math.min(left, vw - W - 8));
           top = rc.bottom + 6; if (top + H > vh - 8 && rc.top - H - 6 > 8) top = rc.top - H - 6;
         } catch (e) {}
-        var d = val ? new Date(val + 'T00:00:00') : new Date(2026, 9, 14);
+        var d = val ? new Date(val + 'T00:00:00') : new Date(new Date().toDateString());
         self.setState({ open: true, top: top, left: left, y: d.getFullYear(), m: d.getMonth() });
       },
       close: function () { self.setState({ open: false }); },
@@ -115,7 +116,7 @@ class Component extends DCLogic {
       title: MONTHS[m] + ' ' + y, wd: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'], days: days,
       prev: function () { shift(-1); }, next: function () { shift(1); },
       presets: p.presets !== false,
-      quick: [['Today', '2026-10-14'], ['Tomorrow', '2026-10-15'], ['In a week', '2026-10-21']].map(function (q) { return { label: q[0], pick: function () { pick(q[1]); } }; })
+      quick: [['Today', 0], ['Tomorrow', 1], ['In a week', 7]].map(function (q) { var n = new Date(new Date().toDateString()); n.setDate(n.getDate() + q[1]); return [q[0], isoOf(n)]; }).map(function (q) { return { label: q[0], pick: function () { pick(q[1]); } }; })
     };
   }
 }

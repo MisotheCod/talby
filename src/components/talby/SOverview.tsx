@@ -267,7 +267,7 @@ class Component extends DCLogic {
       return wk <= 0 ? 'This week, ' + what + DD.DAYS[DD.weekday(u[1])] : wk === 1 ? 'Next week, ' + what + DD.DAYS[DD.weekday(u[1])] : what + md(u[1]); })();
     var upcoming = (isSample ? UP : []).map(function (u, j) { return { brand: u[0], mon: MS[+u[1].slice(5, 7) - 1], day: String(+u[1].slice(8)), amount: fmt(u[2]), when: u[3], whenFg: j === 0 ? t.fg : t.mutedFg, line: j ? ('1px solid ' + t.line) : 'none' }; });
     var openTodos = st.todos.filter(function (x) { return !x.done && (isSample || (isEmpty && x.id > 1)); });
-    var todos = openTodos.map(function (x) { var tk = !!st.ticking[x.id]; return { text: x.text, deal: x.deal, dealL: x.deal.charAt(0), on: tk, box: box(t, tk), aria: 'Mark done: ' + x.text, fg: tk ? t.mutedFg : t.fg,
+    var todos = openTodos.map(function (x) { var tk = !!st.ticking[x.id]; return { text: x.text, deal: x.deal, hasDeal: !!x.deal && x.deal !== 'No deal', dealL: (x.deal || '').charAt(0), on: tk, box: box(t, tk), aria: 'Mark done: ' + x.text, fg: tk ? t.mutedFg : t.fg,
       strike: tk ? 'a-strike' : '', size: tk ? '100% 1.5px' : '0% 1.5px', cls: tk ? 'a-gone' : 'a-in', toggle: function () { if (!self.state.ticking[x.id]) self.write('Could not update the to-do', function () { self.emit('todo.setDone', { id: x.id, done: true }); self.tickTodo(x.id); }); } }; });
     function addTodo() { var tx = (st.todoDraft || '').trim(); if (!tx) return; self.write('Could not add the to-do', function () { var cur = self.state.todos; var id = cur.reduce(function (a, x) { return Math.max(a, x.id); }, 0) + 1; self.setState({ todos: cur.concat([{ id: id, text: tx, deal: 'No deal', done: false }]), todoDraft: '' }); self.emit('todo.create', { text: tx, deal: '' }); self.toast('To-do added', tx); }); }
     var owed = DATA.owed.amount - paidSum, got = DATA.received.amount + paidSum;
@@ -936,14 +936,16 @@ function render($s0, host) {
                               {T($s1?.td?.text)}
                             </span>
                           </span>
-                          <span {...S("display: flex; gap: 6px")}>
-                            <span {...S(`display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px 0 3px; box-sizing: border-box; border: 1px solid ${I($s1?.t?.border)}; border-radius: ${I($s1?.t?.rCtl)}; font-size: 12px; font-weight: 500; white-space: nowrap`)}>
-                              <span {...S(`width: 16px; height: 16px; border-radius: 8px; background: ${I($s1?.t?.fill)}; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700`)}>
-                                {T($s1?.td?.dealL)}
+                          {$s1?.td?.hasDeal ? (<>
+                            <span {...S("display: flex; gap: 6px")}>
+                              <span {...S(`display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px 0 3px; box-sizing: border-box; border: 1px solid ${I($s1?.t?.border)}; border-radius: ${I($s1?.t?.rCtl)}; font-size: 12px; font-weight: 500; white-space: nowrap`)}>
+                                <span {...S(`width: 16px; height: 16px; border-radius: 8px; background: ${I($s1?.t?.fill)}; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700`)}>
+                                  {T($s1?.td?.dealL)}
+                                </span>
+                                {T($s1?.td?.deal)}
                               </span>
-                              {T($s1?.td?.deal)}
                             </span>
-                          </span>
+                          </>) : null}
                         </span>
                       </div>
                     </React.Fragment>);
