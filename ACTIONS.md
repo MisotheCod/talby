@@ -33,7 +33,9 @@ Ids: `id` in a payload is the id you passed in `data` (your database id). Overvi
 
 | type | payload |
 |---|---|
-| `deal.update` | `{ id, changes, extras, checklist }`. `changes` holds only the fields the user edited in the panel (status, how, when, due, post, plats, repName and so on). |
+| `deal.update` | `{ id, changes, extras, checklist }`. `changes` holds only the fields the user edited in the panel: status (`Active`, `Negotiating`, or `Archived` which means archive the deal), how, when (`Net 30` and so on), due, post, amt (text like "6,000"), plats, types, rev, repName, repEmail, repPhone, notes. `extras` is the full list `[{ type, value }]` and `checklist` the full list `[{ text, done }]`: replace what is stored. |
+| `payment.setStatus` | `{ dealId, paymentId, index, state }`: sent on Save for each payment whose status changed in the deal panel schedule. state is `not`, `inv` or `paid`. `paymentId` is the `payments[].id` you passed in (null when you sent none, then use `index`). When every payment is paid, mark the deal paid too. |
+| `payment.setDate` | `{ dealId, paymentId, index, date }`: one payment's due date (or received date when paid) was picked in the schedule. `date` is ISO or "" when cleared. With a single payment the panel edits the deal's due date instead (sent in `deal.update` as `due`). |
 | `deal.markPaid` | `{ id, amount }` |
 | `deal.duplicate` | `{ id }` |
 | `deal.archive` / `deal.unarchive` | `{ id }` (unarchive is the toast's Undo) |
@@ -108,3 +110,11 @@ How it works:
 ## The assistant (SAssistant)
 
 The assistant answers from a small set of sample answers in its logic class. Replace that function with a call to your assistant endpoint (backend item 12) and keep the reply shape `{ text, label, href }`.
+
+## Deal files (Files tab and the Invoice row)
+
+Pass the deal's files in `DealRow.files` (see `_data.ts`); the contract saved from the New deal dialog belongs there with kind `contract`. Uploads from the panel call `uploadDealFile(file, { dealId, kind })` on the same `setTalbyIO` object: store the file, add a `deal_files` row, and return `{ id, name, kind, url, date }`. `kind` is `auto` when the user left File type on Auto: decide contract or invoice yourself. Without `uploadDealFile` the buttons only show a hint.
+
+## Upgrade link
+
+The trial card in the sidebar links to the board name `SUpgrade`. Map it in `setTalbyRoutes` to a route (for example `/upgrade`) that starts Stripe Checkout for Unlimited and redirects there.

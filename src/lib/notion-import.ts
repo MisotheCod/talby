@@ -63,7 +63,7 @@ export type ImportRow = {
 };
 
 export type Failed = { id: string; brand: string; amount: number; reason: string };
-export type InsertResult = { error?: { code?: string } | null };
+export type InsertResult = { error?: { code?: string; message?: string } | null };
 
 export type ImportTotals = { imported: number; skipped: number; failed: Failed[]; booked: number };
 
@@ -105,7 +105,7 @@ export async function runImport(
         skipped++;
         continue;
       }
-      failed.push({ id: row.notionId, brand: row.brand, amount: row.amount, reason: "Talby could not save that row." });
+      failed.push({ id: row.notionId, brand: row.brand, amount: row.amount, reason: error.message || "Talby could not save that row." });
       continue;
     }
     known.add(row.notionId);

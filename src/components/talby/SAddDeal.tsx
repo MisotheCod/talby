@@ -540,7 +540,7 @@ class Component extends DCLogic {
     var PF = ioRes ? (ioRes.failed || []).map(function (x) { return [x.id, x.brand, '', 'Active', Number(x.amount) || 0, 0, '', x.reason || 'It did not save']; }) : (csvPart ? D.CSV_FAIL : D.NOTION_FAIL);
     var ioDl = ioNF === 1 ? ' deal' : ' deals';
     var pt = { title: ioRes ? ioRes.imported + ' of ' + (ioRes.imported + ioNF) + ' deals imported' : csvPart ? '12 of 15 deals imported' : '4 of 6 deals imported',
-      sub: ioRes ? (csvPart ? 'The connection dropped while saving ' + ioNF + ioDl + '. Try again to bring ' + (ioNF === 1 ? 'it' : 'them') + ' in.' : 'Notion stopped answering partway, so ' + ioNF + ioDl + ' did not save. Try again to bring ' + (ioNF === 1 ? 'it' : 'them') + ' in.')
+      sub: ioRes ? 'Talby could not save ' + ioNF + ioDl + '. Try again to bring ' + (ioNF === 1 ? 'it' : 'them') + ' in. Nothing was changed in ' + (csvPart ? 'your file.' : 'Notion.')
         : csvPart ? 'The connection dropped while saving 3 deals. Try again to bring them in.' : 'Notion stopped answering partway, so 2 deals did not save. Try again to bring them in.',
       note: (ioRes ? 'The ' + ioRes.imported : csvPart ? 'The 12' : 'The 4') + ' that came in are on your Deals page. Trying again will not add them twice.',
       rows: PF.map(function (r, i) { return { brand: r[1], why: r[7], amount: fmt(r[4]), rowStyle: i ? k.rowT : k.row }; }) };

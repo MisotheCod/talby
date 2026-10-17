@@ -11,7 +11,7 @@ const CATALOG = [
   "deal.restore", "deal.setPayBy", "deal.unarchive", "deal.update", "deals.bulk",
   "deals.import", "event.create", "event.setDone", "idea.create", "idea.delete",
   "idea.restore", "idea.star", "look.update", "notifications.update", "notion.disconnect",
-  "password.update", "payment.markPaid", "payment.record", "payment.setStatus", "photo.remove", "photo.update",
+  "password.update", "payment.markPaid", "payment.record", "payment.setDate", "payment.setStatus", "photo.remove", "photo.update",
   "profile.update", "todo.create", "todo.delete", "todo.restore", "todo.setDone",
 ];
 /** Handled before the switch (pre-guard fast paths), so no case needed. */
