@@ -1659,7 +1659,7 @@ function render($s0, host) {
                 <div className={"a-in"} {...S("display: flex; flex-direction: column; align-items: stretch; gap: 22px; padding-top: 18px")}>
                   <div {...S("display: flex; align-items: center; justify-content: center; gap: 14px; padding: 26px 0 18px")}>
                     <span {...S(`width: 60px; height: 60px; box-sizing: border-box; border-radius: ${I($s0?.t?.rCard)}; background: #FFFFFF; border: 1px solid #E5E5E5; color: #191919; display: inline-flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 28px; font-weight: 700; box-shadow: 0 8px 20px -10px rgba(0,0,0,0.25)`)}>
-                      <img src="/logo-notion.png" alt="Notion" style="width:100%;height:100%;object-fit:contain;display:block;box-sizing:border-box;border-radius:inherit"/>
+                      <img src="/logo-notion.png" alt="Notion" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', boxSizing: 'border-box', borderRadius: 'inherit' }}/>
                     </span>
                     <span {...S("display: inline-flex; align-items: center; gap: 6px")}>
                       <span className={"a-pulse"} {...S(`width: 6px; height: 6px; border-radius: 3px; background: ${I($s0?.t?.borderStrong)}`)} />
@@ -1985,7 +1985,7 @@ function render($s0, host) {
                     </>) : null}
                     {$s0?.foot?.notion ? (<>
                       <span {...S("width: 18px; height: 18px; box-sizing: border-box; border-radius: 4px; background: #FFFFFF; color: #191919; display: inline-flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 12px; font-weight: 700")}>
-                        <img src="/logo-notion.png" alt="Notion" style="width:100%;height:100%;object-fit:contain;display:block;box-sizing:border-box;border-radius:inherit"/>
+                        <img src="/logo-notion.png" alt="Notion" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', boxSizing: 'border-box', borderRadius: 'inherit' }}/>
                       </span>
                     </>) : null}
                     {T($s0?.foot?.nextLabel)}
