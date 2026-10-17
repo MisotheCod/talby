@@ -38,7 +38,7 @@ class Component extends DCLogic {
       added: [], removed: {}, archived: {}, paidIds: {}, invIds: {}, extraPaid: 0, payOv: {}, newFiles: {},
       open: props.start === 'deal' ? 6 : -1, sTab: 'details', acc: 'payment', sheetMenu: false, pop: null,
       e: {}, dirty: false, extras: [], items: [], draft: '', ftype: 'auto', ticking: {},
-      add: props.start === 'new' ? 'new' : '', cmd: props.start === 'cmd', selMode: false
+      add: props.start === 'new' ? 'new' : props.start === 'notion' ? 'notion' : props.start === 'upload' ? 'upload' : '', cmd: props.start === 'cmd', selMode: false
     });
   }
   componentDidMount() {
@@ -450,7 +450,7 @@ class Component extends DCLogic {
       repEmail: e.repEmail !== undefined ? e.repEmail : (cur.repEmail || ''), setRepEmail: function (ev) { edit({ repEmail: ev.target.value }); },
       repPhone: e.repPhone !== undefined ? e.repPhone : (cur.repPhone || ''), setRepPhone: function (ev) { edit({ repPhone: ev.target.value }); },
       hStatusOpen: st.pop === 'hstatus', popHStatus: pop('hstatus'), hStatusOpts: opts(['Negotiating', 'Active'], statusNow, 'status'),
-      minH: mob ? '100vh' : '980px', barPad: mob ? '12px 12px 8px' : '14px 14px 12px',
+      minH: mob ? '100vh' : '980px', autoNotion: st.add === 'notion' && this.props.start === 'notion', barPad: mob ? '12px 12px 8px' : '14px 14px 12px',
       tabs: tabs, viewOpen: st.viewOpen, toggleView: function () { self.setState({ viewOpen: !self.state.viewOpen, facetOpen: false }); }, viewLabel: curTab ? curTab.label : 'All deals', viewCount: curTab ? curTab.count : '',
       q: st.q, setQ: function (ev) { self.setState({ q: ev.target.value, page: 0 }); }, filterMax: mob ? 'none' : '240px',
       facetOpen: st.facetOpen, toggleFacet: function () { self.setState({ facetOpen: !self.state.facetOpen, colsOpen: false, perOpen: false, viewOpen: false }); },
@@ -2207,7 +2207,7 @@ function render($s0, host) {
           })}
         </div>
         <SPraise data={$s0?.praise} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closePraise} />
-        <SAddDeal dealsThisYear={$s0?.account?.dealsThisYear} open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
+        <SAddDeal dealsThisYear={$s0?.account?.dealsThisYear} autoConnect={$s0?.autoNotion} open={$s0?.add} locked={$s0?.lockedKind} mobile={$s0?.mob} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
         <SCommand account={$s0?.account} open={$s0?.cmd} color={$s0?.eff} dark={$s0?.dark} onClose={$s0?.closeCmd} onAction={$s0?.cmdAction} />
         <SAppearance open={$s0?.appear} theme={$s0?.look?.theme} mode={$s0?.look?.mode} sidebar={$s0?.look?.sidebar} dark={$s0?.dark} onSet={$s0?.setLook} onClose={$s0?.closeAppear} />
         <SAssistant embedded={true} nameFirst={$s0?.asstName} empty={$s0?.isEmpty} hidden={$s0?.chatHidden} askId={$s0?.askId} askText={$s0?.askText} color={$s0?.eff} dark={$s0?.dark} />

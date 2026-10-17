@@ -36,9 +36,8 @@ export async function GET(req: Request) {
   // connect only ever initiates OAuth for the currently signed-in user, so the
   // session is the more reliable identity here.
   let user_id: string | null = null;
-  // Where to return the user after the OAuth round-trip. Default into the Notion
-  // import flow (pick a database) unless an app page was explicitly requested.
-  let redirect_to: string = "/app/import?source=notion";
+  // Where to return the user after the OAuth round-trip. Default into the deal flow.
+  let redirect_to: string = "/app/deals?start=notion";
   const reqCookies = new Map<string, string>();
   for (const c of req.headers.get("cookie")?.split(";") ?? []) {
     const eq = c.indexOf("=");
@@ -64,11 +63,23 @@ export async function GET(req: Request) {
   }
 
   // Build the redirect response up front so the session cookie adapter can
-  // write straight onto it. Append the outcome flag correctly whether
-  // redirect_to already carries a query (?source=notion).
-  const withFlag = (flag: string) =>
-    `${origin}${redirect_to}${redirect_to.includes("?") ? "&" : "?"}${flag}`;
-  const res = NextResponse.redirect(withFlag("notion=error"));
+  // write straight onto it. It is a tiny HTML page, not a 302, so:
+  //  - opened as a popup (window.opener exists, e.g. the New deal dialog's
+  //    Notion step): it calls window.close() and the dialog, which is already
+  //    polling for the popup to close, then loads the databases itself.
+  //  - opened as a full page navigation: it jumps to /app/deals?start=notion.
+  const target = redirect_to.startsWith("/") && !redirect_to.startsWith("//")
+    ? origin + redirect_to
+    : origin + "/app/deals?start=notion";
+  const html =
+    '<!doctype html><html><head><meta charset="utf-8"><title>Talby</title>' +
+    '</head><body style="margin:0;background:#fff;font-family:sans-serif">' +
+    '<script>if(window.opener&&window.opener!==window){window.close()}' +
+    'else{window.location.replace(' + JSON.stringify(target) + ')}</script></body></html>';
+  const res = new NextResponse(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+  });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -131,13 +142,11 @@ export async function GET(req: Request) {
     await supabase.auth.getUser();
 
     res.cookies.delete("notion_state");
-    res.headers.set("Location", withFlag("notion=connected"));
     return res;
   } catch (e) {
     console.error("notion callback error", e);
     await supabase.auth.getUser();
     res.cookies.delete("notion_state");
-    res.headers.set("Location", withFlag("notion=error"));
     return res;
   }
 }

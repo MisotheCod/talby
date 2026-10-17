@@ -62,11 +62,12 @@ class Component extends DCLogic {
       zerr: x.zerr, few: x.few, issues: x.issues, tried: x.tried, saveErr: x.saveErr, lockStep: x.lockStep, att: '', retry: null
     };
   }
-  componentDidMount() { this._prev = { step: this.state.step, busy: this.state.busy }; this.kick(true); }
+  componentDidMount() { this._prev = { step: this.state.step, busy: this.state.busy }; this.kick(true); this.autoNotion(); }
+  autoNotion() { var p = this.props; if (p.autoConnect && p.open === 'notion' && this.io() && !this._autoDone) { this._autoDone = true; this.setState({ busy: true }); this.connectIO(false); } }
   componentDidUpdate(prev, prevState) {
     var p = this.props, ps = prevState || this._prev || {};
     this._prev = { step: this.state.step, busy: this.state.busy };
-    if (p.open !== prev.open && p.open) { this.clear(); this.setState(this.initial(p.open, p.step, !!p.frame)); return; }
+    if (p.open !== prev.open && p.open) { var self0 = this; this.clear(); this.setState(this.initial(p.open, p.step, !!p.frame), function () { self0.autoNotion(); }); return; }
     if (p.step !== prev.step && p.frame) { this.clear(); this.setState(this.initial(p.open || 'new', p.step, true)); return; }
     if (ps.step !== this.state.step || ps.busy !== this.state.busy) this.kick();
   }

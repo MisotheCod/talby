@@ -1,14 +1,19 @@
 "use client";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import TalbyDataPage from "@/components/talby-app/TalbyDataPage";
 import { TalbyDates } from "@/components/talby/_data";
 import { toDealsData } from "@/lib/talby/to-board";
 import { loadAccountContext } from "@/lib/talby/load-account";
 import type { DealRow, PaymentRow, ContentRow } from "@/lib/talby/queries";
 
-export default function DealsPage() {
+function DealsPageInner() {
+  const sp = useSearchParams();
+  const start = sp.get("start") ?? undefined;
   return (
     <TalbyDataPage
       board="SDeals"
+      start={start}
       load={async (supabase) => {
         const ctx = await loadAccountContext(supabase);
         const [d, pay, c, ex, cl, fi] = await Promise.all([
@@ -41,5 +46,13 @@ export default function DealsPage() {
         };
       }}
     />
+  );
+}
+
+export default function DealsPage() {
+  return (
+    <Suspense fallback={null}>
+      <DealsPageInner />
+    </Suspense>
   );
 }
