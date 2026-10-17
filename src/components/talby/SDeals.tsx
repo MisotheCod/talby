@@ -352,18 +352,26 @@ class Component extends DCLogic {
     var due = e.due !== undefined ? e.due : cur.payBy;
     var lateDays = due ? TalbyDates.diff(due, TODAY) : 0;
     var sched = cur.sched && cur.sched.length
-      ? cur.sched.map(function (s) { return [s.label, s.amount, s.state === 'paid' ? (s.date ? 'Received ' + md(s.date) : 'Received') : (s.date ? 'Due ' + md(s.date) + (s.state === 'over' && TalbyDates.diff(s.date, TODAY) > 0 ? ', ' + TalbyDates.diff(s.date, TODAY) + ' days late' : '') : 'No due date yet'), s.state, s.id]; })
-      : [['Full payment', cur.amt, cur.pay === 'paid' ? (cur.payBy ? 'Received ' + md(cur.payBy) : 'Received') : (due ? 'Due ' + md(due) + (cur.pay === 'over' && lateDays > 0 ? ', ' + lateDays + ' days late' : '') : 'No due date yet'), cur.pay]];
+      ? cur.sched.map(function (s) { return [s.label, s.amount, s.state === 'paid' ? (s.date ? 'Received ' + md(s.date) : 'Received') : (s.date ? 'Due ' + md(s.date) + (s.state === 'over' && TalbyDates.diff(s.date, TODAY) > 0 ? ', ' + TalbyDates.diff(s.date, TODAY) + ' days late' : '') : 'No due date yet'), s.state, s.id, s.date || '']; })
+      : [['Full payment', cur.amt, cur.pay === 'paid' ? (cur.payBy ? 'Received ' + md(cur.payBy) : 'Received') : (due ? 'Due ' + md(due) + (cur.pay === 'over' && lateDays > 0 ? ', ' + lateDays + ' days late' : '') : 'No due date yet'), cur.pay, undefined, cur.pay === 'paid' ? (cur.payBy || '') : (due || '')]];
     // Each payment's status can be changed from the panel. payOv holds the change until the page data reloads.
     sched = sched.map(function (s, j) {
+      var pd = e.payDates && e.payDates[j] !== undefined ? e.payDates[j] : (sched.length === 1 && s[3] !== 'paid' ? (due || '') : s[5]);
+      s = [s[0], s[1], s[2], s[3], s[4], pd || ''];
       var ov = (e.pays && e.pays[j]) || st.payOv[cur.id + ':' + j];
-      if (ov) return [s[0], s[1], ov === 'paid' ? 'Received' : ov === 'inv' ? 'Invoiced' + (due ? ', due ' + md(due) : '') : (due ? 'Due ' + md(due) : 'No due date yet'), ov, s[4]];
-      if (cur.pay === 'paid' && s[3] !== 'paid') return [s[0], s[1], 'Received', 'paid', s[4]];
+      if (ov) return [s[0], s[1], ov === 'paid' ? 'Received' : ov === 'inv' ? 'Invoiced' + (due ? ', due ' + md(due) : '') : (due ? 'Due ' + md(due) : 'No due date yet'), ov, s[4], s[5]];
+      if (cur.pay === 'paid' && s[3] !== 'paid') return [s[0], s[1], 'Received', 'paid', s[4], s[5]];
       return s;
     });
     var anyOv = sched.some(function (s, j) { return !!((e.pays && e.pays[j]) || st.payOv[cur.id + ':' + j]); });
     var headPay = !anyOv ? cur.pay : sched.every(function (s) { return s[3] === 'paid'; }) ? 'paid' : sched.some(function (s) { return s[3] === 'over'; }) ? 'over' : sched.some(function (s) { return s[3] === 'inv' || s[3] === 'paid'; }) ? 'inv' : 'not';
     var PSO = [['not', 'Not invoiced'], ['inv', 'Invoiced'], ['paid', 'Paid']];
+    // Each payment's date can be picked in the schedule. With one payment it is the deal's due date.
+    function setPayDate(j, s, v) {
+      if (!self.guard()) return;
+      if (sched.length === 1 && s[3] !== 'paid') { edit({ due: v }); return; }
+      var pd = Object.assign({}, self.state.e.payDates || {}); pd[j] = v; edit({ payDates: pd });
+    }
     // A payment status change is an edit like any other: it shows right away and is saved with Save.
     function setPay(j, s, key) {
       self.setState({ pop: null });
@@ -373,6 +381,8 @@ class Component extends DCLogic {
     var d = {
       brand: cur.brand, l: cur.brand.charAt(0), amount: fmt(cur.amt), statusNow: statusNow, pay: payIcon(headPay), stDot: statusNow === 'Negotiating' ? '#F59E0B' : (statusNow === 'Archived' ? t.mutedFg : '#22C55E'),
       sched: sched.map(function (s, j) { return { label: s[0], amount: fmt(s[1]), sub: s[2], subFg: s[3] === 'over' ? t.destr : t.mutedFg, pay: payIcon(s[3]), rowStyle: j ? k.rowT : k.row,
+        dateVal: s[5] || '', setDate: function (v) { setPayDate(j, s, v); }, prefix: s[3] === 'paid' ? 'Received' : 'Due', dateLabel: (s[3] === 'paid' ? 'Received date for ' : 'Due date for ') + s[0],
+        isLate: s[3] === 'over' && !!s[5] && TalbyDates.diff(s[5], TODAY) > 0, lateText: s[3] === 'over' && s[5] ? TalbyDates.diff(s[5], TODAY) + ' days late' : '',
         open: st.pop === 'ps' + j, toggle: pop('ps' + j), aria: 'Payment status for ' + s[0] + ': ' + payIcon(s[3]).label + '. Change it',
         opts: PSO.map(function (o) { var on = s[3] === o[0] || (o[0] === 'inv' && s[3] === 'over'); return { label: o[1], on: on, check: on ? 'visible' : 'hidden', pick: function () { setPay(j, s, o[0]); } }; }) }; })
     };
@@ -502,8 +512,9 @@ class Component extends DCLogic {
       showMarkPaid: !st.dirty && cur.pay !== 'paid',
       cancelEdits: function () { var dp = dealParts(cur.id); self.setState({ e: {}, dirty: false, extras: dp.extras, items: dp.items, pop: null }); },
       save: function () { if (!st.dirty) return; self.write('Could not save', function () {
-        var ch = Object.assign({}, st.e), epp = ch.pays || {}; delete ch.pays;
+        var ch = Object.assign({}, st.e), epp = ch.pays || {}, epd = ch.payDates || {}; delete ch.pays; delete ch.payDates;
         Object.keys(epp).forEach(function (j) { var sr = sched[+j] || []; self.emit('payment.setStatus', { dealId: cur.dbId, paymentId: sr[4] !== undefined ? sr[4] : null, index: +j, state: epp[j] }, 'Could not update the payment'); });
+        Object.keys(epd).forEach(function (j) { var sr = sched[+j] || []; self.emit('payment.setDate', { dealId: cur.dbId, paymentId: sr[4] !== undefined ? sr[4] : null, index: +j, date: epd[j] || '' }, 'Could not update the payment'); });
         self.emit('deal.update', { id: cur.dbId, changes: ch, extras: st.extras.slice(), checklist: st.items.slice() });
         var ep = st.e.pays || {}, u = { dirty: false, pop: null };
         if (Object.keys(ep).length) { var o = Object.assign({}, self.state.payOv); Object.keys(ep).forEach(function (j) { o[cur.id + ':' + j] = ep[j]; }); u.payOv = o;
@@ -1725,8 +1736,18 @@ function render($s0, host) {
                                   <span {...S("font-weight: 500; white-space: nowrap")}>
                                     {T($s1?.s?.label)}
                                   </span>
-                                  <span {...S(`font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: ${I($s1?.s?.subFg)}`)}>
-                                    {T($s1?.s?.sub)}
+                                  <span {...S("display: flex; align-items: center; gap: 8px; min-width: 0")}>
+                                    <span {...S(`font-size: 13px; white-space: nowrap; color: ${I($s1?.s?.subFg)}`)}>
+                                      {T($s1?.s?.prefix)}
+                                    </span>
+                                    <div {...S("width: 132px; flex: 0 0 132px")}>
+                                      <SDatePicker value={$s1?.s?.dateVal} onChange={$s1?.s?.setDate} placeholder={"Add a date"} label={$s1?.s?.dateLabel} size={"sm"} color={$s1?.eff} dark={$s1?.dark} />
+                                    </div>
+                                    {$s1?.s?.isLate ? (<>
+                                      <span {...S(`font-size: 13px; white-space: nowrap; color: ${I($s1?.t?.destr)}`)}>
+                                        {T($s1?.s?.lateText)}
+                                      </span>
+                                    </>) : null}
                                   </span>
                                 </span>
                                 <span {...S("display: flex; flex-direction: column; align-items: flex-end; gap: 4px")}>

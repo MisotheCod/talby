@@ -156,6 +156,23 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           }
           await refresh(); return true;
         }
+        case "payment.setDate": {
+          const { dealId, paymentId, index, date } = p as { dealId: string | number; paymentId?: string | number | null; index?: number; date?: string };
+          const deal_id = String(dealId);
+          if (!deal_id) throw new Error("payment.setDate: no dealId");
+          let pid = paymentId != null && String(paymentId) !== "" ? String(paymentId) : null;
+          if (!pid && index != null) {
+            const { data: pms } = await supabase.from("payments").select("id").eq("deal_id", deal_id).order("expected_date", { ascending: true });
+            const row = (pms ?? [])[index];
+            if (row) pid = String(row.id);
+          }
+          if (!pid) throw new Error("payment.setDate: no paymentId and index did not match");
+          // Store the payment's due date — for a paid payment this column holds
+          // the received date (same field serves both, per the board contract).
+          const { error } = await supabase.from("payments").update({ expected_date: date ? String(date) : null }).eq("id", pid);
+          if (error) throw new Error("payment.setDate: " + error.message);
+          await refresh(); return true;
+        }
         case "payment.setStatus": {
           const { dealId, paymentId, index, state } = p as { dealId: string | number; paymentId?: string | number | null; index?: number; state?: string };
           const deal_id = String(dealId);
