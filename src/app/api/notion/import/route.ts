@@ -94,11 +94,16 @@ export async function POST(req: Request) {
       if (notes) patch.notes = notes;
       if (row.rep) patch.rep_name = row.rep;
 
-      // A repeat is ALWAYS skipped, sync or not — an imported deal is never
-      // overwritten. `sync` only means later Notion rows keep coming in.
+      // Idempotency: `known` (above) already filters out pages imported in an
+      // earlier run, so a plain insert is correct. A concurrent run racing the
+      // same page hits the (partial) unique index and 23505, which runImport
+      // counts as a skip. NOTE: we cannot use upsert(onConflict:
+      // "user_id,notion_page_id") here — deals_user_notion_page_uq is a PARTIAL
+      // index (WHERE notion_page_id IS NOT NULL), and Postgres rejects ON
+      // CONFLICT without its predicate (42P10), failing every row.
       const { data: created, error } = await supabase
         .from("deals")
-        .upsert(patch, { onConflict: "user_id,notion_page_id", ignoreDuplicates: true })
+        .insert(patch)
         .select("id").maybeSingle();
       if (!error && postDate && (created as { id?: string } | null)?.id) {
         await supabase.from("content").insert({
