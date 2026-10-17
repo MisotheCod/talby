@@ -26,7 +26,7 @@ test("the four found lines are in the required order", () => {
   assert.match(found[0], /Ana Ruiz/);
   assert.match(found[1], /\$6,000/, "2nd = amount and terms");
   assert.match(found[1], /Split/);
-  assert.match(found[2], /2026-11-02/, "3rd = post date and deliverables");
+  assert.match(found[2], /Nov 2/, "3rd = post date (month short + day) and deliverables");
   assert.match(found[2], /2 Instagram Reels/);
   assert.match(found[3], /100K views/, "4th = bonus and commission");
   assert.match(found[3], /CAMBO10/);

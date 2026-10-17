@@ -65,10 +65,18 @@ export function shapeContract(raw: Record<string, unknown>): ContractShape {
   const bonusLine = extrasIn.filter((x) => String(x.kind) !== "commission").map(describe).filter(Boolean);
   const commissionLine = extrasIn.filter((x) => String(x.kind) === "commission").map(describe).filter(Boolean);
 
+  // found[2] shows the post date as "Nov 12" (month short name + day), not ISO.
+  const prettyDate = (d: string): string => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+    if (!m) return d;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return `${months[Number(m[2]) - 1] ?? m[2]} ${Number(m[3])}`;
+  };
+
   const found: [string, string, string, string] = [
     [fields.brand, fields.rep].filter(Boolean).join(" · "),
     [fields.amt ? `$${fields.amt}` : "", fields.amt ? PAID_LABEL[paid] ?? "" : ""].filter(Boolean).join(" · "),
-    [post, deliverable].filter(Boolean).join(" · "),
+    [post ? prettyDate(post) : "", deliverable].filter(Boolean).join(" · "),
     [bonusLine[0], commissionLine[0]].filter(Boolean).join(" · "),
   ];
 
