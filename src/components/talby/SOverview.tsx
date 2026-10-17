@@ -32,7 +32,7 @@ class Component extends DCLogic {
     this.state = Object.assign({
       look: { theme: th, mode: md, sidebar: L.sidebar || 'expanded' },
       w: w, nav: false, appear: false, cmd: false, add: '', toasts: [], praise: null, askId: 0, askText: '', dv: props.view || 'sample'
-    }, { tab: 'active', resolved: {}, leaving: {}, paidNow: {}, todos: ((props.data && props.data.todos) || SAMPLE_OVERVIEW.todos).map(function (x) { return Object.assign({}, x); }), ticking: {}, todoDraft: '' });
+    }, { tab: 'active', resolved: {}, leaving: {}, paidNow: {}, wsel: null, todos: ((props.data && props.data.todos) || SAMPLE_OVERVIEW.todos).map(function (x) { return Object.assign({}, x); }), ticking: {}, todoDraft: '' });
   }
   componentDidMount() {
     var self = this;
@@ -254,12 +254,12 @@ class Component extends DCLogic {
     var WK0 = DD.num(TODAY) - DD.weekday(TODAY), WDOT = {};
     DATA.week.forEach(function (x) { WDOT[x.date] = 1; });
     var W = [0, 1, 2, 3, 4, 5, 6].map(function (i) { var iso = DD.iso(WK0 + i); return ['SMTWTFS'.charAt(i), +iso.slice(8, 10), (iso === TODAY ? 'Today' : DD.DAYS[i]) + ', ' + md(iso), WDOT[iso] ? 1 : 0, iso]; });
-    var week = W.map(function (d) { var today = d[4] === TODAY; return { wd: d[0], num: String(d[1]), aria: d[2], bg: today ? t.primary : 'transparent', hv: today ? t.primary : t.fill, fg: today ? t.primaryFg : t.fg, wdFg: today ? t.primaryFg : t.mutedFg, dot: d[3] && isSample ? (today ? t.primaryFg : t.borderStrong) : 'transparent' }; });
+    var week = W.map(function (d, wi) { var today = d[4] === TODAY, sel = st.wsel === wi; return { sel: sel, pick: function () { self.setState({ wsel: self.state.wsel === wi ? null : wi }); }, ring: sel && !today ? 'inset 0 0 0 1.5px ' + t.fg : (sel ? '0 0 0 2px ' + t.card + ', 0 0 0 3.5px ' + t.primary : 'none'), aria: d[2] + (sel ? ', selected' : '') + '. Show this day', wd: d[0], num: String(d[1]), bg: today ? t.primary : (sel ? t.fill : 'transparent'), hv: today ? t.primary : t.fill, fg: today ? t.primaryFg : t.fg, wdFg: today ? t.primaryFg : t.mutedFg, dot: d[3] && isSample ? (today ? t.primaryFg : t.borderStrong) : 'transparent' }; });
     var weekItems = !isSample ? [] : DATA.week.map(function (x) {
       var day = DD.DAYS[DD.weekday(x.date)].slice(0, 3), amt = x.amount ? fmt(x.amount) : '';
       var paid = x.kind === 'paid' || (x.kind === 'late' && !!st.paidNow[x.brand || '']);
-      if (x.kind === 'late' || x.kind === 'paid') return { day: day, bg: paid ? t.okBg : t.badBg, fg: paid ? t.okFg : t.badFg, type: paid ? 'Paid' : 'Late', title: x.title, titleFg: t.fg, amount: amt, amtFg: paid ? t.fg : t.destr };
-      return { day: day, bg: t.postBg, fg: t.postFg, type: x.kind === 'posted' ? 'Posted' : 'Post', title: x.title, titleFg: x.kind === 'posted' ? t.mutedFg : t.fg, amount: amt, amtFg: t.fg };
+      if (x.kind === 'late' || x.kind === 'paid') return { day: day, wi: DD.weekday(x.date), bg: paid ? t.okBg : t.badBg, fg: paid ? t.okFg : t.badFg, type: paid ? 'Paid' : 'Late', title: x.title, titleFg: t.fg, amount: amt, amtFg: paid ? t.fg : t.destr };
+      return { day: day, wi: DD.weekday(x.date), bg: t.postBg, fg: t.postFg, type: x.kind === 'posted' ? 'Posted' : 'Post', title: x.title, titleFg: x.kind === 'posted' ? t.mutedFg : t.fg, amount: amt, amtFg: t.fg };
     });
     var UP = DATA.upcoming.map(function (u) { var n = DD.diff(TODAY, u[1]); return [u[0], u[1], u[2], n <= 0 ? 'Today' : n === 1 ? 'Tomorrow' : 'In ' + n + ' days']; });
     var upSum = DATA.upcoming.reduce(function (a, u) { return a + u[2]; }, 0);
@@ -302,6 +302,9 @@ class Component extends DCLogic {
       stats: stats, stripCols: wide ? 'repeat(4, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', statPad: mob ? '14px 16px' : '18px 22px', statFs: mob ? '22px' : '28px',
       rowCols: wide ? 'minmax(0, 2fr) minmax(320px, 1fr)' : 'minmax(0, 1fr)',
       attn: attn, hasAttn: attn.length > 0, noAttn: isSample && attn.length === 0, attnCount: String(attn.length),
+      weekShown: st.wsel === null ? weekItems : weekItems.filter(function (x) { return x.wi === st.wsel; }),
+      dayEmpty: !(isEmpty || (isSample && weekItems.length === 0)) && st.wsel !== null && !weekItems.some(function (x) { return x.wi === st.wsel; }),
+      dayEmptyText: st.wsel === null ? '' : 'Nothing on ' + W[st.wsel][2].replace(/^Today, /, 'today, '),
       week: week, weekItems: weekItems, weekNone: isEmpty || (isSample && weekItems.length === 0), upcoming: upcoming,
       tabs: tabs, rows: rows, footLabel: 'Showing ' + shown.length + ' of ' + list.length,
       todos: todos, hasTodos: todos.length > 0, noTodos: isSample && todos.length === 0, todoCount: String(todos.length),
@@ -577,7 +580,7 @@ function render($s0, host) {
                   {A($s0?.week).map((it, i) => {
                     const $s1 = { ...$s0, "d": it, $index: i };
                     return (<React.Fragment key={i}>
-                      <a href={H("SCalendar.dc.html")} className={"tb tg"} aria-label={$s1?.d?.aria} {...S(`--hv: ${I($s1?.d?.hv)}; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 7px; border-radius: ${I($s1?.t?.rTile)}; background: ${I($s1?.d?.bg)}; color: ${I($s1?.d?.fg)}; text-decoration: none`)}>
+                      <button type={"button"} className={"tb tg"} aria-label={$s1?.d?.aria} aria-pressed={$s1?.d?.sel} onClick={$s1?.d?.pick} {...S(`--hv: ${I($s1?.d?.hv)}; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 7px; border: none; border-radius: ${I($s1?.t?.rTile)}; background: ${I($s1?.d?.bg)}; color: ${I($s1?.d?.fg)}; box-shadow: ${I($s1?.d?.ring)}; font: inherit; cursor: pointer`)}>
                         <span {...S(`font-size: 11px; font-weight: 500; letter-spacing: 0.04em; color: ${I($s1?.d?.wdFg)}`)}>
                           {T($s1?.d?.wd)}
                         </span>
@@ -585,12 +588,17 @@ function render($s0, host) {
                           {T($s1?.d?.num)}
                         </span>
                         <span {...S(`width: 5px; height: 5px; border-radius: 3px; background: ${I($s1?.d?.dot)}`)} />
-                      </a>
+                      </button>
                     </React.Fragment>);
                   })}
                 </div>
                 <div {...S("display: flex; flex-direction: column; flex: 1 1 auto")}>
-                  {A($s0?.weekItems).map((it, i) => {
+                  {$s0?.dayEmpty ? (<>
+                    <div className={"a-fade"} {...S(`display: flex; align-items: center; min-height: 44px; border-top: 1px solid ${I($s0?.t?.line)}; color: ${I($s0?.t?.mutedFg)}`)}>
+                      {T($s0?.dayEmptyText)}
+                    </div>
+                  </>) : null}
+                  {A($s0?.weekShown).map((it, i) => {
                     const $s1 = { ...$s0, "e": it, $index: i };
                     return (<React.Fragment key={i}>
                       <div {...S(`display: flex; align-items: center; gap: 10px; min-height: 44px; border-top: 1px solid ${I($s1?.t?.line)}`)}>

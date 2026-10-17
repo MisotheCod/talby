@@ -46,7 +46,7 @@ export interface ContentRow {
 
 export interface TodoRow {
   id: string; title: string; done: boolean; due_date: string | null;
-  start_time: string | null; end_time: string | null; created_at: string;
+  deal_id: string | null; start_time: string | null; end_time: string | null; created_at: string;
 }
 
 export interface IdeaRow {

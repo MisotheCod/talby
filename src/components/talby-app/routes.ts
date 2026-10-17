@@ -17,6 +17,7 @@ const ROUTES: Record<string, string> = {
   SIdeas: '/app/ideas',
   STodos: '/app/notes',
   SSettings: '/app/settings',
+  SUpgrade: '/upgrade',
   SOnboard: '/onboarding',
   SWelcome: '/app',
   SHome: '/',

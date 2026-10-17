@@ -62,6 +62,13 @@ const io: TalbyImportIO = {
   importNotion(req) {
     return post('/api/notion/import', req);
   },
+  uploadDealFile(file, { dealId, kind }) {
+    // Store the file, add a deal_files row, return { id, name, kind, url, date }.
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('kind', kind);
+    return call('/api/deals/' + encodeURIComponent(String(dealId)) + '/files', { method: 'POST', body: fd });
+  },
 };
 
 setTalbyIO(io);
