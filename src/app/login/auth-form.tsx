@@ -125,9 +125,15 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       router.refresh();
     } else {
       const handleClean = handle.trim().replace(/\s+/g, "");
+      const plan = searchParams.get("plan");
       const { data, error } = await supabase.auth.signUp({
         email, password,
-        options: { emailRedirectTo: `${window.location.origin}/onboarding`, data: { handler: handleClean || null } },
+        options: {
+          // Keep the intent through account creation (and email confirmation,
+          // should one be enabled) so we never lose whether they picked Unlimited.
+          emailRedirectTo: `${window.location.origin}${plan === "unlimited" ? "/signup?plan=unlimited" : "/onboarding"}`,
+          data: { handler: handleClean || null },
+        },
       });
       if (error) { setError(error.message); setLoading(false); return; }
       // Persist the creator handle onto the fresh profile row (auto-created by
@@ -148,16 +154,35 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         posthog.capture("account_created", { method: "email" });
       }
       // Primary metric for the landing-test experiment. Attach the assigned
-      // variant so PostHog can segment signup_completed by arm. The server-side
-      // vid cookie (and the PostHog ph_phc cookie via the same-origin redirect)
-      // keep the distinct_id stable, so this attributes per visitor.
+      // variant so PostHog can segment signup_completed by arm.
       posthog.capture("signup_completed", { landing_variant: readLandingVariant() ?? "unknown" });
+
+      // Fire-and-forget the welcome email (idempotent server-side).
+      try { void fetch("/api/trial/welcome", { method: "POST" }); } catch { /* email is best-effort */ }
+
+      // Paid intent (plan=unlimited): the account now exists, so send them
+      // straight to the Stripe Checkout for Unlimited. Success returns to
+      // /app?upgraded=1; an abandoned/cancelled checkout lands on /app with the
+      // normal 14-day trial. Both are handled by the checkout session's URLs.
+      if (plan === "unlimited") {
+        try {
+          const res = await fetch("/api/stripe/checkout", { method: "POST" });
+          const j = await res.json();
+          if (j?.url) {
+            window.location.href = j.url;
+            return;
+          }
+        } catch { /* fall through to trial below */ }
+        // Checkout couldn't start (e.g. Stripe not configured in preview) — stay
+        // on the no-card trial so signup never dead-ends.
+        router.push("/onboarding");
+        router.refresh();
+        return;
+      }
 
       // No card required. The account's trial started automatically via the
       // signup trigger (plan_status=trialing, trial_end=+14d). Send them to
       // setup; full access is already active.
-      // Fire-and-forget the welcome email (idempotent server-side).
-      try { void fetch("/api/trial/welcome", { method: "POST" }); } catch { /* email is best-effort */ }
       router.push("/onboarding");
       router.refresh();
       return;
