@@ -85,7 +85,7 @@ export function toOverviewData(p: {
     booked: { amount: active.reduce((s, d) => s + (d.value ?? 0), 0), deals: active.length },
     received: { amount: receivedSum, count: receivedCount },
     owed: { amount: owedSum, count: owedCount },
-    todos: todos.filter((t) => !t.done).map((t) => ({ id: t.id, text: t.title, deal: "", done: false })),
+    todos: todos.filter((t) => !t.done).map((t) => ({ id: t.id, text: t.title, deal: (deals.find((d) => d.id === (t as { deal_id?: string | null }).deal_id)?.brand ?? ""), done: false })),
   };
 }
 
@@ -147,12 +147,25 @@ function payStateOf(d: DealRow, paid: boolean, unpaidInv: boolean, overdue: bool
   return "not";
 }
 
-export function toDealsData(p: { deals: DealRow[]; payments: PaymentRow[]; content: ContentRow[]; today: ISODate }): DealsData {
-  const { deals, payments, content, today } = p;
+export function toDealsData(p: {
+  deals: DealRow[]; payments: PaymentRow[]; content: ContentRow[];
+  extras?: Array<{ deal_id: string; kind: "bonus" | "commission"; amount: number | null; rate: number | null; condition: string | null; on_text: string | null }>;
+  checklist?: Array<{ deal_id: string; title: string; done: boolean }>;
+  files?: Array<{ id: string; deal_id: string; name: string; kind: string | null; url: string; created_at: string }>;
+  today: ISODate;
+}): DealsData {
+  const { deals, payments, content, extras, checklist, files, today } = p;
   const byDeal = new Map<string, PaymentRow[]>();
   for (const x of payments.filter((y) => y.deal_id)) { const a = byDeal.get(x.deal_id!) ?? []; a.push(x); byDeal.set(x.deal_id!, a); }
   const postByDeal = new Map<string, string>();
   for (const c of content.filter((x) => x.linked_deal_id && x.event_date)) postByDeal.set(c.linked_deal_id!, c.event_date!);
+  const extrasByDeal = new Map<string, NonNullable<typeof extras>>();
+  for (const e of extras ?? []) { const a = extrasByDeal.get(e.deal_id) ?? []; a.push(e as NonNullable<typeof extras>[number]); extrasByDeal.set(e.deal_id, a); }
+  const checklistByDeal = new Map<string, NonNullable<typeof checklist>>();
+  for (const c of checklist ?? []) { const a = checklistByDeal.get(c.deal_id) ?? []; a.push(c as NonNullable<typeof checklist>[number]); checklistByDeal.set(c.deal_id, a); }
+  const filesByDeal = new Map<string, NonNullable<typeof files>>();
+  for (const f of files ?? []) { const a = filesByDeal.get(f.deal_id) ?? []; a.push(f as NonNullable<typeof files>[number]); filesByDeal.set(f.deal_id, a); }
+  const linksOf = (d: DealRow): Record<string, unknown> => (d as unknown as { links?: unknown }).links && typeof (d as unknown as { links?: unknown }).links === "object" ? ((d as unknown as { links?: unknown }).links as Record<string, unknown>) : {};
 
   const rows: BoardDealRow[] = deals.map((d) => {
     const ps = byDeal.get(d.id) ?? [];
@@ -164,6 +177,10 @@ export function toDealsData(p: { deals: DealRow[]; payments: PaymentRow[]; conte
     const payBy = state === "paid" ? (ps.find((x) => x.status === "received" || x.pay_status === "paid")?.expected_date ?? "") : due;
     const negotiated = d.status === "pipeline" || d.status === "negotiating";
     const archived = d.status === "archived";
+    const links = linksOf(d);
+    const extrasList = (extrasByDeal.get(d.id) ?? []) as Array<{ kind: "bonus" | "commission"; amount: number | null; rate: number | null; condition: string | null; on_text: string | null }>;
+    const checklistList = (checklistByDeal.get(d.id) ?? []) as Array<{ title: string; done: boolean }>;
+    const fileList = (filesByDeal.get(d.id) ?? []) as Array<{ id: string; name: string; kind: string | null; url: string; created_at: string }>;
     const out: BoardDealRow = {
       id: d.id,
       brand: d.brand,
@@ -173,15 +190,22 @@ export function toDealsData(p: { deals: DealRow[]; payments: PaymentRow[]; conte
       payBy: payBy || "",
       amount: d.value ?? 0,
       how: PAY_LABEL[d.payment_structure ?? "once"] ?? "All at once",
-      platforms: platformsOf(d),
+      platforms: Array.isArray(links.platforms) ? (links.platforms as string[]) : platformsOf(d),
       type: d.deliverable ?? "",
       rep: d.rep_name ?? "",
       created: (d.created_at ?? "").slice(0, 10),
+      notes: d.notes ?? "",
+      repEmail: d.rep_email ?? "",
+      repPhone: (links.repPhone as string) ?? "",
+      extras: extrasList.length ? extrasList.map((e) => ({ type: e.kind === "commission" ? "Commission" : "Bonus", value: e.kind === "commission" ? (e.on_text || (e.rate != null ? String(e.rate) + "%" : "")) : (e.condition || (e.amount != null ? String(e.amount) : "")) })) : undefined,
     };
     if (archived) out.archived = true;
-    if (ps.length > 1) {
+    if (checklistList.length) out.checklist = checklistList.map((c) => ({ text: c.title, done: !!c.done }));
+    if (fileList.length) out.files = fileList.map((f) => ({ id: f.id, name: f.name, kind: (f.kind as "contract" | "invoice" | "other") || "other", url: f.url, date: (f.created_at ?? "").slice(0, 10) }));
+    if (ps.length > 1 || ps.length === 1) {
       out.payments = ps.map((x, i) => ({
-        label: `Payment ${i + 1} of ${ps.length}`,
+        id: x.id,
+        label: ps.length > 1 ? `Payment ${i + 1} of ${ps.length}` : "Full payment",
         amount: x.amount,
         date: x.expected_date ?? "",
         state: payStateOf(d, x.status === "received" || x.pay_status === "paid", x.pay_status === "invoiced", !!x.expected_date && x.expected_date < today),
@@ -236,7 +260,7 @@ export function toTodosData(p: { todos: TodoRow[]; deals: DealRow[]; today: ISOD
   const { todos, deals, today } = p;
   return {
     today,
-    todos: todos.map((t) => ({ id: t.id, text: t.title, deal: "", due: t.due_date ?? "", done: !!t.done })),
+    todos: todos.map((t) => ({ id: t.id, text: t.title, deal: (deals.find((d) => d.id === (t as { deal_id?: string | null }).deal_id)?.brand ?? ""), due: t.due_date ?? "", done: !!t.done })),
     deals: deals.map((d) => [d.brand, d.value ?? 0] as [string, number]),
   };
 }
@@ -259,8 +283,9 @@ export function toSettingsData(p: {
   profile: Profile | null;
   notion: { workspace_name: string | null } | null;
   today: ISODate;
+  invoices?: { id: string; date: string; amount: number; url?: string }[];
 }): SettingsData {
-  const { profile, notion, today } = p;
+  const { profile, notion, today, invoices } = p;
   const trialEnd = profile?.trial_end ? profile.trial_end.slice(0, 10) : today;
   return {
     billing: {
@@ -268,7 +293,7 @@ export function toSettingsData(p: {
       endedOn: profile?.plan_status === "canceled" ? trialEnd : "",
       declinedOn: profile?.plan_status === "past_due" ? trialEnd : "",
       card: null,
-      invoices: [],
+      invoices: (invoices ?? []).map((i) => ({ id: i.id, date: i.date, amount: i.amount, ...(i.url ? { url: i.url } : {}) })),
     },
     notion: { status: notion ? "connected" : "none", database: notion?.workspace_name ?? "" },
   };

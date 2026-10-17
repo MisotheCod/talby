@@ -240,8 +240,17 @@ export type DealRow = {
   /** date the deal was added */
   created: ISODate;
   /** optional payment schedule for the deal panel. Leave out for one full payment. */
-  payments?: { label: string; amount: number; date: ISODate | ''; state: PayState }[];
+  payments?: { /** payment row id, handed back in payment.setStatus */ id?: string | number; label: string; amount: number; date: ISODate | ''; state: PayState }[];
   archived?: boolean;
+  /** deal panel fields. All optional; the panel shows them empty when left out. */
+  notes?: string;
+  repEmail?: string;
+  repPhone?: string;
+  /** bonus and commission lines, value as the user typed it ("$1,000", "10%") */
+  extras?: { type: 'Bonus' | 'Commission'; value: string }[];
+  checklist?: { text: string; done: boolean }[];
+  /** files on the deal (contract from the New deal dialog, invoices, others). url opens the file (a signed URL is fine). */
+  files?: { id: string | number; name: string; kind: 'contract' | 'invoice' | 'other'; url: string; date: ISODate | '' }[];
 };
 
 export type DealsData = {
@@ -541,6 +550,8 @@ export type TalbyImportIO = {
   }>;
   /** Save the chosen pages. map is { propertyName: field }. sync: keep in sync. Reject code: notion_lost. */
   importNotion(req: { databaseId: string; map: Record<string, ImportField>; pageIds: (string | number)[]; sync: boolean }): Promise<ImportResult>;
+  /** Deal panel upload (Files tab and the Invoice row). kind 'auto' means you decide contract or invoice. Store it, add a deal_files row, return the saved file. */
+  uploadDealFile?(file: File, req: { dealId: string | number; kind: 'auto' | 'contract' | 'invoice' | 'other' }): Promise<{ id: string | number; name: string; kind: 'contract' | 'invoice' | 'other'; url: string; date: ISODate }>;
 };
 let talbyIO: TalbyImportIO | null = null;
 export function setTalbyIO(io: TalbyImportIO | null) { talbyIO = io; }

@@ -7,7 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
-import { SAMPLE_ACCOUNT, TalbyDates, SAMPLE_DEALS } from './_data';
+import { SAMPLE_ACCOUNT, TalbyDates, SAMPLE_DEALS, getTalbyIO } from './_data';
 import SSidebar from './SSidebar';
 import STopbar from './STopbar';
 import SDatePicker from './SDatePicker';
@@ -35,7 +35,7 @@ class Component extends DCLogic {
     }, {
       tab: 'all', q: '', facet: {}, facetOpen: false, colsOpen: false, viewOpen: false, cols: { pay: true, post: true, payby: true },
       sort: '', dir: 1, sel: {}, page: 0, per: 10, perOpen: false, rowMenu: -1, rmTop: 0, rmLeft: 0,
-      added: [], removed: {}, archived: {}, paidIds: {}, invIds: {}, extraPaid: 0,
+      added: [], removed: {}, archived: {}, paidIds: {}, invIds: {}, extraPaid: 0, payOv: {}, newFiles: {},
       open: props.start === 'deal' ? 6 : -1, sTab: 'details', acc: 'payment', sheetMenu: false, pop: null,
       e: {}, dirty: false, extras: [], items: [], draft: '', ftype: 'auto', ticking: {},
       add: props.start === 'new' ? 'new' : '', cmd: props.start === 'cmd', selMode: false
@@ -90,6 +90,22 @@ class Component extends DCLogic {
     this.setState({ toasts: this.state.toasts.concat([{ id: id, title: title, desc: desc || '', undo: undo || null, kind: x.kind || '', cta: x.cta || '', act: x.act || null }]).slice(-3) });
     this._tt = this._tt || [];
     this._tt.push(setTimeout(function () { self.setState({ toasts: self.state.toasts.filter(function (x) { return x.id !== id; }) }); }, 4000));
+  }
+  // Deal file upload. On the canvas this only says what would happen. The app connects it to a real upload.
+  uploadFile(kind, deal) {
+    var self = this, io = getTalbyIO();
+    if (!io || typeof io.uploadDealFile !== 'function' || !deal || deal.dbId === undefined) { this.toast(kind === 'invoice' ? 'Choose an invoice' : 'Choose a file', kind === 'invoice' ? 'PDF or image. It is linked to this payment.' : 'A contract, invoice or other file for this deal.'); return; }
+    var inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.pdf,.doc,.docx,.png,.jpg,.jpeg,.csv,application/pdf,image/*';
+    inp.onchange = function () {
+      var file = inp.files && inp.files[0]; if (!file) return;
+      if (file.size > 20 * 1048576) { self.toastErr('This file is over 20 MB', 'Save a smaller copy, then try again.'); return; }
+      var run = function () { Promise.resolve().then(function () { return io.uploadDealFile(file, { dealId: deal.dbId, kind: kind === 'auto' ? 'auto' : kind }); }).then(function (r) {
+        var nf = Object.assign({}, self.state.newFiles); nf[deal.id] = (nf[deal.id] || []).concat([{ id: r && r.id, name: (r && r.name) || file.name, kind: (r && r.kind) || (kind === 'auto' ? 'other' : kind), url: (r && r.url) || '', date: (r && r.date) || '' }]);
+        self.setState({ newFiles: nf }); self.toast(((r && r.kind) || kind) === 'invoice' ? 'Invoice added' : 'File added', file.name);
+      }, function () { self.toastErr('Could not upload the file', 'Check your connection and try again.', run); }); };
+      run();
+    };
+    inp.click();
   }
   toastErr(title, desc, retry) { this.toast(title, desc, null, { kind: 'error', cta: retry ? 'Try again' : '', act: retry || null }); }
   celebrate(pz) {
@@ -215,7 +231,7 @@ class Component extends DCLogic {
     };
     var PLATICON={TikTok:'data:image/png;base64,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',Instagram:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAQ10lEQVR42rWZe7BdVX3HP7/fWnufx33fmxASwiNEFIeXoaUVladoEa1WhmTwbbUdZ7St46i1tFZqnfqoY+vY2tFaWztOhynpQ7SDWoFIgliCAgLKqyEaSAgh3CT3ce45Z++1fv1j7XPOvsH+VXvu/Gatvfc693y/v/deS6h9tm690W3fvi0AXPF795xBkKtdaZdKsOdriCdosIZG1EfERUGjiYvgIqhJGtO1OKN+jTNDI6iBM9BoaTQzNcOZmItEhaAx9jLRZ7zpI07k9tzi1952968+CnDj1hvdtgojgIzAm9u+XcJL3nPHhsyNf8SV8Q2Z5JMaIlqWaBnRYAwAu1CBq4CuAhtXP1Ozaqxd24CMDcfRPfAouXgcgoXegkP+OZRLH337j67YXychdc1f9Dv/dblzzX/KtXVi7CygpQUXTCqNi4uCCyOQzkDDaP4cEhWoEfgEdjXg0aiDa8zEDGdmapgXcRNugjJ0ni5i781vuu+yWwYkZAD+pe/5/qW5a33Ll9aQXr90UZyLJBcJMgIdf77Gk1sMrm2oyedYoKZxrROgdr+aK4YzQzATC6GpDZ8h/SJ2Xn3Nfa+45catNzrh+uv1kmeuOiGL/n5vbq30esGbuKFm43PBewbgBn5vq9ymru3VLjMAOwA6IiIxonEEvLJEmleExGJoauYgzjfIzvnevd85KABXvmP3l1r59G+FpSOlQ/wqN6lp2ANSGnElYr2IBPAGjmo0cCa1QK250UDjMYHTOBInkGVC3lScgoS4CrjWiGChnM2n/FJx9B+uuu9V75Crf/P+02PRezCL0tQY0Yi4aDU3MTIECUZ/oaTddGzc1Obk542xdkOTiSlPo+XIMsV5QQVUZJgdxGqjGRbBikjoRcJKoDtfsLivw9GHFjn26BJxuaQ56VCprAI4DJEBiWgOQYm9zPy5Puv0tjZdqxW7y0HBDcFX2spECCslHrjkdeu48DUncvLzx2v56xf0icb8TxbZs30/+/5tP2KRrKnJGjKygIiJmoVx32x2Q+cNvt2zS3MXzAobBs1Q8yqUSwVr1+a84cNncvp5U/y/fUSYPXuS2bMn2fSaddz7oR/RO7hCPuZgSCKNIiYqhXlXXibvfvX3H8/EbSL0zZlI8lnDA7EbmJ7L+e2/fhEzG1qEIuIyBWD+p8sc+dkynWd7lJ1A6AYIBtGQaEjChFgyVroWRATnBddwZG1Hc67BxKYxxk8bS4boRzRXOvuW2f32OykOd/ENQcxQqQgQLVcn0cr9vl2EOScRjXEIfpDWiIE3/mkCX/YjPlf27jrED76yh8MPL1AuF8nEMWWUYS5nlO/T/TTKYAQEQRFc5sjGM2ZeOMnmd25m7cUnEPuR9iljbPnM+dz79l04kWQBiUjlRoYh2KxvlaHhBDQGXAXCq9E70uNXrj2VjWdPEYoE/r6v7uGOTz+A90KrqbjxlIEUqWWMEdA0txSQw2dSs4gRFlewox2O3n6M++56ihf84Xmc8tbNxCIytWWOjdeczMEbHsPPZMnCtY+JON+OhXMpx+KqGNAQaTWN868+GTNwmfLknQe5+9P3MDPpcWJIKEcpMWmjmg/SHgk4ILEiUml+YAHrBja8dhOT565l4e5DHL71CX76qbuZPGOc6QvXgcH6bZs5fNMeiHZc0BgY6luhVIehFnFEnEDo9DnxrGnmNk+kpQYP/f2DjLs+TYkQQgr4AfCBKKgKahGKiISAAOoUlykiAtFQFcJCn3XXvJDNH3kJACddewaPfWAHh7++h6e+8gDTL14HwNgZU7TPmGb5oSNo2w+JDLKzb8W+OAxHRC3iHRT9Fda/YGOKQmD5iQVWHnqKiVbExQKRtD65R5W9nEAZsIUuLlPy2TbZVAsB4sIKYX4JKwJ+rIFmGaV0WHv5yVgZiSslOpYxe9EGjn7zUVYePkRv/yKNjRMgwtiZMyzefxgnntV2EHzb+lXJDskCQGZdZja2hss6e+fJOwvkExkaI0oKJpVYgVfiYod8usncb5zNzOXPp7V5Dj/RBCAsdunuOczCjkdY+PaPicuLZE2hs3sPky87DTeRA7C0ex++BXGpQ3fv0UQAaJ48DvbzUq+Jb9NL2q/EYQRZoT3th+vC/BLN2KGpDcTKUU7GUCfEhSWmLjmTk973ShqnzD3nd/zsGOOzY4xfcCprrv0lnvnst1nc9RhHb7oHzGidcxJLdz3BsVseIZto0p/vU853ht/PpvP/tXz4Fl1xRFQijoATI7oueUtHRFc6tHWZhgaEUBWUiDrBFpaY2XYhJ37o9ck3Q0ScDufAquv8lDlO+os38vQnv8HRf/0hR7ffxfwNgonHt1sYJUJB7PaHv+/aimp4DnjDxLdlpQIfUUkEzHXIaqRd0aHtlshdRKRMBDywtMzYJWdxwodeDzGCKOKUlVvvZuW2eygPzGMobv0a2i/fQvvl5ydXsMi6P/h1wqGjLN/1OH5qnFhCDCUmgkrAeiMCmiuuUl7KZXUL6ApOYooBCagzcB18NnI6H7u0/RKZNzQWqaBYQGcdaz6wNaUpwDorHPuzL7Fy+73gPbgMQyn+ex8rO35I55YtzH74LUgzRwxO+OBr2Pe2vyH2u4h4RFKmUimhLEcEvCAaEjExzNzoWUs71tJl2m6Zlktj2y/hXBz5oPQY84u0s0Vafolmo0vee5bxKy9A180l7SMsfuILFN+9k2xNGz+R41qCawrZZEY216J7690c+fhXERUsRvz6GSavPAeWl1CXPEAkoFIiNvp9UUv3pKzWjJ5p2y/T9su0hrJEO1vCuZHPeenT8B289nDaR+mjOeQXXZC07xz9XXdR7vwe/oQJtOyi1kMpUArE+kjoka0bo7vjblZ23pfiwozxy87C5ZbWSjkUIdazJSphJASEmNqRIehKWn6Zpl9GayyFgEr1AxrQsIKfHcOdOqoV5Y7bcZmh1ke1XAXGDeZW4LJI95bdww40O20d2WwLCf0ayNUERKwGPFkpWcHwA7DpgSEKSIHUEq9IwGmBaAFEKPrI5FpkrF318hEOHkBzAwpMoN5URBRFMQzNIB48mCqqCjrexE3lxIVlzOswiKkrUKhAB1QYtoMGeCcFMuzyYlKoFqv+QWpjC0TKdF8LRIpV2UClBCmwYbUcNRlSVRoTg0rLq75LQKREJBBF0rzuQlj1/0MiU/2pgY5MXdRMfrwFIk6Kak2RdraWjsDycoVAcRvWoqGLc5XLDNyo5k5OAxq6+A1zVKrEllZgaRH1hlAO3UjEVhFI2o+rYkEk1gmUI4BSwnEEVAqclDgKXAbu2CHsib3DFOouuwyNK1U2WR2Qw2sX0dCj8fILGXSJ5c/2Y0fncRkoZRVvYXUMYNW9QfBWo4REwEmJ07rmCsTCagtozQIa0LIDd9yaHDQE9KUX4y6+GH32AJqRwLqQ1nrD5cCzT9O4/MXkL7sAQgAR+rfvRkMP1ThMoSll1ixgcUSs0vwgJnz6QqziIFYBcxwBB/gIWfWaJSVMtWHXzXD1G2HtiWAR9/4/IhKwO3ZgmmM+x8xhRSQGyC+/lPyDv5uCXpX41CH6t+5ExxtYLFBRTDRpuF5wYyq0SEQFrHqfUxO8DAkMzCKgJcRakOYemgoNgSjJuzSDpSX48qfgus+CCbTa6B9/Cnbdgu28FTt4kIjCuo1kF1+OXnxJcjkzEGHlc19ElhfQsUliKFEcceDfvrbtEZJrIdX7BREImMhqC+AMMg9BINQItJvQlBGBwVvO3CQ8+D348ifgnddVPxbgoiuQi64Y7uugOnrmHIjQ+8vPEXbvxk3MEMsCxBOpFazmqBu2folQIhKxYRZSxCoXEmfgBZxCLhCAslsj0F5tgcErkUWYm4Zd/w4Lz8C174X1p9by4+rGC+ewJ/ZRfPELhLt+gJuaIZb91AeZoEAkpL6nNeomrdur6lTl4qReTETNq7e0e+UlkcgqAivHRj88PQstn8iZjixQ7baxZgYe/j588kG44BWw5RI4aTOMTaQ1ywvw0z3YnTsJt++AxRXc1DSx7IP4YWFKzUFAHejMxCgEji2lGCCkeoUmMhbw5BXoAYFcICocOTAisP40mJ6o1C6jBsUMYlWJZyahX8LOf4GdX4P2NDQmoDQ4tgCH56EX0PYUjLeIoY+IGxWlQXWNoOM5/tT1oxA48AyisRbEIQWxRPM0xIbgvUAGaAOefqwKNmDuJDj9TNh7LzTHIYbBvkZqCSJVa+CgMQNlhG4Hji5AQVLI1BhSkF72rY+Kr52xCNEEcR7pdMi3nIFbv2Zo5fKxfWiumIWhrZSIEVEyNfJK8w2BHBhvwfweOPT4qJ5d+hbILUnLp7UNgYbW5rV02/Iw1oSxBjT9YOsa0Vi1DnWJiAexArGS1pteO9R+8fiTlI8/gTZ95fcx9WxiiJopOZG8Ct68ItB0IF2496aqUBWw6ZfhqveBdJI0JK1ruQTweGm41dL0aX3TI5kkP3eStmIokc4C0lmk/d53km05G4oypdqbvgu9LuJsVKuGEsyTSZ9ccjy1WIjQnISHvwnn/RqsPwtCH86/GtacAvfcAIcehd5ScieztGsWLCWAwpLv9y3Ni2req8a+IX0Q84g0kPY0/kXn4rZdizt/C/QLyDOKBx6l+62d6ESbGEPaEqtIpI0tK8Wuu+Jxmm4TWmWjTNJJRqZgBUzMwes+A5MbUnHTLNl24QAcfRI6R6BYgX4PQgkhjshEamMlJoAH34C8hU3NwcZTkBM3VD5TQJYR9x/k2Ps/TjnfIfoWMTqiZYSYEcyboyn9KE96MnmEpp4GIZKJGxLwQNaE8jD85wfhot+HdeeNtvUmNyT5v+6qD5N9qs5kGeG+B1j+889j84toYwIrQ5WnKjeyaJkKfbNHPTm3kcuVWBUDx7tS1oY4D7uug9NfCZuugunnDd/EfmEfM+yxRylu/hb979wOMUObbUIoEcmS21j13oKZF1QJt4l9+qpTcfHHNKSNA/KBGw0E8Jq2l8tl8E2YPA0mN0N7PWRT4FpVQaqKkgkDNx2m2EjlXjEFaK8Pyx04cgQ7cIC4Zy9h7xOElUAcm67cxRPNE2NGsGxwzyCnjL6rMTtHAOyvXvV5ZvJ30+2XNNUPCWSS9s/dYHSpfQi9lJlCrHxboCTJIGD7VGNMwTuUCN1KVtJopRJ9m5iPE6RBLLUC7RNoy4gxzYvoytlsxj/bL/721Fs+9i6x669XNvxwltzup+XWE0OgqSkWBkQc1UGAjF5SB1oOVoGvZZtilG1S5qmR6NtxhJLE4AjREWOl6Urzw7llFMGHhrZdP+ohLeXcdbflzyh/AvKu/ziMs2vwdJjIHJ6CTIysqgvHF6ycVNCyqmhlMcWLj9V563En38PjGqvOnOLAt5JYSEWqOo2k2jxOa1PDZWZF23unYt3Siq0n3vaJp7dv/YmoyEej3bjVyVtvvpOyeCWefaxtZjRV8EQyieQSybFhta7LoJfK6jFTG53UXLA6tlGpzQeWtVHQiJmlM9mIxeAFWdNoZIrt7xbdK0/5zmd22tatbtv27WGUxW7c6mTb9mA3X7mWifaHyXgzY36WYbNYO62rjkWf4zo/1z1q7tOtXXcH92Ka9yFahsWMdDKdIzQwy+gGd8RidsNhW/nYppv/8aBt3epk+/awKg3XSQDYva87DZe/loxLcLwAJyeAjQ31JkAwoW9CAfSijAgcB3IAtEc1VqB7GF2DboCeWIjOgmXBLF+Olj0jlj0iNL5rln+99Y2/2wtQBw/wPxJvYnXr1cIPAAAAAElFTkSuQmCC',YouTube:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAADkklEQVR42u2ZP2gVQRDGf7N3JubFEP8QJEKUpLIIamcvdoJWhmCj2NhaWdhZaGETGyHaSBANxNJSsREbMSCCdhZGkthEVBKNee9uLHY27yJ5T593l/jgDSx37N7tft/u7MzOLHSkIx1pa5FmjerbZZNvpSQ8usm7ysb6P/YQKUT/20w3wiW/z7ZAmqnrx5fdwF6gF+gDKsAuoAvYaWUH4IBuIG6Aowb8xI+xClTtuQYsAytWloHPwBfgq8DX33ASVkVCZahQOAGcA44ABwx8pUS1aaZO343EAvAamBF4ugGzgljpUZhS0AYlVUgUalaqBZfQb2JjNcJxz7CKgqB+2VF4YB8EcEmms2YdllXSzKQlGZKqMG0EXFir09awtk1gWyG1Zu9nIDCAC6Zzsg263qrZF8N6HsCptybHrCFqA98VGdajCr0OOAjsL6Rr57aSyH5gyAGHzEzm97Bp6kmUSyRg7AWGHTAYhs/XrcDwsCeRphBFvq4cCVgHswTygQe4cwdmZpSREUgSbyuiUrfVoAP2bXKQap2Amm88e1Z49Uq5elXp6/NERIpWq4B1n7MzTnGSJLBnj3D9uvDypTI+bha8FLXa6wrbwOtGLoJazRM5fFiYnoYnT1KOH9+oVvmIhJ8rDugp3k6IBxk29MmTjhcvYHIShobqRPKvRk84/pYjwaQmiSd06RLMziqXLytdXUWQ6HaZ40SJvjOyY2INBgaEiQnh3buU0VHN6QDjeMv8ZprWh3v/XpmYcMzPm035ZwMocW4H9jfAw55YWVFu3xZu3hSWlorovRpbiFdCPJUxnaA8egTXrglv39bVKknyjvLTWUxaLPBarT7rs7Nw6hSMjXnwwYTmBw/wIwa+5fbEWScmAt3dsLCg3Lgh3L0L1aqsb9RigAes32MLmouR/n7f+a1bXs8XF4tUl83kc2zpi3yeONjzx4+VK1eE58/rwNO0DPAB6xIKFy3GTAqLXaNIVaTM2DhgvRgDi8FvFhaRlaMuG0ay57wDPlgCKf9GDmef8hNeGOaPDpgDPhVmibYmY4dpzpwTn4d8Yw3tQCA1nK8FloMu3bOdnf7nJDSTv7ofatoxtfhwHXsmuVtpMblb26bk7lQ2udtO6fU3wEOBZ1nMrV5w7LKEUq+FohWL6HbgLzli/KVH1GQDrtpzzd5X7UT8A3+58c2ejS44HM2undr2iqnBT+13ydeRjnSkveQXJps54NcuWqEAAAAASUVORK5CYII=',Facebook:'data:image/png;base64,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'};
 
-    var all = st.added.concat((isSample ? DATA.deals : []).map(function (x, i) { return { id: i, dbId: x.id, brand: x.brand, status: x.status, pay: x.pay, post: x.post || '', payBy: x.payBy || '', amt: x.amount, how: x.how || 'All at once', plats: x.platforms || [], type: x.type || '', rep: x.rep || '', created: x.created ? TalbyDates.md(x.created) : '', sched: x.payments || null, arch0: !!x.archived }; }))
+    var all = st.added.concat((isSample ? DATA.deals : []).map(function (x, i) { return { id: i, dbId: x.id, brand: x.brand, status: x.status, pay: x.pay, post: x.post || '', payBy: x.payBy || '', amt: x.amount, how: x.how || 'All at once', plats: x.platforms || [], type: x.type || '', rep: x.rep || '', created: x.created ? TalbyDates.md(x.created) : '', sched: x.payments || null, notes: x.notes || '', repEmail: x.repEmail || '', repPhone: x.repPhone || '', extras: x.extras || [], checklist: x.checklist || [], files: x.files || [], arch0: !!x.archived }; }))
       .filter(function (d) { return !st.removed[d.id]; })
       .map(function (d) { var o = Object.assign({}, d); if (st.paidIds[d.id]) o.pay = 'paid'; else if (st.invIds[d.id] && o.pay === 'not') o.pay = 'inv'; o.archived = st.archived[d.id] !== undefined ? !!st.archived[d.id] : !!d.arch0; return o; });
     function inTab(d, tb) {
@@ -236,7 +252,9 @@ class Component extends DCLogic {
     var pages = Math.max(1, Math.ceil(list.length / st.per));
     var page0 = Math.min(st.page, pages - 1);
     var slice = list.slice(page0 * st.per, page0 * st.per + st.per);
-    function openDeal(id) { self.setState({ open: id, sTab: 'details', acc: 'payment', sheetMenu: false, pop: null, e: {}, dirty: false, extras: [], items: [], draft: '', rowMenu: -1 }); }
+    function dealParts(id) { var dd = all.filter(function (x) { return x.id === id; })[0] || {};
+      return { extras: (dd.extras || []).map(function (x) { return { type: x.type, value: x.value || '' }; }), items: (dd.checklist || []).map(function (x) { return { text: x.text, done: !!x.done }; }) }; }
+    function openDeal(id) { var dp = dealParts(id); self.setState({ open: id, sTab: 'details', acc: 'payment', sheetMenu: false, pop: null, e: {}, dirty: false, extras: dp.extras, items: dp.items, draft: '', rowMenu: -1, ticking: {} }); }
     function metaFor(d) {
       var inv = d.pay === 'paid' ? 'invoice paid' : (d.pay === 'inv' || d.pay === 'over' ? 'invoice sent' : 'no invoice');
       var parts = [d.archived ? 'Archived' : d.status];
@@ -334,11 +352,36 @@ class Component extends DCLogic {
     var due = e.due !== undefined ? e.due : cur.payBy;
     var lateDays = due ? TalbyDates.diff(due, TODAY) : 0;
     var sched = cur.sched && cur.sched.length
-      ? cur.sched.map(function (s) { return [s.label, s.amount, s.state === 'paid' ? (s.date ? 'Received ' + md(s.date) : 'Received') : (s.date ? 'Due ' + md(s.date) + (s.state === 'over' && TalbyDates.diff(s.date, TODAY) > 0 ? ', ' + TalbyDates.diff(s.date, TODAY) + ' days late' : '') : 'No due date yet'), s.state]; })
+      ? cur.sched.map(function (s) { return [s.label, s.amount, s.state === 'paid' ? (s.date ? 'Received ' + md(s.date) : 'Received') : (s.date ? 'Due ' + md(s.date) + (s.state === 'over' && TalbyDates.diff(s.date, TODAY) > 0 ? ', ' + TalbyDates.diff(s.date, TODAY) + ' days late' : '') : 'No due date yet'), s.state, s.id]; })
       : [['Full payment', cur.amt, cur.pay === 'paid' ? (cur.payBy ? 'Received ' + md(cur.payBy) : 'Received') : (due ? 'Due ' + md(due) + (cur.pay === 'over' && lateDays > 0 ? ', ' + lateDays + ' days late' : '') : 'No due date yet'), cur.pay]];
+    // Each payment's status can be changed from the panel. payOv holds the change until the page data reloads.
+    sched = sched.map(function (s, j) {
+      var ov = st.payOv[cur.id + ':' + j];
+      if (ov) return [s[0], s[1], ov === 'paid' ? 'Received' : ov === 'inv' ? 'Invoiced' + (due ? ', due ' + md(due) : '') : (due ? 'Due ' + md(due) : 'No due date yet'), ov, s[4]];
+      if (cur.pay === 'paid' && s[3] !== 'paid') return [s[0], s[1], 'Received', 'paid', s[4]];
+      return s;
+    });
+    var anyOv = sched.some(function (s, j) { return !!st.payOv[cur.id + ':' + j]; });
+    var headPay = !anyOv ? cur.pay : sched.every(function (s) { return s[3] === 'paid'; }) ? 'paid' : sched.some(function (s) { return s[3] === 'over'; }) ? 'over' : sched.some(function (s) { return s[3] === 'inv' || s[3] === 'paid'; }) ? 'inv' : 'not';
+    var PSO = [['not', 'Not invoiced'], ['inv', 'Invoiced'], ['paid', 'Paid']];
+    function setPay(j, s, key) {
+      self.setState({ pop: null });
+      if (!self.guard() || s[3] === key) return;
+      self.write('Could not update the payment', function () {
+        self.emit('payment.setStatus', { dealId: cur.dbId, paymentId: s[4] !== undefined ? s[4] : null, index: j, state: key }, 'Could not update the payment');
+        var o = Object.assign({}, self.state.payOv); o[cur.id + ':' + j] = key;
+        var u = { payOv: o };
+        var allPaid = sched.every(function (x, y) { return y === j ? key === 'paid' : x[3] === 'paid'; });
+        if (allPaid) { var pi = Object.assign({}, self.state.paidIds); pi[cur.id] = true; u.paidIds = pi; }
+        self.setState(u);
+        self.toast(key === 'paid' ? 'Payment marked paid' : key === 'inv' ? 'Payment marked invoiced' : 'Payment marked not invoiced', s[0] + ', ' + cur.brand);
+      });
+    }
     var d = {
-      brand: cur.brand, l: cur.brand.charAt(0), amount: fmt(cur.amt), statusNow: statusNow, pay: payIcon(cur.pay),
-      sched: sched.map(function (s, j) { return { label: s[0], amount: fmt(s[1]), sub: s[2], subFg: s[3] === 'over' ? t.destr : t.mutedFg, pay: payIcon(s[3]), rowStyle: j ? k.rowT : k.row }; })
+      brand: cur.brand, l: cur.brand.charAt(0), amount: fmt(cur.amt), statusNow: statusNow, pay: payIcon(headPay), stDot: statusNow === 'Negotiating' ? '#F59E0B' : (statusNow === 'Archived' ? t.mutedFg : '#22C55E'),
+      sched: sched.map(function (s, j) { return { label: s[0], amount: fmt(s[1]), sub: s[2], subFg: s[3] === 'over' ? t.destr : t.mutedFg, pay: payIcon(s[3]), rowStyle: j ? k.rowT : k.row,
+        open: st.pop === 'ps' + j, toggle: pop('ps' + j), aria: 'Payment status for ' + s[0] + ': ' + payIcon(s[3]).label + '. Change it',
+        opts: PSO.map(function (o) { var on = s[3] === o[0] || (o[0] === 'inv' && s[3] === 'over'); return { label: o[1], on: on, check: on ? 'visible' : 'hidden', pick: function () { setPay(j, s, o[0]); } }; }) }; })
     };
     function edit(o) { if (!self.guard()) { self.setState({ pop: null }); return; } self.setState({ e: Object.assign({}, self.state.e, o), dirty: true, pop: null }); }
     function pop(kk) { return function () { self.setState({ pop: self.state.pop === kk ? null : kk, sheetMenu: false }); }; }
@@ -348,16 +391,23 @@ class Component extends DCLogic {
     var sTabs = [['details', 'Details'], ['checklist', 'Checklist'], ['notes', 'Notes'], ['files', 'Files']].map(function (x) {
       var on = st.sTab === x[0]; return { label: x[1], on: on, style: tabStyle(t, on), hasCount: x[0] === 'checklist' && st.items.length > 0, count: st.items.filter(function (it) { return it.done; }).length + '/' + st.items.length, pick: function () { self.setState({ sTab: x[0], pop: null, sheetMenu: false }); } };
     });
-    function addItem() { var tx = (st.draft || '').trim(); if (!tx || !self.guard()) return; self.setState({ items: st.items.concat([{ text: tx, done: false }]), draft: '' }); }
+    function addItem() { var tx = (st.draft || '').trim(); if (!tx || !self.guard()) return; self.setState({ items: st.items.concat([{ text: tx, done: false }]), draft: '', dirty: true }); }
     var doneN = st.items.filter(function (it) { return it.done; }).length;
     var items = st.items.map(function (it, j) { return { text: it.text, done: it.done, aria: (it.done ? 'Mark not done: ' : 'Mark done: ') + it.text, box: box(t, it.done), fg: it.done ? t.mutedFg : t.fg, rowStyle: (j ? k.rowT : k.row) + '; min-height: 48px', delay: (j * 0.03).toFixed(2) + 's',
       strikeCls: it.done && st.ticking[j] ? 'a-strike' : '', strikeSize: it.done ? '100% 1.5px' : '0% 1.5px',
-      toggle: function () { if (!self.guard()) return; var n = st.items.slice(); n[j] = { text: it.text, done: !it.done }; var tk = Object.assign({}, st.ticking); tk[j] = !it.done; self.setState({ items: n, ticking: tk }); },
-      remove: function () { if (!self.guard()) return; self.setState({ items: st.items.filter(function (_, x) { return x !== j; }) }); } }; });
-    var extras = st.extras.map(function (x, j) { var bonus = x.type === 'Bonus'; return { type: x.type, typeAria: 'Type: ' + x.type + '. Switch type', amtLabel: bonus ? 'Bonus amount' : 'Commission rate', amtPh: bonus ? 'Amount, like $1,000' : 'Rate, like 10%', rowStyle: j ? k.rowT : k.row,
+      toggle: function () { if (!self.guard()) return; var n = st.items.slice(); n[j] = { text: it.text, done: !it.done }; var tk = Object.assign({}, st.ticking); tk[j] = !it.done; self.setState({ items: n, ticking: tk, dirty: true }); },
+      remove: function () { if (!self.guard()) return; self.setState({ items: st.items.filter(function (_, x) { return x !== j; }), dirty: true }); } }; });
+    var extras = st.extras.map(function (x, j) { var bonus = x.type === 'Bonus'; return { type: x.type, typeAria: 'Type: ' + x.type + '. Switch type', amtLabel: bonus ? 'Bonus amount' : 'Commission rate', amtPh: bonus ? 'Amount, like $1,000' : 'Rate, like 10%', rowStyle: j ? k.rowT : k.row, value: x.value || '',
+      setVal: function (ev) { if (locked) return; var n = self.state.extras.slice(); n[j] = { type: n[j].type, value: ev.target.value }; self.setState({ extras: n, dirty: true }); },
       dirty: function () { if (!locked && !self.state.dirty) self.setState({ dirty: true }); },
-      toggleType: function () { if (!self.guard()) return; var n = st.extras.slice(); n[j] = { type: bonus ? 'Commission' : 'Bonus' }; self.setState({ extras: n, dirty: true }); },
-      remove: function () { if (!self.guard()) return; self.setState({ extras: st.extras.filter(function (_, y) { return y !== j; }) }); } }; });
+      toggleType: function () { if (!self.guard()) return; var n = st.extras.slice(); n[j] = { type: bonus ? 'Commission' : 'Bonus', value: x.value || '' }; self.setState({ extras: n, dirty: true }); },
+      remove: function () { if (!self.guard()) return; self.setState({ extras: st.extras.filter(function (_, y) { return y !== j; }), dirty: true }); } }; });
+    var dFiles = (cur.files || []).concat(st.newFiles[cur.id] || []);
+    var FEXT = { pdf: ['PDF', t.pdfBg || t.badBg, t.pdfFg || t.destr], doc: ['DOC', t.fill, t.fg], docx: ['DOC', t.fill, t.fg], png: ['IMG', t.fill, t.fg], jpg: ['IMG', t.fill, t.fg], jpeg: ['IMG', t.fill, t.fg], csv: ['CSV', t.okBg, t.okFg] };
+    var KIND = { contract: 'Contract', invoice: 'Invoice', other: 'File' };
+    var files = dFiles.map(function (x, j) { var ex = ((x.name || '').split('.').pop() || '').toLowerCase(), b = FEXT[ex] || ['FILE', t.fill, t.fg];
+      return { name: x.name || 'File', url: x.url || '', ext: b[0], badgeBg: b[1], badgeFg: b[2], meta: (KIND[x.kind] || 'File') + (x.date ? ', added ' + md(x.date) : ''), rowStyle: j ? k.rowT : k.row }; });
+    var inv = dFiles.filter(function (x) { return x.kind === 'invoice'; }).slice(-1)[0];
     var ftHints = { auto: 'Talby works out whether it is a contract or an invoice.', contract: 'Saved as the contract for this deal.', invoice: 'Saved as an invoice and linked to the payment.', other: 'Saved with the deal files.' };
     var ftypes = [['auto', 'Auto'], ['contract', 'Contract'], ['invoice', 'Invoice'], ['other', 'Other']].map(function (x) { var on = st.ftype === x[0]; return { label: x[1], on: on, style: chip(t, on), pick: function () { self.setState({ ftype: x[0] }); } }; });
     var platsSel = Object.keys(st.e.plats || {}).filter(function (x) { return st.e.plats[x]; });
@@ -401,7 +451,12 @@ class Component extends DCLogic {
       noSel: selIds.length === 0, bulkOp: selIds.length ? '1' : '0.45', selAllLabel: allOnPage ? 'Deselect all' : 'Select all',
       cardPad: mob && st.selMode ? '120px' : '0px',
       ctlW: mob ? '184px' : '220px', ro: locked ? 'readonly' : null, lockFocus: function () { if (locked) self.guard(); },
-      chooseFile: function () { self.guard(); },
+      chooseFile: function () { if (!self.guard()) return; self.uploadFile(st.ftype, cur); },
+      files: files, hasFiles: files.length > 0, invoiceSub: inv ? inv.name : 'No invoice yet', hasInvoice: !!(inv && inv.url), invoiceUrl: inv ? inv.url || '' : '',
+      notesVal: e.notes !== undefined ? e.notes : (cur.notes || ''), setNotes: function (ev) { edit({ notes: ev.target.value }); },
+      repEmail: e.repEmail !== undefined ? e.repEmail : (cur.repEmail || ''), setRepEmail: function (ev) { edit({ repEmail: ev.target.value }); },
+      repPhone: e.repPhone !== undefined ? e.repPhone : (cur.repPhone || ''), setRepPhone: function (ev) { edit({ repPhone: ev.target.value }); },
+      hStatusOpen: st.pop === 'hstatus', popHStatus: pop('hstatus'), hStatusOpts: opts(['Negotiating', 'Active'], statusNow, 'status'),
       minH: mob ? '100vh' : '980px', barPad: mob ? '12px 12px 8px' : '14px 14px 12px',
       tabs: tabs, viewOpen: st.viewOpen, toggleView: function () { self.setState({ viewOpen: !self.state.viewOpen, facetOpen: false }); }, viewLabel: curTab ? curTab.label : 'All deals', viewCount: curTab ? curTab.count : '',
       q: st.q, setQ: function (ev) { self.setState({ q: ev.target.value, page: 0 }); }, filterMax: mob ? 'none' : '240px',
@@ -439,8 +494,8 @@ class Component extends DCLogic {
       howOpen: st.pop === 'how', popHow: pop('how'), howVal: how, howOpts: opts(['All at once', 'Split', 'In parts', 'Monthly'], how, 'how'),
       whenOpen: st.pop === 'when', popWhen: pop('when'), whenVal: when, whenOpts: opts(WHEN, when, 'when'),
       dueVal: due || '', setDue: function (v) { edit({ due: v }); },
-      extras: extras, noExtras: extras.length === 0, hasExtras: extras.length > 0, addExtra: function () { if (!self.guard()) return; self.setState({ extras: self.state.extras.concat([{ type: 'Bonus' }]), dirty: true }); },
-      uploadInvoice: function () { if (!self.guard()) return; self.toast('Choose an invoice', 'PDF or image. It is linked to this payment.'); },
+      extras: extras, noExtras: extras.length === 0, hasExtras: extras.length > 0, addExtra: function () { if (!self.guard()) return; self.setState({ extras: self.state.extras.concat([{ type: 'Bonus', value: '' }]), dirty: true }); },
+      uploadInvoice: function () { if (!self.guard()) return; self.uploadFile('invoice', cur); },
       statusOpen: st.pop === 'status', popStatus: pop('status'), statusOpts: opts(['Negotiating', 'Active', 'Archived'], statusNow, 'status'),
       postVal: postNow || '', setPost: function (v) { edit({ post: v }); },
       plats: chipSet(['TikTok', 'Instagram', 'YouTube', 'Facebook', 'Other'], 'plats').map(function (c) { c.icon = PLATICON[c.label] || ''; c.hasIcon = !!PLATICON[c.label]; c.pad = c.hasIcon ? '0 14px 0 8px' : '0 14px'; return c; }), types: chipSet(['Video', 'Reel', 'Story', 'Post', 'Live'], 'types'),
@@ -448,11 +503,11 @@ class Component extends DCLogic {
       repSummary: e.repName ? e.repName : (cur.rep || 'Not added'), repName: e.repName !== undefined ? e.repName : (cur.rep || ''), setRepName: function (ev) { edit({ repName: ev.target.value }); }, markDirty: function () { if (!locked && !self.state.dirty) self.setState({ dirty: true }); },
       checkLabel: doneN + ' of ' + st.items.length + ' done', checkPct: String(st.items.length ? Math.round(doneN / st.items.length * 100) : 0), checkW: (st.items.length ? Math.round(doneN / st.items.length * 100) : 0) + '%',
       draft: st.draft, setDraft: function (ev) { self.setState({ draft: ev.target.value }); }, draftKey: function (ev) { if (ev.key === 'Enter') addItem(); }, addItem: addItem,
-      addStandard: function () { if (!self.guard()) return; self.setState({ items: ['Sign the contract', 'Film the content', 'Send the draft for review', 'Post the content', 'Send the invoice'].map(function (x) { return { text: x, done: false }; }), ticking: {} }); },
+      addStandard: function () { if (!self.guard()) return; self.setState({ items: ['Sign the contract', 'Film the content', 'Send the draft for review', 'Post the content', 'Send the invoice'].map(function (x) { return { text: x, done: false }; }), ticking: {}, dirty: true }); },
       items: items, noItems: items.length === 0, hasItems: items.length > 0, ftypes: ftypes, ftypeHint: ftHints[st.ftype],
       dirty: st.dirty, notDirty: !st.dirty, saveOp: st.dirty ? '1' : '0.4', saveDot: locked ? t.mutedFg : (st.dirty ? '#F59E0B' : '#22C55E'), saveText: locked ? 'View only on your plan' : (st.dirty ? 'Unsaved changes' : 'All changes saved'),
       showMarkPaid: !st.dirty && cur.pay !== 'paid',
-      cancelEdits: function () { self.setState({ e: {}, dirty: false, extras: [], pop: null }); },
+      cancelEdits: function () { var dp = dealParts(cur.id); self.setState({ e: {}, dirty: false, extras: dp.extras, items: dp.items, pop: null }); },
       save: function () { if (!st.dirty) return; self.write('Could not save', function () { self.emit('deal.update', { id: cur.dbId, changes: Object.assign({}, st.e), extras: st.extras.slice(), checklist: st.items.slice() }); self.setState({ dirty: false, pop: null }); self.toast('Deal saved', cur.brand); }, 'Check your connection and try again. Your changes are still here.'); },
       markPaid: function () { self.write('Could not mark it paid', function () { self.emit('deal.markPaid', { id: cur.dbId, amount: cur.amt }); var o = Object.assign({}, self.state.paidIds); o[cur.id] = true; self.setState({ paidIds: o, open: -1 }); self.paidPraise(cur.brand, cur.amt); }); }
     };
@@ -1283,7 +1338,7 @@ function render($s0, host) {
             <button className={"tb tg"} type={"button"} role={"menuitem"} onClick={$s0?.rm?.archive} {...S($s0?.k?.item)}>
               {"Archive"}
             </button>
-            <button className={"tb tg"} type={"button"} role={"menuitem"} onClick={$s0?.rm?.del} {...S(`color: ${I($s0?.t?.destr)}; ${I($s0?.k?.item)}`)}>
+            <button className={"tb tg"} type={"button"} role={"menuitem"} onClick={$s0?.rm?.del} {...S(`${I($s0?.k?.item)}; color: ${I($s0?.t?.destr)};`)}>
               {"Delete"}
             </button>
           </div>
@@ -1494,6 +1549,30 @@ function render($s0, host) {
                     </svg>
                     {T($s0?.d?.pay?.label)}
                   </span>
+                  <span {...S("position: relative; display: inline-flex")}>
+                    <button className={"tb tg"} type={"button"} onClick={$s0?.popHStatus} aria-haspopup={"listbox"} aria-expanded={$s0?.hStatusOpen} aria-label={`Deal status: ${I($s0?.d?.statusNow)}. Change it`} {...S(`--hv: ${I($s0?.t?.fill)}; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 7px 0 9px; box-sizing: border-box; border: 1px solid ${I($s0?.t?.border)}; border-radius: ${I($s0?.t?.rCtl)}; background: ${I($s0?.t?.card)}; color: ${I($s0?.t?.fg)}; font: inherit; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer`)}>
+                      <span {...S(`width: 6px; height: 6px; flex: 0 0 6px; border-radius: 3px; background: ${I($s0?.d?.stDot)}`)} />
+                      {T($s0?.d?.statusNow)}
+                      <svg width={"12"} height={"12"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("display: block; flex: 0 0 12px")}>
+                        <path d={"m6 9 6 6 6-6"} />
+                      </svg>
+                    </button>
+                    {$s0?.hStatusOpen ? (<>
+                      <div role={"listbox"} aria-label={"Deal status"} className={"a-drop"} {...S(`position: absolute; top: 30px; left: 0; width: 200px; z-index: 12; ${I($s0?.k?.pop)}`)}>
+                        {A($s0?.hStatusOpts).map((it, i) => {
+                          const $s1 = { ...$s0, "o": it, $index: i };
+                          return (<React.Fragment key={i}>
+                            <button className={"tb tg"} type={"button"} role={"option"} aria-selected={$s1?.o?.on} onClick={$s1?.o?.pick} {...S(`justify-content: space-between; ${I($s1?.k?.item)}`)}>
+                              {T($s1?.o?.label)}
+                              <svg width={"14"} height={"14"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.4"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S(`visibility: ${I($s1?.o?.check)}`)}>
+                                <path d={"M20 6 9 17l-5-5"} />
+                              </svg>
+                            </button>
+                          </React.Fragment>);
+                        })}
+                      </div>
+                    </>) : null}
+                  </span>
                 </span>
               </div>
               <button className={"tb tg"} type={"button"} onClick={$s0?.toggleSheetMenu} aria-label={"More actions"} aria-haspopup={"menu"} aria-expanded={$s0?.sheetMenu} {...S($s0?.k?.ico)}>
@@ -1517,7 +1596,7 @@ function render($s0, host) {
                     {"Archive"}
                   </button>
                   <div {...S(`height: 1px; margin: 6px -6px; background: ${I($s0?.t?.line)}`)} />
-                  <button className={"tb tg"} type={"button"} role={"menuitem"} onClick={$s0?.sheetDelete} {...S(`color: ${I($s0?.t?.destr)}; ${I($s0?.k?.item)}`)}>
+                  <button className={"tb tg"} type={"button"} role={"menuitem"} onClick={$s0?.sheetDelete} {...S(`${I($s0?.k?.item)}; color: ${I($s0?.t?.destr)};`)}>
                     {"Delete deal"}
                   </button>
                 </div>
@@ -1654,12 +1733,32 @@ function render($s0, host) {
                                   <span {...S("font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums")}>
                                     {T($s1?.s?.amount)}
                                   </span>
-                                  <span {...S(`color: ${I($s1?.s?.pay?.fg)}; ${I($s1?.k?.payBadge)}`)}>
-                                    <svg width={"14"} height={"14"} viewBox={"0 0 24 24"} fill={"none"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("display: block; flex: 0 0 14px")}>
-                                      <circle cx={"12"} cy={"12"} r={"9.5"} fill={$s1?.s?.pay?.fill} stroke={$s1?.s?.pay?.stroke} strokeDasharray={$s1?.s?.pay?.dash} />
-                                      <path d={$s1?.s?.pay?.inner} stroke={$s1?.s?.pay?.innerStroke} />
-                                    </svg>
-                                    {T($s1?.s?.pay?.label)}
+                                  <span {...S("position: relative; display: inline-flex")}>
+                                    <button className={"tb tg"} type={"button"} onClick={$s1?.s?.toggle} aria-haspopup={"listbox"} aria-expanded={$s1?.s?.open} aria-label={$s1?.s?.aria} {...S(`--hv: ${I($s1?.t?.fill)}; font: inherit; cursor: pointer; color: ${I($s1?.s?.pay?.fg)}; ${I($s1?.k?.payBadge)}`)}>
+                                      <svg width={"14"} height={"14"} viewBox={"0 0 24 24"} fill={"none"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("display: block; flex: 0 0 14px")}>
+                                        <circle cx={"12"} cy={"12"} r={"9.5"} fill={$s1?.s?.pay?.fill} stroke={$s1?.s?.pay?.stroke} strokeDasharray={$s1?.s?.pay?.dash} />
+                                        <path d={$s1?.s?.pay?.inner} stroke={$s1?.s?.pay?.innerStroke} />
+                                      </svg>
+                                      {T($s1?.s?.pay?.label)}
+                                      <svg width={"12"} height={"12"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("display: block; flex: 0 0 12px")}>
+                                        <path d={"m6 9 6 6 6-6"} />
+                                      </svg>
+                                    </button>
+                                    {$s1?.s?.open ? (<>
+                                      <div role={"listbox"} aria-label={"Payment status"} className={"a-drop"} {...S(`position: absolute; top: 30px; right: 0; width: 190px; z-index: 12; ${I($s1?.k?.pop)}`)}>
+                                        {A($s1?.s?.opts).map((it, i) => {
+                                          const $s2 = { ...$s1, "o": it, $index: i };
+                                          return (<React.Fragment key={i}>
+                                            <button className={"tb tg"} type={"button"} role={"option"} aria-selected={$s2?.o?.on} onClick={$s2?.o?.pick} {...S(`justify-content: space-between; ${I($s2?.k?.item)}`)}>
+                                              {T($s2?.o?.label)}
+                                              <svg width={"14"} height={"14"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.4"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S(`visibility: ${I($s2?.o?.check)}`)}>
+                                                <path d={"M20 6 9 17l-5-5"} />
+                                              </svg>
+                                            </button>
+                                          </React.Fragment>);
+                                        })}
+                                      </div>
+                                    </>) : null}
                                   </span>
                                 </span>
                               </div>
@@ -1700,7 +1799,7 @@ function render($s0, host) {
                                     <path d={"m7 15 5 5 5-5M7 9l5-5 5 5"} />
                                   </svg>
                                 </button>
-                                <input className={"ti"} aria-label={$s1?.x?.amtLabel} placeholder={$s1?.x?.amtPh} onChange={$s1?.x?.dirty} readOnly={$s1?.ro} onFocus={$s1?.lockFocus} {...S(`height: 30px; ${I($s1?.k?.ctl)}; flex: 1 1 auto`)} />
+                                <input className={"ti"} aria-label={$s1?.x?.amtLabel} placeholder={$s1?.x?.amtPh} value={V0($s1?.x?.value, "")} onChange={$s1?.x?.setVal} readOnly={$s1?.ro} onFocus={$s1?.lockFocus} {...S(`height: 30px; ${I($s1?.k?.ctl)}; flex: 1 1 auto`)} />
                                 <button className={"tb tg"} type={"button"} onClick={$s1?.x?.remove} aria-label={"Remove extra"} {...S(`--hv: ${I($s1?.t?.fill)}; ${I($s1?.k?.icoS)}`)}>
                                   <svg width={"15"} height={"15"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
                                     <path d={"M18 6 6 18M6 6l12 12"} />
@@ -1733,9 +1832,14 @@ function render($s0, host) {
                               {"Invoice"}
                             </span>
                             <span {...S(`font-size: 13px; color: ${I($s0?.t?.mutedFg)}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis`)}>
-                              {"No invoice yet"}
+                              {T($s0?.invoiceSub)}
                             </span>
                           </span>
+                          {$s0?.hasInvoice ? (<>
+                            <a className={"tb tg"} href={H($s0?.invoiceUrl)} target={"_blank"} rel={"noopener"} {...S(`${I($s0?.k?.gSm)}; text-decoration: none`)}>
+                              {"Open"}
+                            </a>
+                          </>) : null}
                           <button className={"tb tg"} type={"button"} onClick={$s0?.uploadInvoice} {...S($s0?.k?.oSm)}>
                             {"Upload"}
                           </button>
@@ -1882,13 +1986,13 @@ function render($s0, host) {
                           <label htmlFor={"rep-email"} {...S($s0?.k?.rowLabel)}>
                             {"Email"}
                           </label>
-                          <input id={"rep-email"} className={"ti"} type={"email"} placeholder={"name@brand.com"} onChange={$s0?.markDirty} readOnly={$s0?.ro} onFocus={$s0?.lockFocus} {...S(`${I($s0?.k?.ctl)}; flex: 0 1 ${I($s0?.ctlW)}; box-sizing: border-box`)} />
+                          <input id={"rep-email"} className={"ti"} type={"email"} placeholder={"name@brand.com"} value={V0($s0?.repEmail, "")} onChange={$s0?.setRepEmail} readOnly={$s0?.ro} onFocus={$s0?.lockFocus} {...S(`${I($s0?.k?.ctl)}; flex: 0 1 ${I($s0?.ctlW)}; box-sizing: border-box`)} />
                         </div>
                         <div {...S($s0?.k?.rowT)}>
                           <label htmlFor={"rep-phone"} {...S($s0?.k?.rowLabel)}>
                             {"Phone"}
                           </label>
-                          <input id={"rep-phone"} className={"ti"} type={"tel"} placeholder={"Optional"} onChange={$s0?.markDirty} readOnly={$s0?.ro} onFocus={$s0?.lockFocus} {...S(`${I($s0?.k?.ctl)}; flex: 0 1 ${I($s0?.ctlW)}; box-sizing: border-box`)} />
+                          <input id={"rep-phone"} className={"ti"} type={"tel"} placeholder={"Optional"} value={V0($s0?.repPhone, "")} onChange={$s0?.setRepPhone} readOnly={$s0?.ro} onFocus={$s0?.lockFocus} {...S(`${I($s0?.k?.ctl)}; flex: 0 1 ${I($s0?.ctlW)}; box-sizing: border-box`)} />
                         </div>
                       </div>
                     </div>
@@ -1964,7 +2068,7 @@ function render($s0, host) {
                   <span {...S("font-weight: 500")}>
                     {"Notes"}
                   </span>
-                  <textarea className={"ti"} placeholder={"Anything worth remembering about this deal"} onChange={$s0?.markDirty} readOnly={$s0?.ro} onFocus={$s0?.lockFocus} {...S(`height: 240px; ${I($s0?.k?.area)}`)} />
+                  <textarea className={"ti"} placeholder={"Anything worth remembering about this deal"} value={V0($s0?.notesVal, "")} onChange={$s0?.setNotes} readOnly={$s0?.ro} onFocus={$s0?.lockFocus} {...S(`height: 240px; ${I($s0?.k?.area)}`)} />
                   <span {...S(`color: ${I($s0?.t?.mutedFg)}`)}>
                     {"Only you can see these notes."}
                   </span>
@@ -1990,6 +2094,36 @@ function render($s0, host) {
                       {T($s0?.ftypeHint)}
                     </span>
                   </div>
+                  {$s0?.hasFiles ? (<>
+                    <div {...S("display: flex; flex-direction: column; gap: 8px")}>
+                      <span {...S("font-weight: 500")}>
+                        {"Files"}
+                      </span>
+                      <div {...S($s0?.k?.group)}>
+                        {A($s0?.files).map((it, i) => {
+                          const $s1 = { ...$s0, "fl": it, $index: i };
+                          return (<React.Fragment key={i}>
+                            <div {...S($s1?.fl?.rowStyle)}>
+                              <span {...S(`width: 34px; height: 34px; flex: 0 0 34px; border-radius: ${I($s1?.t?.rSm)}; background: ${I($s1?.fl?.badgeBg)}; color: ${I($s1?.fl?.badgeFg)}; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; letter-spacing: 0.02em`)}>
+                                {T($s1?.fl?.ext)}
+                              </span>
+                              <span {...S("flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px")}>
+                                <span {...S("font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
+                                  {T($s1?.fl?.name)}
+                                </span>
+                                <span {...S(`font-size: 13px; color: ${I($s1?.t?.mutedFg)}; white-space: nowrap`)}>
+                                  {T($s1?.fl?.meta)}
+                                </span>
+                              </span>
+                              <a className={"tb tg"} href={H($s1?.fl?.url)} target={"_blank"} rel={"noopener"} {...S(`${I($s1?.k?.oSm)}; text-decoration: none`)}>
+                                {"Open"}
+                              </a>
+                            </div>
+                          </React.Fragment>);
+                        })}
+                      </div>
+                    </div>
+                  </>) : null}
                   <div {...S(`display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 32px 16px; border: 1.5px dashed ${I($s0?.t?.borderStrong)}; border-radius: ${I($s0?.t?.rCard)}; text-align: center`)}>
                     <span {...S(`width: 40px; height: 40px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.fill)}; display: inline-flex; align-items: center; justify-content: center`)}>
                       <svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>

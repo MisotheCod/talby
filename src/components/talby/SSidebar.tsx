@@ -189,7 +189,7 @@ function render($s0, host) {
           </nav>
           <div {...S("flex: 1 1 auto; min-height: 24px")} />
           {$s0?.planCard ? (<>
-            <a href={H("SSettings.dc.html")} className={"tb tg a-fade"} onClick={$s0?.pl?.go} {...S(`--hv: ${I($s0?.t?.hover)}; display: flex; flex-direction: column; gap: 8px; margin: 0 0 8px; padding: 10px 12px 11px; box-sizing: border-box; border: 1px solid ${I($s0?.t?.sideBorder)}; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.card)}; color: ${I($s0?.t?.fg)}; text-decoration: none`)}>
+            <a href={H("SUpgrade.dc.html")} className={"tb tg a-fade"} onClick={$s0?.pl?.go} {...S(`--hv: ${I($s0?.t?.hover)}; display: flex; flex-direction: column; gap: 8px; margin: 0 0 8px; padding: 10px 12px 11px; box-sizing: border-box; border: 1px solid ${I($s0?.t?.sideBorder)}; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.card)}; color: ${I($s0?.t?.fg)}; text-decoration: none`)}>
               <span {...S("display: flex; align-items: center; gap: 8px; min-width: 0")}>
                 <span {...S(`width: 7px; height: 7px; flex: 0 0 7px; border-radius: 4px; background: ${I($s0?.pl?.dot)}`)} />
                 <span {...S("font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
@@ -213,7 +213,7 @@ function render($s0, host) {
             </a>
           </>) : null}
           {$s0?.planIcon ? (<>
-            <a href={H("SSettings.dc.html")} className={"tb tg"} onClick={$s0?.pl?.go} aria-label={$s0?.pl?.aria} onMouseEnter={$s0?.pl?.enter} onMouseLeave={$s0?.hideTip} {...S(`--hv: ${I($s0?.t?.hover)}; position: relative; display: flex; align-items: center; justify-content: center; height: 36px; margin-bottom: 2px; border-radius: ${I($s0?.t?.rItem)}; color: ${I($s0?.pl?.icFg)}; text-decoration: none`)}>
+            <a href={H("SUpgrade.dc.html")} className={"tb tg"} onClick={$s0?.pl?.go} aria-label={$s0?.pl?.aria} onMouseEnter={$s0?.pl?.enter} onMouseLeave={$s0?.hideTip} {...S(`--hv: ${I($s0?.t?.hover)}; position: relative; display: flex; align-items: center; justify-content: center; height: 36px; margin-bottom: 2px; border-radius: ${I($s0?.t?.rItem)}; color: ${I($s0?.pl?.icFg)}; text-decoration: none`)}>
               <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
                 <path d={$s0?.pl?.icon} />
               </svg>

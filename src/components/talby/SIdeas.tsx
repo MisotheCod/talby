@@ -530,7 +530,7 @@ function render($s0, host) {
                           {T($s1?.c?.starMenu)}
                         </button>
                         <div {...S(`height: 1px; margin: 6px -6px; background: ${I($s1?.t?.line)}`)} />
-                        <button className={"tb tg"} type={"button"} role={"menuitem"} onClick={$s1?.c?.remove} {...S(`color: ${I($s1?.t?.destr)}; ${I($s1?.k?.item)}`)}>
+                        <button className={"tb tg"} type={"button"} role={"menuitem"} onClick={$s1?.c?.remove} {...S(`${I($s1?.k?.item)}; color: ${I($s1?.t?.destr)};`)}>
                           {"Delete"}
                         </button>
                       </div>
