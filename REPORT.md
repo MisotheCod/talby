@@ -452,3 +452,18 @@ Production's history stores versions as **timestamps**; mapped:
 | rollback plan (Vercel Instant Rollback) | **PASS** — branch unmerged, production untouched |
 
 **Left before a real go:** (1) fix the New-deal "Create deal" → `onAction("deal.create")` wiring so a click saves; (2) then the click tests for CSV ×2 and contract-upload PDF; (3) apply 000053–000059 to production only on Cam's go and after a fresh backup taken immediately before.
+
+---
+
+### Production prep (2026-10-17) — backup-first, then migrations applied
+
+- **Backup taken immediately before any change:** `backups/talby_backup_20261017140151.json` at **2026-10-17 14:01:51 UTC** (local-only, gitignored — contains Notion tokens).
+- **Verified 000053–000056 already on production** (timestamp versions: notion_import, csv_uploads, contracts_bucket, import_runs_ledger_columns).
+- **Applied in order right after the backup** (all additive/idempotent), each verified by read-only query on production:
+  - `000057` grants → grants_present=16 ✓
+  - `000058` deals.deal_type → col present ✓
+  - `000059` rls_auto_enable() + inbox_leads table/policies/grants → fn + 4 policies ✓
+  - `000060` deals.import_key + unique partial index `deals_user_import_key_idx` → col + unique index ✓
+- **Contracts bucket on production:** exists, **private** (public=false), 20 MB limit ✓
+
+Production now carries the full migration set. Nothing merged; the branch is still separate and Cam merges.
