@@ -1,502 +1,93 @@
 "use client";
-
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import posthog from "posthog-js";
-import gsap from "gsap";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { subscribeDataChange } from "@/lib/data-events";
-import { greeting, formatMoney, isPastDue, cn } from "@/lib/utils";
-import { dealPayRollup, paymentStatusView, type DealRollup, type PayStatus } from "@/lib/pay-status";
-import { IconPlus } from "@/components/icons";
-import { Pill, Segmented } from "@/components/ui";
-import { AddDealFlow } from "@/components/add-deal-flow";
-import { StatCard } from "@/components/stat-card";
+import TalbyPage from "@/components/talby-app/TalbyPage";
+import { toOverviewData, toAccountData } from "@/lib/talby/to-board";
+import { makeOnAction } from "@/lib/talby/actions";
+import { TalbyDates } from "@/components/talby/_data";
+import { showWelcome, deriveIdentity } from "@/lib/talby/account-gate";
+import type { OverviewData, AccountData, WelcomeData } from "@/components/talby/_data";
+import type { DealRow, PaymentRow, ContentRow, TodoRow, ProfileRow } from "@/lib/talby/queries";
 
-type Deal = {
-  id: string; brand: string; status: string; value: number | null;
-  due_date: string | null; deliverable: string | null; active: boolean;
-  notes: string | null; created_at: string;
-  pay_rollup?: DealRollup;
-};
-type Payment = {
-  id: string; deal_id: string | null; amount: number;
-  expected_date: string | null; status: string; invoice_state: string | null;
-  pay_status?: string | null;
-  deal?: { brand: string } | null;
-};
-type Content = {
-  id: string; title: string; event_date: string; post_type: string | null;
-  platform: string | null; status: string | null; linked_deal_id: string | null;
-};
-type Todo = { id: string; title: string; done: boolean; due_date: string | null };
-type CalendarNote = { id: string; body: string; event_date: string; done: boolean };
+type View = "loading" | "sample" | "empty" | "error";
 
-const FILTERS = ["Active", "Unpaid", "Paid", "All"] as const;
-
-function toISO(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-function addDays(d: Date, n: number) {
-  const r = new Date(d);
-  r.setDate(r.getDate() + n);
-  return r;
-}
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-// Type metadata: label + source color (tint/text/border derived via color-mix)
-const TYPE: Record<string, [string, string]> = {
-  payment: ["PAY", "var(--due)"],
-  received: ["PAY", "var(--paid)"],
-  post: ["POST", "var(--accent)"],
-  deliv: ["DUE", "var(--late)"],
-  todo: ["TODO", "var(--purple)"],
-  note: ["NOTE", "var(--ink-soft)"],
-};
-
+/** Item C: Overview on /app with real data + account + onAction. */
 export default function OverviewPage() {
   const supabase = createClient();
-  const searchParams = useSearchParams();
-  const [handle, setHandle] = useState<string | null>(null);
-  const [deals, setDeals] = useState<Deal[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [content, setContent] = useState<Content[]>([]);
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [notes, setNotes] = useState<CalendarNote[]>([]);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("Active");
-  const [loading, setLoading] = useState(true);
-  const [addFlowOpen, setAddFlowOpen] = useState(false);
-  const [selDay, setSelDay] = useState(0); // index into this week (today first)
-  const [dealPage, setDealPage] = useState(1);
-  const DEAL_PAGE_SIZE = 10;
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [view, setView] = useState<View>("loading");
+  const [data, setData] = useState<OverviewData | null>(null);
+  const [account, setAccount] = useState<AccountData | null>(null);
+  const [plan, setPlan] = useState("active");
+  const [look, setLook] = useState<{ theme: string; mode: string; sidebar: string } | null>(null);
+  const [welcome, setWelcome] = useState<WelcomeData | null>(null);
+  const [firstVisit, setFirstVisit] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const p = await supabase.from("profiles").select("handler").eq("id", user.id).single();
-      const row = p.data as unknown as { handler: string | null } | null;
-      setHandle(row?.handler ?? null);
-    }
-    // All data for the week + payments + deals, user-scoped via RLS.
-    const [d, pay, c, t, n] = await Promise.all([
-      supabase.from("deals").select("*").order("created_at", { ascending: false }),
-      supabase.from("payments").select("*, deal:deals(brand)").order("expected_date", { ascending: true }),
-      supabase.from("content").select("*").order("event_date", { ascending: true }),
-      supabase.from("todos").select("*").not("due_date", "is", null),
-      supabase.from("notes").select("id, body, event_date, done").not("event_date", "is", null),
-    ]);
-    setDeals((d.data ?? []).map((deal) => ({
-      ...(deal as Deal),
-      pay_rollup: dealPayRollup((pay.data ?? []).filter((p) => (p as { deal_id?: string | null }).deal_id === (deal as Deal).id).map((p) => ({ pay_status: (p as { pay_status?: string | null }).pay_status ?? null, expected_date: (p as { expected_date?: string | null }).expected_date ?? null }))),
-    })));
-    setPayments(pay.data ?? []);
-    setContent(c.data ?? []);
-    setTodos((t.data ?? []) as unknown as Todo[]);
-    setNotes((n.data ?? []) as unknown as CalendarNote[]);
-    setLoading(false);
-  }, [supabase]);
+  const load = async () => {
+    setView("loading");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const prof = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      const profile = (prof.data ?? null) as unknown as ProfileRow | null;
 
-  useEffect(() => { load(); }, [load]);
+      const [d, pay, c, todoRes, ideasR] = await Promise.all([
+        supabase.from("deals").select("*"),
+        supabase.from("payments").select("*, deal:deals(id, brand)"),
+        supabase.from("content").select("*"),
+        supabase.from("todos").select("*"),
+        supabase.from("ideas").select("id").neq("status", "archived"),
+      ]);
+      const deals = (d.data ?? []) as unknown as DealRow[];
+      const payments = (pay.data ?? []) as unknown as PaymentRow[];
+      const content = (c.data ?? []) as unknown as ContentRow[];
+      const todoRows = (todoRes.data ?? []) as unknown as TodoRow[];
 
-  // subscribed: fired once on the success redirect (Stripe -> ?upgraded=1).
-  const upgraded = searchParams.get("upgraded");
-  useEffect(() => {
-    if (upgraded === "1") posthog.capture("subscribed", { method: "email" });
-  }, [upgraded]);
+      const today = TalbyDates.today();
+      const late = payments.filter((x) => x.status !== "received" && x.pay_status !== "paid" && x.expected_date && x.expected_date < today).length;
+      const openTodos = todoRows.filter((t) => !t.done);
+      const ideas = ideasR.data ?? [];
+      const dealsThisYear = deals.filter((x) => (x.created_at ?? "").slice(0, 4) === today.slice(0, 4)).length;
 
-  // Re-fetch on cross-route data mutations (deal saves, payment/extra edits,
-  // deletes, creates) so Overview never shows stale deal/payment numbers.
-  useEffect(() => {
-    const unsub = subscribeDataChange(() => { load(); });
-    return unsub;
-  }, [load]);
-
-  // ---- GSAP load-in (respects prefers-reduced-motion) ----
-  useEffect(() => {
-    if (loading || !rootRef.current) return;
-    const root = rootRef.current;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      // final values immediately, nothing hidden
-      root.querySelectorAll(".cnt-up").forEach((el) => {
-        const n = +(el as HTMLElement).dataset.n! || 0;
-        el.textContent = "$" + n.toLocaleString();
+      setData(toOverviewData({ deals, payments, content, todos: todoRows, today }));
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+      const identity = deriveIdentity({
+        handler: profile?.handler ?? null,
+        fullName: (meta.full_name as string) ?? (meta.name as string) ?? null,
+        email: user.email ?? null,
       });
-      return;
-    }
-    const ctx = gsap.context(() => {
-      // rise in for greeting/search/stats/panels
-      gsap.set(".anim", { opacity: 0, y: 18 });
-      gsap.to(".anim", { opacity: 1, y: 0, duration: 0.55, ease: "power3.out", stagger: 0.06, delay: 0.05 });
-      // deal/payment rows slide in (guarded: only if present)
-      if (root.querySelector(".rowanim")) {
-        gsap.set(".rowanim", { opacity: 0, x: -12 });
-        gsap.to(".rowanim", { opacity: 1, x: 0, duration: 0.45, ease: "power2.out", stagger: 0.06, delay: 0.45 });
+      setAccount(toAccountData({
+        profile: { ...(profile ?? {}), handler: identity.handle } as ProfileRow, today,
+        counts: { deals: deals.length, late, ideas: ideas.length, todos: openTodos.length },
+        dealsThisYear, notifications: [],
+      }));
+      if (profile?.theme || profile?.mode || profile?.sidebar)
+        setLook({ theme: profile.theme ?? "studio", mode: profile.mode ?? "light", sidebar: profile.sidebar ?? "expanded" });
+      switch (profile?.plan_status) {
+        case "trialing": setPlan("trial"); break;
+        case "past_due": setPlan("pastdue"); break;
+        case "canceled": setPlan("canceled"); break;
       }
-      // count up money stats
-      root.querySelectorAll<HTMLElement>(".cnt-up").forEach((el, i) => {
-        const n = +el.dataset.n! || 0;
-        if (n <= 0) { el.textContent = "$0"; return; }
-        const o = { v: 0 };
-        gsap.to(o, { v: n, duration: 1.1, ease: "power2.out", delay: 0.35 + i * 0.12,
-          onUpdate: () => { el.textContent = "$" + Math.round(o.v).toLocaleString(); } });
-      });
-    }, root);
-    return () => ctx.revert();
-  }, [loading]);
-
-  const activeDeals = deals.filter((d) => d.brand?.trim() && d.active && d.status !== "archived");
-
-  const booked = activeDeals.reduce((s, d) => s + (d.value ?? 0), 0);
-  const received = payments.filter((p) => p.status === "received").reduce((s, p) => s + p.amount, 0);
-  const outstanding = payments.filter((p) => p.status !== "received").reduce((s, p) => s + p.amount, 0);
-  const pendingPayments = payments.filter((p) => p.status !== "received");
-  const pastDue = pendingPayments.filter((p) => isPastDue(p.expected_date)).length;
-
-  // Payment-due lookup so the Active list can default-sort by soonest payment.
-  const firstDueByDeal = new Map<string, string>();
-  for (const p of pendingPayments) {
-    if (!p.deal_id) continue;
-    const cur = firstDueByDeal.get(p.deal_id);
-    if (!cur || (p.expected_date ?? "") < cur) firstDueByDeal.set(p.deal_id, p.expected_date ?? "");
-  }
-
-  const filteredDeals = activeDeals.filter((d) => {
-    if (search) {
-      const q = search.toLowerCase();
-      const inBrand = d.brand.toLowerCase().includes(q);
-      const inNotes = (d.notes ?? "").toLowerCase().includes(q);
-      if (!inBrand && !inNotes) return false;
+      const pr = profile as unknown as Record<string, unknown> | null;
+      setWelcome({ done: {
+        profile: !!profile?.handler,
+        deal: deals.length > 0,
+        import: deals.length > 1,
+        payby: payments.some((x) => !!x.expected_date),
+        ask: !!pr?.assistant_used,
+        remind: !!pr?.digest_enabled,
+      } });
+      setFirstVisit(showWelcome({ deals: deals.length, tourSeen: (pr?.tour_seen as boolean) ?? null }));
+      setView(deals.length === 0 ? "empty" : "sample");
+    } catch (e) {
+      console.error("overview load", e);
+      setView("error");
     }
-    const paid = (d.pay_rollup?.status ?? "not_invoiced") === "paid";
-    switch (filter) {
-      case "Unpaid": return !paid;
-      case "Paid": return paid;
-      default: return true; // Active and All show every active deal (incl. paid & pipeline)
-    }
-  })
-  // Defined default sort: soonest payment due first (deals with no pending
-  // payment fall back to most recently added), so the money landing soonest is
-  // at the top.
-  .sort((a, b) => {
-    const da = firstDueByDeal.get(a.id) ?? "";
-    const db = firstDueByDeal.get(b.id) ?? "";
-    if (da && db) return da < db ? -1 : da > db ? 1 : 0;
-    if (da && !db) return -1;
-    if (!da && db) return 1;
-    return (b.created_at ?? "").localeCompare(a.created_at ?? "");
-  });
-
-  const dealTotalPages = Math.max(1, Math.ceil(filteredDeals.length / DEAL_PAGE_SIZE));
-  const safeDealPage = Math.min(dealPage, dealTotalPages);
-  const pagedDeals = filteredDeals.slice((safeDealPage - 1) * DEAL_PAGE_SIZE, safeDealPage * DEAL_PAGE_SIZE);
-
-  // ---- This week (Sun–Sat of the current calendar week, US convention) ----
-  const today = new Date();
-  const weekStart = addDays(today, -today.getDay()); // getDay() 0 = Sunday
-  const week: { date: Date; iso: string }[] = [];
-  for (let i = 0; i < 7; i++) week.push({ date: addDays(weekStart, i), iso: toISO(addDays(weekStart, i)) });
-  const todayIso = toISO(today);
-
-  // Same payments data drives both the week and the Payments card (correlation).
-  const dayItems = (iso: string) => {
-    const items: { t: string; n: string; a?: string; done?: boolean }[] = [];
-    // payments (expected or past-due) — same table the Payments card uses
-    payments.filter((p) => p.status !== "received" && p.expected_date === iso)
-      .forEach((p) => items.push({ t: "payment", n: `${p.deal?.brand ?? "Payment"} payment expected`, a: formatMoney(p.amount) }));
-    // received payments on that date land too
-    payments.filter((p) => p.status === "received" && p.expected_date === iso)
-      .forEach((p) => items.push({ t: "received", n: `${p.deal?.brand ?? "Payment"} received`, a: formatMoney(p.amount) }));
-    // posts (incl. recurring instances) on that date
-    content.filter((c) => c.event_date === iso)
-      .forEach((c) => items.push({ t: "post", n: c.title }));
-    // deal deliverables due that day
-    activeDeals.filter((d) => d.due_date === iso)
-      .forEach((d) => items.push({ t: "deliv", n: `${d.brand} deliverable due` }));
-    // dated to-dos (both pending and done — done stay visible, struck+dimmed)
-    todos.filter((t) => t.due_date === iso)
-      .forEach((t) => items.push({ t: "todo", n: t.title, done: t.done }));
-    // dated notes/todos (done stay visible, struck+dimmed)
-    notes.filter((n) => n.event_date === iso)
-      .forEach((n) => items.push({ t: "note", n: n.body, done: n.done }));
-    return items;
   };
 
-  // "This week" strip and the Payments card both read from the same `payments`
-  // data. The card lists INDIVIDUAL payment rows (a deal with two payments shows
-  // both, each its own status) through the canonical paymentStatusView, sorted
-  // by date with received rows at the end — the same per-row listing the
-  // Payments page uses. Money landing soonest is at the top.
-  const timeline = [...payments]
-    .sort((a, b) => {
-      const aRecv = a.status === "received", bRecv = b.status === "received";
-      if (aRecv && !bRecv) return 1;
-      if (!aRecv && bRecv) return -1;
-      return (a.expected_date ?? "9999-99-99").localeCompare(b.expected_date ?? "9999-99-99");
-    })
-    .slice(0, 8);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
-  if (loading) return <OverviewSkeleton />;
+  /** Board saves via the shared dispatcher (deal.create, idea, todo, mark-paid, theme, …). */
+  const onAction = makeOnAction(supabase, load);
 
-  return (
-    <div ref={rootRef}>
-      {/* Greeting + actions */}
-      <div className="top anim">
-        <div>
-          <h1 className="text-[26px] font-head font-bold">
-            {greeting()}
-          </h1>
-          <p className="text-sm text-inksoft mt-1.5">
-            {activeDeals.length === 0
-              ? "No deals in motion yet. Time to lock in your first brand collab."
-              : outstanding > 0
-                ? `You've got ${formatMoney(outstanding)} coming in, and ${pastDue} invoice${pastDue === 1 ? "" : "s"} worth chasing.`
-                : `You've got ${formatMoney(outstanding)} coming in. Looking good.`}
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button className="btn3d" data-tour="add-deal" onClick={() => setAddFlowOpen(true)}>
-            <svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add deal
-          </button>
-        </div>
-      </div>
-
-      {/* Stats row (auto-fit) */}
-      <div className="stats">
-        <StatCard className="anim" label="Booked" value="$0" valueClassName="cnt-up" dataN={booked}
-          sub={`across ${activeDeals.length} active deal${activeDeals.length === 1 ? "" : "s"}`} />
-        <StatCard className="anim" label="Paid" value="$0" valueClassName="cnt-up" dataN={received} color="var(--paid)"
-          sub="received, all time" />
-        <StatCard className="anim" label="Outstanding" value="$0" valueClassName="cnt-up" dataN={outstanding} color="var(--due)"
-          sub={`${pendingPayments.length} payment${pendingPayments.length === 1 ? "" : "s"} expected`} />
-        <NextPaymentCard payments={pendingPayments} />
-      </div>
-
-      {/* Two columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5">
-        {/* Active deals */}
-        <div className="panel anim">
-          <div className="flex items-center justify-between px-[22px] pt-[19px] pb-[15px] flex-wrap gap-3">
-            <h3 className="text-[16px] font-head font-bold">Active deals</h3>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="search !w-56">
-                <svg className="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-                <input
-                  value={search}
-                  onChange={(e) => { setSearch(e.target.value); setDealPage(1); }}
-                  placeholder="Search your deals"
-                  aria-label="Search active deals by brand"
-                />
-              </div>
-              <Segmented options={FILTERS} value={filter} onChange={(f) => { setFilter(f); setDealPage(1); }} />
-            </div>
-          </div>
-          {filteredDeals.length === 0 ? (
-            <EmptyDeals search={!!search} onAdd={() => setAddFlowOpen(true)} />
-          ) : (
-            pagedDeals.map((d) => <DealRow key={d.id} deal={d} />)
-          )}
-          {dealTotalPages > 1 && (
-            <div className="flex items-center justify-between px-[22px] py-3 border-t border-line">
-              <span className="text-xs text-inksoft">{filteredDeals.length} deal{filteredDeals.length === 1 ? "" : "s"}</span>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setDealPage((p) => Math.max(1, p - 1))} disabled={safeDealPage === 1} className="px-2.5 h-8 rounded-lg border border-line2 text-xs text-inksoft hover:text-ink disabled:opacity-40 cursor-pointer disabled:cursor-default">Previous</button>
-                <span className="text-xs text-inksoft">Page {safeDealPage} of {dealTotalPages}</span>
-                <button onClick={() => setDealPage((p) => Math.min(dealTotalPages, p + 1))} disabled={safeDealPage === dealTotalPages} className="px-2.5 h-8 rounded-lg border border-line2 text-xs text-inksoft hover:text-ink disabled:opacity-40 cursor-pointer disabled:cursor-default">Next</button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Right rail */}
-        <div>
-          {/* This week — interactive */}
-          <div className="rcard anim">
-            <h3 className="font-head">This week</h3>
-            <div className="week">
-              {week.map(({ date, iso }, i) => {
-                const items = dayItems(iso);
-                const isToday = iso === todayIso;
-                return (
-                  <button
-                    key={iso}
-                    onClick={() => setSelDay(i)}
-                    className={cn("day", isToday && "today", i === selDay && "sel")}
-                    aria-label={`${DAYS[date.getDay()]} ${date.getDate()}`}
-                  >
-                    <div className="dn">{DAYS[date.getDay()]}</div>
-                    <div className="dd">{date.getDate()}</div>
-                    <div className="dots">
-                      {items.slice(0, 3).map((it, k) => (
-                        <Pill key={k} size="dot" source={TYPE[it.t]?.[1] || "var(--ink-soft)"} />
-                      ))}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="daylist">
-              {dayItems(week[selDay].iso).length === 0 ? (
-                <div className="empty">
-                  Nothing scheduled for {DAYS[week[selDay].date.getDay()]} {week[selDay].date.getDate()}. Enjoy the quiet.
-                </div>
-              ) : (
-                dayItems(week[selDay].iso).map((it, k) => (
-                  <div key={k} className="ditem">
-                    <Pill size="sm" done={it.done} source={TYPE[it.t]?.[1] || "var(--ink-soft)"} className="px-2 py-0.5">{TYPE[it.t]?.[0]}</Pill>
-                    <span className={cn("n", it.done && "pill-done-title")}>{it.n}</span>
-                    {it.a && <span className="a">{it.a}</span>}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Payments — same payments data as the week */}
-          <div className="rcard anim">
-            <div className="flex items-center justify-between mb-[15px]">
-              <h3 className="font-head text-[15px] font-bold">Payments</h3>
-              <Link href="/app/payments" className="text-xs text-accentink font-medium no-underline">View all</Link>
-            </div>
-            {timeline.length === 0 ? (
-              <p className="text-[13px] text-inksoft py-2">No payments yet.</p>
-            ) : (
-              timeline.map((p) => <PayRow key={p.id} p={p} />)
-            )}
-          </div>
-        </div>
-      </div>
-
-      <AddDealFlow
-        open={addFlowOpen}
-        onClose={() => setAddFlowOpen(false)}
-        onChanged={() => load()}
-      />
-    </div>
-  );
-}
-
-function NextPaymentCard({ payments }: { payments: Payment[] }) {
-  // The next unpaid payment: soonest expected_date among non-received rows.
-  const next = [...payments]
-    .sort((a, b) => (a.expected_date ?? "9999-99-99").localeCompare(b.expected_date ?? "9999-99-99"))[0];
-  const fmt = next?.expected_date
-    ? new Date(next.expected_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
-    : null;
-  return next ? (
-    <StatCard label="Next payment" value={formatMoney(next.amount)} color="var(--due)"
-      sub={`${next.deal?.brand ?? "Payment"}${fmt ? ` · ${fmt}` : ""}`} />
-  ) : (
-    <StatCard label="Next payment" value="—" color="var(--ink-soft)" sub="No payments yet" />
-  );
-}
-
-function DealRow({ deal }: { deal: Deal }) {
-  const r = deal.pay_rollup ?? { status: "not_invoiced" as PayStatus, paidCount: 0, totalCount: 0 };
-  const pill = (() => {
-    if (deal.status === "archived") return <span className="pill pill-pipe">Archived</span>;
-    if (deal.status === "pipeline") return <span className="pill pill-pipe">Negotiating</span>;
-    switch (r.status) {
-      case "paid": return <span className="pill pill-paid">Paid</span>;
-      case "invoiced": return <span className="pill pill-paid">Invoiced</span>;
-      case "no_invoice_needed": return <span className="pill pill-pipe">No invoice needed</span>;
-      default: return <span className="pill pill-due">Not invoiced</span>;
-    }
-  })();
-  const progress = r.totalCount >= 2 ? `${r.paidCount}/${r.totalCount}` : null;
-  return (
-    <button
-      onClick={() => { window.location.href = `/app/deals?open=${deal.id}`; }}
-      className="deal rowanim"
-    >
-      <span className="dlogo dlogo-ink">{deal.brand.charAt(0).toUpperCase()}</span>
-      <span className="dmid">
-        <span className="dbrand truncate">{deal.brand}</span>
-        {progress && <span className="text-[10.5px] text-inksoft tabular-nums">{progress} paid</span>}
-      </span>
-      <span className="text-right flex-none flex items-center gap-2.5">
-        <span className="flex-none">{pill}</span>
-        <span className="damt">{formatMoney(deal.value)}</span>
-      </span>
-    </button>
-  );
-}
-
-function PayRow({ p }: { p: Payment }) {
-  // Canonical per-payment status — the same view the Payments page uses, so the
-  // card can never drift from it. Status comes from pay_status (not the legacy
-  // invoice_state field), overdue is derived from the date, and the label/pill
-  // match the Payments page exactly (including the "Overdue" override).
-  const v = paymentStatusView({
-    pay_status: p.pay_status ?? null,
-    status: p.status ?? null,
-    expected_date: p.expected_date ?? null,
-    amount: p.amount,
-  });
-  const when = p.expected_date ? new Date(p.expected_date + "T00:00:00") : null;
-  const pillKind = v.pillKind === "paid" ? "pill-paid" : v.pillKind === "late" ? "pill-late" : "pill-due";
-  const barCls = p.status === "received" ? "g" : v.overdue ? "r" : "c";
-  const sub = p.status === "received" ? "Paid to checking" : v.status === "no_invoice_needed" ? "No invoice needed" : v.label;
-  return (
-    <div className="pay rowanim">
-      <div className="when">
-        <div className="d font-head">{when ? when.getDate() : "-"}</div>
-        <div className="m">{when ? when.toLocaleDateString("en-US", { month: "short" }) : ""}</div>
-      </div>
-      <span className={cn("pbar", barCls)} aria-hidden />
-      <div className="mid min-w-0">
-        <div className="b truncate">{p.deal?.brand ?? "Payment"}</div>
-        <div className="s truncate">{sub}</div>
-      </div>
-      <div className="text-right flex-none ml-2">
-        <div className="amt">{formatMoney(p.amount)}</div>
-        <span className={cn("pill", pillKind)}>{v.label}</span>
-      </div>
-    </div>
-  );
-}
-
-function EmptyDeals({ search, onAdd }: { search: boolean; onAdd: () => void }) {
-  return (
-    <div className="px-[22px] py-12 text-center">
-      {search ? (
-        <p className="text-sm text-inksoft">No deals match your search.</p>
-      ) : (
-        <>
-          <p className="font-head font-bold text-[15px]">Add your first deal</p>
-          <p className="text-[13px] text-inksoft mt-1 max-w-xs mx-auto">
-            Track your first brand collaboration and watch your money, content, and payments come together in one calm place.
-          </p>
-          <button className="btn3d inline-block mt-4" onClick={onAdd}>
-            <svg className="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>Add your first deal
-          </button>
-        </>
-      )}
-    </div>
-  );
-}
-
-function OverviewSkeleton() {
-  return (
-    <div className="space-y-8">
-      <div className="skeleton h-9 w-72" />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="skeleton h-28" /><div className="skeleton h-28" /><div className="skeleton h-28" /><div className="skeleton h-28" />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-[1.65fr_1fr] gap-5">
-        <div className="skeleton h-64" /><div className="skeleton h-64" />
-      </div>
-    </div>
-  );
-}
-
-function pastDueCount(payments: Payment[]) {
-  return payments.filter((p) => p.status !== "received" && isPastDue(p.expected_date)).length;
+  return <TalbyPage key={account ? "ready" : "loading"} board={firstVisit ? "SWelcome" : "SOverview"} props={{ view, plan, data: (firstVisit ? welcome : data) as never, account, onAction }} look={look} />;
 }

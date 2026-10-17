@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { chunkText, embed } from "@/lib/assistant-ai";
 import { EMBED_DIMENSIONS } from "@/lib/constants";
+import { currentPlanState } from "@/lib/plan-gate";
 
 /**
  * POST /api/assistant/ingest  { dealId, text }
@@ -11,17 +12,7 @@ import { EMBED_DIMENSIONS } from "@/lib/constants";
  */
 // Per-user rate limit (mirrors /api/assistant): 15 requests/minute. Stops a loop
 // from hammering the embedding provider and draining OpenRouter credits.
-const RATE_WINDOW_MS = 60_000;
-const RATE_MAX = 15;
-const ingestHits = new Map<string, number[]>();
-function rateLimited(uid: string): boolean {
-  const now = Date.now();
-  const arr = (ingestHits.get(uid) || []).filter((t) => now - t < RATE_WINDOW_MS);
-  if (arr.length >= RATE_MAX) return true;
-  arr.push(now);
-  ingestHits.set(uid, arr);
-  return false;
-}
+import { rateLimited } from "@/lib/rate-limit";
 
 // Hard ceiling on contract text we will embed per request (mirrors the extract
 // route's cap). Prevents an oversized payload from generating unbounded chunks
@@ -38,8 +29,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "slow_down", message: "That's a lot at once — give it a few seconds." }, { status: 429 });
   }
 
-  const prof = await supabase.from("profiles").select("plan").eq("id", user.id).single();
-  if ((prof.data as unknown as { plan?: string } | null)?.plan !== "paid") {
+  const { hasAccess } = await currentPlanState(user.id);
+  if (!hasAccess) {
     return NextResponse.json({ error: "paid_required" }, { status: 402 });
   }
 

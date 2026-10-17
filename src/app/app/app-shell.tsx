@@ -17,8 +17,15 @@ import { IconHome, IconBriefcase, IconCalendar, IconDollar, IconIdea,
   IconNotes, IconLogout, IconSettings,
 } from "@/components/icons";
 import { NotificationBell } from "@/components/notification-bell";
-import { AssistantLauncher } from "@/components/assistant";
+import { AssistantLauncher } from "@/components/shell/assistant";
 import { Button } from "@/components/ui";
+import { AppSidebar, type NavKey } from "@/components/shell/sidebar";
+import { AppTopbar } from "@/components/shell/topbar";
+import type { Notif } from "@/components/shell/notifications";
+import { PlanBanner, type PlanState } from "@/components/shell/plan-banner";
+import { SearchPalette, useCmdK } from "@/components/shell/search";
+import { Praise, type PraiseData } from "@/components/shell/praise";
+import { AppearanceDialog } from "@/components/shell/appearance";
 
 const MANAGE_NAV = [
   { href: "/app", label: "Overview", icon: IconHome },
@@ -59,6 +66,9 @@ export function AppShell({
   const [fontState, setFontState] = useState<string>(headFont ?? DEFAULT_HEAD_FONT);
   const [modeState, setModeState] = useState<ThemeMode>(themeMode ?? DEFAULT_MODE);
   const [activeDeals, setActiveDeals] = useState(0);
+  const [latePayments, setLatePayments] = useState(0);
+  const [ideaCount, setIdeaCount] = useState(0);
+  const [todoCount, setTodoCount] = useState(0);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   // Read-only derivation. Pinned owner accounts are plan_status='active' in
@@ -116,6 +126,22 @@ export function AppShell({
         .eq("active", true)
         .not("status", "eq", "archived");
       setActiveDeals((data ?? []).length);
+    })();
+  }, [supabase, pathname]);
+
+  // Sidebar badges (spec 01 §11): Deals count, Payments "N late", Ideas and
+  // To-dos counts. Payments late = overdue (expected, not paid, date past).
+  useEffect(() => {
+    (async () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const [late, ideas, todos] = await Promise.all([
+        supabase.from("payments").select("id").lt("expected_date", today).neq("status", "received").neq("pay_status", "paid"),
+        supabase.from("ideas").select("id").neq("status", "archived"),
+        supabase.from("todos").select("id").eq("done", false),
+      ]);
+      setLatePayments((late.data ?? []).length);
+      setIdeaCount((ideas.data ?? []).length);
+      setTodoCount((todos.data ?? []).length);
     })();
   }, [supabase, pathname]);
 
@@ -224,6 +250,23 @@ export function AppShell({
     return pathname.startsWith(href);
   };
 
+  const pageTitle = (() => {
+    if (!pathname) return "Overview";
+    if (pathname.startsWith("/app/deals")) return "Deals";
+    if (pathname.startsWith("/app/calendar")) return "Calendar";
+    if (pathname.startsWith("/app/payments")) return "Payments";
+    if (pathname.startsWith("/app/ideas")) return "Ideas";
+    if (pathname.startsWith("/app/todos") || pathname.startsWith("/app/notes")) return "To-dos";
+    if (pathname.startsWith("/app/settings")) return "Settings";
+    return "Overview";
+  })();
+  const shellNotifs: Notif[] = [];
+  const [searchOpen, setSearchOpen] = useState(false);
+  useCmdK((next) => setSearchOpen(next), searchOpen);
+  const [praise, setPraise] = useState<PraiseData | null>(null);
+  const celebrate = (pz: PraiseData) => { setPraise({ ...pz, id: Date.now() }); };
+  const [appearOpen, setAppearOpen] = useState(false);
+
   // Content max-width: the wide cap applies to every page so the whole app
   // keeps a consistent column width. No per-page variance.
   const isWide = true;
@@ -235,6 +278,25 @@ export function AppShell({
 
   const handle = handler ?? "creator";
   const initial = handle.charAt(0).toUpperCase();
+  const planLabel =
+    planStatus === "active" || plan === "paid" ? "Talby Unlimited"
+    : planStatus === "trialing" ? "Free trial"
+    : planStatus === "past_due" ? "Payment failed"
+    : planStatus === "canceled" ? "Plan canceled"
+    : "Free trial";
+
+  const trialDaysLeft = (() => {
+    if (!trialEnd) return null;
+    const ms = new Date(trialEnd).getTime() - Date.now();
+    return Math.max(0, Math.ceil(ms / 86400000));
+  })();
+  const planState: PlanState = (() => {
+    if (planStatus === "active" || plan === "paid") return "active";
+    if (planStatus === "trialing") return "trialing";
+    if (planStatus === "past_due") return "pastdue";
+    if (planStatus === "canceled") return "canceled";
+    return null;
+  })();
   const avatarImg = avatarUrl
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${avatarUrl}`
     : null;
@@ -281,48 +343,70 @@ export function AppShell({
 
       {/* Sidebar (desktop floating card; mobile drawer) */}
       <aside className={cn("side", mobileOpen && "open")} id="side">
-        <div className="side-user">
-          <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
-          <div className="min-w-0">
-            <div className="nm truncate">{userName(handler)}</div>
-            <div className="hd truncate">@{handle}</div>
-          </div>
-          <span className="ml-auto"><NotificationBell /></span>
-        </div>
-        <nav className="flex flex-col gap-1">{nav}</nav>
-        {footer}
+        <AppSidebar
+          active={
+            (isActive("/app/deals") ? "deals"
+              : isActive("/app/calendar") ? "calendar"
+              : isActive("/app/payments") ? "payments"
+              : isActive("/app/ideas") ? "ideas"
+              : isActive("/app/todos") ? "todos"
+              : isActive("/app/settings") ? "settings"
+              : "overview") as NavKey
+          }
+          collapsed={false}
+          drawer={mobileOpen}
+          counts={{
+            deals: activeDeals ? String(activeDeals) : null,
+            paymentsLate: latePayments ? `${latePayments} late` : null,
+            ideas: ideaCount ? String(ideaCount) : null,
+            todos: todoCount ? String(todoCount) : null,
+          }}
+          user={userName(handler)}
+          handle={handle}
+          planName={planLabel}
+          onClose={() => setMobileOpen(false)}
+        />
       </aside>
 
       {/* Content column (topbar on mobile + main) */}
       <div className="min-w-0">
-        <div className="topbar">
-          <button className="hamb" aria-label="Open menu" onClick={() => setMobileOpen((o) => !o)}>
-            <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
-          </button>
-          <div className="ml-auto flex items-center gap-1.5">
-            <NotificationBell />
-            <span className="avatar overflow-hidden grid place-items-center">{avatarImg ? <img src={avatarImg} alt="" className="h-full w-full object-cover" /> : initial}</span>
-          </div>
-        </div>
+        <AppTopbar
+          title={pageTitle}
+          mob={mobileOpen || false}
+          notifications={shellNotifs}
+          onNav={() => setMobileOpen((o) => !o)}
+          onSearch={() => setSearchOpen(true)}
+          onAppearance={() => setAppearOpen(true)}
+          onAddPick={(k) => {
+            if (k === "new") window.location.href = "/app/deals?new=1";
+            else if (k === "upload") window.location.href = "/app/import?source=csv";
+            else window.location.href = "/app/import?source=notion";
+          }}
+        />
         <main className={cn("main", isWide ? "main-wide" : "main-narrow")}>
-          {isTrialing && !readOnly && (
-            <div className="readonly-banner" role="status">
-              <span className="readonly-banner-text">{trialBannerText}</span>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setUpgradeOpen(true)}>Subscribe</Button>
-            </div>
-          )}
-          {readOnly && (
-            <div className="readonly-banner" role="status">
-              <span className="readonly-banner-text">Your free trial has ended. You can view and export everything.</span>
-              <Button type="button" variant="secondary" size="sm" onClick={() => setUpgradeOpen(true)}>Subscribe</Button>
-            </div>
-          )}
+          <PlanBanner
+            state={readOnly ? "readonly" : planState}
+            daysLeft={trialDaysLeft}
+            onAction={() => setUpgradeOpen(true)}
+          />
           {children}
         </main>
         <AssistantLauncher />
+        <SearchPalette
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          onAction={(a) => {
+            if (a === "new") window.location.href = "/app/deals?new=1";
+            else if (a === "upload") window.location.href = "/app/import?source=csv";
+            else if (a === "notion") window.location.href = "/app/import?source=notion";
+            else if (a === "appearance") window.location.href = "/app/settings?tab=appearance";
+          }}
+        />
         <CoachTour open={pathname === "/app" && tourOpen} steps={tourSteps} onDone={completeTour} />
         {notifPrompt && <NotificationPrompt onDone={() => setNotifPrompt(false)} />}
         {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
+        <Praise data={praise} onClose={() => setPraise(null)} />
+        <AppearanceDialog open={appearOpen} onClose={() => setAppearOpen(false)} />
       </div>
     </div>
   );

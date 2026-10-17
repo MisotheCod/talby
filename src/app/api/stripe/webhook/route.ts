@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import Stripe from "stripe";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isPinnedUnlimited, type PlanStatus } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +84,22 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createClient();
+
+  // Idempotency (upgrade 10): Stripe can deliver the same event more than once
+  // (retries, dashboard replays). Record it atomically; if it was already seen,
+  // skip reprocessing so plan_status is never written twice for one event.
+  const admin = createServiceClient();
+  const { data: isNew, error: recErr } = await admin.rpc("record_stripe_event", {
+    p_id: event.id, p_type: event.type,
+  });
+  if (recErr) {
+    console.error("stripe event record failed", recErr.message);
+    // Fail closed: do not apply an unrecorded event's effects.
+    return NextResponse.json({ error: "Could not record event" }, { status: 500 });
+  }
+  if (isNew === false) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
 
   switch (event.type) {
     case "checkout.session.completed": {

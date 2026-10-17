@@ -8,6 +8,7 @@ import { generatePaymentsFromStructure } from "@/lib/pay-status";
 import { DealInput, DealTextarea, inputFieldCls } from "@/components/deal-input";
 import { IconInfo, IconDelete, IconLink, IconAuto, IconPaperclip, IconCheck, IconUpload, IconPlus } from "@/components/icons";
 import { Button, Select, Spinner } from "@/components/ui";
+import { runSave, currentSaveErrorToToast } from "@/lib/save";
 
 /** Map the contract-extraction JSON onto DealFormValues. Used by DealForm, UploadModal. */
 export function applyContractFields(f: Record<string, unknown>): DealFormValues {
@@ -299,13 +300,17 @@ export function DealForm({
       try {
         // Server-side create with idempotency: repeated submit with the same key
         // (a slow retry / double-click) returns the existing deal, never a dup.
-        const res = await fetch("/api/deals", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ brand: v.brand.trim(), payload, idempotencyKey: idemKey, text: stagedText.trim() || undefined }),
-        });
+        // runSave surfaces any failure as an error toast with a Try-again retry.
+        const res = await runSave(
+          () => fetch("/api/deals", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ brand: v.brand.trim(), payload, idempotencyKey: idemKey, text: stagedText.trim() || undefined }),
+          }),
+          { context: "Creating the deal", retry: () => { void doSubmit(); } }
+        );
+        if (!res) return;
         const data = await res.json();
-        if (!res.ok) { setError(data?.error || "Could not create the deal."); return; }
         const createdId = (data?.deal as { id?: string } | undefined)?.id;
         const isDup = data?.duplicate === true;
         // Upload the contract file on the FIRST (non-duplicate) insert — a
@@ -316,7 +321,7 @@ export function DealForm({
           await supabase.from("deal_files").insert({ user_id: user.id, deal_id: createdId, name: srcFile.name, path, size_bytes: srcFile.size, mime: srcFile.type });
         }
       } catch {
-        setError("Could not reach the server. Nothing was saved.");
+        currentSaveErrorToToast("Could not save the deal.", () => void doSubmit(), "Creating the deal");
       } finally {
         setBusy(false);
       }

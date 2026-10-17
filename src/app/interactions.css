@@ -1,0 +1,50 @@
+/* Interaction and animation classes used by every board. Copy exactly. */
+body{margin:0;font-synthesis:none}
+.tb{transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .18s ease,opacity .15s ease,transform .12s ease}
+.tb:active{transform:scale(.97)}
+.tg:hover{background-color:var(--hv)!important}
+.tp:hover{opacity:.88}
+.tr{transition:background-color .12s ease}
+.tr:hover{background-color:var(--hvr)!important}
+.tt:hover{color:var(--fg)!important}
+.tc{transition:border-color .18s ease,box-shadow .2s ease,transform .2s ease}
+.tc:hover{border-color:var(--bd2)!important;box-shadow:var(--shh)!important}
+.tlift:hover{transform:translateY(-2px)}
+.ti{transition:box-shadow .15s ease}
+.ti:focus,.ti:focus-within{box-shadow:0 0 0 2px var(--ring)!important}
+.tb:focus-visible,.tc:focus-visible,.tr:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.a-in{animation:tIn .36s cubic-bezier(.2,.7,.2,1) backwards}
+.a-fade{animation:tFade .2s ease backwards}
+.a-pop{animation:tPop .22s cubic-bezier(.2,.8,.3,1) backwards}
+.a-drop{animation:tDrop .16s cubic-bezier(.2,.8,.3,1) backwards}
+.a-sheet{animation:tSheet .3s cubic-bezier(.2,.8,.2,1) backwards}
+.a-drawer{animation:tDrawer .26s cubic-bezier(.2,.8,.2,1) backwards}
+.a-up{animation:tUp .3s cubic-bezier(.2,.8,.2,1) backwards}
+.a-toast{animation:tToast .3s cubic-bezier(.2,.9,.3,1.1) backwards}
+.a-spin{animation:tSpin .8s linear infinite}
+.a-pulse{animation:tPulse 1.6s ease-in-out infinite}
+.a-ping{animation:tPing 2s ease-out infinite}
+.a-check{animation:tCheck .38s cubic-bezier(.3,1.5,.5,1) backwards}
+.a-strike{animation:tStrike .45s cubic-bezier(.4,0,.2,1) backwards}
+.a-grow{animation:tGrow .6s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:bottom center}
+.a-width{animation:tWidth .7s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:left center}
+.a-out{animation:tOut .32s ease forwards}
+.a-gone{animation:tOut .35s ease .55s forwards}
+[style*="scrollbar-width: none"]::-webkit-scrollbar{display:none}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes tFade{from{opacity:0}to{opacity:1}}
+@keyframes tPop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+@keyframes tDrop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes tSheet{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+@keyframes tDrawer{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes tUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+@keyframes tToast{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes tSpin{to{transform:rotate(360deg)}}
+@keyframes tPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes tPing{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%,100%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+@keyframes tCheck{0%{transform:scale(.6)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes tStrike{from{background-size:0% 1.5px}to{background-size:100% 1.5px}}
+@keyframes tGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes tWidth{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes tOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(16px)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

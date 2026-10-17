@@ -1,0 +1,31 @@
+{
+  "handoff": "/Users/miso/talby/e2e/baseline",
+  "bar": 0.5,
+  "baseUrl": "http://localhost:3111",
+  "threshold": 0.02,
+  "accounts": {
+    "sample": { "email": "fixture.sample@talby.test", "pw": "Shot123!x" },
+    "empty": { "email": "fixture.empty@talby.test", "pw": "Shot123!x" },
+    "trial": { "email": "fixture.trial@talby.test", "pw": "Shot123!x" },
+    "pastdue": { "email": "fixture.pastdue@talby.test", "pw": "Shot123!x" },
+    "canceled": { "email": "fixture.canceled@talby.test", "pw": "Shot123!x" },
+    "readonly": { "email": "fixture.readonly@talby.test", "pw": "Shot123!x" }
+  },
+  "cases": [
+    { "id": "15a", "name": "SOverview", "ref": "SOverview__studio-light.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample" },
+    { "id": "15b", "name": "SOverview", "ref": "SOverview__studio-dark.png", "route": "/", "theme": "studio", "mode": "dark", "account": "sample" },
+    { "id": "15c", "name": "SOverview", "ref": "SOverview__sand-light.png", "route": "/", "theme": "sand", "mode": "light", "account": "sample" },
+    { "id": "15d", "name": "SOverview", "ref": "SOverview__sand-dark.png", "route": "/", "theme": "sand", "mode": "dark", "account": "sample" },
+    { "id": "15e", "name": "SOverview", "ref": "SOverview__mac-light.png", "route": "/", "theme": "mac", "mode": "light", "account": "sample" },
+    { "id": "15f", "name": "SOverview", "ref": "SOverview__mac-dark.png", "route": "/", "theme": "mac", "mode": "dark", "account": "sample" },
+    { "id": "15g", "name": "SOverview", "ref": "SOverview__stationery-light.png", "route": "/", "theme": "stationery", "mode": "light", "account": "sample" },
+    { "id": "15h", "name": "SOverview", "ref": "SOverview__stationery-dark.png", "route": "/", "theme": "stationery", "mode": "dark", "account": "sample" },
+    { "id": "15i", "name": "SOverview", "ref": "SOverview__editorial-light.png", "route": "/", "theme": "editorial", "mode": "light", "account": "sample" },
+    { "id": "15j", "name": "SOverview", "ref": "SOverview__editorial-dark.png", "route": "/", "theme": "editorial", "mode": "dark", "account": "sample" },
+
+    { "id": "3a", "name": "ShellSidebar", "ref": "SOverview__studio-light.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample", "crop": [0, 0, 256, 1291] },
+    { "id": "3c", "name": "ShellSidebarNav", "ref": "SOverview__studio-light.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample", "crop": [0, 0, 256, 860] },
+    { "id": "3b", "name": "ShellSidebarIcons", "ref": "SOverview__sidebar-icons.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample", "crop": [0, 0, 256, 1271] },
+    { "id": "4a", "name": "ShellTopbar", "ref": "SOverview__studio-light.png", "route": "/", "theme": "studio", "mode": "light", "account": "sample", "crop": [0, 0, 1440, 64] }
+  ]
+}

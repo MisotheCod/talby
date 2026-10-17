@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { AppShell } from "./app-shell";
 import { accentVars, parseHSL, DEFAULT_HSL, DEFAULT_MODE, fontCssVar, DEFAULT_HEAD_FONT, type ThemeMode } from "@/lib/accent";
 
 export default async function AppLayout({
@@ -53,18 +52,9 @@ export default async function AppLayout({
       {mode === "dark" && (
         <script dangerouslySetInnerHTML={{ __html: `document.documentElement.setAttribute("data-theme","dark")` }} />
       )}
-      <AppShell
-        handler={profile?.handler ?? null}
-        accent={profile?.accent ?? null}
-        plan={profile?.plan ?? "free"}
-        planStatus={profile?.plan_status ?? null}
-        trialEnd={profile?.trial_end ?? null}
-        headFont={profile?.head_font ?? DEFAULT_HEAD_FONT}
-        avatarUrl={profile?.avatar_url ?? null}
-        themeMode={mode}
-      >
-        {children}
-      </AppShell>
+      {/* Board pages render their OWN shell (sidebar, top bar, dialogs) via
+          TalbyPage; the old AppShell is no longer wrapped around them. */}
+      {children}
     </>
   );
 }

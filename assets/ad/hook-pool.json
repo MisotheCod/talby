@@ -95,7 +95,9 @@
       "id": "remember_wrong_deal",
       "angle": "counterintuitive truth (you remember the wrong things)",
       "opening": "you remember the deal you didn't get. you forgot the one that never paid you.",
-      "note": "INJECTED 2026-10-12. Category 3 counterintuitive truth on a topic no pool entry touches: the memory/emotional asymmetry between rejection and unpaid work. Triggers: contrasting element (the deal you missed vs the payment you lost) + transformation (knowing what's actually sitting unpaid). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing."
+      "note": "INJECTED 2026-10-12. Category 3 counterintuitive truth on a topic no pool entry touches: the memory/emotional asymmetry between rejection and unpaid work. Triggers: contrasting element (the deal you missed vs the payment you lost) + transformation (knowing what's actually sitting unpaid). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1,
+      "last_used": "2026-10-16"
     },
     {
       "id": "never_wrote_down_pay",
@@ -164,6 +166,14 @@
       "angle": "key insight (an uncontracted deal is a favor, not a business deal)",
       "opening": "a brand deal you never put on paper isn't a deal. it's a favor you did for a brand.",
       "note": "INJECTED 2026-10-10. Category 4 key insight / definition reframe on a mechanic no entry covers: running a deal with no contract so it can't be tracked or chased. Distinct from contract_upload (that auto-fills the contract you HAVE; this is the gap when there's NO contract at all) and deal_not_finished_until_paid (completion) and paid_is_second_job (chasing). Triggers: transformation (deal -> favor reframe) + status (a business has contracts, a favor doesn't) + contrasting element. Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 1,
+      "last_used": "2026-10-14"
+    },
+    {
+      "id": "terms_are_optional",
+      "angle": "harsh advice (you set the terms, not the brand)",
+      "opening": "stop letting brands decide when you get paid. a brand deal without a payment date is just a loan you gave them.",
+      "note": "INJECTED 2026-10-14. Category 1 harsh advice on a mechanic no pool entry covers: the creator never sets/negotiates the payment date, so the brand's net-90 default becomes an interest-free loan. Distinct from never_wrote_down_pay (that's logging when it should land; this is negotiating WHEN it lands up front) and terms related deals get auto-filled (that's the contract you have). Triggers: time-bound ('when you get paid') + transformation + contrasting element (a deal vs an unpaid loan). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
       "uses": 0
     },
     {
@@ -173,8 +183,22 @@
       "note": "INJECTED 2026-10-11. Category 3 counterintuitive truth, flips 'more deals = more money'. Distinct from accidental_free_work (that is can't-look-up what's owed; this is saying yes to too much lowers oversight per deal). Trigger: status + contrasting element. Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
       "uses": 1,
       "last_used": "2026-10-13"
+    },
+    {
+      "id": "paid_and_forgotten",
+      "angle": "quote / memorable line (memory of money is the leak)",
+      "opening": "the money you're owed doesn't expire. your memory of it does.",
+      "note": "INJECTED 2026-10-15. Category 5 quote/memorable line on a mechanic no entry covers: invoices don't vanish but your memory of them does, so unpaid money leaks silently. Distinct from Forgot-Truth hooks (those ask a question the viewer can't answer; this is a standalone quotable flip). Triggers: contrasting element (money that persists vs memory that fades) + transformation (knowing what's actually owed). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 0
+    },
+    {
+      "id": "hobby_vs_business",
+      "angle": "key insight (creator vs creator-business identity)",
+      "opening": "the difference between a creator and a creator-business is simple: one can tell you what they're owed in ten seconds.",
+      "note": "INJECTED 2026-10-16. Category 4 key insight / definition reframe on an identity mechanic no pool entry touches: the creator vs creator-business operator distinction, judged by the ten-second answer. Distinct from owed_vs_list (that defines success as knowing owed; this isolates the professionalizing identity gate) and not_leaving_money_table (that is about not losing money; this is the operator/hobbyist line). Triggers: status ('a business can answer') + transformation (becoming the operator). Swipe template: The Receipt (the ten-second answer = Talby dashboard). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 0
     }
   ],
   "rotation": "round_robin",
-  "last_used": "2026-10-13"
+  "last_used": null
 }

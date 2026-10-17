@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { countContentFor, countLines } from "@/lib/account-deletion";
+import { currentPlanState } from "@/lib/plan-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,8 @@ export async function GET() {
   } = await client.auth.getUser();
   if (!user) return NextResponse.json({ error: "not signed in" }, { status: 401 });
 
-  const { data: profile } = await client
-    .from("profiles")
-    .select("plan")
-    .eq("id", user.id)
-    .single();
-  const plan = (profile as unknown as { plan?: string } | null)?.plan ?? "free";
+  const { hasAccess } = await currentPlanState(user.id);
+  const plan = hasAccess ? "paid" : "free";
   const counts = await countContentFor(client, user.id);
 
   return NextResponse.json({

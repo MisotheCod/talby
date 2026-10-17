@@ -2,6 +2,7 @@ import "server-only";
 import { NOTION_CLIENT_ID, NOTION_CLIENT_SECRET, NOTION_REDIRECT_URI } from "@/lib/server-config";
 import { NOTION_VERSION } from "@/lib/constants";
 import { createServiceClient } from "@/lib/supabase/server";
+import { decryptToken } from "@/lib/token-encrypt";
 
 /**
  * Server-only Notion connection (import source).
@@ -76,7 +77,9 @@ export async function getNotionToken(userId: string): Promise<NotionToken | null
     .select("access_token, bot_id, workspace_id, workspace_name, notion_user_id")
     .eq("user_id", userId)
     .maybeSingle();
-  return (data as unknown as NotionToken) ?? null;
+  const row = data as unknown as NotionToken | null;
+  if (!row) return null;
+  return { ...row, access_token: decryptToken(row.access_token) ?? "" };
 }
 
 const AUTH_HEADERS = (token: string) => ({
@@ -85,7 +88,11 @@ const AUTH_HEADERS = (token: string) => ({
   "Content-Type": "application/json",
 });
 
-export type NotionDatabase = { id: string; title: string };
+/** Notion failures carry a machine code the routes return as { code }. */
+import { paginate, NotionError } from "./notion-import";
+export { NotionError };
+
+export type NotionDatabase = { id: string; title: string; edited?: string };
 
 /** List databases the user's connection can access. */
 export async function listDatabases(token: string): Promise<NotionDatabase[]> {
@@ -94,13 +101,33 @@ export async function listDatabases(token: string): Promise<NotionDatabase[]> {
     headers: AUTH_HEADERS(token),
     body: JSON.stringify({ filter: { value: "database", property: "object" }, page_size: 50 }),
   });
-  if (!res.ok) throw new Error(`Notion search failed (${res.status})`);
+  if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion search failed (${res.status})`);
   const data = await res.json();
-  const results: Array<{ id: string; title?: Array<{ plain_text?: string }> }> = data?.results ?? [];
+  const results: Array<{ id: string; title?: Array<{ plain_text?: string }>; last_edited_time?: string }> = data?.results ?? [];
   return results.map((r) => ({
     id: r.id,
     title: (r.title ?? []).map((t) => t.plain_text ?? "").join("") || "Untitled database",
+    edited: r.last_edited_time,
   }));
+}
+
+/** Property names of a database, for the "Looks like deals" badge and field guesses. */
+export async function databasePropertyNames(token: string, databaseId: string): Promise<string[]> {
+  const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}`, {
+    method: "GET",
+    headers: AUTH_HEADERS(token),
+  });
+  if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion database read failed (${res.status})`);
+  const data = await res.json();
+  return Object.keys((data?.properties ?? {}) as Record<string, unknown>);
+}
+
+/** Guess the Talby field a column supplies. One definition, in import-fields. */
+export { guessField } from "./import-fields";
+
+/** Page count for a database — the same paginated walk, counted. */
+export async function countDatabaseRows(token: string, databaseId: string): Promise<number> {
+  return (await paginate(token, databaseId)).length;
 }
 
 /**
@@ -109,14 +136,8 @@ export async function listDatabases(token: string): Promise<NotionDatabase[]> {
  * into the existing AI import-mapping pipeline (same as CSV).
  */
 export async function fetchDatabaseRows(token: string, databaseId: string, sourceName: string) {
-  const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
-    method: "POST",
-    headers: AUTH_HEADERS(token),
-    body: JSON.stringify({ page_size: 100 }),
-  });
-  if (!res.ok) throw new Error(`Notion query failed (${res.status})`);
-  const data = await res.json();
-  const results: Array<{ properties: Record<string, unknown> }> = data?.results ?? [];
+  // Full pagination lives in notion-import.ts, where it is unit-tested.
+  const results = await paginate(token, databaseId);
 
   // Column order from the first non-empty row (fall back to insertion order).
   const columns: string[] = [];
@@ -135,6 +156,8 @@ export async function fetchDatabaseRows(token: string, databaseId: string, sourc
     for (const col of columns) {
       obj[col] = propToText(page.properties?.[col]);
     }
+    // Page id carried through so the import can skip repeats by Notion page id.
+    obj._notion_id = page.id ?? "";
     return obj;
   });
 

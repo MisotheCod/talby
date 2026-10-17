@@ -43,6 +43,16 @@ next-env.d.ts
 
 # temp scripts
 *.cjs
+# ...but keep the real, version-controlled harnesses/seeders
+!e2e/run-parity.cjs
+!e2e/shoot-baseline.cjs
+!tools/talby-parity.cjs
+!scripts/seed-design-fixture.cjs
+!scripts/drawer-save-regression.cjs
 
 # local desktop attachments
 .hermes/
+e2e/talby-parity/
+
+# production backups contain database secrets — never commit
+backups/*.json

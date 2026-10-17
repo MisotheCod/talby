@@ -18,7 +18,7 @@ export async function GET() {
     .maybeSingle();
   return NextResponse.json({
     connected: !!data,
-    workspace: (data as unknown as { workspace_name?: string })?.workspace_name ?? null,
+    workspace: (data as unknown as { workspace_name?: string })?.workspace_name ?? "",
     configured: notionConfigured(),
   });
 }

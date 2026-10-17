@@ -1,0 +1,8 @@
+{
+  "notes": [
+    "deal dialog opened: false (count=1)",
+    "PAID ERR: locator.click: Timeout 4000ms exceeded.\nCall log:\n  - waiting for getByLabel('Actions for Branch Brand Test').first()\n",
+    "theme radios=10"
+  ],
+  "writes": []
+}
