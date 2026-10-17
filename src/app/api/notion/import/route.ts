@@ -111,15 +111,20 @@ export async function POST(req: Request) {
           event_date: postDate, title: row.brand, status: "planned",
         });
       }
-      return { error: error ? { code: error.code } : null };
+      return { error: error ? { code: error.code, message: error.message } : null };
     });
 
     const imported = totals.imported;
     const skipped = totals.skipped;
+    if (totals.failed.length) {
+      // Surface the real DB error for whoever is debugging the save step.
+      console.error("notion import row failures:", totals.failed.slice(0, 3).map((f) => f.reason));
+    }
 
     if (runId) {
       await supabase.from("import_runs").update({
         finished_at: new Date().toISOString(), total, imported, skipped, failed: totals.failed.length, status: "done",
+        error: totals.failed.length ? totals.failed[0].reason : null,
       }).eq("id", runId);
     }
     return NextResponse.json({ imported, skipped, failed: totals.failed, booked: totals.booked });
