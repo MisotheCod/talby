@@ -17,7 +17,7 @@ export type LoadResult = {
 export type Loader = (supabase: ReturnType<typeof createClient>) => Promise<LoadResult>;
 
 /** Generic board page: runs `load`, manages view/error/loading, passes data + account + onAction. */
-export default function TalbyDataPage({ board, load }: { board: string; load: Loader }) {
+export default function TalbyDataPage({ board, load, start }: { board: string; load: Loader; start?: string }) {
   const supabase = createClient();
   const [view, setView] = useState<"loading" | "sample" | "empty" | "error">("loading");
   const [result, setResult] = useState<LoadResult | null>(null);
@@ -43,7 +43,7 @@ export default function TalbyDataPage({ board, load }: { board: string; load: Lo
     <TalbyPage
       key={result ? "ready" : "loading"}
       board={board}
-      props={{ view, plan: result?.plan ?? "active", data: result?.data ?? null, account: result?.account ?? null, onAction }}
+      props={{ view, plan: result?.plan ?? "active", data: result?.data ?? null, account: result?.account ?? null, onAction, ...(start ? { start } : {}) }}
       look={result?.look ?? null}
     />
   );

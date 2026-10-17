@@ -18,14 +18,13 @@ export async function GET(req: Request) {
   }
 
   // Where to return the user after the OAuth round-trip. Only allow app
-  // pages to avoid an open redirect. Defaults to /app/import so connecting
-  // from the Import flow comes back to the import flow (not Settings).
+  // pages to avoid an open redirect. Defaults to the deal flow (Notion step).
   const u = new URL(req.url);
-  let redirectTo = u.searchParams.get("redirect_to") || "/app/import";
-  // Allow an optional ?source=notion (routes into the import database flow);
-  // the base path must stay a /app page to avoid an open redirect.
+  let redirectTo = u.searchParams.get("redirect_to") || "/app/deals?start=notion";
+  // Allow an optional ?start=notion (routes into the database flow); the base
+  // path must stay a /app page to avoid an open redirect.
   const [rtBase, rtQs] = redirectTo.split("?");
-  if (!/^\/app\/[a-z0-9/_-]*$/i.test(rtBase)) redirectTo = "/app/import";
+  if (!/^\/app\/[a-z0-9/_-]*$/i.test(rtBase)) redirectTo = "/app/deals?start=notion";
   else redirectTo = rtQs ? `${rtBase}?${rtQs}` : rtBase;
 
   const state = randomUUID();

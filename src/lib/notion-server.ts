@@ -96,14 +96,22 @@ export type NotionDatabase = { id: string; title: string; edited?: string };
 
 /** List databases the user's connection can access. */
 export async function listDatabases(token: string): Promise<NotionDatabase[]> {
-  const res = await fetch("https://api.notion.com/v1/search", {
-    method: "POST",
-    headers: AUTH_HEADERS(token),
-    body: JSON.stringify({ filter: { value: "database", property: "object" }, page_size: 50 }),
-  });
-  if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion search failed (${res.status})`);
-  const data = await res.json();
-  const results: Array<{ id: string; title?: Array<{ plain_text?: string }>; last_edited_time?: string }> = data?.results ?? [];
+  const results: Array<{ id: string; title?: Array<{ plain_text?: string }>; last_edited_time?: string }> = [];
+  let cursor: string | null = null;
+  do {
+    const body: Record<string, unknown> = { filter: { value: "database", property: "object" }, page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    const res = await fetch("https://api.notion.com/v1/search", {
+      method: "POST",
+      headers: AUTH_HEADERS(token),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new NotionError(res.status === 401 ? "notion_lost" : "fetch_failed", `Notion search failed (${res.status})`);
+    const data = await res.json();
+    const pageResults: Array<{ id: string; title?: Array<{ plain_text?: string }>; last_edited_time?: string }> = data?.results ?? [];
+    results.push(...pageResults);
+    cursor = data?.has_more ? (data?.next_cursor ?? null) : null;
+  } while (cursor);
   return results.map((r) => ({
     id: r.id,
     title: (r.title ?? []).map((t) => t.plain_text ?? "").join("") || "Untitled database",
