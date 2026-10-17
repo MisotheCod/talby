@@ -1075,7 +1075,7 @@ function render($s0, host) {
                   <div {...S($s0?.k?.group)}>
                     <div {...S(`flex-wrap: wrap; ${I($s0?.k?.row)}`)}>
                       <span {...S(`width: 40px; height: 40px; flex: 0 0 40px; box-sizing: border-box; border-radius: ${I($s0?.t?.rTile)}; background: #FFFFFF; border: 1px solid #E5E5E5; color: #191919; display: inline-flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 19px; font-weight: 700`)}>
-                        {"N"}
+                        <img src="/logo-notion.png" alt="Notion" style="width:100%;height:100%;object-fit:contain;display:block;box-sizing:border-box;border-radius:inherit"/>
                       </span>
                       <span {...S("flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 3px")}>
                         <span {...S("display: flex; align-items: center; gap: 8px")}>

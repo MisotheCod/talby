@@ -316,7 +316,7 @@ function render($s0, host) {
                     <button type={"button"} role={"menuitem"} className={"tb tg"} onClick={$s1?.m?.pick} {...S(`--hv: ${I($s1?.t?.hover)}; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 10px 8px 8px; box-sizing: border-box; border: none; border-radius: ${I($s1?.t?.rItem)}; background: transparent; color: ${I($s1?.t?.fg)}; font: inherit; text-align: left; cursor: pointer`)}>
                       {$s1?.m?.isNotion ? (<>
                         <span {...S(`width: 36px; height: 36px; flex: 0 0 36px; box-sizing: border-box; border-radius: ${I($s1?.t?.rSm)}; background: #FFFFFF; border: 1px solid #E5E5E5; color: #191919; display: inline-flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 17px; font-weight: 700`)}>
-                          {"N"}
+                          <img src="/logo-notion.png" alt="Notion" style="width:100%;height:100%;object-fit:contain;display:block;box-sizing:border-box;border-radius:inherit"/>
                         </span>
                       </>) : null}
                       {$s1?.m?.isIcon ? (<>

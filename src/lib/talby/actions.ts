@@ -208,8 +208,25 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           if (ids.length) { const { error } = await supabase.from("payments").update({ expected_date: date || null }).in("deal_id", ids); if (error) return false; }
           await refresh(); return true;
         }
-        case "deal.delete": { const id = String((p as { id?: string | number }).id ?? ""); if (!id) throw new Error("deal.delete: missing deal id"); const { error } = await supabase.from("deals").update({ active: false }).eq("id", id); if (error) return false; await refresh(); return true; }
-        case "deal.restore": { const id = String((p as { id?: string | number }).id ?? ""); if (!id) throw new Error("deal.restore: missing deal id"); const { error } = await supabase.from("deals").update({ active: true, status: "active" }).eq("id", id); if (error) return false; await refresh(); return true; }
+        case "deal.delete": {
+          const id = String((p as { id?: string | number }).id ?? "");
+          if (!id) throw new Error("deal.delete: missing deal id");
+          // Hard, atomic delete through the delete_deal RPC route: it removes the deal
+          // AND all child rows (payments, content, deal_files + storage, deal_checklist,
+          // deal_extras, deal_contracts) in one transaction, so no FK blocks it.
+          // 404 (not owned / 0 rows removed) makes this reject -> the board shows the error.
+          const res = await fetch("/api/deals/" + encodeURIComponent(id), { method: "DELETE" });
+          if (!res.ok) throw new Error("deal.delete: could not delete the deal (0 rows removed or no permission)");
+          await refresh(); return true;
+        }
+        case "deal.restore": {
+          const id = String((p as { id?: string | number }).id ?? "");
+          if (!id) throw new Error("deal.restore: missing deal id");
+          // After a hard delete there is no row to restore; 0 rows means Undo failed.
+          const { data, error } = await supabase.from("deals").update({ active: true, status: "active" }).eq("id", id).select("id");
+          if (error || !(data && data.length > 0)) throw new Error("deal.restore: no deal to restore");
+          await refresh(); return true;
+        }
         case "deals.bulk": {
           const { change, ids } = p as { change: string; ids: Array<string | number> };
           const patch = change === "paid" ? { status: "paid", payment_status: "paid" } : change === "invoiced" ? { payment_status: "expected" } : { status: "archived", active: false };
@@ -230,7 +247,7 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           await refresh(); return true;
         }
         case "event.setDone": { const { id, done } = p as { id: string; done: boolean }; const { error } = await supabase.from("todos").update({ done }).eq("id", String(id)); if (error) return false; await refresh(); return true; }
-        case "todo.create": { const { text, due, deal } = p as { text: string; due?: string; deal?: string }; const title = String(text ?? "").trim(); if (!title) return false; let deal_id = null; if (deal) { const { data: dm } = await supabase.from("deals").select("id").eq("brand", String(deal)).limit(1).maybeSingle(); if (dm) deal_id = (dm as { id: string }).id; } const { error } = await supabase.from("todos").insert({ user_id: uid, title, due_date: due || null, done: false, deal_id }); if (error) return false; await refresh(); return true; }
+        case "todo.create": { const { text, due, deal } = p as { text: string; due?: string; deal?: string }; const title = String(text ?? "").trim(); if (!title) return false; let deal_id = null; if (deal) { const b = String(deal).trim(); if (b) { const { data: dm } = await supabase.from("deals").select("id").eq("brand", b).limit(1).maybeSingle(); if (dm) deal_id = (dm as { id: string }).id; } } const { error } = await supabase.from("todos").insert({ user_id: uid, title, due_date: due || null, done: false, deal_id }); if (error) return false; await refresh(); return true; }
         case "todo.setDone": { const { id, done } = p as { id: string; done: boolean }; const { error } = await supabase.from("todos").update({ done }).eq("id", String(id)); if (error) return false; await refresh(); return true; }
         case "todo.delete": { const { id } = p as { id: string }; const { error } = await supabase.from("todos").delete().eq("id", String(id)); if (error) return false; await refresh(); return true; }
         case "todo.restore": { await refresh(); return true; }

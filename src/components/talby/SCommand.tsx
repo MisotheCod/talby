@@ -335,7 +335,7 @@ function render($s0, host) {
                           </>) : null}
                           {$s2?.it?.isNotion ? (<>
                             <span {...S(`width: 28px; height: 28px; flex: 0 0 28px; box-sizing: border-box; border-radius: ${I($s2?.t?.rSm)}; background: #FFFFFF; border: 1px solid #E5E5E5; color: #191919; display: inline-flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 14px; font-weight: 700`)}>
-                              {"N"}
+                              <img src="/logo-notion.png" alt="Notion" style="width:100%;height:100%;object-fit:contain;display:block;box-sizing:border-box;border-radius:inherit"/>
                             </span>
                           </>) : null}
                           <span {...S("flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px")}>
