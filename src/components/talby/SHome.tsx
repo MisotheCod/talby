@@ -197,11 +197,11 @@ class Component extends DCLogic {
     var CMP_COLS = [['Notes app', 'M8 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 8h6M9 12h6M9 16h4'], ['Spreadsheet', 'M4 4h16v16H4zM4 10h16M4 15h16M10 4v16'], ['Notion', 'M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v11h-4z'], ['Talby', '']];
     var CMP = [['Getting a deal in', 'Type it out', 'Fill in the row', 'Fill in the card', 'Upload the contract'], ['Where the contract lives', 'Somewhere in email', 'Somewhere in email', 'Attached, if you remember', 'On the deal'], ['Post date and pay date together', 'No', 'Two columns you maintain', 'If you build the view', 'One calendar'], ['Invoiced, paid or late', 'Whatever you last wrote', 'A column you update', 'A property you update', 'Tracked per payment'], ['What you made this year', 'Add it up yourself', 'A formula you wrote', 'A rollup you built', 'Always on the overview'], ['Answers about your deals', 'Scroll and search', 'Scroll and search', 'Scroll and search', 'Ask the assistant']];
     var PLANS = [
-      { name: 'Trial', note: '14 days, full access', price: '$0', per: 'for 14 days', items: ['Contract reading, deals, calendar and payments', 'Import from a spreadsheet or Notion', 'Talby Assistant', 'Retainer and repeating deals', 'Year end income summary'], cta: 'Start free trial', cls: 'tg', border: '1px solid ' + c.border, sh: 'none', btnBorder: '1px solid ' + c.border, btnBg: c.card, btnFg: c.fg },
-      { name: 'Unlimited', note: 'Full access, cancel anytime', price: '$9', per: 'a month', items: ['Everything in the trial, ongoing', 'Talby Assistant', 'Retainer and repeating deals', 'Year end income summary'], cta: 'Subscribe for $9 a month', cls: 'tp', border: '1.5px solid ' + c.accent, sh: '0 30px 60px -36px rgba(31,122,224,0.45)', btnBorder: 'none', btnBg: c.primary, btnFg: c.primaryFg }
+      { name: 'Trial', note: '14 days, full access', price: '$0', per: 'for 14 days', items: ['Contract reading, deals, calendar and payments', 'Import from a spreadsheet or Notion', 'Talby Assistant', 'Retainer and repeating deals', 'Year end income summary'], href: '/signup', cta: 'Start free trial', cls: 'tg', border: '1px solid ' + c.border, sh: 'none', btnBorder: '1px solid ' + c.border, btnBg: c.card, btnFg: c.fg },
+      { name: 'Unlimited', note: 'Full access, cancel anytime', price: '$9', per: 'a month', items: ['Everything in the trial, ongoing', 'Talby Assistant', 'Retainer and repeating deals', 'Year end income summary'], href: '/signup?plan=unlimited', cta: 'Subscribe for $9 a month', cls: 'tp', border: '1.5px solid ' + c.accent, sh: '0 30px 60px -36px rgba(31,122,224,0.45)', btnBorder: 'none', btnBg: c.primary, btnFg: c.primaryFg }
     ];
     // Footer: Privacy policy and Terms and conditions go to the real routes. Aerolune LLC is plain text.
-    var FOOT = [['Blog', '#'], ['Privacy policy', '/privacy'], ['Terms and conditions', '/terms'], ['Do Not Sell or Share My Personal Information', '#'], ['hello@talby.io', '#'], ['www.talby.io', '#'], ['Aerolune LLC', '']];
+    var FOOT = [['Blog', '/blog'], ['Privacy policy', '/privacy'], ['Terms and conditions', '/terms'], ['hello@talby.io', 'mailto:hello@talby.io'], ['Aerolune LLC', '']];
     var ASK = ['What did I agree to for exclusivity with Halcyon?', 'How much have I made from skincare deals this year?', 'What is coming up this week?', 'Did Basewear say anything about usage rights?'];
     var lastI = st.msgs.length - 1;
     var msgs = st.msgs.map(function (m, i) { var live = st.streaming && i === lastI && !m.me; return { text: live ? m.text.slice(0, st.streamN) : m.text, align: m.me ? 'flex-end' : 'flex-start', maxW: m.me ? '80%' : '90%', bg: m.me ? x.primary : x.tile, fg: m.me ? x.primaryFg : x.fg, radius: m.me ? '16px 16px 6px 16px' : '16px 16px 16px 6px', hasSrc: !live && !!m.src, src: m.src || '' }; });
@@ -219,7 +219,7 @@ class Component extends DCLogic {
       footLinks: FOOT.map(function (l) { return { label: l[0], href: l[1] || '#', isLink: !!l[1], plain: !l[1] }; }),
       cvars: '--hv: ' + c.hv + '; --hvr: ' + c.hvr + '; --fg: ' + c.fg + '; --ring: ' + c.ring + '; --bd2: ' + c.borderStrong + '; --shh: ' + c.shHover,
       xvars: '--hv: ' + x.hv + '; --hvr: ' + x.hvr + '; --fg: ' + x.fg + '; --ring: ' + x.ring,
-      navLinks: [['Why Talby', '#compare'], ['How it works', '#story'], ['Pricing', '#pricing'], ['Blog', '#']].map(function (l) { return { label: l[0], href: l[1] }; }),
+      navLinks: [['Why Talby', '#compare'], ['How it works', '#story'], ['Pricing', '#pricing'], ['Blog', '/blog']].map(function (l) { return { label: l[0], href: l[1] }; }),
       themeOpts: themeOpts, toggleDark: function () { self.setState({ dark: !st.dark }); }, modeLabel: st.dark ? 'Dark' : 'Light',
       modeIcon: st.dark ? 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z' : 'M12 3v1M12 20v1M4.2 4.2l.7.7M19.1 19.1l.7.7M3 12h1M20 12h1M4.2 19.8l.7-.7M19.1 4.9l.7-.7M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z',
       mockNav: mockNav, mockH1: Math.round(24 * x.hScale) + 'px', mockH1m: Math.round(20 * x.hScale) + 'px', demoH: Math.round(20 * x.hScale) + 'px',
@@ -273,10 +273,10 @@ function render($s0, host) {
                 </React.Fragment>);
               })}
               <span {...S(`width: 18px; ${I($s0?.R?.navGap)}`)} />
-              <a href={H("#")} className={"tb tg"} {...S(`--hv: ${I($s0?.c?.hv)}; display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 999px; color: ${I($s0?.c?.fg)}; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; ${I($s0?.R?.navLink)}`)}>
+              <a href={H("/login")} className={"tb tg"} {...S(`--hv: ${I($s0?.c?.hv)}; display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 999px; color: ${I($s0?.c?.fg)}; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap; ${I($s0?.R?.navLink)}`)}>
                 {"Log in"}
               </a>
-              <a href={H("#")} className={"tb tp"} {...S(`display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
+              <a href={H("/signup")} className={"tb tp"} {...S(`display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-size: 14px; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
                 {"Start free trial"}
               </a>
             </nav>
@@ -313,10 +313,10 @@ function render($s0, host) {
                   </React.Fragment>);
                 })}
                 <div {...S(`display: flex; gap: 8px; margin-top: 6px; padding-top: 10px; border-top: 1px solid ${I($s0?.c?.line)}`)}>
-                  <a href={H("#")} className={"tb tg"} onClick={$s0?.closeMenu} {...S(`--hv: ${I($s0?.c?.hv)}; flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; height: 46px; box-sizing: border-box; border: 1px solid ${I($s0?.c?.border)}; border-radius: 999px; color: ${I($s0?.c?.fg)}; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
+                  <a href={H("/login")} className={"tb tg"} onClick={$s0?.closeMenu} {...S(`--hv: ${I($s0?.c?.hv)}; flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; height: 46px; box-sizing: border-box; border: 1px solid ${I($s0?.c?.border)}; border-radius: 999px; color: ${I($s0?.c?.fg)}; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
                     {"Log in"}
                   </a>
-                  <a href={H("#")} className={"tb tp"} onClick={$s0?.closeMenu} {...S(`flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; height: 46px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
+                  <a href={H("/signup")} className={"tb tp"} onClick={$s0?.closeMenu} {...S(`flex: 1 1 0; min-width: 0; display: inline-flex; align-items: center; justify-content: center; height: 46px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-size: 15px; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
                     {"Start free trial"}
                   </a>
                 </div>
@@ -346,7 +346,7 @@ function render($s0, host) {
             {"Talby is the calm command center for creators. Track what you agreed to, when it is due, and what has actually landed."}
           </p>
           <div className={"a-in"} {...S(`animation-delay: 0.12s; display: flex; gap: 10px; ${I($s0?.R?.heroBtns)}`)}>
-            <a href={H("#")} className={"tb tp"} {...S(`display: inline-flex; align-items: center; height: 46px; padding: 0 22px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-weight: 500; text-decoration: none; white-space: nowrap; ${I($s0?.R?.heroBtn)}`)}>
+            <a href={H("/signup")} className={"tb tp"} {...S(`display: inline-flex; align-items: center; height: 46px; padding: 0 22px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-weight: 500; text-decoration: none; white-space: nowrap; ${I($s0?.R?.heroBtn)}`)}>
               {"Start free trial"}
             </a>
             <a href={H("#story")} className={"tb tg"} {...S(`--hv: ${I($s0?.c?.hv)}; display: inline-flex; align-items: center; height: 46px; padding: 0 22px; border-radius: 999px; border: 1px solid ${I($s0?.c?.border)}; color: ${I($s0?.c?.fg)}; font-weight: 500; text-decoration: none; white-space: nowrap; ${I($s0?.R?.heroBtn)}`)}>
@@ -889,7 +889,7 @@ function render($s0, host) {
                 })}
               </ul>
               <div {...S(`display: flex; gap: 10px; align-items: center; ${I($s0?.R?.pAct)}`)}>
-                <a href={H("#")} className={"tb tp"} {...S(`display: inline-flex; align-items: center; height: 42px; padding: 0 20px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-weight: 500; text-decoration: none`)}>
+                <a href={H("/signup")} className={"tb tp"} {...S(`display: inline-flex; align-items: center; height: 42px; padding: 0 20px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-weight: 500; text-decoration: none`)}>
                   {"Try it free"}
                 </a>
                 <span {...S(`font-size: 13px; color: ${I($s0?.c?.mutedFg)}`)}>
@@ -1470,7 +1470,7 @@ function render($s0, host) {
                       })}
                     </ul>
                     <div {...S("flex: 1 1 auto")} />
-                    <a href={H("#")} className={`tb ${I($s1?.pl?.cls)}`} {...S(`--hv: ${I($s1?.c?.hv)}; display: inline-flex; align-items: center; justify-content: center; height: 48px; border-radius: 999px; border: ${I($s1?.pl?.btnBorder)}; background: ${I($s1?.pl?.btnBg)}; color: ${I($s1?.pl?.btnFg)}; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
+                    <a href={H($s1?.pl?.href)} className={`tb ${I($s1?.pl?.cls)}`} {...S(`--hv: ${I($s1?.c?.hv)}; display: inline-flex; align-items: center; justify-content: center; height: 48px; border-radius: 999px; border: ${I($s1?.pl?.btnBorder)}; background: ${I($s1?.pl?.btnBg)}; color: ${I($s1?.pl?.btnFg)}; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
                       {T($s1?.pl?.cta)}
                     </a>
                   </div>
@@ -1491,7 +1491,7 @@ function render($s0, host) {
           <p {...S(`margin: 0; max-width: 560px; font-size: 18px; color: ${I($s0?.c?.mutedFg)}; ${I($s0?.R?.ctaP)}`)}>
             {"It takes about a minute, and you will know exactly what is due and what is owed by the time you are done."}
           </p>
-          <a href={H("#")} className={"tb tp"} {...S(`display: inline-flex; align-items: center; height: 48px; padding: 0 26px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
+          <a href={H("/signup")} className={"tb tp"} {...S(`display: inline-flex; align-items: center; height: 48px; padding: 0 26px; border-radius: 999px; background: ${I($s0?.c?.primary)}; color: ${I($s0?.c?.primaryFg)}; font-weight: 500; text-decoration: none; white-space: nowrap`)}>
             {"Start free trial"}
           </a>
         </section>
