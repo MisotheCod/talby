@@ -80,16 +80,38 @@ setTalbyAuthIO({
     return error ? { error: code(error) } : ok();
   },
   async checkReset() {
+    // The reset email can arrive three ways. Handle all of them, and only call it expired when none worked.
+    //  1. ?token_hash=...&type=recovery  (recommended email template, works on any device)
+    //  2. ?code=...                      (PKCE; only works in the browser that asked for the reset)
+    //  3. #access_token=...&type=recovery (older implicit links)
+    // The Supabase client already reads 2 and 3 by itself when it starts, so never exchange the same code twice.
     const url = new URL(window.location.href);
     const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
-    if (url.searchParams.get('error_code') || hash.get('error_code')) return { error: 'expired' };
-    const c = url.searchParams.get('code');
-    if (c) {
-      const { error } = await supabase.auth.exchangeCodeForSession(c);
-      window.history.replaceState(null, '', url.pathname);
-      if (error) return { error: 'expired' };
+    const clean = () => window.history.replaceState(null, '', url.pathname);
+    if (url.searchParams.get('error_code') || hash.get('error_code')) { clean(); return { error: 'expired' }; }
+    const th = url.searchParams.get('token_hash');
+    if (th) {
+      const { error } = await supabase.auth.verifyOtp({ token_hash: th, type: 'recovery' });
+      clean();
+      return error ? { error: 'expired' } : ok();
     }
-    const { data } = await supabase.auth.getSession();
+    // Let the client finish reading the link, then look for the session.
+    let { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      const c = url.searchParams.get('code');
+      if (c) await supabase.auth.exchangeCodeForSession(c).catch(() => null);
+      ({ data } = await supabase.auth.getSession());
+    }
+    if (!data.session) {
+      // Last chance: the PASSWORD_RECOVERY event can land a moment after load.
+      data = await new Promise<any>((resolve) => {
+        const t = setTimeout(() => { sub.subscription.unsubscribe(); resolve({ session: null }); }, 2500);
+        const { data: sub } = supabase.auth.onAuthStateChange((ev, session) => {
+          if (session && (ev === 'PASSWORD_RECOVERY' || ev === 'SIGNED_IN')) { clearTimeout(t); sub.subscription.unsubscribe(); resolve({ session }); }
+        });
+      });
+    }
+    if (url.search || url.hash) clean();
     return data.session ? ok() : { error: 'expired' };
   },
 });

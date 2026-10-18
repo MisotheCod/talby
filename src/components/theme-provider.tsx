@@ -37,7 +37,15 @@ function readLook(): Look {
 // function that bridges talby(theme, dark) to the browser. Also callable from
 // the head inline script via the global the provider sets (see layout).
 export function applyLook(look: Look, systemDark: boolean) {
-  const dark = isDark(look.mode, systemDark);
+  let dark = isDark(look.mode, systemDark);
+  // Auth pages are always light: never apply dark here (TalbyAuthPage pins them light).
+  if (typeof window !== 'undefined') {
+    const p = window.location.pathname;
+    if (p === '/login' || p === '/signup' || p === '/forgot-password' || p === '/reset-password'
+      || p.startsWith('/login') || p.startsWith('/signup') || p.startsWith('/forgot-password') || p.startsWith('/reset-password')) {
+      dark = false;
+    }
+  }
   const t = talby(look.theme, dark);
   const el = document.documentElement;
   el.setAttribute("data-theme", look.theme);

@@ -44,7 +44,11 @@ var ok=function(s){return s==='sand'||s==='mac'||s==='stationery'||s==='editoria
 var th=r.theme==='midnight'?(ok(r.prev)?r.prev:'studio'):(ok(r.theme)?r.theme:'studio');
 var m=r.theme==='midnight'?'dark':(r.mode==='dark'||r.mode==='light'||r.mode==='system'?r.mode:(r.auto?'system':'light'));
 var d=m==='dark'||(m==='system'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
-var el=document.documentElement;el.setAttribute('data-theme',th);el.setAttribute('data-mode',m);el.classList.toggle('dark',!!d);
+var el=document.documentElement;
+var p=window.location.pathname;
+/* Auth pages are always light: never apply dark here (TalbyAuthPage pins them light). */
+if(p==='/login'||p==='/signup'||p==='/forgot-password'||p==='/reset-password'||p.startsWith('/login')||p.startsWith('/signup')||p.startsWith('/forgot-password')||p.startsWith('/reset-password')){d=false;m='light';}
+el.setAttribute('data-theme',th);el.setAttribute('data-mode',m);el.classList.toggle('dark',!!d);
 }catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
