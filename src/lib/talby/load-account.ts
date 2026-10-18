@@ -5,6 +5,7 @@ import { toAccountData } from "@/lib/talby/to-board";
 import { deriveIdentity } from "@/lib/talby/account-gate";
 import type { AccountData } from "@/components/talby/_data";
 import type { ProfileRow } from "@/lib/talby/queries";
+import { registerTalbyApp } from "@/lib/talby/app-io";
 
 /** Shared per-page account context: account object + plan + look + readOnly. */
 export async function loadAccountContext(supabase: SupabaseClient): Promise<{
@@ -52,5 +53,8 @@ export async function loadAccountContext(supabase: SupabaseClient): Promise<{
   const look = profile && (profile.theme || profile.mode || profile.sidebar)
     ? { theme: profile.theme ?? "studio", mode: profile.mode ?? "light", sidebar: profile.sidebar ?? "expanded" }
     : null;
+  // Get the app: hand the profile's install-prompt state to the boards' app IO once
+  // the profile loads. Covers every board page (all loaders go through here).
+  if (profile) registerTalbyApp(profile as unknown as Parameters<typeof registerTalbyApp>[0]);
   return { account, plan, look, readOnly, profile };
 }

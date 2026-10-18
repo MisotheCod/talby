@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import posthog from "posthog-js";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -111,6 +111,21 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // OTP sign-in states
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [standalone, setStandalone] = useState(false);
+
+  // Detect if app was opened from Home Screen (PWA standalone mode)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isStandalone =
+        (window.navigator as any).standalone === true ||
+        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+      setStandalone(isStandalone);
+    }
+  }, []);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -189,6 +204,42 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     }
   };
 
+  const sendCode = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    const { error } = await supabase.auth.signInWithOtp({ email: email.trim() });
+    if (error) {
+      setError(error.message);
+    } else {
+      setCodeSent(true);
+    }
+    setLoading(false);
+  };
+
+  const verifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code.trim(),
+      type: "email",
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+    if (data.user) {
+      posthog.identify(data.user.id, { email });
+      posthog.capture("login", { method: "otp" });
+    }
+    const next = searchParams.get("next");
+    router.push(next || "/app");
+    router.refresh();
+  };
+
   return (
     <div className={`auth-split ${isLogin ? "auth-mode-login" : "auth-mode-signup"}`}>
       {/* Left — the form */}
@@ -227,7 +278,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
               </Link>
             </p>
 
-            <form onSubmit={submit} className="auth-fields" noValidate>
+            <form onSubmit={isLogin && standalone && codeSent ? verifyCode : submit} className="auth-fields" noValidate>
               {!isLogin && (
                 <label className="auth-field">
                   <span className="auth-label">Creator handle</span>
@@ -257,33 +308,83 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 />
               </label>
 
-              <div className="auth-pw-wrap">
-                <div className="auth-label-row">
-                  <span className="auth-label">Password</span>
-                  {isLogin && (
-                    <Link href="/forgot-password" className="auth-forgot">Forgot your password?</Link>
-                  )}
+              {/* Password field: hidden in login+standalone+codeSent mode */}
+              {!(isLogin && standalone && codeSent) && (
+                <div className="auth-pw-wrap">
+                  <div className="auth-label-row">
+                    <span className="auth-label">Password</span>
+                    {isLogin && (
+                      <Link href="/forgot-password" className="auth-forgot">Forgot your password?</Link>
+                    )}
+                  </div>
+                  <div className="auth-pw-input">
+                    <input
+                      type={showPw ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={isLogin ? "" : "At least 8 characters"}
+                      autoComplete={isLogin ? "current-password" : "new-password"}
+                      required
+                      className="auth-input auth-input-pw"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((s) => !s)}
+                      aria-label={showPw ? "Hide password" : "Show password"}
+                      className="auth-eye"
+                    >
+                      {showPw ? <IconEyeInvisible size={18} /> : <IconEye size={18} />}
+                    </button>
+                  </div>
                 </div>
-                <div className="auth-pw-input">
+              )}
+
+              {/* OTP code input: shown in login+standalone+codeSent mode */}
+              {isLogin && standalone && codeSent && (
+                <label className="auth-field">
+                  <span className="auth-label">Code</span>
                   <input
-                    type={showPw ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={isLogin ? "" : "At least 8 characters"}
-                    autoComplete={isLogin ? "current-password" : "new-password"}
+                    type="text"
+                    value={code}
+                    onChange={(e) => {
+                      const clean = e.target.value.replace(/\D/g, "").slice(0, 6).toUpperCase();
+                      setCode(clean);
+                    }}
+                    placeholder="000000"
+                    maxLength={6}
+                    autoComplete="one-time-code"
                     required
-                    className="auth-input auth-input-pw"
+                    className="auth-input"
+                    style={{ textTransform: "uppercase", letterSpacing: "0.1em" }}
                   />
+                </label>
+              )}
+
+              {/* OTP hint & send-code button: shown in login+standalone+!codeSent mode */}
+              {isLogin && standalone && !codeSent && (
+                <div className="auth-otp-hint" style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}>
+                  <p style={{ fontSize: "0.875rem", color: "var(--text-secondary, #666)", marginBottom: "0.5rem" }}>
+                    Opened from your Home Screen? Sign in with a code instead.
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setShowPw((s) => !s)}
-                    aria-label={showPw ? "Hide password" : "Show password"}
-                    className="auth-eye"
+                    onClick={sendCode}
+                    disabled={loading || !email.trim()}
+                    className="auth-otp-link"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--primary, #3b82f6)",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      fontSize: "0.875rem",
+                      padding: 0,
+                    }}
                   >
-                    {showPw ? <IconEyeInvisible size={18} /> : <IconEye size={18} />}
+                    Email me a code
                   </button>
                 </div>
-              </div>
+              )}
 
               {error && <p className="auth-error" role="alert">{error}</p>}
 

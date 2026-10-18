@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import * as TalbyApp from './_app';
 import { SAMPLE_ACCOUNT, TalbyDates, SAMPLE_SETTINGS } from './_data';
 import SSidebar from './SSidebar';
 import STopbar from './STopbar';
@@ -42,6 +43,7 @@ class Component extends DCLogic {
     });
   }
   componentDidMount() {
+    var me = this; this._appOff = TalbyApp.onTalbyAppChange(function () { try { me.forceUpdate(); } catch (e) {} });
     var self = this;
     this._rs = function () { try { self.setState({ w: window.innerWidth }); } catch (e) {} };
     this._sg = function (ev) { if (ev && ev.key === 'talby.look') { try { var L = JSON.parse(ev.newValue || 'null'); if (L) self.setState({ look: Object.assign({}, self.state.look, L) }); } catch (x) {} } };
@@ -53,7 +55,17 @@ class Component extends DCLogic {
     this._esc = function (e) { if (e && e.key === 'Escape') { var s2 = self.state; if (s2.dlg) { if (!s2.dlgBusy) { self.setState({ dlg: '', confirm: '', dlgErr: false }); try { self._opener && self._opener.focus(); } catch (x) {} } } else if (s2.secSheet) self.setState({ secSheet: false }); } };
     try { window.addEventListener('keydown', this._esc); } catch (e) {}
   }
-  componentWillUnmount() { try { window.removeEventListener('resize', this._rs); window.removeEventListener('storage', this._sg); window.removeEventListener('keydown', this._kd); } catch (e) {} try { if (this._mq) { if (this._mq.removeEventListener) this._mq.removeEventListener('change', this._mqf); else if (this._mq.removeListener) this._mq.removeListener(this._mqf); } } catch (e) {} clearTimeout(this._pz1); clearTimeout(this._pz2); clearTimeout(this._rt); (this._tt || []).forEach(clearTimeout); try { window.removeEventListener('keydown', this._esc); } catch (e) {} }
+  componentWillUnmount() { try { if (this._appOff) this._appOff(); } catch (e) {} try { window.removeEventListener('resize', this._rs); window.removeEventListener('storage', this._sg); window.removeEventListener('keydown', this._kd); } catch (e) {} try { if (this._mq) { if (this._mq.removeEventListener) this._mq.removeEventListener('change', this._mqf); else if (this._mq.removeListener) this._mq.removeListener(this._mqf); } } catch (e) {} clearTimeout(this._pz1); clearTimeout(this._pz2); clearTimeout(this._rt); (this._tt || []).forEach(clearTimeout); try { window.removeEventListener('keydown', this._esc); } catch (e) {} }
+  device() {
+    var d = this.props.device;
+    if (d && d !== 'auto') return d;
+    return TalbyApp.device();
+  }
+  isInstalled() { if (this.props.installed !== undefined) return !!this.props.installed; return TalbyApp.isInstalled(); }
+  installApp() { return TalbyApp.installApp(); }
+  askAlerts() { return TalbyApp.askAlerts(); }
+  copyLink() { return TalbyApp.copyLink(); }
+  dismissInstall(where, forever) { TalbyApp.dismissInstall(where, forever); }
   componentDidUpdate(prev) {
     var p = this.props, L = this.state.look, ch = null;
     if (prev.dark !== p.dark) { ch = Object.assign({}, ch || L, { mode: p.dark ? 'dark' : 'light' }); }
@@ -236,6 +248,14 @@ class Component extends DCLogic {
     var eff = L.theme || 'studio';
     var t = theme(eff, dark), k = kit(t);
     var mob = st.w < 768, tabW = !mob && st.w < 1024, wide = st.w >= 1100, collapsed = L.sidebar === 'icons' || tabW;
+    // Get the app card in Settings, always there. Phones can add Talby, laptops get a note.
+    var gaDev = this.device(), gaIn = this.isInstalled(), gaPh = st.gaPhase || '';
+    var GA = gaIn ? { sub: 'Talby is on this phone.', status: 'On your Home Screen', dot: '#22C55E', btn: '' }
+      : gaDev === 'desktop' ? { sub: 'Open www.talby.io on your phone to add Talby to your Home Screen.', status: 'Works on iPhone and Android', dot: t.mutedFg, btn: '' }
+      : gaDev === 'inapp' ? { sub: 'Open Talby in your browser to add it to your Home Screen. This app\'s browser cannot.', status: gaPh === 'copied' ? 'Link copied' : 'Not on your Home Screen yet', dot: gaPh === 'copied' ? '#22C55E' : t.mutedFg, btn: 'Copy link', act: function () { self.copyLink().then(function () { self.setState({ gaPhase: 'copied' }); }); } }
+      : gaDev === 'iphone' ? { sub: 'Add Talby to your Home Screen. It opens full screen and can send you alerts.', status: 'Not on your Home Screen yet', dot: t.mutedFg, btn: gaPh === 'hint' ? '' : 'Add to Home Screen', act: function () { self.setState({ gaPhase: 'hint' }); }, steps: gaPh === 'hint' ? ['Tap Share in Safari. On newer iPhones it is under the three dots.', 'Tap Add to Home Screen.', 'Tap Add.'] : null }
+      : { sub: 'Add Talby to your Home Screen. It opens full screen and can send you alerts.', status: gaPh === 'done' ? 'Added' : 'Not on your Home Screen yet', dot: gaPh === 'done' ? '#22C55E' : t.mutedFg, btn: gaPh === 'done' || gaPh === 'hint' ? '' : 'Add to Home Screen', act: function () { self.installApp().then(function (ok) { self.setState({ gaPhase: ok ? 'done' : 'hint' }); }); }, steps: gaPh === 'hint' ? ['Tap the three dots in Chrome.', 'Tap Add to Home screen.', 'Tap Install.'] : null };
+    var ga = { sub: GA.sub, status: GA.status, dot: GA.dot, btn: GA.btn, hasBtn: !!GA.btn, act: GA.act || function () {}, hasSteps: !!GA.steps, steps: (GA.steps || []).map(function (x, i) { return { n: String(i + 1), text: x }; }) };
     var V = st.dv || 'sample', isSample = V === 'sample', isEmpty = V === 'empty', isLoading = V === 'loading', isError = V === 'error';
     var plan = p.plan || 'active', locked = plan === 'readonly' || plan === 'canceled';
     function payIcon(key) {
@@ -365,6 +385,7 @@ class Component extends DCLogic {
       minH: mob ? '100vh' : '1400px', cardPad: mob ? '16px' : '20px 24px 24px',
       headPad: mob ? '18px 16px 14px' : '20px 24px 16px', bodyPad: mob ? '0 12px 12px' : '0 16px 16px', footPad: mob ? '12px 16px' : '14px 24px', apHeadPad: mob ? '18px 16px 0' : '20px 24px 0',
       delPad: mob ? '18px 12px 12px' : '20px 16px 16px', planPad: mob ? '18px 16px' : '22px 24px', planGap: mob ? '14px' : '18px',
+      ga: ga,
       nav: nav, isAppearance: live && sec === 'appearance', isAccount: live && sec === 'account', isNotifications: live && sec === 'notifications', isConnections: live && sec === 'connections', isBilling: live && sec === 'billing',
       tabKey: function (e) { var i = IDS.indexOf(sec), n = -1; if (e.key === 'ArrowRight') n = (i + 1) % IDS.length; else if (e.key === 'ArrowLeft') n = (i + IDS.length - 1) % IDS.length; else if (e.key === 'Home') n = 0; else if (e.key === 'End') n = IDS.length - 1; if (n < 0) return; if (e.preventDefault) e.preventDefault(); var el = e.currentTarget; goSec(IDS[n]); setTimeout(function () { try { el.querySelectorAll('[role=tab]')[n].focus(); } catch (x) {} }, 20); },
       secLabel: cur[1], secIcon: cur[2], secAria: 'Settings section: ' + cur[1] + '. Show all sections',
@@ -1060,6 +1081,50 @@ function render($s0, host) {
                   </button>
                 </div>
               </section>
+              <section className={"a-in"} {...S(`animation-delay: 0.12s; ${I($s0?.k?.card)}`)}>
+                <div {...S(`padding: ${I($s0?.headPad)}; display: flex; align-items: center; gap: 14px`)}>
+                  <span aria-hidden={"true"} {...S(`width: 44px; height: 44px; flex: 0 0 44px; box-sizing: border-box; border: 1px solid ${I($s0?.t?.border)}; border-radius: 12px; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center`)}>
+                    <svg width={"24"} height={"21"} viewBox={"0 0 2029 1722"} aria-hidden={"true"} {...S("display: block")}>
+                      <path fill={"#1F7AE0"} d={"M325.553 0.11436C357.82 -0.851434 390.344 4.39925 421.577 12.1099C506.351 33.0387 579.306 92.8684 628.981 163.1C648.617 190.863 665.004 221.256 682.357 250.477C714.91 305.296 746.394 360.846 779.411 415.372C792.242 436.561 805.088 458.322 818.991 478.81C853.846 530.177 928.98 628.305 990.503 643.014C1013.94 648.615 1037.46 645.591 1058.97 634.725C1078.92 624.656 1094.72 608.763 1110.74 593.552C1184.16 523.869 1237.02 434.688 1287.42 347.839C1299.09 327.74 1311.38 307.989 1322.85 287.786C1346.79 245.624 1371.62 198.953 1400.03 160.003C1431.42 116.962 1467.92 79.9142 1513.59 51.9883C1592.43 3.35327 1687.5 -11.5536 1777.44 10.6178C1861.41 31.3662 1933.82 84.3529 1979.02 158.109C2024.53 233.037 2040.98 310.935 2019.97 397.268C1988.25 527.6 1882.9 628.138 1749.42 647.874C1724.27 651.594 1693.72 650.686 1668.06 650.648L1562.66 650.457L1294.18 650.569C1229.3 650.36 1166.25 642.367 1109.31 677.354C1075.41 697.881 1051.07 731.066 1041.68 769.577C1024.74 841.175 1063.31 906.426 1099.22 965.078C1103.02 971.823 1114.46 985.726 1119.82 992.612C1140.88 1019.75 1162.84 1046.17 1185.68 1071.84C1264.51 1161.22 1337.81 1269.48 1345.12 1391.87C1355.92 1572.91 1205.73 1711.69 1031.77 1721.4C938.596 1726.86 847.128 1694.71 777.855 1632.13C733.34 1591.55 702.231 1538.38 688.665 1479.68C676.384 1428.85 679.574 1377.6 692.642 1327.29C710.038 1260.33 744.366 1197.92 785.127 1142.41C854.647 1047.73 998.351 921.921 991.042 795.526C987.346 731.658 941.997 680.383 882.362 660.534C837.4 645.57 776.985 650.524 728.979 650.558L429.507 650.401L351.229 650.568C319.765 650.635 286.204 651.2 255.381 644.239C194.201 631.235 150.38 605.052 104.113 565.316C-67.2929 418.104 -14.8418 150.672 172.337 43.4476C223.087 14.3754 266.379 3.16906 325.553 0.11436Z"} />
+                    </svg>
+                  </span>
+                  <div {...S("flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px")}>
+                    <h2 {...S(`margin: 0; font-family: ${I($s0?.titleFam)}; font-size: 16px; font-weight: 600`)}>
+                      {"Get the app"}
+                    </h2>
+                    <p {...S(`margin: 0; color: ${I($s0?.t?.mutedFg)}`)}>
+                      {T($s0?.ga?.sub)}
+                    </p>
+                  </div>
+                </div>
+                {$s0?.ga?.hasSteps ? (<>
+                  <ol className={"a-fade"} {...S(`margin: 0; padding: ${I($s0?.bodyPad)}; list-style: none; display: flex; flex-direction: column; gap: 10px`)}>
+                    {A($s0?.ga?.steps).map((it, i) => {
+                      const $s1 = { ...$s0, "sp": it, $index: i };
+                      return (<React.Fragment key={i}>
+                        <li {...S("display: flex; align-items: center; gap: 10px")}>
+                          <span {...S(`width: 22px; height: 22px; flex: 0 0 22px; border-radius: 11px; background: ${I($s1?.t?.primary)}; color: ${I($s1?.t?.primaryFg)}; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600`)}>
+                            {T($s1?.sp?.n)}
+                          </span>
+                          {T($s1?.sp?.text)}
+                        </li>
+                      </React.Fragment>);
+                    })}
+                  </ol>
+                </>) : null}
+                <div {...S(`display: flex; align-items: center; gap: 8px; padding: ${I($s0?.footPad)}; border-top: 1px solid ${I($s0?.t?.line)}`)}>
+                  <span {...S(`display: inline-flex; align-items: center; gap: 8px; color: ${I($s0?.t?.mutedFg)}; font-size: 13px; min-width: 0`)}>
+                    <span {...S(`width: 7px; height: 7px; flex: 0 0 7px; border-radius: 4px; background: ${I($s0?.ga?.dot)}`)} />
+                    {T($s0?.ga?.status)}
+                  </span>
+                  <div {...S("flex: 1 1 auto")} />
+                  {$s0?.ga?.hasBtn ? (<>
+                    <button className={"tb tp"} type={"button"} onClick={$s0?.ga?.act} {...S($s0?.k?.btnP)}>
+                      {T($s0?.ga?.btn)}
+                    </button>
+                  </>) : null}
+                </div>
+              </section>
             </>) : null}
             {$s0?.isConnections ? (<>
               <section className={"a-in"} {...S(`animation-delay: 0.08s; ${I($s0?.k?.card)}`)}>
@@ -1441,5 +1506,5 @@ function render($s0, host) {
   </>);
 }
 
-export const meta = {"props":{"color":{"editor":"enum","options":["studio","sand","mac","stationery","editorial"],"default":"studio"},"dark":{"editor":"boolean","default":false},"view":{"editor":"enum","options":["sample","empty","loading","error"],"default":"sample"},"plan":{"editor":"enum","options":["active","trial","pastdue","canceled","readonly"],"default":"active"},"tab":{"editor":"enum","options":["account","appearance","notifications","connections","billing"],"default":"account"},"notion":{"editor":"enum","options":["connected","lost","off"],"default":"connected"},"showErrors":{"editor":"boolean","default":false}},"preview":{"width":1440,"height":1400}};
+export const meta = {"props":{"device":{"editor":"enum","options":["auto","iphone","inapp","android","desktop"],"default":"auto"},"color":{"editor":"enum","options":["studio","sand","mac","stationery","editorial"],"default":"studio"},"dark":{"editor":"boolean","default":false},"view":{"editor":"enum","options":["sample","empty","loading","error"],"default":"sample"},"plan":{"editor":"enum","options":["active","trial","pastdue","canceled","readonly"],"default":"active"},"tab":{"editor":"enum","options":["account","appearance","notifications","connections","billing"],"default":"account"},"notion":{"editor":"enum","options":["connected","lost","off"],"default":"connected"},"showErrors":{"editor":"boolean","default":false}},"preview":{"width":1440,"height":1400}};
 export default $r.defineBoard("SSettings", Component, render, CSS, meta);

@@ -28,11 +28,13 @@ export const metadata: Metadata = {
     description: "The calm command center for creators: tracking brand deals, payments, and content without the Notion chaos.",
     images: [`${SITE_URL}/og.png`],
   },
-  icons: { icon: "/icon.png", apple: "/apple-icon.png" },
+  icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Talby", statusBarStyle: "default" },
   robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
 };
 
-export const viewport: Viewport = { themeColor: "#f6f7f9", width: "device-width", initialScale: 1 };
+export const viewport: Viewport = { themeColor: "#FFFFFF", viewportFit: "cover", width: "device-width", initialScale: 1 };
 
 // No-flash: sets data-theme/data-mode/.dark from localStorage after migrateLook
 // before first paint. Runs inline (not deferred) so there's no wrong-theme flash.
@@ -54,6 +56,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH }} />
+        {/* Catch Chrome's install event before React loads so it is never missed. */}
+        <script dangerouslySetInnerHTML={{ __html: "window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__talbyBip=e;});" }} />
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>
