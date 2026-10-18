@@ -6,6 +6,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { DailyDigestEmail, type DigestItem } from "@/emails/daily-digest";
 import { getDayItems, isoFor, isoForLocal, summaryLine } from "@/lib/digest";
 import type { DayDigest } from "@/lib/digest";
+import { sendAlert } from "@/lib/talby/push";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -80,6 +81,78 @@ export async function GET(req: Request) {
     const items = await getDayItems(prof.id, iso);
     if (items.total === 0) { skippedNoItems++; continue; }
     withItems++;
+
+    // Send push alerts for payments due today, late payments, and posts due tomorrow
+    // 1. Payments DUE TODAY
+    const { data: paymentsDueToday } = await service
+      .from('payments')
+      .select('id, amount, deal:deals(brand)')
+      .eq('user_id', prof.id)
+      .eq('expected_date', iso)
+      .neq('status', 'received');
+    
+    for (const payment of (paymentsDueToday ?? []) as Array<{ id: string; amount: number; deal: Array<{ brand: string }> | null }>) {
+      const brand = payment.deal?.[0]?.brand;
+      if (!brand) continue;
+      try {
+        await sendAlert(service, prof.id, {
+          title: `${brand} payment is due today`,
+          body: `$${payment.amount.toLocaleString('en-US')}`,
+          url: '/app/payments',
+          tag: payment.id,
+        });
+      } catch (e) {
+        console.error('sendAlert error (payment due today)', e);
+      }
+    }
+
+    // 2. LATE payments
+    const { data: latePayments } = await service
+      .from('payments')
+      .select('id, amount, expected_date, deal:deals(brand)')
+      .eq('user_id', prof.id)
+      .lt('expected_date', iso)
+      .neq('status', 'received')
+      .neq('pay_status', 'paid');
+    
+    for (const payment of (latePayments ?? []) as Array<{ id: string; amount: number; expected_date: string; deal: Array<{ brand: string }> | null }>) {
+      const brand = payment.deal?.[0]?.brand;
+      if (!brand) continue;
+      const daysLate = Math.max(1, Math.round((Date.parse(iso) - Date.parse(payment.expected_date)) / 86400000));
+      if (daysLate <= 0) continue;
+      try {
+        await sendAlert(service, prof.id, {
+          title: `${brand} payment is ${daysLate} days late`,
+          body: `$${payment.amount.toLocaleString('en-US')}`,
+          url: '/app/payments',
+          tag: payment.id,
+        });
+      } catch (e) {
+        console.error('sendAlert error (late payment)', e);
+      }
+    }
+
+    // 3. POSTS DUE TOMORROW
+    const tomorrowDate = new Date(Date.parse(iso) + 86400000);
+    const tomorrow = isoFor(tomorrowDate);
+    const { data: postsDueTomorrow } = await service
+      .from('content')
+      .select('id, title, platform')
+      .eq('user_id', prof.id)
+      .eq('event_date', tomorrow);
+    
+    for (const post of (postsDueTomorrow ?? []) as Array<{ id: string; title: string; platform: string | null }>) {
+      try {
+        await sendAlert(service, prof.id, {
+          title: `${post.title} post is due tomorrow`,
+          body: post.platform || '',
+          url: '/app/calendar',
+          tag: post.id,
+        });
+      } catch (e) {
+        console.error('sendAlert error (post due tomorrow)', e);
+      }
+    }
 
     const to = prof.email;
     if (!to) continue;
