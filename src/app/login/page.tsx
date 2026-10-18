@@ -1,24 +1,3 @@
-import type { Metadata } from "next";
-import { Suspense } from "react";
-import "../auth.css";
-import { AuthForm } from "./auth-form";
-
-export const metadata: Metadata = {
-  title: "Log in",
-  description: "Log in to Talby — your brand deal command center.",
-  alternates: { canonical: "/login" },
-};
-
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-full flex items-center justify-center">
-          <div className="skeleton h-8 w-40" />
-        </div>
-      }
-    >
-      <AuthForm mode="login" />
-    </Suspense>
-  );
-}
+import TalbyAuthPage from '@/components/talby-app/TalbyAuthPage';
+export const metadata = { title: 'Log in | Talby' };
+export default function Page() { return <TalbyAuthPage mode="login" />; }

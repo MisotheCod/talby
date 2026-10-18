@@ -1,12 +1,3 @@
-import type { Metadata } from "next";
-import { ForgotForm } from "./forgot-form";
-
-export const metadata: Metadata = {
-  title: "Forgot password",
-  description: "Reset your Talby password.",
-  alternates: { canonical: "/forgot-password" },
-};
-
-export default function ForgotPasswordPage() {
-  return <ForgotForm />;
-}
+import TalbyAuthPage from '@/components/talby-app/TalbyAuthPage';
+export const metadata = { title: 'Reset your password | Talby' };
+export default function Page() { return <TalbyAuthPage mode="forgot" />; }

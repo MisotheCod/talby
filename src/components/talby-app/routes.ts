@@ -21,6 +21,9 @@ const ROUTES: Record<string, string> = {
   SOnboard: '/onboarding',
   SWelcome: '/app',
   SHome: '/',
+  AuLogin: '/login',
+  AuSignup: '/signup',
+  AuForgot: '/forgot-password',
 };
 
 export function initTalbyRoutes() {
