@@ -174,7 +174,8 @@
       "angle": "harsh advice (you set the terms, not the brand)",
       "opening": "stop letting brands decide when you get paid. a brand deal without a payment date is just a loan you gave them.",
       "note": "INJECTED 2026-10-14. Category 1 harsh advice on a mechanic no pool entry covers: the creator never sets/negotiates the payment date, so the brand's net-90 default becomes an interest-free loan. Distinct from never_wrote_down_pay (that's logging when it should land; this is negotiating WHEN it lands up front) and terms related deals get auto-filled (that's the contract you have). Triggers: time-bound ('when you get paid') + transformation + contrasting element (a deal vs an unpaid loan). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
-      "uses": 0
+      "uses": 1,
+      "last_used": "2026-10-18"
     },
     {
       "id": "more_deals_more_risk",
@@ -196,6 +197,13 @@
       "angle": "key insight (creator vs creator-business identity)",
       "opening": "the difference between a creator and a creator-business is simple: one can tell you what they're owed in ten seconds.",
       "note": "INJECTED 2026-10-16. Category 4 key insight / definition reframe on an identity mechanic no pool entry touches: the creator vs creator-business operator distinction, judged by the ten-second answer. Distinct from owed_vs_list (that defines success as knowing owed; this isolates the professionalizing identity gate) and not_leaving_money_table (that is about not losing money; this is the operator/hobbyist line). Triggers: status ('a business can answer') + transformation (becoming the operator). Swipe template: The Receipt (the ten-second answer = Talby dashboard). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
+      "uses": 0
+    },
+    {
+      "id": "slow_month_or_unpaid",
+      "angle": "pain points (seasonality vs unpaid work)",
+      "opening": "you can't tell if this month is slow, or a brand just never paid you for last month.",
+      "note": "INJECTED 2026-10-18. Category 2 pain points on a mechanic no pool entry covers: the ambiguity between a slow month and an unpaid prior month, so creators can't diagnose their own income. Distinct from panic_numeric (that's 'which deals paid me' numbers), dead_invoices_quiet (invoices dying unseen), confidence_masks_missing (assuming paid). Triggers: time-bound ('this month') + transformation (telling the difference = knowing your real income). Swipe template: The Forgotten-Truth (you can't answer) + Receipt (one screen tells you). Distinct opening, never duplicates an existing line. uses:0 so rotation airs it on equal footing.",
       "uses": 0
     }
   ],
