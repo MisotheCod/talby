@@ -9,6 +9,8 @@
  */
 import * as React from 'react';
 import { resolveLook, parseStored } from "@/lib/talby/look";
+import { registerTalbyApp } from "@/lib/talby/app-io";
+import { createClient } from "@/lib/supabase/client";
 import * as Boards from '@/components/talby/_index';
 import { TalbyRoot } from '@/components/talby/_runtime';
 import { initTalbyRoutes } from '@/components/talby-app/routes';
@@ -45,6 +47,27 @@ export default function TalbyPage({
       localStorage.setItem('talby.look', JSON.stringify(resolved));
     } catch { /* ignore */ }
     setMounted(true);
+  }, []);
+
+  // Get the app: once the profile is known, hand the install/alerts IO (dismissal
+  // counts, VAPID key, persistence) to the boards. The Overview banner stays
+  // hidden until this runs.
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data } = await supabase
+          .from('profiles')
+          .select('install_prompt_dismissals, install_prompt_last_dismissed')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (!cancelled && data) registerTalbyApp(data as any);
+      } catch { /* offline / no profile: banner simply stays hidden */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const Board = (Boards as Record<string, any>)[board];

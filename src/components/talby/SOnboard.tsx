@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as $r from './_runtime';
 import { DCLogic } from './_runtime';
+import * as TalbyApp from './_app';
 import SAddDeal from './SAddDeal';
 
 const CSS = "body, #dc-root{margin:0;font-synthesis:none}#dc-root .tb{transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .18s ease,opacity .15s ease,transform .12s ease}#dc-root .tb:active{transform:scale(.97)}#dc-root .tg:hover{background-color:var(--hv)!important}#dc-root .tp:hover{opacity:.88}#dc-root .tr{transition:background-color .12s ease}#dc-root .tr:hover{background-color:var(--hvr)!important}#dc-root .tt:hover{color:var(--fg)!important}#dc-root .tc{transition:border-color .18s ease,box-shadow .2s ease,transform .2s ease}#dc-root .tc:hover{border-color:var(--bd2)!important;box-shadow:var(--shh)!important}#dc-root .tlift:hover{transform:translateY(-2px)}#dc-root .ti{transition:box-shadow .15s ease}#dc-root .ti:focus, #dc-root .ti:focus-within{box-shadow:0 0 0 2px var(--ring)!important}#dc-root .tb:focus-visible, #dc-root .tc:focus-visible, #dc-root .tr:focus-visible{outline:2px solid var(--ring);outline-offset:2px}#dc-root .a-in{animation:tIn .36s cubic-bezier(.2,.7,.2,1) backwards}#dc-root .a-fade{animation:tFade .2s ease backwards}#dc-root .a-pop{animation:tPop .22s cubic-bezier(.2,.8,.3,1) backwards}#dc-root .a-drop{animation:tDrop .16s cubic-bezier(.2,.8,.3,1) backwards}#dc-root .a-sheet{animation:tSheet .3s cubic-bezier(.2,.8,.2,1) backwards}#dc-root .a-drawer{animation:tDrawer .26s cubic-bezier(.2,.8,.2,1) backwards}#dc-root .a-up{animation:tUp .3s cubic-bezier(.2,.8,.2,1) backwards}#dc-root .a-toast{animation:tToast .3s cubic-bezier(.2,.9,.3,1.1) backwards}#dc-root .a-spin{animation:tSpin .8s linear infinite}#dc-root .a-pulse{animation:tPulse 1.6s ease-in-out infinite}#dc-root .a-ping{animation:tPing 2s ease-out infinite}#dc-root .a-check{animation:tCheck .38s cubic-bezier(.3,1.5,.5,1) backwards}#dc-root .a-strike{animation:tStrike .45s cubic-bezier(.4,0,.2,1) backwards}#dc-root .a-grow{animation:tGrow .6s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:bottom center}#dc-root .a-width{animation:tWidth .7s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:left center}#dc-root .a-out{animation:tOut .32s ease forwards}#dc-root .a-gone{animation:tOut .35s ease .55s forwards}#dc-root [style*=\"scrollbar-width: none\"]::-webkit-scrollbar{display:none}@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes tFade{from{opacity:0}to{opacity:1}}@keyframes tPop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}@keyframes tDrop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}@keyframes tSheet{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}@keyframes tDrawer{from{transform:translateX(-100%)}to{transform:none}}@keyframes tUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}@keyframes tToast{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}@keyframes tSpin{to{transform:rotate(360deg)}}@keyframes tPulse{0%,100%{opacity:1}50%{opacity:.35}}@keyframes tPing{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%,100%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}@keyframes tCheck{0%{transform:scale(.6)}55%{transform:scale(1.18)}100%{transform:scale(1)}}@keyframes tStrike{from{background-size:0% 1.5px}to{background-size:100% 1.5px}}@keyframes tGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}@keyframes tWidth{from{transform:scaleX(0)}to{transform:scaleX(1)}}@keyframes tOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(16px)}}@media (prefers-reduced-motion:reduce){#dc-root *, #dc-root *::before, #dc-root *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}#dc-root .tz{transition:background-color .15s ease,border-color .15s ease}#dc-root .tz:hover{background-color:var(--hvz)!important;border-color:var(--bd2)!important}#dc-root input[type=range]{accent-color:var(--acc)}\n";
@@ -24,11 +25,11 @@ class Component extends DCLogic {
   }
   constructor(props) {
     super(props);
-    var STEPS = ['name', 'photo', 'theme', 'about', 'deals', 'ready'];
+    var STEPS = ['name', 'photo', 'theme', 'about', 'deals', 'app', 'ready'];
     var si = Math.max(0, STEPS.indexOf(props.step || 'name')), fr = !!props.frame;
     var w = 1440; try { w = window.innerWidth || 1440; } catch (e) {}
     this.state = Object.assign({
-      step: si, handle: (fr || si > 0) ? 'junobakes' : '', err: '',
+      step: si, appPhase: props.appPhase || '', handle: (fr || si > 0) ? 'junobakes' : '', err: '',
       photo: fr && si >= 1 ? this.sample() : '', aspect: 1, zoom: 130, dx: 0, dy: -8, photoErr: '',
       theme: fr && si >= 2 ? 'sand' : 'studio', mode: 'light',
       plats: fr && si >= 3 ? { TikTok: true, Instagram: true } : {}, volume: fr && si >= 3 ? '1 to 3' : '',
@@ -38,22 +39,33 @@ class Component extends DCLogic {
     if (this.state.step > 0 && !this.state.handle) this.state.handle = 'junobakes';
   }
   componentDidMount() {
+    var me = this; this._appOff = TalbyApp.onTalbyAppChange(function () { try { me.forceUpdate(); } catch (e) {} });
     var self = this;
     this._rs = function () { try { self.setState({ w: window.innerWidth }); } catch (e) {} };
     this._kd = function (e) { if (e && e.key === 'Escape' && self.state.pvOpen) self.setState({ pvOpen: false }); };
     try { window.addEventListener('resize', this._rs); window.addEventListener('keydown', this._kd); } catch (e) {}
   }
+  device() {
+    var d = this.props.device;
+    if (d && d !== 'auto') return d;
+    return TalbyApp.device();
+  }
+  isInstalled() { if (this.props.installed !== undefined) return !!this.props.installed; return TalbyApp.isInstalled(); }
+  installApp() { return TalbyApp.installApp(); }
+  askAlerts() { return TalbyApp.askAlerts(); }
+  copyLink() { return TalbyApp.copyLink(); }
+  dismissInstall(where, forever) { TalbyApp.dismissInstall(where, forever); }
   componentDidUpdate(prev) {
     var p = this.props;
-    if (prev.step !== p.step || prev.err !== p.err) {
-      var si = Math.max(0, ['name', 'photo', 'theme', 'about', 'deals', 'ready'].indexOf(p.step || 'name'));
-      var ch = Object.assign({ step: si, err: '', photoErr: '', saveErr: false, saving: false }, this.errState(p.err));
+    if (prev.step !== p.step || prev.err !== p.err || prev.device !== p.device) {
+      var si = Math.max(0, ['name', 'photo', 'theme', 'about', 'deals', 'app', 'ready'].indexOf(p.step || 'name'));
+      var ch = Object.assign({ step: si, err: '', photoErr: '', saveErr: false, saving: false, appPhase: p.appPhase || '' }, this.errState(p.err));
       if (ch.step > 0 && !this.state.handle && !('handle' in ch)) ch.handle = 'junobakes';
       this.setState(ch);
     }
     if (prev.pv !== p.pv) this.setState({ pvOpen: !!p.pv });
   }
-  componentWillUnmount() { try { window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kd); } catch (e) {} clearTimeout(this._ct); clearTimeout(this._sv); }
+  componentWillUnmount() { try { if (this._appOff) this._appOff(); } catch (e) {} try { window.removeEventListener('resize', this._rs); window.removeEventListener('keydown', this._kd); } catch (e) {} clearTimeout(this._ct); clearTimeout(this._sv); }
   save(extra) {
     if (this.props.frame) return;
     var st = Object.assign({}, this.state, extra || {});
@@ -100,7 +112,7 @@ class Component extends DCLogic {
     }
     var PLATICON={TikTok:'data:image/png;base64,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',Instagram:'data:image/png;base64,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',YouTube:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAADkklEQVR42u2ZP2gVQRDGf7N3JubFEP8QJEKUpLIIamcvdoJWhmCj2NhaWdhZaGETGyHaSBANxNJSsREbMSCCdhZGkthEVBKNee9uLHY27yJ5T593l/jgDSx37N7tft/u7MzOLHSkIx1pa5FmjerbZZNvpSQ8usm7ysb6P/YQKUT/20w3wiW/z7ZAmqnrx5fdwF6gF+gDKsAuoAvYaWUH4IBuIG6Aowb8xI+xClTtuQYsAytWloHPwBfgq8DX33ASVkVCZahQOAGcA44ABwx8pUS1aaZO343EAvAamBF4ugGzgljpUZhS0AYlVUgUalaqBZfQb2JjNcJxz7CKgqB+2VF4YB8EcEmms2YdllXSzKQlGZKqMG0EXFir09awtk1gWyG1Zu9nIDCAC6Zzsg263qrZF8N6HsCptybHrCFqA98VGdajCr0OOAjsL6Rr57aSyH5gyAGHzEzm97Bp6kmUSyRg7AWGHTAYhs/XrcDwsCeRphBFvq4cCVgHswTygQe4cwdmZpSREUgSbyuiUrfVoAP2bXKQap2Amm88e1Z49Uq5elXp6/NERIpWq4B1n7MzTnGSJLBnj3D9uvDypTI+bha8FLXa6wrbwOtGLoJazRM5fFiYnoYnT1KOH9+oVvmIhJ8rDugp3k6IBxk29MmTjhcvYHIShobqRPKvRk84/pYjwaQmiSd06RLMziqXLytdXUWQ6HaZ40SJvjOyY2INBgaEiQnh3buU0VHN6QDjeMv8ZprWh3v/XpmYcMzPm035ZwMocW4H9jfAw55YWVFu3xZu3hSWlorovRpbiFdCPJUxnaA8egTXrglv39bVKknyjvLTWUxaLPBarT7rs7Nw6hSMjXnwwYTmBw/wIwa+5fbEWScmAt3dsLCg3Lgh3L0L1aqsb9RigAes32MLmouR/n7f+a1bXs8XF4tUl83kc2zpi3yeONjzx4+VK1eE58/rwNO0DPAB6xIKFy3GTAqLXaNIVaTM2DhgvRgDi8FvFhaRlaMuG0ay57wDPlgCKf9GDmef8hNeGOaPDpgDPhVmibYmY4dpzpwTn4d8Yw3tQCA1nK8FloMu3bOdnf7nJDSTv7ofatoxtfhwHXsmuVtpMblb26bk7lQ2udtO6fU3wEOBZ1nMrV5w7LKEUq+FohWL6HbgLzli/KVH1GQDrtpzzd5X7UT8A3+58c2ejS44HM2undr2iqnBT+13ydeRjnSkveQXJps54NcuWqEAAAAASUVORK5CYII=',Facebook:'data:image/png;base64,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'};
     var self = this, p = this.props, st = this.state, fr = !!p.frame;
-    var STEPS = ['name', 'photo', 'theme', 'about', 'deals', 'ready'], IDS = ['studio', 'sand', 'mac', 'stationery', 'editorial'];
+    var STEPS = ['name', 'photo', 'theme', 'about', 'deals', 'app', 'ready'], IDS = ['studio', 'sand', 'mac', 'stationery', 'editorial'];
     var sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
     var dark = st.mode === 'dark' || (st.mode === 'system' && sysDark);
     var vwSet = !!p.vw && p.vw !== 'auto' && +p.vw > 0, W = vwSet ? +p.vw : st.w;
@@ -137,9 +149,10 @@ class Component extends DCLogic {
       pvBtn: 'display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; height: 32px; padding: 0 12px; box-sizing: border-box; border: none; border-radius: ' + t.rCtl + '; background: ' + t.fill + '; color: ' + t.fg + '; font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; --hv: ' + t.fillHover
     };
     var handle = st.handle, clean = (handle || '').trim(), initial = (clean.replace(/^@+/, '').charAt(0) || 'T').toUpperCase();
-    function go(i) { clearTimeout(self._sv); self.setState({ step: Math.max(0, Math.min(5, i)), err: '', photoErr: '', saveErr: false, saving: false }); }
+    function go(i) { clearTimeout(self._sv); self.setState({ step: Math.max(0, Math.min(6, i)), err: '', photoErr: '', saveErr: false, saving: false, appPhase: '' }); }
     function next() {
       if (st.saving) return;
+      if (step === 5 && !app.canGo) { app.primary(); return; }
       var patch = {};
       if (step === 0) {
         var h = clean.replace(/^@+/, '');
@@ -147,7 +160,7 @@ class Component extends DCLogic {
         if (h.length < 2) { self.setState({ err: 'Add at least 2 letters to keep going.' }); return; }
         patch.handle = h;
       }
-      function done() { if (step === 4 || step === 2) self.save(patch); self.setState(Object.assign(patch, { step: Math.min(5, step + 1), err: '', photoErr: '', saveErr: false, saving: false })); }
+      function done() { if (step === 4 || step === 2) self.save(patch); self.setState(Object.assign(patch, { step: Math.min(6, step + 1), err: '', photoErr: '', saveErr: false, saving: false })); }
       if (st.saveErr) { self.setState({ saving: true }); clearTimeout(self._sv); self._sv = setTimeout(done, 900); return; }
       done();
     }
@@ -230,6 +243,62 @@ class Component extends DCLogic {
       : (stack ? ('flex: 0 0 auto; display: flex; align-items: center; justify-content: center; padding: 28px 48px 40px; box-sizing: border-box; background: ' + t.tile + '; border-top: 1px solid ' + t.line + '; transition: background-color 0.3s ease')
       : ('flex: 1 1 520px; min-width: 0; display: flex; align-items: center; justify-content: center; padding: ' + (fr && !vwSet ? '32px' : (cozy ? '32px' : '48px')) + '; box-sizing: border-box; background: ' + t.tile + '; border-left: 1px solid ' + t.line + '; transition: background-color 0.3s ease'));
     var stepNow = step;
+    // Get the app step. iPhone needs Talby on the Home Screen before alerts can work. Android installs in one tap.
+    // In app browsers (TikTok, Instagram) cannot install. Desktop only asks for alerts.
+    var dev = this.device(), ph = st.appPhase || '';
+    // Already opened from the Home Screen: skip the install part and only ask for alerts.
+    if (!ph && dev !== 'desktop' && this.isInstalled()) ph = 'installed';
+    var ICS = { full: 'M4 4h6M4 4v6M20 4h-6M20 4v6M4 20h6M4 20v-6M20 20h-6M20 20v-6', bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', tap: 'M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 18h.01',
+      share: 'M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7', plus: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM12 8v8M8 12h8', check: 'M20 6 9 17l-5-5', dots: 'M5 12h.01M12 12h.01M19 12h.01', open: 'M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6', copy: 'M8 8h12v12H8zM4 16V4h12' };
+    var BEN = [[ICS.full, 'Opens full screen like a real app', 'No browser bars, just Talby.'], [ICS.bell, 'Deal and payment alerts', 'Know when a brand pays or a post is due.'], [ICS.tap, 'One tap from your Home Screen', 'Right next to your other apps.']];
+    function row(x, i) { return { icon: x[0], title: x[1], sub: x[2], n: x[3] || '', isNum: !!x[3], delay: (i * 0.05).toFixed(2) + 's' }; }
+    function askAlerts() { self.askAlerts().then(function (r) { self.setState({ appPhase: r === 'granted' ? 'alertsOn' : 'alertsOff' }); }); }
+    var A;
+    if (dev === 'inapp') A = ph === 'copied'
+      ? { caps: 'Get the app', title: 'Open Talby in your browser', sub: 'Paste the link in Safari or Chrome, then add Talby to your Home Screen from there.', list: [], done: 'Link copied', label: 'Continue', canGo: true }
+      : { caps: 'Get the app', title: 'Open Talby in your browser', sub: 'Apps like TikTok and Instagram open links in their own browser, which cannot add Talby to your Home Screen.',
+          list: [[ICS.dots, 'Tap the menu', 'The three dots or the share icon on this screen.', '1'], [ICS.open, 'Choose Open in browser', 'It may say Open in Safari or Open in Chrome.', '2'], [ICS.plus, 'Add Talby from there', 'Or copy the link below and paste it in your browser.', '3']],
+          label: 'Copy link', act: function () { self.copyLink().then(function () { self.setState({ appPhase: 'copied' }); }); } };
+    else if (dev === 'iphone') A = ph === 'hint'
+      ? { caps: 'Get the app', title: 'Add Talby to your Home Screen', sub: 'Safari does this part. It takes three taps.',
+          list: [[ICS.share, 'Tap Share', 'The square with an arrow in Safari. On newer iPhones it is under the three dots.', '1'], [ICS.plus, 'Tap Add to Home Screen', 'Scroll down the menu if you do not see it.', '2'], [ICS.check, 'Tap Add', 'Then open Talby from your Home Screen to turn on alerts.', '3']],
+          label: 'Continue', canGo: true }
+      : { caps: 'Get the app', title: 'Want payment and deadline alerts?', sub: 'Add Talby to your Home Screen first. On iPhone, alerts only work from there.', list: BEN, label: 'Add to Home Screen', act: function () { self.setState({ appPhase: 'hint' }); } };
+    else if (dev === 'android' && ph !== 'alertsOn' && ph !== 'alertsOff') A = ph === 'installed'
+      ? { caps: 'Get the app', title: 'Turn on payment and deadline alerts', sub: 'Talby lets you know when a brand pays, a payment is late, or a post is due.', list: [], done: 'Talby is on your Home Screen', label: 'Turn on alerts', act: askAlerts }
+      : { caps: 'Get the app', title: 'Get the Talby app', sub: 'Add Talby to your Home Screen, then turn on alerts for payments and post dates.', list: BEN, label: 'Add to Home Screen',
+          act: function () { self.installApp().then(function (ok) { self.setState({ appPhase: ok ? 'installed' : 'installed' }); }); } };
+    else A = ph === 'alertsOn'
+      ? { caps: 'Alerts', title: 'Alerts are on', sub: 'Know when a brand pays or a post is due.', list: [], done: 'You will get payment and deadline alerts', label: 'Continue', canGo: true }
+      : ph === 'alertsOff'
+      ? { caps: 'Alerts', title: 'Alerts are off for now', sub: 'You can turn them on later in Settings.', list: [], warn: 'Alerts are blocked in this browser', label: 'Continue', canGo: true }
+      : { caps: 'Alerts', title: 'Get payment and deadline alerts', sub: 'Know when a brand pays or a post is due.', list: [[ICS.bell, 'Payment alerts', 'When a brand pays, or a payment is late.'], [ICS.full, 'Deadline alerts', 'A heads up before a post or a pay by date.']], label: 'Turn on alerts', act: askAlerts };
+    // Phones get a compact sheet over the ready screen instead of a full page. Laptops keep the alerts page.
+    var shOn = step === 5 && dev !== 'desktop';
+    if (shOn) stepNow = 6;
+    function shGo() { go(6); }
+    var BEN2 = [[ICS.full, 'Opens full screen, like a real app'], [ICS.bell, 'Alerts when a brand pays or a post is due'], [ICS.tap, 'One tap from your Home Screen']];
+    var S = null, TIP = null;
+    if (shOn) {
+      if (dev === 'iphone' && ph === 'hint') TIP = { icon: ICS.share, text: 'Tap Share in Safari, then Add to Home Screen.', sub: 'Then tap Add. No Share button? Tap the three dots first.' };
+      else if (dev === 'android' && ph === 'hint') TIP = { icon: ICS.dots, text: 'Tap the three dots in Chrome, then Add to Home screen.', sub: 'Then tap Install.' };
+      else if (dev === 'inapp') S = ph === 'copied'
+        ? { title: 'Link copied', sub: 'Paste it in Safari or Chrome, then add Talby from there.', list: [], btn: 'Done', act: shGo }
+        : { title: 'Open Talby in Safari or Chrome', sub: 'TikTok and Instagram cannot add apps to your Home Screen.', list: [['', 'Tap the three dots or the share icon', '1'], ['', 'Choose Open in browser', '2'], ['', 'Add Talby from there', '3']],
+            btn: 'Copy link', act: function () { self.copyLink().then(function () { self.setState({ appPhase: 'copied' }); }); }, later: true };
+      else if (ph === 'alertsOn') S = { title: 'Alerts are on', sub: 'Talby will let you know when a brand pays or a post is due.', list: [], btn: 'Done', act: shGo };
+      else if (ph === 'alertsOff') S = { title: 'Alerts are off for now', sub: 'You can turn them on later in Settings.', list: [], warn: 'Alerts are blocked on this phone', btn: 'Done', act: shGo };
+      else if (ph === 'installed') S = { title: 'Turn on alerts?', sub: 'Know when a brand pays, a payment is late, or a post is due.', list: [], done: 'Talby is on your Home Screen', btn: 'Turn on alerts', act: askAlerts, later: true };
+      else S = { title: 'Get the Talby app', sub: 'www.talby.io', list: BEN2, btn: 'Add to Home Screen', later: true, foot: true,
+          act: dev === 'iphone' ? function () { self.setState({ appPhase: 'hint' }); } : function () { self.installApp().then(function (ok) { self.setState({ appPhase: ok ? 'installed' : 'hint' }); }); } };
+    }
+    var sh = { show: !!S, title: S ? S.title : '', sub: S ? S.sub : '', btn: S ? S.btn : '', act: S ? S.act : function () {},
+      later: function () { self.dismissInstall('onboarding'); go(6); }, hasLater: !!(S && S.later), hasFoot: !!(S && S.foot),
+      hasDone: !!(S && S.done), done: S && S.done || '', hasWarn: !!(S && S.warn), warn: S && S.warn || '', hasList: !!(S && S.list.length),
+      list: (S ? S.list : []).map(function (x, i) { return { icon: x[0], text: x[1], n: x[2] || '', isNum: !!x[2], isIcon: !x[2], delay: (0.08 + i * 0.05).toFixed(2) + 's' }; }) };
+    var tip = { show: !!TIP, icon: TIP ? TIP.icon : '', text: TIP ? TIP.text : '', sub: TIP ? TIP.sub : '', close: function () { self.dismissInstall('onboarding'); go(6); } };
+    var app = { caps: A.caps, title: A.title, sub: A.sub, list: A.list.map(row), showList: A.list.length > 0, showDone: !!A.done, doneText: A.done || '', showWarn: !!A.warn, warnText: A.warn || '',
+      label: A.label, canGo: !!A.canGo, primary: A.act || function () {}, isPhoneDev: dev !== 'desktop' };
     return {
       okIn: t.dark ? t.page : t.okBg,
       t: t, k: k, dark: dark, mob: mob, phone: phone, minH: fr ? (vwSet ? (W < 768 ? '844px' : '1180px') : '700px') : '100vh',
@@ -245,12 +314,12 @@ class Component extends DCLogic {
       capSubSt: phone ? 'flex: 1 1 auto; min-width: 0; font-size: 13px; color: ' + t.mutedFg + '; white-space: nowrap; overflow: hidden; text-overflow: ellipsis' : 'font-size: 13px; color: ' + t.mutedFg + '; white-space: nowrap',
       pvMainPad: phone ? '14px' : '18px', pvStatPad: phone ? '8px 10px' : '10px 12px',
       stepNo: String(stepNow + 1), bars: STEPS.map(function (s2, i) { return { w: i < stepNow ? '100%' : (i === stepNow ? '50%' : '0%') }; }),
-      isName: step === 0, isPhoto: step === 1, isTheme: step === 2, isAbout: step === 3, isDeals: step === 4, isReady: step === 5, notReady: step !== 5,
-      phBack: phone && step > 0, hasBackFtr: !phone && step > 0, canSkip: step >= 1 && step <= 4 && !(phone && step === 4),
-      back: function () { go(step - 1); }, skip: function () { if (step === 2) self.save(); go(step + 1); }, next: next,
-      nextLabel: st.saving ? 'Saving' : (st.saveErr ? 'Try again' : (step === 4 ? (hasDeal ? 'Continue' : 'Continue without a deal') : 'Continue')),
+      isName: step === 0, isPhoto: step === 1, isTheme: step === 2, isAbout: step === 3, isDeals: step === 4, isApp: step === 5, isAppPage: step === 5 && !shOn, app: app, sh: sh, tip: tip, isReady: step === 6, notReady: step !== 6, showReady: step === 6 || shOn, showNext: step !== 6 && !shOn,
+      phBack: phone && step > 0, hasBackFtr: !phone && step > 0, canSkip: (step >= 1 && step <= 4 && !(phone && step === 4)) || (step === 5 && !shOn && !app.canGo),
+      back: function () { go(step - 1); }, skip: function () { if (step === 2) self.save(); if (step === 5) self.dismissInstall('onboarding'); go(step + 1); }, skipLabel: step === 5 ? 'Not now' : 'Skip for now', next: next,
+      nextLabel: st.saving ? 'Saving' : (st.saveErr ? 'Try again' : (step === 4 ? (hasDeal ? 'Continue' : 'Continue without a deal') : step === 5 ? app.label : 'Continue')),
       saving: !!st.saving, savingAttr: st.saving ? 'true' : 'false', saveErr: !!st.saveErr,
-      saveErrText: step === 5 ? 'Check your connection, then pick an option again. Your answers are still here.' : 'Check your connection and try again. Your answers are still here.',
+      saveErrText: step === 6 ? 'Check your connection, then pick an option again. Your answers are still here.' : 'Check your connection and try again. Your answers are still here.',
       handle: handle, handleShow: showName, initial: initial, hasHandle: clean.replace(/^@+/, '').length >= 2, err: st.err, hasErr: !!st.err, errRing: st.err ? ('0 0 0 2px ' + t.destr) : 'none',
       setHandle: function (e) { self.setState({ handle: e.target.value.replace(/\s/g, '').toLowerCase(), err: '' }); },
       nameKey: function (e) { if (e && e.key === 'Enter') next(); },
@@ -308,7 +377,7 @@ function render($s0, host) {
               </button>
             </>) : null}
             <span {...S(`font-size: 13px; font-weight: 500; color: ${I($s0?.t?.mutedFg)}; white-space: nowrap`)}>
-              {"Step "}{T($s0?.stepNo)}{" of 6"}
+              {"Step "}{T($s0?.stepNo)}{" of 7"}
             </span>
             <div aria-hidden={"true"} {...S("flex: 1 1 auto; display: flex; gap: 4px")}>
               {A($s0?.bars).map((it, i) => {
@@ -661,7 +730,72 @@ function render($s0, host) {
                 </div>
               </div>
             </>) : null}
-            {$s0?.isReady ? (<>
+            {$s0?.isAppPage ? (<>
+              <div className={"a-in"} {...S("display: flex; flex-direction: column; gap: 22px")}>
+                <span aria-hidden={"true"} {...S(`width: 56px; height: 56px; flex: 0 0 56px; box-sizing: border-box; border: 1px solid ${I($s0?.t?.border)}; border-radius: 14px; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.06)`)}>
+                  <svg width={"30"} height={"26"} viewBox={"0 0 2029 1722"} aria-hidden={"true"} {...S("display: block")}>
+                    <path fill={"#1F7AE0"} d={"M325.553 0.11436C357.82 -0.851434 390.344 4.39925 421.577 12.1099C506.351 33.0387 579.306 92.8684 628.981 163.1C648.617 190.863 665.004 221.256 682.357 250.477C714.91 305.296 746.394 360.846 779.411 415.372C792.242 436.561 805.088 458.322 818.991 478.81C853.846 530.177 928.98 628.305 990.503 643.014C1013.94 648.615 1037.46 645.591 1058.97 634.725C1078.92 624.656 1094.72 608.763 1110.74 593.552C1184.16 523.869 1237.02 434.688 1287.42 347.839C1299.09 327.74 1311.38 307.989 1322.85 287.786C1346.79 245.624 1371.62 198.953 1400.03 160.003C1431.42 116.962 1467.92 79.9142 1513.59 51.9883C1592.43 3.35327 1687.5 -11.5536 1777.44 10.6178C1861.41 31.3662 1933.82 84.3529 1979.02 158.109C2024.53 233.037 2040.98 310.935 2019.97 397.268C1988.25 527.6 1882.9 628.138 1749.42 647.874C1724.27 651.594 1693.72 650.686 1668.06 650.648L1562.66 650.457L1294.18 650.569C1229.3 650.36 1166.25 642.367 1109.31 677.354C1075.41 697.881 1051.07 731.066 1041.68 769.577C1024.74 841.175 1063.31 906.426 1099.22 965.078C1103.02 971.823 1114.46 985.726 1119.82 992.612C1140.88 1019.75 1162.84 1046.17 1185.68 1071.84C1264.51 1161.22 1337.81 1269.48 1345.12 1391.87C1355.92 1572.91 1205.73 1711.69 1031.77 1721.4C938.596 1726.86 847.128 1694.71 777.855 1632.13C733.34 1591.55 702.231 1538.38 688.665 1479.68C676.384 1428.85 679.574 1377.6 692.642 1327.29C710.038 1260.33 744.366 1197.92 785.127 1142.41C854.647 1047.73 998.351 921.921 991.042 795.526C987.346 731.658 941.997 680.383 882.362 660.534C837.4 645.57 776.985 650.524 728.979 650.558L429.507 650.401L351.229 650.568C319.765 650.635 286.204 651.2 255.381 644.239C194.201 631.235 150.38 605.052 104.113 565.316C-67.2929 418.104 -14.8418 150.672 172.337 43.4476C223.087 14.3754 266.379 3.16906 325.553 0.11436Z"} />
+                  </svg>
+                </span>
+                <div {...S("display: flex; flex-direction: column; gap: 8px")}>
+                  <span {...S($s0?.k?.caps)}>
+                    {T($s0?.app?.caps)}
+                  </span>
+                  <h1 {...S($s0?.k?.h1)}>
+                    {T($s0?.app?.title)}
+                  </h1>
+                  <p {...S($s0?.k?.sub)}>
+                    {T($s0?.app?.sub)}
+                  </p>
+                </div>
+                {$s0?.app?.showList ? (<>
+                  <div {...S("display: flex; flex-direction: column; gap: 10px")}>
+                    {A($s0?.app?.list).map((it, i) => {
+                      const $s1 = { ...$s0, "a": it, $index: i };
+                      return (<React.Fragment key={i}>
+                        <div className={"a-in"} {...S(`animation-delay: ${I($s1?.a?.delay)}; display: flex; align-items: center; gap: 14px; ${I($s1?.howBox)}; box-sizing: border-box; border: 1px solid ${I($s1?.t?.border)}; border-radius: ${I($s1?.t?.rTile)}; background: ${I($s1?.t?.card)}`)}>
+                          <span {...S(`position: relative; width: 36px; height: 36px; flex: 0 0 36px; border-radius: ${I($s1?.t?.rSm)}; background: ${I($s1?.t?.fill)}; color: ${I($s1?.t?.fg)}; display: inline-flex; align-items: center; justify-content: center`)}>
+                            <svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"1.9"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
+                              <path d={$s1?.a?.icon} />
+                            </svg>
+                            {$s1?.a?.isNum ? (<>
+                              <span {...S(`position: absolute; top: -6px; left: -6px; width: 18px; height: 18px; border-radius: 9px; background: ${I($s1?.t?.primary)}; color: ${I($s1?.t?.primaryFg)}; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; font-family: ${I($s1?.t?.numFam)}`)}>
+                                {T($s1?.a?.n)}
+                              </span>
+                            </>) : null}
+                          </span>
+                          <span {...S("flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px")}>
+                            <span {...S("font-weight: 600")}>
+                              {T($s1?.a?.title)}
+                            </span>
+                            <span {...S($s1?.howSubSt)}>
+                              {T($s1?.a?.sub)}
+                            </span>
+                          </span>
+                        </div>
+                      </React.Fragment>);
+                    })}
+                  </div>
+                </>) : null}
+                {$s0?.app?.showDone ? (<>
+                  <div role={"status"} className={"a-pop"} {...S(`display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.okBg)}; color: ${I($s0?.t?.okFg)}; font-weight: 500`)}>
+                    <svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 18px")}>
+                      <path d={"M20 6 9 17l-5-5"} />
+                    </svg>
+                    {T($s0?.app?.doneText)}
+                  </div>
+                </>) : null}
+                {$s0?.app?.showWarn ? (<>
+                  <div role={"status"} className={"a-pop"} {...S(`display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.warnBg)}; color: ${I($s0?.t?.warnFg)}; font-weight: 500`)}>
+                    <svg width={"18"} height={"18"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 18px")}>
+                      <path d={"M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"} />
+                    </svg>
+                    {T($s0?.app?.warnText)}
+                  </div>
+                </>) : null}
+              </div>
+            </>) : null}
+            {$s0?.showReady ? (<>
               <div className={"a-in"} {...S("display: flex; flex-direction: column; gap: 22px")}>
                 <div {...S("display: flex; flex-direction: column; gap: 8px")}>
                   <span {...S($s0?.k?.caps)}>
@@ -724,10 +858,10 @@ function render($s0, host) {
             <div {...S($s0?.spacerSt)} />
             {$s0?.canSkip ? (<>
               <button type={"button"} className={"tb tg"} onClick={$s0?.skip} {...S($s0?.k?.btnGf)}>
-                {"Skip for now"}
+                {T($s0?.skipLabel)}
               </button>
             </>) : null}
-            {$s0?.notReady ? (<>
+            {$s0?.showNext ? (<>
               <button type={"button"} className={"tb tp"} onClick={$s0?.next} aria-busy={$s0?.savingAttr} {...S($s0?.k?.btnPf)}>
                 {$s0?.saving ? (<>
                   <svg className={"a-spin"} width={"15"} height={"15"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
@@ -737,7 +871,7 @@ function render($s0, host) {
                 {T($s0?.nextLabel)}
               </button>
             </>) : null}
-            {$s0?.isReady ? (<>
+            {$s0?.showReady ? (<>
               <a href={H("SWelcome.dc.html")} className={"tb tg"} onClick={$s0?.noTour} {...S(`--hv: ${I($s0?.t?.hv)}; ${I($s0?.k?.btnGf)}`)}>
                 {"Skip the tour"}
               </a>
@@ -880,10 +1014,116 @@ function render($s0, host) {
             </div>
           </div>
         </>) : null}
+        {$s0?.sh?.show ? (<>
+          <button type={"button"} aria-label={"Not now"} tabIndex={"-1"} className={"a-fade"} onClick={$s0?.sh?.later} {...S(`position: ${I($s0?.pvPos)}; top: 0; right: 0; bottom: 0; left: 0; z-index: 44; padding: 0; border: none; background: ${I($s0?.t?.overlay)}; cursor: default`)} />
+          <div role={"dialog"} aria-modal={"true"} aria-labelledby={"ob-app-t"} className={"a-sheet"} {...S(`position: ${I($s0?.pvPos)}; left: 0; right: 0; bottom: 0; z-index: 45; max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 10px 24px calc(16px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; background: ${I($s0?.t?.card)}; color: ${I($s0?.t?.fg)}; border-radius: ${I($s0?.t?.rDialog)} ${I($s0?.t?.rDialog)} 0 0; box-shadow: ${I($s0?.t?.shPop)}`)}>
+            <span aria-hidden={"true"} {...S(`width: 36px; height: 5px; border-radius: 3px; background: ${I($s0?.t?.borderStrong)}`)} />
+            <div {...S("display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center")}>
+              <span aria-hidden={"true"} {...S(`width: 64px; height: 64px; flex: 0 0 64px; box-sizing: border-box; border: 1px solid ${I($s0?.t?.border)}; border-radius: 16px; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 1px 2px rgba(0,0,0,0.06)`)}>
+                <svg width={"34"} height={"29"} viewBox={"0 0 2029 1722"} aria-hidden={"true"} {...S("display: block")}>
+                  <path fill={"#1F7AE0"} d={"M325.553 0.11436C357.82 -0.851434 390.344 4.39925 421.577 12.1099C506.351 33.0387 579.306 92.8684 628.981 163.1C648.617 190.863 665.004 221.256 682.357 250.477C714.91 305.296 746.394 360.846 779.411 415.372C792.242 436.561 805.088 458.322 818.991 478.81C853.846 530.177 928.98 628.305 990.503 643.014C1013.94 648.615 1037.46 645.591 1058.97 634.725C1078.92 624.656 1094.72 608.763 1110.74 593.552C1184.16 523.869 1237.02 434.688 1287.42 347.839C1299.09 327.74 1311.38 307.989 1322.85 287.786C1346.79 245.624 1371.62 198.953 1400.03 160.003C1431.42 116.962 1467.92 79.9142 1513.59 51.9883C1592.43 3.35327 1687.5 -11.5536 1777.44 10.6178C1861.41 31.3662 1933.82 84.3529 1979.02 158.109C2024.53 233.037 2040.98 310.935 2019.97 397.268C1988.25 527.6 1882.9 628.138 1749.42 647.874C1724.27 651.594 1693.72 650.686 1668.06 650.648L1562.66 650.457L1294.18 650.569C1229.3 650.36 1166.25 642.367 1109.31 677.354C1075.41 697.881 1051.07 731.066 1041.68 769.577C1024.74 841.175 1063.31 906.426 1099.22 965.078C1103.02 971.823 1114.46 985.726 1119.82 992.612C1140.88 1019.75 1162.84 1046.17 1185.68 1071.84C1264.51 1161.22 1337.81 1269.48 1345.12 1391.87C1355.92 1572.91 1205.73 1711.69 1031.77 1721.4C938.596 1726.86 847.128 1694.71 777.855 1632.13C733.34 1591.55 702.231 1538.38 688.665 1479.68C676.384 1428.85 679.574 1377.6 692.642 1327.29C710.038 1260.33 744.366 1197.92 785.127 1142.41C854.647 1047.73 998.351 921.921 991.042 795.526C987.346 731.658 941.997 680.383 882.362 660.534C837.4 645.57 776.985 650.524 728.979 650.558L429.507 650.401L351.229 650.568C319.765 650.635 286.204 651.2 255.381 644.239C194.201 631.235 150.38 605.052 104.113 565.316C-67.2929 418.104 -14.8418 150.672 172.337 43.4476C223.087 14.3754 266.379 3.16906 325.553 0.11436Z"} />
+                </svg>
+              </span>
+              <div {...S("display: flex; flex-direction: column; gap: 4px")}>
+                <h2 id={"ob-app-t"} {...S(`margin: 0; font-family: ${I($s0?.t?.titleFam)}; font-size: 23px; font-weight: 600; letter-spacing: ${I($s0?.t?.hTrack)}; text-transform: ${I($s0?.t?.hCase)}; line-height: 1.2`)}>
+                  {T($s0?.sh?.title)}
+                </h2>
+                <span {...S(`font-size: 14px; line-height: 1.45; color: ${I($s0?.t?.mutedFg)}`)}>
+                  {T($s0?.sh?.sub)}
+                </span>
+              </div>
+            </div>
+            {$s0?.sh?.hasDone ? (<>
+              <div role={"status"} className={"a-pop"} {...S(`align-self: stretch; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.okBg)}; color: ${I($s0?.t?.okFg)}; font-size: 14px; font-weight: 500`)}>
+                <svg width={"17"} height={"17"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2.2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 17px")}>
+                  <path d={"M20 6 9 17l-5-5"} />
+                </svg>
+                {T($s0?.sh?.done)}
+              </div>
+            </>) : null}
+            {$s0?.sh?.hasWarn ? (<>
+              <div role={"status"} className={"a-pop"} {...S(`align-self: stretch; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: ${I($s0?.t?.rTile)}; background: ${I($s0?.t?.warnBg)}; color: ${I($s0?.t?.warnFg)}; font-size: 14px; font-weight: 500`)}>
+                <svg width={"17"} height={"17"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S("flex: 0 0 17px")}>
+                  <path d={"M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"} />
+                </svg>
+                {T($s0?.sh?.warn)}
+              </div>
+            </>) : null}
+            {$s0?.sh?.hasList ? (<>
+              <ul {...S("align-self: stretch; margin: 0; padding: 4px 6px; list-style: none; display: flex; flex-direction: column; gap: 14px")}>
+                {A($s0?.sh?.list).map((it, i) => {
+                  const $s1 = { ...$s0, "b": it, $index: i };
+                  return (<React.Fragment key={i}>
+                    <li className={"a-in"} {...S(`animation-delay: ${I($s1?.b?.delay)}; display: flex; align-items: center; gap: 14px; font-size: 15px; line-height: 1.35`)}>
+                      {$s1?.b?.isNum ? (<>
+                        <span {...S(`width: 24px; height: 24px; flex: 0 0 24px; border-radius: 12px; background: ${I($s1?.t?.primary)}; color: ${I($s1?.t?.primaryFg)}; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; font-family: ${I($s1?.t?.numFam)}`)}>
+                          {T($s1?.b?.n)}
+                        </span>
+                      </>) : null}
+                      {$s1?.b?.isIcon ? (<>
+                        <svg width={"22"} height={"22"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"1.8"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"} {...S(`flex: 0 0 24px; color: ${I($s1?.t?.fg)}`)}>
+                          <path d={$s1?.b?.icon} />
+                        </svg>
+                      </>) : null}
+                      <span>
+                        {T($s1?.b?.text)}
+                      </span>
+                    </li>
+                  </React.Fragment>);
+                })}
+              </ul>
+            </>) : null}
+            <div {...S("align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 6px")}>
+              <button type={"button"} className={"tb tp"} onClick={$s0?.sh?.act} {...S(`width: 100%; height: 52px; padding: 0 20px; border: none; border-radius: ${I($s0?.t?.rCtl)}; background: ${I($s0?.t?.primary)}; color: ${I($s0?.t?.primaryFg)}; box-shadow: ${I($s0?.t?.btnSh)}; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer`)}>
+                {T($s0?.sh?.btn)}
+              </button>
+              {$s0?.sh?.hasLater ? (<>
+                <button type={"button"} className={"tb tg"} onClick={$s0?.sh?.later} {...S(`--hv: ${I($s0?.t?.fill)}; width: 100%; height: 44px; border: none; border-radius: ${I($s0?.t?.rCtl)}; background: transparent; color: ${I($s0?.t?.fg)}; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer`)}>
+                  {"Not now"}
+                </button>
+              </>) : null}
+              {$s0?.sh?.hasFoot ? (<>
+                <span {...S(`font-size: 12px; color: ${I($s0?.t?.mutedFg)}`)}>
+                  {"Free to add. No App Store download."}
+                </span>
+              </>) : null}
+            </div>
+          </div>
+        </>) : null}
+        {$s0?.tip?.show ? (<>
+          <div role={"status"} className={"a-pop"} {...S(`position: ${I($s0?.pvPos)}; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; z-index: 45; max-width: 496px; margin: 0 auto; display: flex; align-items: flex-start; gap: 12px; padding: 16px 12px 16px 16px; box-sizing: border-box; border-radius: 18px; background: #111111; color: #FFFFFF; box-shadow: 0 20px 44px -14px rgba(0,0,0,0.5)`)}>
+            <span aria-hidden={"true"} {...S("width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px; background: rgba(255,255,255,0.12); display: inline-flex; align-items: center; justify-content: center")}>
+              <svg width={"20"} height={"20"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
+                <path d={$s0?.tip?.icon} />
+              </svg>
+            </span>
+            <span {...S("flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px")}>
+              <span {...S("display: flex; align-items: baseline; gap: 8px")}>
+                <span {...S("font-size: 15px; font-weight: 600")}>
+                  {"Almost there"}
+                </span>
+                <span {...S("font-size: 12px; color: rgba(255,255,255,0.6)")}>
+                  {"Step 2 of 2"}
+                </span>
+              </span>
+              <span {...S("font-size: 14px; line-height: 1.45; color: rgba(255,255,255,0.92)")}>
+                {T($s0?.tip?.text)}
+              </span>
+              <span {...S("font-size: 13px; line-height: 1.45; color: rgba(255,255,255,0.6)")}>
+                {T($s0?.tip?.sub)}
+              </span>
+            </span>
+            <button type={"button"} className={"tb"} onClick={$s0?.tip?.close} aria-label={"Close"} {...S("width: 32px; height: 32px; flex: 0 0 32px; margin-top: -6px; padding: 0; border: none; border-radius: 16px; background: transparent; color: rgba(255,255,255,0.7); display: inline-flex; align-items: center; justify-content: center; cursor: pointer")}>
+              <svg width={"16"} height={"16"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
+                <path d={"M18 6 6 18M6 6l12 12"} />
+              </svg>
+            </button>
+          </div>
+        </>) : null}
         <SAddDeal open={$s0?.add} mobile={$s0?.mob} color={$s0?.t?.id} dark={$s0?.dark} onClose={$s0?.closeAdd} onCreated={$s0?.onCreated} />
       </div>
   </>);
 }
 
-export const meta = {"props":{"step":{"editor":"enum","options":["name","photo","theme","about","deals","ready"],"default":"name"},"err":{"editor":"enum","options":["none","name-empty","name-short","photo-type","photo-big","save"],"default":"none"},"vw":{"editor":"enum","options":["auto","390","820","1024"],"default":"auto"},"pv":{"editor":"boolean","default":false},"frame":{"editor":"boolean","default":false}},"preview":{"width":1440,"height":900}};
+export const meta = {"props":{"step":{"editor":"enum","options":["name","photo","theme","about","deals","app","ready"],"default":"name"},"device":{"editor":"enum","options":["auto","iphone","inapp","android","desktop"],"default":"auto"},"appPhase":{"editor":"enum","options":["","hint","copied","installed","alertsOn","alertsOff"],"default":""},"err":{"editor":"enum","options":["none","name-empty","name-short","photo-type","photo-big","save"],"default":"none"},"vw":{"editor":"enum","options":["auto","390","820","1024"],"default":"auto"},"pv":{"editor":"boolean","default":false},"frame":{"editor":"boolean","default":false}},"preview":{"width":1440,"height":900}};
 export default $r.defineBoard("SOnboard", Component, render, CSS, meta);

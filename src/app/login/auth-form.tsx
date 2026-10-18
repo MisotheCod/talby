@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import posthog from "posthog-js";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -111,12 +111,53 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Home Screen app (iPhone): email links open in Safari, not the app, so
+  // password-less magic-link sign-in can't finish here. Offer a one-time code
+  // instead (signInWithOtp then verifyOtp) that is shown right in the email.
+  const [standalone, setStandalone] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeSentTo, setCodeSentTo] = useState<string | null>(null);
+  const [sendingCode, setSendingCode] = useState(false);
+
+  useEffect(() => {
+    try {
+      const mq = window.matchMedia && window.matchMedia("(display-mode: standalone)");
+      const viaMatch = !!(mq && mq.matches);
+      const viaNav = !!(window.navigator as any).standalone;
+      if (viaMatch || viaNav) setStandalone(true);
+    } catch { /* not standalone */ }
+  }, []);
+
+  const sendCode = async () => {
+    if (!email.trim()) { setError("Enter your email first."); return; }
+    setSendingCode(true); setError("");
+    // Reset the authenticator code = email magic-link distinguished by a fresh
+    // request. The Supabase magic link email template must include {{ .Token }}.
+    const { error: oErr } = await supabase.auth.signInWithOtp({ email });
+    setSendingCode(false);
+    if (oErr) { setError(oErr.message); return; }
+    setCodeSentTo(email);
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     if (isLogin) {
+      if (codeSentTo) {
+        // Home Screen app: verify the 6 digit code from the email. Password
+        // sign-in still works in Safari; this is only the standalone fallback.
+        const token = code.trim();
+        if (token.length !== 6) { setError("Enter the 6 digit code from your email."); setLoading(false); return; }
+        const { data, error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
+        if (error) { setError(error.message); setLoading(false); return; }
+        if (data.user) { posthog.identify(data.user.id, { email }); posthog.capture("login"); }
+        const next = searchParams.get("next");
+        router.push(next || "/app");
+        router.refresh();
+        return;
+      }
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) { setError(error.message); setLoading(false); return; }
       if (data.user) { posthog.identify(data.user.id, { email }); posthog.capture("login"); }
@@ -257,38 +298,80 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
                 />
               </label>
 
-              <div className="auth-pw-wrap">
-                <div className="auth-label-row">
-                  <span className="auth-label">Password</span>
-                  {isLogin && (
-                    <Link href="/forgot-password" className="auth-forgot">Forgot your password?</Link>
+              {!(isLogin && standalone) ? (
+                <div className="auth-pw-wrap">
+                  <div className="auth-label-row">
+                    <span className="auth-label">Password</span>
+                    {isLogin && (
+                      <Link href="/forgot-password" className="auth-forgot">Forgot your password?</Link>
+                    )}
+                  </div>
+                  <div className="auth-pw-input">
+                    <input
+                      type={showPw ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={isLogin ? "" : "At least 8 characters"}
+                      autoComplete={isLogin ? "current-password" : "new-password"}
+                      required
+                      className="auth-input auth-input-pw"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw((s) => !s)}
+                      aria-label={showPw ? "Hide password" : "Show password"}
+                      className="auth-eye"
+                    >
+                      {showPw ? <IconEyeInvisible size={18} /> : <IconEye size={18} />}
+                    </button>
+                  </div>
+                  {isLogin && standalone && !codeSentTo && (
+                    <button
+                      type="button"
+                      className="auth-code-toggle"
+                      onClick={sendCode}
+                      disabled={sendingCode}
+                    >
+                      {sendingCode ? "Sending…" : "Email me a code instead"}
+                    </button>
                   )}
                 </div>
-                <div className="auth-pw-input">
-                  <input
-                    type={showPw ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={isLogin ? "" : "At least 8 characters"}
-                    autoComplete={isLogin ? "current-password" : "new-password"}
-                    required
-                    className="auth-input auth-input-pw"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw((s) => !s)}
-                    aria-label={showPw ? "Hide password" : "Show password"}
-                    className="auth-eye"
-                  >
-                    {showPw ? <IconEyeInvisible size={18} /> : <IconEye size={18} />}
-                  </button>
+              ) : (
+                <div className="auth-pw-wrap">
+                  <div className="auth-label-row">
+                    <span className="auth-label">Code from email</span>
+                    {codeSentTo && (
+                      <Link href="/login" className="auth-forgot" onClick={(e) => { e.preventDefault(); setCodeSentTo(null); setCode(""); }}>
+                        Use password instead
+                      </Link>
+                    )}
+                  </div>
+                  <div className="auth-pw-input">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="6 digit code"
+                      autoComplete="one-time-code"
+                      required
+                      className="auth-input auth-input-pw"
+                    />
+                  </div>
+                  {codeSentTo && (
+                    <button type="button" className="auth-code-toggle" onClick={sendCode} disabled={sendingCode}>
+                      {sendingCode ? "Sending…" : "Resend code"}
+                    </button>
+                  )}
                 </div>
-              </div>
+              )}
 
               {error && <p className="auth-error" role="alert">{error}</p>}
 
               <button type="submit" className="auth-submit" disabled={loading}>
-                {loading ? <span className="auth-spinner" /> : isLogin ? "Log in" : "Create account"}
+                {loading ? <span className="auth-spinner" /> : (isLogin && codeSentTo) ? "Sign in" : isLogin ? "Log in" : "Create account"}
               </button>
               {!isLogin && (
                 <p className="auth-trial-line" data-testid="trial-terms">14 days free. No card needed.</p>

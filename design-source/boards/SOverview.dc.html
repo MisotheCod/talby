@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talby Overview, shadcn</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=Fraunces:wght@400;500;600;700&amp;family=Playfair+Display:wght@400;500;600;700&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;font-synthesis:none}
+.tb{transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .18s ease,opacity .15s ease,transform .12s ease}
+.tb:active{transform:scale(.97)}
+.tg:hover{background-color:var(--hv)!important}
+.tp:hover{opacity:.88}
+.tr{transition:background-color .12s ease}
+.tr:hover{background-color:var(--hvr)!important}
+.tt:hover{color:var(--fg)!important}
+.tc{transition:border-color .18s ease,box-shadow .2s ease,transform .2s ease}
+.tc:hover{border-color:var(--bd2)!important;box-shadow:var(--shh)!important}
+.tlift:hover{transform:translateY(-2px)}
+.ti{transition:box-shadow .15s ease}
+.ti:focus,.ti:focus-within{box-shadow:0 0 0 2px var(--ring)!important}
+.tb:focus-visible,.tc:focus-visible,.tr:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.a-in{animation:tIn .36s cubic-bezier(.2,.7,.2,1) backwards}
+.a-fade{animation:tFade .2s ease backwards}
+.a-pop{animation:tPop .22s cubic-bezier(.2,.8,.3,1) backwards}
+.a-drop{animation:tDrop .16s cubic-bezier(.2,.8,.3,1) backwards}
+.a-sheet{animation:tSheet .3s cubic-bezier(.2,.8,.2,1) backwards}
+.a-drawer{animation:tDrawer .26s cubic-bezier(.2,.8,.2,1) backwards}
+.a-up{animation:tUp .3s cubic-bezier(.2,.8,.2,1) backwards}
+.a-toast{animation:tToast .3s cubic-bezier(.2,.9,.3,1.1) backwards}
+.a-spin{animation:tSpin .8s linear infinite}
+.a-pulse{animation:tPulse 1.6s ease-in-out infinite}
+.a-ping{animation:tPing 2s ease-out infinite}
+.a-check{animation:tCheck .38s cubic-bezier(.3,1.5,.5,1) backwards}
+.a-strike{animation:tStrike .45s cubic-bezier(.4,0,.2,1) backwards}
+.a-grow{animation:tGrow .6s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:bottom center}
+.a-width{animation:tWidth .7s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:left center}
+.a-out{animation:tOut .32s ease forwards}
+.a-gone{animation:tOut .35s ease .55s forwards}
+[style*="scrollbar-width: none"]::-webkit-scrollbar{display:none}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes tFade{from{opacity:0}to{opacity:1}}
+@keyframes tPop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+@keyframes tDrop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes tSheet{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+@keyframes tDrawer{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes tUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+@keyframes tToast{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes tSpin{to{transform:rotate(360deg)}}
+@keyframes tPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes tPing{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%,100%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+@keyframes tCheck{0%{transform:scale(.6)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes tStrike{from{background-size:0% 1.5px}to{background-size:100% 1.5px}}
+@keyframes tGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes tWidth{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes tOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(16px)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</helmet>
+<div style="position: relative; box-sizing: border-box; min-height: {{minH}}; display: flex; align-items: stretch; background: {{t.page}}; font-family: {{t.bodyFam}}; font-size: 14px; line-height: 1.43; color: {{t.fg}}; -webkit-font-smoothing: antialiased; {{vars}}">
+
+<sc-if value="{{showRail}}" hint-placeholder-val="{{true}}">
+<div style="position: relative; z-index: 30; flex: 0 0 {{sbW}}; width: {{sbW}}; align-self: stretch; transition: flex-basis 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1)">
+<div style="position: sticky; top: 0; height: 100vh">
+<dc-import name="SSidebar" active="overview" color="{{eff}}" dark="{{dark}}" collapsed="{{collapsed}}" plan="{{plan}}" fresh="{{sbFresh}}" hint-size="100%,100vh"></dc-import>
+</div>
+</div>
+</sc-if>
+
+<main style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: {{mainPad}}; box-sizing: border-box">
+<dc-import name="STopbar" title="Overview" mobile="{{mob}}" quiet="{{quietBell}}" color="{{eff}}" dark="{{dark}}" on-nav="{{toggleNav}}" on-search="{{openCmd}}" on-appearance="{{openAppear}}" on-add="{{openAdd}}" hint-size="100%,56px"></dc-import>
+<sc-if value="{{hasBanner}}" hint-placeholder-val="{{false}}">
+<div role="status" class="a-fade" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 8px 8px 14px; box-sizing: border-box; border: 1px solid {{bn.bd}}; border-radius: {{t.rTile}}; background: {{bn.bg}}; color: {{bn.fg}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><path d="{{bn.icon}}"></path></svg>
+<span style="flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.4"><span style="font-weight: 600">{{bn.title}}</span> <span style="color: {{bn.subFg}}">{{bn.text}}</span></span>
+<button type="button" class="tb tp" onClick="{{bn.act}}" style="{{k.pSm}}">{{bn.cta}}</button>
+</div>
+</sc-if>
+<div class="a-in" style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 0 4px">
+<div style="display: flex; flex-direction: column; gap: 4px; min-width: 0">
+<h1 style="margin: 0; font-family: {{titleFam}}; font-size: {{h1Fs}}; font-weight: 600; letter-spacing: {{t.hTrack}}; text-transform: {{t.hCase}}; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Good afternoon, Chanelica</h1>
+<p style="margin: 0; color: {{t.mutedFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{greetLine}}</p>
+</div>
+</div>
+
+<sc-if value="{{showData}}" hint-placeholder-val="{{true}}">
+<section aria-label="Money" class="a-in" style="animation-delay: 0.04s; display: grid; grid-template-columns: {{stripCols}}; overflow: hidden; {{k.card}}">
+<sc-for list="{{stats}}" as="s" hint-placeholder-count="4">
+<a href="{{s.href}}" class="tr" style="--hvr: {{t.hoverCard}}; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: {{statPad}}; box-sizing: border-box; border-left: {{s.bl}}; border-top: {{s.bt}}; color: {{t.fg}}; text-decoration: none">
+<span style="display: flex; align-items: center; gap: 8px; min-width: 0; color: {{t.mutedFg}}; white-space: nowrap"><sc-if value="{{s.warn}}" hint-placeholder-val="{{false}}"><span class="a-ping" style="width: 7px; height: 7px; flex: 0 0 7px; border-radius: 4px; background: #EF4444"></span></sc-if><span style="overflow: hidden; text-overflow: ellipsis">{{s.label}}</span></span>
+<sc-if value="{{s.ready}}" hint-placeholder-val="{{true}}">
+<span style="font-family: {{numFam}}; font-size: {{statFs}}; font-weight: 600; letter-spacing: {{t.nTrack}}; line-height: 1.15; font-variant-numeric: tabular-nums; white-space: nowrap; color: {{s.fg}}; transition: color 0.3s ease">{{s.value}}</span>
+<span style="font-size: 13px; color: {{t.mutedFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{s.line}}</span>
+</sc-if>
+<sc-if value="{{s.load}}" hint-placeholder-val="{{false}}"><span class="a-pulse" style="margin: {{s.skVm}}; {{s.skV}}"></span><span class="a-pulse" style="margin: 3px 0; {{s.skL}}"></span></sc-if>
+</a>
+</sc-for>
+</section>
+
+<div style="display: grid; grid-template-columns: {{rowCols}}; gap: 16px; align-items: stretch">
+
+<section class="a-in" style="animation-delay: 0.08s; min-width: 0; display: flex; flex-direction: column; {{k.card}}">
+<div style="display: flex; align-items: center; gap: 10px; padding: 16px 14px 10px 20px">
+<h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600; white-space: nowrap">Needs your attention</h2>
+<sc-if value="{{hasAttn}}" hint-placeholder-val="{{true}}"><span style="display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px; box-sizing: border-box; border-radius: {{t.rCtl}}; background: {{t.badBg}}; color: {{t.badFg}}; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums">{{attnCount}}</span></sc-if>
+<div style="flex: 1 1 auto"></div>
+<a class="tb tg" href="SPayments.dc.html" style="{{k.gSm}}">Payments</a>
+</div>
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; padding: 0 8px 8px">
+<sc-for list="{{attn}}" as="a" hint-placeholder-count="5">
+<div class="{{a.cls}}" style="display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 8px 10px 8px 12px; box-sizing: border-box; border-top: 1px solid {{t.line}}; overflow: hidden{{a.wrap}}">
+<span style="width: 34px; height: 34px; flex: 0 0 34px; border-radius: 17px; background: {{a.avBg}}; color: {{a.avFg}}; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600"><sc-if value="{{a.isLetter}}" hint-placeholder-val="{{true}}">{{a.l}}</sc-if><sc-if value="{{a.isIcon}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.icon}}"></path></svg></sc-if></span>
+<span style="flex: {{a.tFlex}}; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.title}}</span><span style="font-size: 13px; color: {{a.subFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{a.sub}}</span></span>
+<sc-if value="{{a.isPay}}" hint-placeholder-val="{{true}}">
+<sc-if value="{{notMob}}" hint-placeholder-val="{{true}}"><a class="tb tg" href="SPayments.dc.html" style="{{k.oSm}}">Remind</a></sc-if>
+<button class="tb tg" type="button" onClick="{{a.paid}}" aria-label="{{a.paidLabel}}" style="{{k.sSm}}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Paid</button>
+</sc-if>
+<sc-if value="{{a.isDate}}" hint-placeholder-val="{{false}}"><div style="width: {{a.dw}}; flex: 0 0 {{a.dw}}; margin-left: {{a.ml}}"><dc-import name="SDatePicker" value="" placeholder="Add date" size="sm" align="end" label="Dramamine pay by date" on-change="{{a.setDate}}" color="{{eff}}" dark="{{dark}}" hint-size="100%,32px"></dc-import></div></sc-if>
+<sc-if value="{{a.isLink}}" hint-placeholder-val="{{false}}"><a class="tb tg" href="SDeals.dc.html" style="margin-left: {{a.ml}}; {{k.oSm}}">Review</a></sc-if>
+</div>
+</sc-for>
+<sc-if value="{{noAttn}}" hint-placeholder-val="{{false}}">
+<div class="a-pop" style="flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 220px; padding: 24px 16px; border-top: 1px solid {{t.line}}; text-align: center">
+<span class="a-check" style="width: 44px; height: 44px; border-radius: 22px; background: {{t.okBg}}; color: {{t.okFg}}; display: inline-flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>
+<span style="font-weight: 600">Nothing needs you right now</span>
+<span style="color: {{t.mutedFg}}">Late payments and missing dates show up here.</span>
+</div>
+</sc-if>
+<sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}"><sc-for list="{{skAttn}}" as="x" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 8px 10px 8px 12px; box-sizing: border-box; border-top: 1px solid {{t.line}}">
+<span class="a-pulse" style="{{x.av}}"></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px"><span class="a-pulse" style="{{x.t1}}"></span><span class="a-pulse" style="{{x.t2}}"></span></span>
+<span class="a-pulse" style="{{x.btn}}"></span>
+</div>
+</sc-for></sc-if>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}"><div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; border-top: 1px solid {{t.line}}">
+<div class="a-fade" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 24px; box-sizing: border-box; text-align: center"><span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: {{t.rTile}}; background: {{attnBlk.tileBg}}; color: {{attnBlk.tileFg}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{attnBlk.icon}}"></path></svg></span><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 380px"><span style="font-size: 15px; font-weight: 600">{{attnBlk.title}}</span><sc-if value="{{attnBlk.hasSub}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.5; color: {{t.mutedFg}}">{{attnBlk.sub}}</span></sc-if></div><sc-if value="{{attnBlk.hasCta}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px"><button type="button" class="tb tp" onClick="{{attnBlk.act}}" style="{{k.pSm}}; height: {{stH}}; flex-shrink: 0">{{attnBlk.cta}}</button><sc-if value="{{attnBlk.has2}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{attnBlk.act2}}" style="--hv: {{t.hoverCard}}; {{k.oSm}}; height: {{stH}}">{{attnBlk.cta2}}</button></sc-if></div></sc-if></div>
+</div></sc-if>
+</div>
+</section>
+
+<section class="a-in" style="animation-delay: 0.12s; min-width: 0; padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 14px; {{k.card}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">This week</h2><a class="tb tg" href="SCalendar.dc.html" style="margin-right: -8px; {{k.gSm}}">Calendar</a></div>
+<div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+<sc-for list="{{week}}" as="d" hint-placeholder-count="7">
+<button type="button" class="tb tg" aria-label="{{d.aria}}" aria-pressed="{{d.sel}}" onClick="{{d.pick}}" style="--hv: {{d.hv}}; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 7px; border: none; border-radius: {{t.rTile}}; background: {{d.bg}}; color: {{d.fg}}; box-shadow: {{d.ring}}; font: inherit; cursor: pointer">
+<span style="font-size: 11px; font-weight: 500; letter-spacing: 0.04em; color: {{d.wdFg}}">{{d.wd}}</span>
+<span style="font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums">{{d.num}}</span>
+<span style="width: 5px; height: 5px; border-radius: 3px; background: {{d.dot}}"></span>
+</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; flex: 1 1 auto">
+<sc-if value="{{dayEmpty}}" hint-placeholder-val="{{false}}"><div class="a-fade" style="display: flex; align-items: center; min-height: 44px; border-top: 1px solid {{t.line}}; color: {{t.mutedFg}}">{{dayEmptyText}}</div></sc-if>
+<sc-for list="{{weekShown}}" as="e" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 44px; border-top: 1px solid {{t.line}}">
+<span style="width: 30px; flex: 0 0 30px; font-size: 12px; font-weight: 500; color: {{t.mutedFg}}">{{e.day}}</span>
+<span style="display: inline-flex; align-items: center; height: 22px; padding: 0 8px; box-sizing: border-box; border-radius: {{t.rEv}}; background: {{e.bg}}; color: {{e.fg}}; font-size: 12px; font-weight: 500; white-space: nowrap; transition: background-color 0.3s ease, color 0.3s ease">{{e.type}}</span>
+<span style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{e.titleFg}}">{{e.title}}</span>
+<span style="font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; color: {{e.amtFg}}">{{e.amount}}</span>
+</div>
+</sc-for>
+<sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}"><sc-for list="{{skWeek}}" as="x" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 44px; border-top: 1px solid {{t.line}}"><span class="a-pulse" style="{{x.d}}"></span><span class="a-pulse" style="{{x.c}}"></span><span class="a-pulse" style="{{x.t}}"></span></div>
+</sc-for></sc-if>
+<sc-if value="{{weekNone}}" hint-placeholder-val="{{false}}"><div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; border-top: 1px solid {{t.line}}">
+<div class="a-fade" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px 16px; box-sizing: border-box; text-align: center"><span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: {{t.rTile}}; background: {{weekBlk.tileBg}}; color: {{weekBlk.tileFg}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{weekBlk.icon}}"></path></svg></span><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 380px"><span style="font-size: 15px; font-weight: 600">{{weekBlk.title}}</span><sc-if value="{{weekBlk.hasSub}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.5; color: {{t.mutedFg}}">{{weekBlk.sub}}</span></sc-if></div><sc-if value="{{weekBlk.hasCta}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px"><button type="button" class="tb tp" onClick="{{weekBlk.act}}" style="{{k.pSm}}; height: {{stH}}; flex-shrink: 0">{{weekBlk.cta}}</button><sc-if value="{{weekBlk.has2}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{weekBlk.act2}}" style="--hv: {{t.hoverCard}}; {{k.oSm}}; height: {{stH}}">{{weekBlk.cta2}}</button></sc-if></div></sc-if></div>
+</div></sc-if>
+</div>
+<sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}"><div style="display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 12px; box-sizing: border-box; border-radius: {{t.rTile}}; background: {{t.tile}}"><span class="a-pulse" style="{{skTile}}"></span></div></sc-if>
+<sc-if value="{{isSample}}" hint-placeholder-val="{{true}}">
+<a href="SPayments.dc.html" class="tr" style="--hvr: {{t.fillHover}}; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: {{t.rTile}}; background: {{t.tile}}; color: {{t.fg}}; text-decoration: none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{t.mutedFg}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 15px"><path d="M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"></path></svg><span style="flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Next week, Nioxin pays $1,200 on Monday</span></a>
+</sc-if>
+</section>
+</div>
+
+<div style="display: grid; grid-template-columns: {{rowCols}}; gap: 16px; align-items: stretch">
+
+<section class="a-in" style="animation-delay: 0.16s; min-width: 0; display: flex; flex-direction: column; {{k.card}}">
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 14px 14px 12px 20px">
+<h2 style="margin: 0 8px 0 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600; white-space: nowrap">Deals</h2>
+<div style="flex: 1 1 0px"></div>
+<sc-if value="{{showTabs}}" hint-placeholder-val="{{true}}"><div role="tablist" aria-label="Show deals" style="{{k.tabs}}"><sc-for list="{{tabs}}" as="tb" hint-placeholder-count="3"><button class="tb tt" type="button" role="tab" aria-selected="{{tb.on}}" onClick="{{tb.pick}}" style="{{tb.style}}">{{tb.label}}<span style="color: {{t.mutedFg}}; font-variant-numeric: tabular-nums">{{tb.count}}</span></button></sc-for></div></sc-if>
+</div>
+<div style="flex: 1 1 auto; display: flex; flex-direction: column; padding: 0 8px">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+<a href="SDeal.dc.html" class="tr a-in" style="animation-delay: {{r.delay}}; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; box-sizing: border-box; border-top: 1px solid {{t.line}}; border-radius: {{t.rItem}}; color: {{t.fg}}; text-decoration: none">
+<span style="width: 32px; height: 32px; flex: 0 0 32px; border-radius: {{t.rCtl}}; background: {{t.fill}}; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600">{{r.l}}</span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.brand}}</span><span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: {{r.subFg}}">{{r.sub}}</span></span>
+<sc-if value="{{notMob}}" hint-placeholder-val="{{true}}"><span style="color: {{r.pay.fg}}; {{k.payBadge}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block; flex: 0 0 14px"><circle cx="12" cy="12" r="9.5" fill="{{r.pay.fill}}" stroke="{{r.pay.stroke}}" stroke-dasharray="{{r.pay.dash}}"></circle><path d="{{r.pay.inner}}" stroke="{{r.pay.innerStroke}}"></path></svg>{{r.pay.label}}</span></sc-if>
+<span style="width: 84px; flex: 0 0 auto; text-align: right; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums">{{r.amount}}</span>
+</a>
+</sc-for>
+<sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}"><sc-for list="{{skDeals}}" as="x" hint-placeholder-count="7">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 12px; box-sizing: border-box; border-top: 1px solid {{t.line}}">
+<span class="a-pulse" style="{{x.av}}"></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px"><span class="a-pulse" style="{{x.t1}}"></span><span class="a-pulse" style="{{x.t2}}"></span></span>
+<sc-if value="{{notMob}}" hint-placeholder-val="{{true}}"><span class="a-pulse" style="{{x.badge}}"></span></sc-if>
+<span style="width: 84px; flex: 0 0 auto; display: flex; justify-content: flex-end"><span class="a-pulse" style="{{x.amt}}"></span></span>
+</div>
+</sc-for></sc-if>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}"><div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; border-top: 1px solid {{t.line}}">
+<div class="a-fade" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 48px 24px; box-sizing: border-box; text-align: center"><span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: {{t.rTile}}; background: {{dealsBlk.tileBg}}; color: {{dealsBlk.tileFg}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{dealsBlk.icon}}"></path></svg></span><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 380px"><span style="font-size: 15px; font-weight: 600">{{dealsBlk.title}}</span><sc-if value="{{dealsBlk.hasSub}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.5; color: {{t.mutedFg}}">{{dealsBlk.sub}}</span></sc-if></div><sc-if value="{{dealsBlk.hasCta}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px"><button type="button" class="tb tp" onClick="{{dealsBlk.act}}" style="{{k.pSm}}; height: {{stH}}; flex-shrink: 0">{{dealsBlk.cta}}</button><sc-if value="{{dealsBlk.has2}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{dealsBlk.act2}}" style="--hv: {{t.hoverCard}}; {{k.oSm}}; height: {{stH}}">{{dealsBlk.cta2}}</button></sc-if></div></sc-if></div>
+</div></sc-if>
+</div>
+<sc-if value="{{showFoot}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px 14px 20px; border-top: 1px solid {{t.line}}">
+<sc-if value="{{isSample}}" hint-placeholder-val="{{true}}"><span style="color: {{t.mutedFg}}">{{footLabel}}</span></sc-if>
+<sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}"><span class="a-pulse" style="{{skFoot}}"></span></sc-if>
+<a class="tb tg" href="SDeals.dc.html" style="{{k.oSm}}">View all deals</a>
+</div>
+</sc-if>
+</section>
+
+<div style="{{rightCol}}">
+<section class="a-in" style="animation-delay: 0.2s; padding: 16px 18px 8px; display: flex; flex-direction: column; gap: 6px; {{k.card}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600; white-space: nowrap">Upcoming payments</h2><a class="tb tg" href="SPayments.dc.html" style="margin-right: -8px; {{k.gSm}}">View all</a></div>
+<div style="{{upList}}">
+<sc-for list="{{upcoming}}" as="u" hint-placeholder-count="4">
+<a href="SPayments.dc.html" class="tr" style="--hvr: {{t.hoverCard}}; display: flex; align-items: center; gap: 12px; min-height: 56px; margin: 0 -8px; padding: 0 8px; border-top: {{u.line}}; border-radius: {{t.rItem}}; color: {{t.fg}}; text-decoration: none">
+<span style="width: 40px; height: 40px; flex: 0 0 40px; box-sizing: border-box; border-radius: {{t.rSm}}; background: {{t.tile}}; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.05"><span style="font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: {{t.mutedFg}}">{{u.mon}}</span><span style="font-family: {{numFam}}; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums">{{u.day}}</span></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{u.brand}}</span><span style="font-size: 13px; color: {{u.whenFg}}; white-space: nowrap">{{u.when}}</span></span>
+<span style="font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums">{{u.amount}}</span>
+</a>
+</sc-for>
+<sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}"><sc-for list="{{skUp}}" as="x" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 12px; min-height: 56px; border-top: {{x.line}}"><span class="a-pulse" style="{{x.tile}}"></span><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px"><span class="a-pulse" style="{{x.t1}}"></span><span class="a-pulse" style="{{x.t2}}"></span></span><span class="a-pulse" style="{{x.amt}}"></span></div>
+</sc-for></sc-if>
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}"><div style="flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center">
+<div class="a-fade" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px 16px; box-sizing: border-box; text-align: center"><span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: {{t.rTile}}; background: {{upBlk.tileBg}}; color: {{upBlk.tileFg}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{upBlk.icon}}"></path></svg></span><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 380px"><span style="font-size: 15px; font-weight: 600">{{upBlk.title}}</span><sc-if value="{{upBlk.hasSub}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.5; color: {{t.mutedFg}}">{{upBlk.sub}}</span></sc-if></div><sc-if value="{{upBlk.hasCta}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px"><button type="button" class="tb tp" onClick="{{upBlk.act}}" style="{{k.pSm}}; height: {{stH}}; flex-shrink: 0">{{upBlk.cta}}</button><sc-if value="{{upBlk.has2}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{upBlk.act2}}" style="--hv: {{t.hoverCard}}; {{k.oSm}}; height: {{stH}}">{{upBlk.cta2}}</button></sc-if></div></sc-if></div>
+</div></sc-if>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 8px; border-top: 1px solid {{t.line}}"><span style="color: {{t.mutedFg}}; white-space: nowrap">Next 60 days</span><sc-if value="{{notLoading}}" hint-placeholder-val="{{true}}"><span style="font-family: {{numFam}}; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums">{{upTotal}}</span></sc-if><sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}"><span class="a-pulse" style="{{skTotal}}"></span></sc-if></div>
+</section>
+
+<section class="a-in" style="animation-delay: 0.24s; flex: 1 1 auto; padding: 16px 18px 14px; display: flex; flex-direction: column; gap: 10px; {{k.card}}">
+<div style="display: flex; align-items: center; gap: 8px">
+<h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">To-dos</h2>
+<sc-if value="{{hasTodos}}" hint-placeholder-val="{{true}}"><span style="display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px; box-sizing: border-box; border-radius: {{t.rCtl}}; background: {{t.fill}}; color: {{t.mutedFg}}; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums">{{todoCount}}</span></sc-if>
+<div style="flex: 1 1 auto"></div>
+<a class="tb tg" href="STodos.dc.html" style="margin-right: -8px; {{k.gSm}}">View all</a>
+</div>
+<sc-for list="{{todos}}" as="td" hint-placeholder-count="1">
+<div class="{{td.cls}}" style="display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid {{t.line}}">
+<button class="tb" type="button" role="checkbox" aria-checked="{{td.on}}" aria-label="{{td.aria}}" onClick="{{td.toggle}}" style="margin-top: 2px; {{td.box}}"><sc-if value="{{td.on}}" hint-placeholder-val="{{false}}"><svg class="a-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></button>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px"><span style="line-height: 1.45"><span class="{{td.strike}}" style="color: {{td.fg}}; background-image: linear-gradient(currentColor, currentColor); background-repeat: no-repeat; background-position: 0 58%; background-size: {{td.size}}; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: color 0.3s ease">{{td.text}}</span></span><sc-if value="{{td.hasDeal}}" hint-placeholder-val="{{true}}"><span style="display: flex; gap: 6px"><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px 0 3px; box-sizing: border-box; border: 1px solid {{t.border}}; border-radius: {{t.rCtl}}; font-size: 12px; font-weight: 500; white-space: nowrap"><span style="width: 16px; height: 16px; border-radius: 8px; background: {{t.fill}}; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700">{{td.dealL}}</span>{{td.deal}}</span></span></sc-if></span>
+</div>
+</sc-for>
+<sc-if value="{{noTodos}}" hint-placeholder-val="{{false}}">
+<div class="a-pop" style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: {{t.rTile}}; background: {{t.tile}}">
+<span style="width: 28px; height: 28px; flex: 0 0 28px; border-radius: 14px; background: {{t.okBg}}; color: {{t.okFg}}; display: inline-flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-weight: 500">All caught up</span><span style="font-size: 13px; color: {{t.mutedFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Add one below when something comes up.</span></span>
+</div>
+</sc-if>
+<sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid {{t.line}}"><span class="a-pulse" style="margin-top: 2px; {{skBox}}"></span><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px"><span class="a-pulse" style="margin-top: 3px; {{skTodo}}"></span><span class="a-pulse" style="{{skChip}}"></span></span></div>
+</sc-if>
+<sc-if value="{{emptyTodos}}" hint-placeholder-val="{{false}}"><div style="border-top: 1px solid {{t.line}}">
+<div class="a-fade" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px 16px; box-sizing: border-box; text-align: center"><span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: {{t.rTile}}; background: {{todoBlk.tileBg}}; color: {{todoBlk.tileFg}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{todoBlk.icon}}"></path></svg></span><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 380px"><span style="font-size: 15px; font-weight: 600">{{todoBlk.title}}</span><sc-if value="{{todoBlk.hasSub}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.5; color: {{t.mutedFg}}">{{todoBlk.sub}}</span></sc-if></div><sc-if value="{{todoBlk.hasCta}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px"><button type="button" class="tb tp" onClick="{{todoBlk.act}}" style="{{k.pSm}}; height: {{stH}}; flex-shrink: 0">{{todoBlk.cta}}</button><sc-if value="{{todoBlk.has2}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{todoBlk.act2}}" style="--hv: {{t.hoverCard}}; {{k.oSm}}; height: {{stH}}">{{todoBlk.cta2}}</button></sc-if></div></sc-if></div>
+</div></sc-if>
+<div style="flex: 1 1 auto"></div>
+<div style="display: flex; gap: 8px"><input class="ti" aria-label="Add a to-do" placeholder="Add a to-do" value="{{todoDraft}}" onChange="{{setTodoDraft}}" onKeyDown="{{todoKey}}" style="{{k.input}}"><button class="tb tp" type="button" onClick="{{addTodo}}" aria-label="Add to-do" aria-disabled="{{noTodoDraft}}" style="opacity: {{todoOp}}; height: 36px; width: 36px; {{k.icoP}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button></div>
+</section>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isError}}" hint-placeholder-val="{{false}}">
+<section class="a-in" style="animation-delay: 0.04s; {{k.card}}">
+<div class="a-fade" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: {{errPad}}; box-sizing: border-box; text-align: center"><span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: {{t.rTile}}; background: {{errBlk.tileBg}}; color: {{errBlk.tileFg}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{errBlk.icon}}"></path></svg></span><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 380px"><span style="font-size: 15px; font-weight: 600">{{errBlk.title}}</span><sc-if value="{{errBlk.hasSub}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.5; color: {{t.mutedFg}}">{{errBlk.sub}}</span></sc-if></div><sc-if value="{{errBlk.hasCta}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px"><button type="button" class="tb tp" onClick="{{errBlk.act}}" style="{{k.pSm}}; height: {{stH}}; flex-shrink: 0">{{errBlk.cta}}</button><sc-if value="{{errBlk.has2}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{errBlk.act2}}" style="--hv: {{t.hoverCard}}; {{k.oSm}}; height: {{stH}}">{{errBlk.cta2}}</button></sc-if></div></sc-if></div>
+</section>
+</sc-if>
+</main>
+
+<sc-if value="{{drawerOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 88">
+<button type="button" aria-label="Close menu" class="a-fade" onClick="{{closeNav}}" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: {{t.overlay}}; cursor: default"></button>
+<div class="a-drawer" style="position: absolute; top: 0; bottom: 0; left: 0; width: 288px; max-width: 86%; overflow-y: auto; box-shadow: {{t.shPop}}">
+<dc-import name="SSidebar" active="overview" color="{{eff}}" dark="{{dark}}" drawer="{{true}}" plan="{{plan}}" fresh="{{sbFresh}}" on-close="{{closeNav}}" hint-size="100%,100%"></dc-import>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ap.show}}" hint-placeholder-val="{{false}}">
+<div role="region" aria-label="{{ap.title}}" class="a-up" style="position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 70; display: flex; flex-direction: column; gap: 10px; padding: 14px; box-sizing: border-box; border: 1px solid {{t.border}}; border-radius: {{t.rCard}}; background: {{t.card}}; color: {{t.fg}}; box-shadow: {{t.shPop}}">
+<div style="display: flex; align-items: center; gap: 12px"><span aria-hidden="true" style="width: 40px; height: 40px; flex: 0 0 40px; box-sizing: border-box; border: 1px solid {{t.border}}; border-radius: 11px; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center"><svg width="22" height="19" viewBox="0 0 2029 1722" aria-hidden="true" style="display: block"><path fill="#1F7AE0" d="M325.553 0.11436C357.82 -0.851434 390.344 4.39925 421.577 12.1099C506.351 33.0387 579.306 92.8684 628.981 163.1C648.617 190.863 665.004 221.256 682.357 250.477C714.91 305.296 746.394 360.846 779.411 415.372C792.242 436.561 805.088 458.322 818.991 478.81C853.846 530.177 928.98 628.305 990.503 643.014C1013.94 648.615 1037.46 645.591 1058.97 634.725C1078.92 624.656 1094.72 608.763 1110.74 593.552C1184.16 523.869 1237.02 434.688 1287.42 347.839C1299.09 327.74 1311.38 307.989 1322.85 287.786C1346.79 245.624 1371.62 198.953 1400.03 160.003C1431.42 116.962 1467.92 79.9142 1513.59 51.9883C1592.43 3.35327 1687.5 -11.5536 1777.44 10.6178C1861.41 31.3662 1933.82 84.3529 1979.02 158.109C2024.53 233.037 2040.98 310.935 2019.97 397.268C1988.25 527.6 1882.9 628.138 1749.42 647.874C1724.27 651.594 1693.72 650.686 1668.06 650.648L1562.66 650.457L1294.18 650.569C1229.3 650.36 1166.25 642.367 1109.31 677.354C1075.41 697.881 1051.07 731.066 1041.68 769.577C1024.74 841.175 1063.31 906.426 1099.22 965.078C1103.02 971.823 1114.46 985.726 1119.82 992.612C1140.88 1019.75 1162.84 1046.17 1185.68 1071.84C1264.51 1161.22 1337.81 1269.48 1345.12 1391.87C1355.92 1572.91 1205.73 1711.69 1031.77 1721.4C938.596 1726.86 847.128 1694.71 777.855 1632.13C733.34 1591.55 702.231 1538.38 688.665 1479.68C676.384 1428.85 679.574 1377.6 692.642 1327.29C710.038 1260.33 744.366 1197.92 785.127 1142.41C854.647 1047.73 998.351 921.921 991.042 795.526C987.346 731.658 941.997 680.383 882.362 660.534C837.4 645.57 776.985 650.524 728.979 650.558L429.507 650.401L351.229 650.568C319.765 650.635 286.204 651.2 255.381 644.239C194.201 631.235 150.38 605.052 104.113 565.316C-67.2929 418.104 -14.8418 150.672 172.337 43.4476C223.087 14.3754 266.379 3.16906 325.553 0.11436Z"></path></svg></span><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-weight: 600">{{ap.title}}</span><span style="font-size: 13px; color: {{t.mutedFg}}">{{ap.sub}}</span></span><sc-if value="{{ap.hasBtn}}" hint-placeholder-val="{{true}}"><button type="button" class="tb tp" onClick="{{ap.act}}" style="{{k.pSm}}; flex-shrink: 0">{{ap.btn}}</button></sc-if><button type="button" class="tb tg" onClick="{{ap.close}}" aria-label="Not now" style="--hv: {{t.fill}}; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: 0 0 32px; padding: 0; border: none; border-radius: {{t.rCtl}}; background: transparent; color: {{t.mutedFg}}; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></div>
+<sc-if value="{{ap.hasSteps}}" hint-placeholder-val="{{false}}"><ol class="a-fade" style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px"><sc-for list="{{ap.steps}}" as="sp" hint-placeholder-count="3"><li style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 20px; height: 20px; flex: 0 0 20px; border-radius: 10px; background: {{t.primary}}; color: {{t.primaryFg}}; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600">{{sp.n}}</span>{{sp.text}}</li></sc-for></ol></sc-if>
+<sc-if value="{{ap.hasNever}}" hint-placeholder-val="{{true}}"><button type="button" class="tb tt" onClick="{{ap.never}}" style="align-self: flex-start; margin-left: 52px; padding: 0; border: none; background: transparent; font: inherit; font-size: 13px; color: {{t.mutedFg}}; text-decoration: underline; text-underline-offset: 3px; cursor: pointer">Don't show again</button></sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ap.tip}}" hint-placeholder-val="{{false}}">
+<div role="status" class="a-up" style="position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; z-index: 70; display: flex; align-items: flex-start; gap: 12px; padding: 16px 12px 16px 16px; box-sizing: border-box; border-radius: 18px; background: #111111; color: #FFFFFF; box-shadow: 0 20px 44px -14px rgba(0,0,0,0.5)">
+<span aria-hidden="true" style="width: 40px; height: 40px; flex: 0 0 40px; border-radius: 12px; background: rgba(255,255,255,0.12); display: inline-flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"></path></svg></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="display: flex; align-items: baseline; gap: 8px"><span style="font-size: 15px; font-weight: 600">Almost there</span><span style="font-size: 12px; color: rgba(255,255,255,0.6)">Step 2 of 2</span></span><span style="font-size: 14px; line-height: 1.45; color: rgba(255,255,255,0.92)">Tap Share in Safari, then Add to Home Screen.</span><span style="font-size: 13px; line-height: 1.45; color: rgba(255,255,255,0.6)">Then tap Add. No Share button? Tap the three dots first.</span></span>
+<button type="button" class="tb" onClick="{{ap.tipClose}}" aria-label="Close" style="width: 32px; height: 32px; flex: 0 0 32px; margin-top: -6px; padding: 0; border: none; border-radius: 16px; background: transparent; color: rgba(255,255,255,0.7); display: inline-flex; align-items: center; justify-content: center; cursor: pointer"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+</sc-if>
+<div aria-live="polite" style="position: fixed; top: {{toastT}}; right: {{toastR}}; left: {{toastL}}; bottom: {{toastB}}; z-index: 120; display: flex; flex-direction: column; gap: 8px; width: {{toastW}}">
+<sc-for list="{{toasts}}" as="tt" hint-placeholder-count="0">
+<div role="status" class="a-toast" style="display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; background: {{t.card}}; color: {{t.fg}}; border: 1px solid {{t.border}}; border-radius: {{t.rCard}}; box-shadow: {{t.shPop}}">
+<sc-if value="{{tt.isErr}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px; color: {{t.destr}}"><path d="M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"></path></svg></sc-if>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{tt.title}}</span><sc-if value="{{tt.hasDesc}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.4; color: {{t.mutedFg}}; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{tt.desc}}</span></sc-if></div>
+<sc-if value="{{tt.hasUndo}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{tt.undo}}" style="{{k.oSm}}">Undo</button></sc-if>
+<sc-if value="{{tt.hasCta}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{tt.doCta}}" style="{{k.oSm}}">{{tt.cta}}</button></sc-if>
+</div>
+</sc-for>
+</div>
+
+<dc-import name="SPraise" data="{{praise}}" mobile="{{mob}}" color="{{eff}}" dark="{{dark}}" on-close="{{closePraise}}" hint-size="0px,0px"></dc-import>
+<dc-import name="SAddDeal" open="{{add}}" locked="{{lockedKind}}" mobile="{{mob}}" color="{{eff}}" dark="{{dark}}" on-close="{{closeAdd}}" on-created="{{onCreated}}" hint-size="0px,0px"></dc-import>
+<dc-import name="SCommand" open="{{cmd}}" color="{{eff}}" dark="{{dark}}" on-close="{{closeCmd}}" on-action="{{cmdAction}}" hint-size="0px,0px"></dc-import>
+<dc-import name="SAppearance" open="{{appear}}" theme="{{look.theme}}" mode="{{look.mode}}" sidebar="{{look.sidebar}}" dark="{{dark}}" on-set="{{setLook}}" on-close="{{closeAppear}}" hint-size="0px,0px"></dc-import>
+<dc-import name="SAssistant" embedded="{{true}}" name-first="{{asstName}}" empty="{{isEmpty}}" hidden="{{chatHidden}}" ask-id="{{askId}}" ask-text="{{askText}}" color="{{eff}}" dark="{{dark}}" hint-size="0px,0px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appPrompt":{"editor":"enum","options":["","install","alerts"],"default":""},"appPhase":{"editor":"enum","options":["","hint","copied"],"default":""},"device":{"editor":"enum","options":["auto","iphone","inapp","android","desktop"],"default":"auto"},"color":{"editor":"enum","options":["studio","sand","mac","stationery","editorial"],"default":"studio"},"dark":{"editor":"boolean","default":false},"view":{"editor":"enum","options":["sample","empty","loading","error"],"default":"sample"},"plan":{"editor":"enum","options":["active","trial","pastdue","canceled","readonly"],"default":"active"},"writes":{"editor":"enum","options":["ok","fail"],"default":"ok"},"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var L = null; try { L = JSON.parse(window.localStorage.getItem('talby.look') || 'null'); } catch (e) {}
+    L = L || {};
+    var IDS = ['studio', 'sand', 'mac', 'stationery', 'editorial'], MODES = ['light', 'dark', 'system'];
+    var th = (IDS.indexOf(L.theme) >= 0 && L.theme) || (L.theme === 'midnight' && IDS.indexOf(L.prev) >= 0 && L.prev) || (IDS.indexOf(props.color) >= 0 && props.color) || 'studio';
+    var md = L.theme === 'midnight' ? 'dark' : ((MODES.indexOf(L.mode) >= 0 && L.mode) || (L.auto ? 'system' : (props.dark ? 'dark' : 'light')));
+    var w = 1440; try { w = window.innerWidth || 1440; } catch (e) {}
+    this.state = Object.assign({
+      look: { theme: th, mode: md, sidebar: L.sidebar || 'expanded' },
+      w: w, nav: false, appear: false, cmd: false, add: '', toasts: [], praise: null, askId: 0, askText: '', dv: props.view || 'sample'
+    }, { tab: 'active', resolved: {}, leaving: {}, paidNow: {}, wsel: null, apHide: false, apPhase: props.appPhase || '', todos: [{ id: 1, text: 'Complete the vendor form and send over your W9', deal: 'Dramamine', done: false }], ticking: {}, todoDraft: '' });
+  }
+  componentDidMount() {
+    var self = this;
+    this._rs = function () { try { self.setState({ w: window.innerWidth }); } catch (e) {} };
+    this._sg = function (ev) { if (ev && ev.key === 'talby.look') { try { var L = JSON.parse(ev.newValue || 'null'); if (L) self.setState({ look: Object.assign({}, self.state.look, L) }); } catch (x) {} } };
+    this._kd = function (e) { if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { if (e.preventDefault) e.preventDefault(); self.setState({ cmd: !self.state.cmd, nav: false }); } };
+    this._mqf = function () { self.setState({ sysAt: Date.now() }); };
+    try { window.addEventListener('resize', this._rs); window.addEventListener('storage', this._sg); window.addEventListener('keydown', this._kd); } catch (e) {}
+    try { this._mq = window.matchMedia('(prefers-color-scheme: dark)'); if (this._mq.addEventListener) this._mq.addEventListener('change', this._mqf); else if (this._mq.addListener) this._mq.addListener(this._mqf); } catch (e) {}
+
+  }
+  componentWillUnmount() { try { window.removeEventListener('resize', this._rs); window.removeEventListener('storage', this._sg); window.removeEventListener('keydown', this._kd); } catch (e) {} try { if (this._mq) { if (this._mq.removeEventListener) this._mq.removeEventListener('change', this._mqf); else if (this._mq.removeListener) this._mq.removeListener(this._mqf); } } catch (e) {} clearTimeout(this._pz1); clearTimeout(this._pz2); clearTimeout(this._rt); (this._tt || []).forEach(clearTimeout); }
+  device() {
+    var d = this.props.device;
+    if (d && d !== 'auto') return d;
+    try {
+      var ua = navigator.userAgent || '';
+      if (/Instagram|FBAN|FBAV|TikTok|musical_ly|Bytedance|Snapchat|Pinterest|Line\//i.test(ua)) return 'inapp';
+      if (/iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'iphone';
+      if (/Android/.test(ua)) return 'android';
+    } catch (e) {}
+    return 'desktop';
+  }
+  isInstalled() { if (this.props.installed !== undefined) return !!this.props.installed; try { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; } catch (e) { return false; } }
+  installApp() { return Promise.resolve(true); }
+  askAlerts() { return Promise.resolve('granted'); }
+  copyLink() { try { navigator.clipboard.writeText('https://www.talby.io/app'); } catch (e) {} return Promise.resolve(true); }
+  dismissInstall(where, forever) {}
+  componentDidUpdate(prev) {
+    var p = this.props, L = this.state.look, ch = null;
+    if (prev.dark !== p.dark) { ch = Object.assign({}, ch || L, { mode: p.dark ? 'dark' : 'light' }); }
+    if (prev.color !== p.color && p.color) { ch = Object.assign({}, ch || L, { theme: p.color }); }
+    if (ch) this.setState({ look: ch });
+    if (prev.view !== p.view) this.setState({ dv: p.view || 'sample' });
+  }
+  retryLoad() {
+    var self = this; clearTimeout(this._rt);
+    this.setState({ dv: 'loading' });
+    this._rt = setTimeout(function () { self.setState({ dv: 'sample' }); }, 900);
+  }
+  guard() {
+    var p = this.props;
+    if (p.plan !== 'readonly' && p.plan !== 'canceled') return true;
+    this.toast(p.plan === 'canceled' ? 'Your plan is canceled' : 'Your free trial ended', p.plan === 'canceled' ? 'Restart your plan to add or change deals.' : 'Upgrade to add or change deals.', null, { cta: p.plan === 'canceled' ? 'Restart plan' : 'Upgrade', act: function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} } });
+    return false;
+  }
+  setLook(key, val) {
+    var D = { theme: 'studio', mode: 'light', sidebar: 'expanded' };
+    var L = key === 'reset' ? Object.assign({}, D) : Object.assign({}, this.state.look, key === 'all' ? val : {});
+    if (key !== 'reset' && key !== 'all') L[key] = val;
+    this.setState({ look: L });
+    try { window.localStorage.setItem('talby.look', JSON.stringify(L)); } catch (e) {}
+  }
+  toast(title, desc, undo, extra) {
+    var self = this, id = Date.now() + Math.random(), x = extra || {};
+    this.setState({ toasts: this.state.toasts.concat([{ id: id, title: title, desc: desc || '', undo: undo || null, kind: x.kind || '', cta: x.cta || '', act: x.act || null }]).slice(-3) });
+    this._tt = this._tt || [];
+    this._tt.push(setTimeout(function () { self.setState({ toasts: self.state.toasts.filter(function (x) { return x.id !== id; }) }); }, 4000));
+  }
+  toastErr(title, desc, retry) { this.toast(title, desc, null, { kind: 'error', cta: retry ? 'Try again' : '', act: retry || null }); }
+  celebrate(pz) {
+    var self = this; clearTimeout(this._pz1); clearTimeout(this._pz2);
+    this.setState({ praise: null });
+    this._pz1 = setTimeout(function () { self.setState({ praise: Object.assign({ id: Date.now() }, pz) }); }, 40);
+    this._pz2 = setTimeout(function () { self.setState({ praise: null }); }, 5200);
+  }
+
+  write(title, fn) {
+    var self = this;
+    if (!this.guard()) return false;
+    if (this.props.writes === 'fail') { this.toastErr(title, 'Check your connection and try again.', function () { if (self.guard()) fn(); }); return false; }
+    fn(); return true;
+  }
+  resolve(id, after) {
+    var self = this, lv = Object.assign({}, this.state.leaving); lv[id] = true;
+    this.setState({ leaving: lv });
+    this._tt = this._tt || [];
+    this._tt.push(setTimeout(function () { var rs = Object.assign({}, self.state.resolved); rs[id] = true; self.setState({ resolved: rs }); if (after) after(); }, 340));
+  }
+  tickTodo(id) {
+    var self = this, tk = Object.assign({}, this.state.ticking); tk[id] = true;
+    this.setState({ ticking: tk });
+    this._tt = this._tt || [];
+    this._tt.push(setTimeout(function () {
+      var left = self.state.todos.filter(function (x) { return x.id !== id && !x.done; });
+      self.setState({ todos: self.state.todos.map(function (x) { return x.id === id ? Object.assign({}, x, { done: true }) : x; }) });
+      if (!left.length) self.celebrate({ title: 'All caught up', line: 'Every to-do is done. Nothing left on your list.' });
+    }, 900));
+  }
+  renderVals() {
+    var TB={id:'studio',name:'Studio',vibe:'Clean and simple',page:'#FFFFFF',card:'#FFFFFF',tile:'#F5F5F5',fill:'#F5F5F5',fillHover:'#EDEDED',hv:'#F5F5F5',hvr:'#FAFAFA',hoverCard:'#FAFAFA',fg:'#0A0A0A',mutedFg:'#737373',border:'#E5E5E5',borderStrong:'#D4D4D4',line:'#EEEEEE',off:'#E2E2E2',destr:'#DC2626',destrBg:'#DC2626',tabOn:'#FFFFFF',tabSh:'0 1px 2px rgba(0,0,0,0.08)',shCard:'0 1px 2px rgba(0,0,0,0.05)',shHover:'0 10px 28px -16px rgba(0,0,0,0.22)',shPop:'0 16px 40px -12px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.05)',overlay:'rgba(0,0,0,0.3)',badBg:'#FDECEC',badFg:'#B91C1C',okBg:'#E9F8EE',okFg:'#15803D',warnBg:'#FEF4E2',warnFg:'#B45309',postBg:'#F3EEFF',postFg:'#6D28D9',primary:'#171717',primaryFg:'#FFFFFF',side:'#FAFAFA',sideBorder:'#E5E5E5',navOn:'#EDEDED',navHv:'rgba(0,0,0,0.045)',sideFx:'none',btnSh:'none',accent:'#1F7AE0',r:10,ctl:999,bodyFam:'Geist, ui-sans-serif, system-ui, -apple-system, sans-serif',titleFam:'Inter, ui-sans-serif, system-ui, sans-serif',numFam:'',hCase:'none',hTrack:'-0.6px',hScale:1,nTrack:'-0.8px'};
+    var TD={page:'#09090A',card:'#111112',tile:'#18181A',fill:'#1B1B1D',fillHover:'#242427',hv:'#1D1D20',hvr:'rgba(255,255,255,0.03)',hoverCard:'#161618',fg:'#EDEDED',mutedFg:'#8F8F94',border:'rgba(255,255,255,0.08)',borderStrong:'rgba(255,255,255,0.16)',line:'rgba(255,255,255,0.055)',off:'#2E2E31',destr:'#F87171',destrBg:'#DC2626',tabOn:'#2A2A2D',tabSh:'none',shCard:'none',shHover:'0 10px 28px -14px rgba(0,0,0,0.8)',shPop:'0 16px 40px -8px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06)',overlay:'rgba(0,0,0,0.6)',badBg:'rgba(239,68,68,0.16)',badFg:'#FCA5A5',okBg:'rgba(34,197,94,0.14)',okFg:'#86EFAC',warnBg:'rgba(245,158,11,0.16)',warnFg:'#FCD34D',postBg:'rgba(139,92,246,0.2)',postFg:'#C4B5FD',primary:'#F5F5F5',primaryFg:'#0A0A0A',side:'#0C0C0D',sideBorder:'rgba(255,255,255,0.07)',navOn:'rgba(255,255,255,0.075)',navHv:'rgba(255,255,255,0.045)',sideFx:'none',btnSh:'none',accent:'#3D8EEA'};
+    var TH={
+      studio:{lt:{},dk:{btnSh:'0 0 0 1px rgba(255,255,255,0.1), 0 0 18px -2px rgba(255,255,255,0.28)'}},
+      sand:{name:'Sand',vibe:'Warm and soft',r:8,hCase:'uppercase',hTrack:'0.12em',hScale:0.78,
+        lt:{page:'#F5EFE8',card:'#FCF9F5',tile:'#F3ECE3',fill:'#EFE6DB',fillHover:'#E7DCCE',hv:'#EFE6DB',hvr:'#F8F3ED',hoverCard:'#F8F3ED',fg:'#3A2A21',mutedFg:'#8A7466',border:'#E8DDD0',borderStrong:'#D8C8B6',line:'#EFE7DD',off:'#E3D8CA',tabOn:'#FCF9F5',tabSh:'0 1px 2px rgba(80,50,30,0.1)',shCard:'none',shHover:'0 10px 28px -18px rgba(80,50,30,0.3)',shPop:'0 16px 40px -14px rgba(80,50,30,0.26), 0 2px 6px rgba(80,50,30,0.06)',overlay:'rgba(58,42,33,0.28)',primary:'#6E4B39',primaryFg:'#FCF9F5',side:'#F0E8DF',sideBorder:'#E8DDD0',navOn:'#E6DACC',navHv:'rgba(110,75,57,0.06)'},
+        dk:{page:'#17120F',card:'#201915',tile:'#28201B',fill:'#2B231E',fillHover:'#352B25',hv:'#2D2520',hvr:'rgba(255,236,220,0.03)',hoverCard:'#251D19',fg:'#F1E7DC',mutedFg:'#A89484',border:'rgba(241,231,220,0.09)',borderStrong:'rgba(241,231,220,0.18)',line:'rgba(241,231,220,0.06)',off:'#3D332C',tabOn:'#3A3029',shPop:'0 16px 40px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(241,231,220,0.06)',primary:'#D9B89C',primaryFg:'#2A1D16',side:'#140F0D',sideBorder:'rgba(241,231,220,0.07)',navOn:'rgba(241,231,220,0.08)',navHv:'rgba(241,231,220,0.05)'}},
+      mac:{name:'Mac',vibe:'Calm and crisp',r:10,ctl:7,bodyFam:"-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Geist, system-ui, sans-serif",titleFam:"-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Inter, system-ui, sans-serif",hTrack:'-0.4px',
+        lt:{page:'#F0F0F3',card:'#FFFFFF',tile:'#F5F5F7',fill:'#E8E8ED',fillHover:'#DEDEE4',hv:'#EBEBF0',hvr:'#F7F7F9',hoverCard:'#F7F7F9',fg:'#1D1D1F',mutedFg:'#86868B',border:'#DEDEE3',borderStrong:'#CACACF',line:'#ECECF0',off:'#DCDCE1',tabOn:'#FFFFFF',tabSh:'0 1px 3px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.06)',shCard:'0 1px 2px rgba(0,0,0,0.04)',shHover:'0 10px 28px -16px rgba(0,0,0,0.2)',shPop:'0 18px 48px -12px rgba(0,0,0,0.25), 0 0 0 0.5px rgba(0,0,0,0.08)',primary:'#3A3A3C',primaryFg:'#FFFFFF',side:'rgba(226,226,231,0.78)',sideBorder:'#DADADF',navOn:'rgba(0,0,0,0.075)',navHv:'rgba(0,0,0,0.045)',sideFx:'saturate(180%) blur(20px)',btnSh:'0 1px 1px rgba(0,0,0,0.12)'},
+        dk:{page:'#1C1C1E',card:'#2C2C2E',tile:'#323234',fill:'#3A3A3C',fillHover:'#444446',hv:'#3A3A3C',hvr:'rgba(255,255,255,0.03)',hoverCard:'#313133',fg:'#F5F5F7',mutedFg:'#98989D',border:'rgba(255,255,255,0.1)',borderStrong:'rgba(255,255,255,0.18)',line:'rgba(255,255,255,0.07)',off:'#48484A',tabOn:'#636366',shPop:'0 18px 48px -12px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.1)',primary:'#D1D1D6',primaryFg:'#1C1C1E',side:'rgba(40,40,43,0.82)',sideBorder:'rgba(255,255,255,0.08)',navOn:'rgba(255,255,255,0.1)',navHv:'rgba(255,255,255,0.05)',sideFx:'saturate(180%) blur(20px)',btnSh:'0 1px 1px rgba(0,0,0,0.3)'}},
+      stationery:{name:'Stationery',vibe:'Paper and ink',r:4,ctl:6,titleFam:'Fraunces, Georgia, serif',numFam:"'DM Mono', ui-monospace, monospace",hTrack:'-0.4px',nTrack:'-0.5px',
+        lt:{page:'#F6F1E6',card:'#FCF9F2',tile:'#F2ECDF',fill:'#EFE8D9',fillHover:'#E7DECB',hv:'#EFE8D9',hvr:'#F8F4EB',hoverCard:'#F8F4EB',fg:'#2E2A24',mutedFg:'#857B6B',border:'#DED4C1',borderStrong:'#CBBFA8',line:'#E9E1D1',off:'#DDD3C1',tabOn:'#FCF9F2',tabSh:'0 1px 0 rgba(46,42,36,0.14)',shCard:'none',shHover:'0 2px 0 #DED4C1',shPop:'0 14px 36px -14px rgba(46,42,36,0.28), 0 1px 0 rgba(46,42,36,0.08)',overlay:'rgba(46,42,36,0.25)',primary:'#2E2A24',primaryFg:'#FCF9F2',side:'#F1EBDE',sideBorder:'#DED4C1',navOn:'#E7DECC',navHv:'rgba(46,42,36,0.05)'},
+        dk:{page:'#1B1916',card:'#23211D',tile:'#2A2723',fill:'#2D2A25',fillHover:'#37332D',hv:'#2F2C27',hvr:'rgba(238,231,217,0.03)',hoverCard:'#28251F',fg:'#EEE7D9',mutedFg:'#A39A8A',border:'rgba(238,231,217,0.1)',borderStrong:'rgba(238,231,217,0.2)',line:'rgba(238,231,217,0.07)',off:'#3E3A33',tabOn:'#3A362F',shHover:'0 2px 0 rgba(238,231,217,0.12)',shPop:'0 14px 36px -10px rgba(0,0,0,0.7), 0 0 0 1px rgba(238,231,217,0.07)',primary:'#EEE7D9',primaryFg:'#1B1916',side:'#181613',sideBorder:'rgba(238,231,217,0.08)',navOn:'rgba(238,231,217,0.08)',navHv:'rgba(238,231,217,0.05)'}},
+      editorial:{name:'Editorial',vibe:'Sharp and bold',r:0,ctl:0,titleFam:"'Playfair Display', Georgia, serif",hTrack:'0px',hScale:1.12,nTrack:'0px',
+        lt:{page:'#FFFFFF',card:'#FFFFFF',tile:'#F4F4F2',fill:'#F2F2EF',fillHover:'#E7E7E3',hv:'#F2F2EF',hvr:'#FAFAF8',hoverCard:'#FAFAF8',fg:'#111111',mutedFg:'#6B6B6B',border:'#111111',borderStrong:'#111111',line:'#E3E3DF',off:'#DCDCD8',tabOn:'#FFFFFF',tabSh:'inset 0 0 0 1px #111111',shCard:'none',shHover:'none',shPop:'0 12px 32px -12px rgba(0,0,0,0.22)',primary:'#111111',primaryFg:'#FFFFFF',side:'#FFFFFF',sideBorder:'#111111',navOn:'#EFEFEB',navHv:'rgba(0,0,0,0.04)'},
+        dk:{page:'#0B0B0B',card:'#121212',tile:'#191919',fill:'#1B1B1B',fillHover:'#252525',hv:'#1C1C1C',hvr:'rgba(255,255,255,0.03)',hoverCard:'#171717',fg:'#F2F2F2',mutedFg:'#9A9A9A',border:'rgba(255,255,255,0.12)',borderStrong:'rgba(255,255,255,0.28)',line:'rgba(255,255,255,0.07)',off:'#333333',tabOn:'#262626',tabSh:'none',shHover:'none',shPop:'0 12px 32px -8px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',primary:'#F2F2F2',primaryFg:'#0B0B0B',side:'#0B0B0B',sideBorder:'rgba(255,255,255,0.1)',navOn:'rgba(255,255,255,0.08)',navHv:'rgba(255,255,255,0.04)'}}
+    };
+    function rgb(h){h=h.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function mix(a,b,w){var x=rgb(a),y=rgb(b);return '#'+[0,1,2].map(function(i){return ('0'+Math.round(x[i]*w+y[i]*(1-w)).toString(16)).slice(-2);}).join('');}
+    function alpha(h,a){var x=rgb(h);return 'rgba('+x[0]+','+x[1]+','+x[2]+','+a+')';}
+    function talby(name,dark){
+      var id=TH[name]?name:'studio',x=TH[id],t={},q,c;dark=!!dark;
+      for(q in TB)t[q]=TB[q];
+      if(dark)for(q in TD)t[q]=TD[q];
+      for(q in x)if(q!=='lt'&&q!=='dk')t[q]=x[q];
+      c=dark?x.dk:x.lt;for(q in c)t[q]=c[q];
+      var r=t.r;t.id=id;t.dark=dark;
+      if(id!=='studio')t.accent=c.accent||t.primary;
+      t.ring=alpha(t.accent,dark?0.45:0.35);
+      t.soft=mix(t.primary,t.card,dark?0.16:0.1);t.softFg=dark?mix(t.primary,'#FFFFFF',0.8):t.primary;
+      t.rCard=(r?r+4:0)+'px';t.rTile=(r?r+2:0)+'px';t.rDialog=(r?r+8:0)+'px';t.rCtl=t.ctl+'px';t.rSm=r+'px';t.rIn=r+'px';
+      t.rItem=(r?Math.max(6,r-2):0)+'px';t.rBox=(r?4:0)+'px';t.rEv=(r?Math.min(r,6):0)+'px';t.rBar=Math.min(r,4)+'px';t.rPill=t.ctl>=999?'999px':t.rSm;
+      t.numFam=t.numFam||t.titleFam;
+      return t;
+    }
+    function theme(color,dark){return talby(color,dark);}
+    function kit(t){
+      var b='display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 14px; box-sizing: border-box; font: inherit; font-size: 14px; font-weight: 500; line-height: 1; white-space: nowrap; border-radius: '+t.rCtl+'; cursor: pointer; text-decoration: none; flex-shrink: 0';
+      var P=b+'; border: none; background: '+t.primary+'; color: '+t.primaryFg+'; box-shadow: '+t.btnSh, S=b+'; border: none; background: '+t.fill+'; color: '+t.fg+'; --hv: '+t.fillHover, O=b+'; border: 1px solid '+t.border+'; background: '+t.card+'; color: '+t.fg+'; --hv: '+t.hoverCard, G=b+'; border: none; background: transparent; color: '+t.fg, D=b+'; border: none; background: '+t.destrBg+'; color: #FFFFFF';
+      var sm='; height: 28px; padding: 0 12px; font-size: 13px', i32='; width: 32px; height: 32px; padding: 0', i28='; width: 28px; height: 28px; padding: 0';
+      var inp='height: 36px; width: 100%; min-width: 0; box-sizing: border-box; padding: 0 14px; border: none; border-radius: '+t.rCtl+'; background: '+t.fill+'; color: '+t.fg+'; font: inherit; font-size: 14px; outline: none';
+      var row='position: relative; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 10px 8px 14px; box-sizing: border-box';
+      var selx='; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; --hv: '+t.fillHover;
+      return {
+        btnP:P, btnS:S, btnO:O, btnG:G, btnD:D, pSm:P+sm, sSm:S+sm, oSm:O+sm, gSm:G+sm, pBlk:P+'; width: 100%; height: 38px', oBlk:O+'; width: 100%; height: 38px',
+        ico:G+i32, icoG:G+i28, icoS:G+i28+'; color: '+t.mutedFg, icoO:O+i32, icoP:P+i32, icoSec:S+i32,
+        input:inp, area:'width: 100%; min-width: 0; box-sizing: border-box; padding: 12px 14px; border: none; border-radius: '+t.rTile+'; background: '+t.fill+'; color: '+t.fg+'; font: inherit; font-size: 14px; line-height: 1.5; outline: none; resize: vertical',
+        ctl:inp+'; flex: 0 1 220px; width: auto', sel:inp+'; flex: 0 1 220px; width: auto'+selx, ctlW:inp+'; flex: 0 1 300px; width: auto', selW:inp+'; flex: 0 1 300px; width: auto'+selx, ctlF:inp+'; flex: 1 1 auto; width: auto', selF:inp+'; width: 100%'+selx,
+        row:row, rowT:row+'; border-top: 1px solid '+t.line, rowCol:'display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px; box-sizing: border-box; border-top: 1px solid '+t.line,
+        rowLabel:'flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis',
+        group:'position: relative; background: '+t.card+'; border: 1px solid '+t.border+'; border-radius: '+t.rTile, secLabel:'padding: 0 4px; font-size: 14px; font-weight: 600',
+        card:'background: '+t.card+'; color: '+t.fg+'; border: 1px solid '+t.border+'; border-radius: '+t.rCard+'; box-shadow: '+t.shCard, tile:'background: '+t.tile+'; border-radius: '+t.rTile,
+        payBadge:'display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px 0 6px; box-sizing: border-box; border: 1px solid '+t.border+'; border-radius: '+t.rCtl+'; background: '+t.card+'; font-size: 12px; font-weight: 500; white-space: nowrap; flex-shrink: 0',
+        badge:'display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; box-sizing: border-box; border: 1px solid '+t.border+'; border-radius: '+t.rCtl+'; background: '+t.card+'; font-size: 12px; font-weight: 500; white-space: nowrap; flex-shrink: 0',
+        pop:'background: '+t.card+'; color: '+t.fg+'; border: 1px solid '+t.border+'; border-radius: '+t.rTile+'; box-shadow: '+t.shPop+'; padding: 6px; box-sizing: border-box',
+        item:'display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 0 10px; box-sizing: border-box; border: none; border-radius: '+t.rItem+'; background: transparent; color: '+t.fg+'; font: inherit; font-size: 14px; text-align: left; cursor: pointer; text-decoration: none; --hv: '+t.hv,
+        tabs:'display: inline-flex; align-items: center; gap: 2px; height: 36px; padding: 3px; box-sizing: border-box; border-radius: '+t.rCtl+'; background: '+t.fill,
+        caps:'font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: '+t.mutedFg,
+        kbd:'display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: '+t.rCtl+'; background: '+t.fill+'; color: '+t.mutedFg+'; font-size: 11px; font-weight: 500'
+      };
+    }
+    function tabStyle(t,on){return 'display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 100%; padding: 0 12px; box-sizing: border-box; border: none; border-radius: '+t.rCtl+'; background: '+(on?t.tabOn:'transparent')+'; color: '+(on?t.fg:t.mutedFg)+'; box-shadow: '+(on?t.tabSh:'none')+'; font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; flex-shrink: 0; cursor: pointer';}
+    function box(t,on){return 'width: 16px; height: 16px; flex: 0 0 16px; padding: 0; box-sizing: border-box; border: none; border-radius: '+t.rBox+'; background: '+(on?t.primary:t.off)+'; color: '+t.primaryFg+'; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.15s ease';}
+    function chip(t,on){return 'height: 32px; padding: 0 14px; box-sizing: border-box; border: none; border-radius: '+t.rCtl+'; background: '+(on?t.primary:t.fill)+'; color: '+(on?t.primaryFg:t.fg)+'; font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; --hv: '+(on?t.primary:t.fillHover);}
+    var MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    function md(iso) { return iso ? MS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)) : ''; }
+    function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+    var self = this, p = this.props, st = this.state;
+    var L = st.look, sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
+    var dark = L.mode === 'dark' || (L.mode === 'system' && sysDark);
+    var eff = L.theme || 'studio';
+    var t = theme(eff, dark), k = kit(t);
+    var mob = st.w < 768, tabW = !mob && st.w < 1024, wide = st.w >= 1100, collapsed = L.sidebar === 'icons' || tabW;
+    var V = st.dv || 'sample', isSample = V === 'sample', isEmpty = V === 'empty', isLoading = V === 'loading', isError = V === 'error';
+    var plan = p.plan || 'active', locked = plan === 'readonly' || plan === 'canceled';
+    function payIcon(key) {
+      var G = '#22C55E', A = '#F59E0B', Rd = '#EF4444';
+      if (key === 'paid') return { label: 'Paid', fill: G, stroke: G, dash: 'none', inner: 'm8.5 12 2.5 2.5 4.5-5', innerStroke: '#FFFFFF', fg: t.fg };
+      if (key === 'inv') return { label: 'Invoiced', fill: 'none', stroke: A, dash: 'none', inner: 'M12 7.5v4.5l3 2', innerStroke: A, fg: t.fg };
+      if (key === 'over') return { label: 'Overdue', fill: Rd, stroke: Rd, dash: 'none', inner: 'M12 7.5v5M12 16.3v.2', innerStroke: '#FFFFFF', fg: t.destr };
+      return { label: 'Not invoiced', fill: 'none', stroke: t.mutedFg, dash: '3 2.6', inner: '', innerStroke: 'none', fg: t.mutedFg };
+    }
+    // Shared empty and error blocks. kind is 'empty' or 'error'. Render with state_html('name') in the markup.
+    function blk(kind, icon, title, sub, cta, act, cta2, act2) {
+      return { icon: icon, title: title, sub: sub || '', hasSub: !!sub, cta: cta || '', act: act || function () {}, hasCta: !!cta, cta2: cta2 || '', act2: act2 || function () {}, has2: !!cta2,
+        tileBg: kind === 'error' ? t.badBg : t.tile, tileFg: kind === 'error' ? t.badFg : t.fg };
+    }
+    // Skeleton bar for loading states. Use with class a-pulse.
+    function sk(w, h, r) { return 'display: block; flex-shrink: 0; width: ' + w + '; height: ' + h + '; border-radius: ' + (r || t.rSm) + '; background: ' + t.fill; }
+    var IC = {
+      alert: 'M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+      warn: 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      wifi: 'M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0',
+      refresh: 'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5',
+      card: 'M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM2 10h20',
+      clock: 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z'
+    };
+
+    var D = [
+      ['Haleon Centrum','over','2026-09-28',10550],['Golden Corral','over','2026-10-05',10000],['Tums','over','2026-10-11',8500],['Nioxin','inv','2026-10-19',1200],
+      ['Sprouts','inv','2026-11-05',4000],['Dulcolax','inv','2026-11-09',8500],['Liquid I.V. Q3 Campaign','inv','2026-11-30',6500],['CeraVe','not','',8000],
+      ['Dramamine','not','',10000],['Biotene','not','',12050],['Liquid I.V. Q4 Campaign','not','',8500],['Milan Laser Q4 Campaign','not','',1000],
+      ['Planet Fitness','paid','2026-08-14',9000],['Panera','paid','2026-09-26',8000],['Oikos','paid','2026-07-06',5350],['Smoothie King','paid','',5000],['Liquid I.V. Q2 Campaign','paid','2026-08-16',4500],
+      ['Breyers','paid','2026-05-30',4000],['Clio','paid','2026-04-23',3000],['Milan Laser Atlanta','paid','2026-08-08',3000],['Hidden Valley Ranch','paid','2026-09-18',1000],['Tula','paid','2026-05-16',1000],
+      ['Personal Care GLP-1 Session','paid','2026-05-15',1000],['Gruns','paid','2026-10-06',800],['Replenza','paid','2026-08-21',500],['Milan Laser Atlanta','neg','',500]
+    ].map(function (d) { return st.paidNow[d[0]] ? [d[0], 'paid', '2026-10-14', d[3]] : d; });
+    var LATE = { 'Haleon Centrum': 16, 'Golden Corral': 9, 'Tums': 3 };
+    var OVER = [['Haleon Centrum', 10550, '2026-09-28'], ['Golden Corral', 10000, '2026-10-05'], ['Tums', 8500, '2026-10-11']];
+    var paidSum = OVER.filter(function (o) { return st.paidNow[o[0]]; }).reduce(function (a, o) { return a + o[1]; }, 0);
+    var lateLeft = OVER.filter(function (o) { return !st.paidNow[o[0]]; });
+    var lateSum = lateLeft.reduce(function (a, o) { return a + o[1]; }, 0);
+    var ATT = [
+      { id: 'h', kind: 'pay', brand: 'Haleon Centrum', amt: 10550 }, { id: 'g', kind: 'pay', brand: 'Golden Corral', amt: 10000 }, { id: 'tm', kind: 'pay', brand: 'Tums', amt: 8500 },
+      { id: 'dr', kind: 'date' }, { id: 'nd', kind: 'link' }
+    ].filter(function (a) { return isSample && !st.resolved[a.id]; });
+    var attn = ATT.map(function (a) {
+      var wrapRow = mob && a.kind !== 'pay';
+      var base = { cls: st.leaving[a.id] ? 'a-out' : 'a-in', isPay: false, isDate: false, isLink: false, isLetter: false, isIcon: true, l: '', icon: '', paid: null, paidLabel: '', setDate: null, subFg: t.mutedFg,
+        wrap: wrapRow ? '; flex-wrap: wrap; row-gap: 10px' : '', tFlex: wrapRow ? '1 1 calc(100% - 46px)' : '1 1 auto', ml: wrapRow ? '46px' : '0px', dw: wrapRow ? '156px' : '132px' };
+      if (a.kind === 'pay') return Object.assign(base, { isPay: true, isLetter: true, isIcon: false, l: a.brand.charAt(0), avBg: t.badBg, avFg: t.badFg, title: a.brand + ' payment is late', sub: fmt(a.amt) + ', ' + LATE[a.brand] + ' days past due', subFg: t.destr,
+        paidLabel: 'Mark ' + a.brand + ' as paid',
+        paid: function () { self.write('Could not mark it paid', function () { self.resolve(a.id, function () { var pn = Object.assign({}, self.state.paidNow); pn[a.brand] = true; self.setState({ paidNow: pn }); var got = 46150 + OVER.filter(function (o) { return pn[o[0]]; }).reduce(function (s, o) { return s + o[1]; }, 0); self.celebrate({ title: 'You got paid', chip: '+' + fmt(a.amt), line: a.brand + ' paid. ' + fmt(got) + ' received this year.' }); }); }); } });
+      if (a.kind === 'date') return Object.assign(base, { isDate: true, avBg: t.postBg, avFg: t.postFg, icon: 'm16 13 5.22 3.48a.5.5 0 0 0 .78-.42V7.94a.5.5 0 0 0-.78-.42L16 11M4 6h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z', title: 'Dramamine went live Oct 13', sub: 'Add a pay by date so Talby can remind you',
+        setDate: function (v) { if (!v) return; self.write('Could not add the date', function () { self.resolve(a.id); self.toast('Pay by date added', 'Dramamine, ' + md(v) + '. Talby will remind you.'); }); } });
+      return Object.assign(base, { isLink: true, avBg: t.fill, avFg: t.fg, icon: 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18M10 14h4', title: '4 more deals have no pay by date', sub: '$29,550 Talby cannot remind you about yet' });
+    });
+    function inTab(d, tb) { if (tb === 'active') return d[1] !== 'paid' && d[1] !== 'neg'; if (tb === 'paid') return d[1] === 'paid'; return true; }
+    var list = D.filter(function (d) { return inTab(d, st.tab); });
+    var shown = isSample ? list.slice(0, mob ? 4 : 7) : [];
+    var rows = shown.map(function (d, i) {
+      var key = d[1] === 'neg' ? 'not' : d[1];
+      var sub = d[1] === 'over' ? (LATE[d[0]] + ' days late, due ' + md(d[2])) : d[1] === 'paid' ? ('Paid' + (d[2] ? ' ' + md(d[2]) : '')) : d[1] === 'neg' ? 'Negotiating' : (d[2] ? 'Pay by ' + md(d[2]) : 'No pay by date');
+      return { brand: d[0], l: d[0].charAt(0), sub: sub, subFg: d[1] === 'over' ? t.destr : t.mutedFg, pay: payIcon(key), amount: fmt(d[3]), delay: (0.18 + i * 0.03).toFixed(2) + 's' };
+    });
+    var TABS = [['active', 'Active'], ['paid', 'Paid'], ['all', 'All']];
+    var tabs = TABS.map(function (x) { var on = st.tab === x[0]; return { label: x[1], on: on, count: isSample ? String(D.filter(function (d) { return inTab(d, x[0]); }).length) : '', style: tabStyle(t, on), pick: function () { self.setState({ tab: x[0] }); } }; });
+    var W = [['S', 11, 'Sunday, Oct 11', 1], ['M', 12, 'Monday, Oct 12', 0], ['T', 13, 'Tuesday, Oct 13', 1], ['W', 14, 'Today, Oct 14', 0], ['T', 15, 'Thursday, Oct 15', 1], ['F', 16, 'Friday, Oct 16', 0], ['S', 17, 'Saturday, Oct 17', 0]];
+    var week = W.map(function (d, wi) { var today = d[1] === 14, sel = st.wsel === wi; return { sel: sel, pick: function () { self.setState({ wsel: self.state.wsel === wi ? null : wi }); }, ring: sel && !today ? 'inset 0 0 0 1.5px ' + t.fg : (sel ? '0 0 0 2px ' + t.card + ', 0 0 0 3.5px ' + t.primary : 'none'), aria: d[2] + (sel ? ', selected' : '') + '. Show this day', wd: d[0], num: String(d[1]), bg: today ? t.primary : (sel ? t.fill : 'transparent'), hv: today ? t.primary : t.fill, fg: today ? t.primaryFg : t.fg, wdFg: today ? t.primaryFg : t.mutedFg, dot: d[3] && isSample ? (today ? t.primaryFg : t.borderStrong) : 'transparent' }; });
+    var tumsPaid = !!st.paidNow['Tums'];
+    var weekItems = !isSample ? [] : [
+      { day: 'Sun', wi: 0, bg: tumsPaid ? t.okBg : t.badBg, fg: tumsPaid ? t.okFg : t.badFg, type: tumsPaid ? 'Paid' : 'Late', title: 'Tums payment', titleFg: t.fg, amount: '$8,500', amtFg: tumsPaid ? t.fg : t.destr },
+      { day: 'Tue', wi: 2, bg: t.postBg, fg: t.postFg, type: 'Posted', title: 'Dramamine Video 1', titleFg: t.mutedFg, amount: '', amtFg: t.fg },
+      { day: 'Thu', wi: 4, bg: t.postBg, fg: t.postFg, type: 'Post', title: 'CeraVe, tomorrow', titleFg: t.fg, amount: '', amtFg: t.fg }
+    ];
+    var UP = [['Nioxin', '2026-10-19', 1200, 'In 5 days'], ['Sprouts', '2026-11-05', 4000, 'In 22 days'], ['Dulcolax', '2026-11-09', 8500, 'In 26 days'], ['Liquid I.V. Q3 Campaign', '2026-11-30', 6500, 'In 47 days']];
+    var upcoming = (isSample ? UP : []).map(function (u, j) { return { brand: u[0], mon: MS[+u[1].slice(5, 7) - 1], day: String(+u[1].slice(8)), amount: fmt(u[2]), when: u[3], whenFg: j === 0 ? t.fg : t.mutedFg, line: j ? ('1px solid ' + t.line) : 'none' }; });
+    var openTodos = st.todos.filter(function (x) { return !x.done && (isSample || (isEmpty && x.id > 1)); });
+    // Get the app reminder. The app decides when to show it (appPrompt), the board only shows it on phones and never over a dialog.
+    var apDev = this.device(), apKind = p.appPrompt || '', apPh = st.apPhase;
+    function apClose(forever) { self.setState({ apHide: true }); self.dismissInstall('banner', !!forever); }
+    var AP = apKind === 'alerts'
+      ? { title: 'Turn on payment and deadline alerts', sub: 'Know when a brand pays or a post is due.', btn: 'Turn on', act: function () { self.askAlerts().then(function () { self.setState({ apHide: true }); }); }, never: false }
+      : apDev === 'inapp'
+      ? (apPh === 'copied' ? { title: 'Link copied', sub: 'Paste it in Safari or Chrome to add Talby.', btn: '', never: false }
+        : { title: 'Get the Talby app', sub: 'Open Talby in your browser to add it to your Home Screen.', btn: 'Copy link', act: function () { self.copyLink().then(function () { self.setState({ apPhase: 'copied' }); }); }, never: true })
+      : apDev === 'iphone'
+      ? (apPh === 'hint' ? { title: '', sub: '', btn: '', never: false, tip: true }
+        : { title: 'Get the Talby app', sub: 'Alerts, and one tap from your Home Screen.', btn: 'Add', act: function () { self.setState({ apPhase: 'hint' }); }, never: true })
+      : { title: 'Get the Talby app', sub: 'Alerts, and one tap from your Home Screen.', btn: 'Add', act: function () { self.installApp().then(function () { self.setState({ apHide: true }); }); }, never: true };
+    var apBase = !!apKind && apDev !== 'desktop' && !st.apHide && !(apKind === 'install' && this.isInstalled()) && !st.add && !st.cmd && !st.nav && !st.appear;
+    var ap = { tip: apBase && !!AP.tip, tipClose: function () { apClose(false); }, show: !AP.tip && !!apKind && apDev !== 'desktop' && !st.apHide && !(apKind === 'install' && this.isInstalled()) && !st.add && !st.cmd && !st.nav && !st.appear, title: AP.title, sub: AP.sub, btn: AP.btn, hasBtn: !!AP.btn, act: AP.act || function () {},
+      close: function () { apClose(false); }, never: function () { apClose(true); }, hasNever: !!AP.never, hasSteps: !!AP.steps, steps: (AP.steps || []).map(function (x, i) { return { n: String(i + 1), text: x }; }) };
+    var todos = openTodos.map(function (x) { var tk = !!st.ticking[x.id]; return { text: x.text, deal: x.deal, hasDeal: !!x.deal && x.deal !== 'No deal', dealL: (x.deal || '').charAt(0), on: tk, box: box(t, tk), aria: 'Mark done: ' + x.text, fg: tk ? t.mutedFg : t.fg,
+      strike: tk ? 'a-strike' : '', size: tk ? '100% 1.5px' : '0% 1.5px', cls: tk ? 'a-gone' : 'a-in', toggle: function () { if (!self.state.ticking[x.id]) self.write('Could not update the to-do', function () { self.tickTodo(x.id); }); } }; });
+    function addTodo() { var tx = (st.todoDraft || '').trim(); if (!tx) return; self.write('Could not add the to-do', function () { var cur = self.state.todos; var id = cur.reduce(function (a, x) { return Math.max(a, x.id); }, 0) + 1; self.setState({ todos: cur.concat([{ id: id, text: tx, deal: 'No deal', done: false }]), todoDraft: '' }); self.toast('To-do added', tx); }); }
+    var owed = 88800 - paidSum, got = 46150 + paidSum;
+    var stats = [
+      { label: 'Booked this year', value: '$134,950', line: 'Across 25 signed deals', href: 'SDeals.dc.html', fg: t.fg, warn: false },
+      { label: 'Received', value: fmt(got), line: (14 + Object.keys(st.paidNow).length) + ' payments this year', href: 'SIncome.dc.html', fg: t.fg, warn: false },
+      { label: 'Still owed', value: fmt(owed), line: (12 - Object.keys(st.paidNow).length) + ' payments expected', href: 'SPayments.dc.html', fg: t.fg, warn: false },
+      { label: 'Late', value: fmt(lateSum), line: lateLeft.length ? lateLeft.length + (lateLeft.length === 1 ? ' payment' : ' payments') + ' past due' : 'Nothing is late', href: 'SPayments.dc.html', fg: lateSum ? t.destr : t.fg, warn: lateSum > 0 }
+    ];
+    if (isEmpty) stats = [
+      { label: 'Booked this year', value: '$0', line: 'No signed deals yet', href: 'SDeals.dc.html', fg: t.fg, warn: false },
+      { label: 'Received', value: '$0', line: 'No payments yet', href: 'SIncome.dc.html', fg: t.fg, warn: false },
+      { label: 'Still owed', value: '$0', line: 'Nothing expected yet', href: 'SPayments.dc.html', fg: t.fg, warn: false },
+      { label: 'Late', value: '$0', line: 'Nothing is late', href: 'SPayments.dc.html', fg: t.fg, warn: false }
+    ];
+    var SKW = [['112px', '150px'], ['96px', '138px'], ['104px', '144px'], ['88px', '128px']];
+    stats = stats.map(function (s, i) { var cols = wide ? 4 : 2; return Object.assign(s, { bl: i % cols ? ('1px solid ' + t.line) : 'none', bt: i >= cols ? ('1px solid ' + t.line) : 'none',
+      warn: s.warn && !isLoading, ready: !isLoading, load: isLoading, skV: sk(SKW[i][0], mob ? '20px' : '24px', t.rSm), skVm: mob ? '3px 0 2px' : '4px 0', skL: sk(SKW[i][1], '12px', t.rSm) }); });
+    function many(n, f) { var o = []; for (var i = 0; i < n; i++) o.push(f(i)); return o; }
+    var W1 = ['58%', '44%', '64%', '50%', '40%', '56%', '48%'], W2 = ['36%', '28%', '40%', '30%', '26%', '38%', '32%'];
+    var skAttn = many(4, function (i) { return { av: sk('34px', '34px', '17px'), t1: sk(W1[i], '12px'), t2: sk(W2[i], '10px'), btn: sk(i < 3 ? '70px' : '96px', '28px', t.rCtl) }; });
+    var skWeek = many(3, function (i) { return { d: sk('26px', '10px'), c: sk(['44px', '56px', '40px'][i], '22px', t.rEv), t: sk(['42%', '54%', '36%'][i], '12px') }; });
+    var skDeals = many(mob ? 4 : 7, function (i) { return { av: sk('32px', '32px', t.rCtl), t1: sk(W1[i], '12px'), t2: sk(W2[i], '10px'), badge: sk('86px', '24px', t.rCtl), amt: sk(['58px', '52px', '46px', '50px', '56px', '44px', '52px'][i], '12px') }; });
+    var skUp = many(4, function (i) { return { tile: sk('40px', '40px', t.rSm), t1: sk(W1[i + 1], '12px'), t2: sk('64px', '10px'), amt: sk(['50px', '46px', '52px', '48px'][i], '12px'), line: i ? ('1px solid ' + t.line) : 'none' }; });
+    var goAdd = function (kind) { return function () { self.setState({ add: kind, nav: false }); }; };
+    var hasTodo = !!(st.todoDraft || '').trim();
+    var page = {
+      minH: mob ? '100vh' : '1200px',
+      greetLine: 'Wednesday, October 14.' + (isEmpty ? ' Add a deal to begin.' : !isSample ? '' : ' ' + (lateLeft.length ? lateLeft.length + (lateLeft.length === 1 ? ' payment needs' : ' payments need') + ' a nudge.' : 'Nothing is late. Nice.')),
+      stats: stats, stripCols: wide ? 'repeat(4, minmax(0, 1fr))' : 'repeat(2, minmax(0, 1fr))', statPad: mob ? '14px 16px' : '18px 22px', statFs: mob ? '22px' : '28px',
+      rowCols: wide ? 'minmax(0, 2fr) minmax(320px, 1fr)' : 'minmax(0, 1fr)',
+      attn: attn, hasAttn: attn.length > 0, noAttn: isSample && attn.length === 0, attnCount: String(attn.length),
+      ap: ap,
+      weekShown: st.wsel === null ? weekItems : weekItems.filter(function (x) { return x.wi === st.wsel; }),
+      dayEmpty: !(isEmpty || (isSample && weekItems.length === 0)) && st.wsel !== null && !weekItems.some(function (x) { return x.wi === st.wsel; }),
+      dayEmptyText: st.wsel === null ? '' : 'Nothing on ' + W[st.wsel][2].replace(/^Today, /, 'today, '),
+      week: week, weekItems: weekItems, weekNone: isEmpty || (isSample && weekItems.length === 0), upcoming: upcoming,
+      tabs: tabs, rows: rows, footLabel: 'Showing ' + shown.length + ' of ' + list.length,
+      todos: todos, hasTodos: todos.length > 0, noTodos: isSample && todos.length === 0, todoCount: String(todos.length),
+      todoDraft: st.todoDraft, setTodoDraft: function (e2) { self.setState({ todoDraft: e2.target.value }); }, todoKey: function (e2) { if (e2.key === 'Enter') addTodo(); }, addTodo: addTodo,
+      noTodoDraft: !hasTodo, todoOp: hasTodo ? '1' : '0.4',
+      emptyTodos: isEmpty && todos.length === 0,
+      showData: !isError, notLoading: !isLoading, showTabs: isSample || isLoading, showFoot: isSample || isLoading,
+      rightCol: !mob && !wide ? 'min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch' : 'min-width: 0; display: flex; flex-direction: column; gap: 16px',
+      errPad: mob ? '56px 12px' : '72px 24px',
+      upList: 'display: flex; flex-direction: column; flex: 1 1 auto', upTotal: isEmpty ? '$0' : '$20,200',
+      skAttn: skAttn, skWeek: skWeek, skDeals: skDeals, skUp: skUp, skTile: sk('58%', '12px'), skFoot: sk('104px', '12px'), skTotal: sk('72px', '16px'),
+      skBox: sk('16px', '16px', t.rBox), skTodo: sk('84%', '12px'), skChip: sk('92px', '22px', t.rCtl),
+      errBlk: blk('error', IC.wifi, 'We could not load your overview', 'Check your connection and try again. Nothing was lost.', 'Try again', function () { self.retryLoad(); }),
+      attnBlk: blk('empty', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', 'Nothing needs you yet', 'Late payments and deals with no pay by date show up here, so nothing slips.'),
+      weekBlk: isEmpty ? blk('empty', 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18', 'Nothing this week', 'Posts and payments due this week show up here.')
+        : blk('empty', 'M8 2v4M16 2v4M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM3 10h18M9 16l2 2 4-4', 'A quiet week', 'Nothing posts or comes due through Saturday.'),
+      dealsBlk: blk('empty', 'M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z', 'No deals yet', 'Add your first deal by hand, upload a contract or CSV, or import from Notion.', 'Add deal', goAdd('new'), 'Upload', goAdd('upload')),
+      upBlk: blk('empty', IC.clock, 'No payments coming up', 'Give a deal a pay by date and it shows up here.'),
+      todoBlk: blk('empty', 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11', 'No to-dos yet', 'Add one below when something comes up.')
+    };
+    var shell = {
+      t: t, k: k, dark: dark, look: L, collapsed: collapsed, mob: mob, notMob: !mob, wide: wide, eff: eff, titleFam: t.titleFam, numFam: t.numFam,
+      vars: '--hv: ' + t.hv + '; --hvr: ' + t.hvr + '; --bd2: ' + t.borderStrong + '; --fg: ' + t.fg + '; --ring: ' + t.ring + '; --shh: ' + t.shHover,
+      showRail: !mob, sbW: collapsed ? '72px' : '256px', mainPad: mob ? '0 12px 104px' : (tabW ? '0 20px 48px 12px' : '0 24px 56px 16px'), h1Fs: Math.round((mob ? 24 : 28) * t.hScale) + 'px',
+      toggleNav: function () { if (mob || tabW) self.setState({ nav: true }); else self.setLook('sidebar', collapsed ? 'expanded' : 'icons'); },
+      drawerOpen: (mob || tabW) && st.nav, closeNav: function () { self.setState({ nav: false }); },
+      appear: st.appear, openAppear: function () { self.setState({ appear: true, nav: false }); }, closeAppear: function () { self.setState({ appear: false }); },
+      setLook: function (k2, v2) { self.setLook(k2, v2); },
+      cmd: st.cmd, openCmd: function () { self.setState({ cmd: true, nav: false }); }, closeCmd: function () { self.setState({ cmd: false }); },
+      cmdAction: function (a, payload) {
+        if (a === 'mode') self.setLook('mode', dark ? 'light' : 'dark');
+        else if (a === 'appearance') self.setState({ appear: true, cmd: false });
+        else if (a === 'new' || a === 'upload' || a === 'notion') self.setState({ add: a, cmd: false });
+        else if (a === 'ask') self.setState({ askId: Date.now(), askText: payload || '', cmd: false });
+      },
+      add: st.add, openAdd: function (kind) { self.setState({ add: kind, nav: false }); }, closeAdd: function () { self.setState({ add: '' }); },
+      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); },
+      praise: st.praise, closePraise: function () { clearTimeout(self._pz2); self.setState({ praise: null }); },
+      askId: st.askId, askText: st.askText, asstName: 'Chanelica',
+      toastR: mob ? '12px' : '24px', toastL: mob ? '12px' : 'auto', toastB: mob ? 'auto' : '84px', toastT: mob ? '12px' : 'auto', toastW: mob ? 'auto' : '340px',
+      toasts: st.toasts.map(function (x) { var drop = function () { self.setState({ toasts: self.state.toasts.filter(function (y) { return y.id !== x.id; }) }); };
+        return { title: x.title, desc: x.desc, hasDesc: !!x.desc, hasUndo: !!x.undo, undo: function () { if (x.undo) x.undo(); drop(); }, isErr: x.kind === 'error', hasCta: !!x.cta, cta: x.cta, doCta: function () { drop(); if (x.act) x.act(); } }; }),
+      stH: mob ? '36px' : '28px', dataView: V, isSample: isSample, isEmpty: isEmpty, isLoading: isLoading, isError: isError, notSample: !isSample, retry: function () { self.retryLoad(); }, isTab: tabW,
+      plan: plan, locked: locked, lockedKind: locked ? plan : '', quietBell: !isSample, sbFresh: !isSample,
+      hasBanner: plan === 'pastdue' || locked, bn: (function () {
+        var go = function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} };
+        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by Oct 21.' : 'Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', act: go };
+        if (plan === 'canceled') return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Plan canceled.' : 'Your plan is canceled.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Restart your plan to add or change deals.', cta: 'Restart plan', act: go };
+        return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Trial ended.' : 'Your free trial ended.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Upgrade to add or change deals.', cta: 'Upgrade', act: go };
+      })()
+    };
+    var out = Object.assign(shell, page);
+    out.chatHidden = st.appear || st.nav || st.cmd || !!st.add || !!(false);
+    return out;
+  }
+}
+</script>
+</body>
+</html>

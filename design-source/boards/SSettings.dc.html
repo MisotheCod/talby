@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Talby Settings, shadcn</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=Fraunces:wght@400;500;600;700&amp;family=Playfair+Display:wght@400;500;600;700&amp;family=DM+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;font-synthesis:none}
+.tb{transition:background-color .15s ease,color .15s ease,border-color .15s ease,box-shadow .18s ease,opacity .15s ease,transform .12s ease}
+.tb:active{transform:scale(.97)}
+.tg:hover{background-color:var(--hv)!important}
+.tp:hover{opacity:.88}
+.tr{transition:background-color .12s ease}
+.tr:hover{background-color:var(--hvr)!important}
+.tt:hover{color:var(--fg)!important}
+.tc{transition:border-color .18s ease,box-shadow .2s ease,transform .2s ease}
+.tc:hover{border-color:var(--bd2)!important;box-shadow:var(--shh)!important}
+.tlift:hover{transform:translateY(-2px)}
+.ti{transition:box-shadow .15s ease}
+.ti:focus,.ti:focus-within{box-shadow:0 0 0 2px var(--ring)!important}
+.tb:focus-visible,.tc:focus-visible,.tr:focus-visible{outline:2px solid var(--ring);outline-offset:2px}
+.a-in{animation:tIn .36s cubic-bezier(.2,.7,.2,1) backwards}
+.a-fade{animation:tFade .2s ease backwards}
+.a-pop{animation:tPop .22s cubic-bezier(.2,.8,.3,1) backwards}
+.a-drop{animation:tDrop .16s cubic-bezier(.2,.8,.3,1) backwards}
+.a-sheet{animation:tSheet .3s cubic-bezier(.2,.8,.2,1) backwards}
+.a-drawer{animation:tDrawer .26s cubic-bezier(.2,.8,.2,1) backwards}
+.a-up{animation:tUp .3s cubic-bezier(.2,.8,.2,1) backwards}
+.a-toast{animation:tToast .3s cubic-bezier(.2,.9,.3,1.1) backwards}
+.a-spin{animation:tSpin .8s linear infinite}
+.a-pulse{animation:tPulse 1.6s ease-in-out infinite}
+.a-ping{animation:tPing 2s ease-out infinite}
+.a-check{animation:tCheck .38s cubic-bezier(.3,1.5,.5,1) backwards}
+.a-strike{animation:tStrike .45s cubic-bezier(.4,0,.2,1) backwards}
+.a-grow{animation:tGrow .6s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:bottom center}
+.a-width{animation:tWidth .7s cubic-bezier(.2,.8,.2,1) backwards;transform-origin:left center}
+.a-out{animation:tOut .32s ease forwards}
+.a-gone{animation:tOut .35s ease .55s forwards}
+[style*="scrollbar-width: none"]::-webkit-scrollbar{display:none}
+@keyframes tIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes tFade{from{opacity:0}to{opacity:1}}
+@keyframes tPop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+@keyframes tDrop{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes tSheet{from{opacity:0;transform:translateX(36px)}to{opacity:1;transform:none}}
+@keyframes tDrawer{from{transform:translateX(-100%)}to{transform:none}}
+@keyframes tUp{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:none}}
+@keyframes tToast{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes tSpin{to{transform:rotate(360deg)}}
+@keyframes tPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes tPing{0%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%,100%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+@keyframes tCheck{0%{transform:scale(.6)}55%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes tStrike{from{background-size:0% 1.5px}to{background-size:100% 1.5px}}
+@keyframes tGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes tWidth{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes tOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(16px)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</helmet>
+<div style="position: relative; box-sizing: border-box; min-height: {{minH}}; display: flex; align-items: stretch; background: {{t.page}}; font-family: {{t.bodyFam}}; font-size: 14px; line-height: 1.43; color: {{t.fg}}; -webkit-font-smoothing: antialiased; {{vars}}">
+
+<sc-if value="{{showRail}}" hint-placeholder-val="{{true}}">
+<div style="position: relative; z-index: 30; flex: 0 0 {{sbW}}; width: {{sbW}}; align-self: stretch; transition: flex-basis 0.25s cubic-bezier(.4,0,.2,1), width 0.25s cubic-bezier(.4,0,.2,1)">
+<div style="position: sticky; top: 0; height: 100vh">
+<dc-import name="SSidebar" active="settings" color="{{eff}}" dark="{{dark}}" collapsed="{{collapsed}}" plan="{{plan}}" fresh="{{sbFresh}}" on-settings="{{goTab}}" hint-size="100%,100vh"></dc-import>
+</div>
+</div>
+</sc-if>
+
+<main style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 16px; padding: {{mainPad}}; box-sizing: border-box">
+<dc-import name="STopbar" title="Settings" mobile="{{mob}}" quiet="{{quietBell}}" color="{{eff}}" dark="{{dark}}" on-nav="{{toggleNav}}" on-search="{{openCmd}}" on-appearance="{{openAppear}}" on-add="{{openAdd}}" hint-size="100%,56px"></dc-import>
+<sc-if value="{{hasBanner}}" hint-placeholder-val="{{false}}">
+<div role="status" class="a-fade" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 8px 8px 14px; box-sizing: border-box; border: 1px solid {{bn.bd}}; border-radius: {{t.rTile}}; background: {{bn.bg}}; color: {{bn.fg}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px"><path d="{{bn.icon}}"></path></svg>
+<span style="flex: 1 1 auto; min-width: 0; font-size: 13px; line-height: 1.4"><span style="font-weight: 600">{{bn.title}}</span> <span style="color: {{bn.subFg}}">{{bn.text}}</span></span>
+<button type="button" class="tb tp" onClick="{{bn.act}}" style="{{k.pSm}}">{{bn.cta}}</button>
+</div>
+</sc-if>
+<div style="width: 100%; display: flex; flex-direction: column; gap: 16px">
+<div class="a-in" style="display: flex; flex-direction: column; gap: 4px; padding: 0 4px">
+<h1 style="margin: 0; font-family: {{titleFam}}; font-size: {{h1Fs}}; font-weight: 600; letter-spacing: {{t.hTrack}}; text-transform: {{t.hCase}}; line-height: 1.15">Settings</h1>
+<p style="margin: 0; color: {{t.mutedFg}}">Your account, how Talby looks, what it tells you, and your plan.</p>
+</div>
+
+<sc-if value="{{notMob}}" hint-placeholder-val="{{true}}">
+<div role="tablist" aria-label="Settings sections" class="a-in" onKeyDown="{{tabKey}}" style="animation-delay: 0.04s; align-self: flex-start; max-width: 100%; overflow-x: auto; {{k.tabs}}; height: 38px">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="5"><button class="tb tt" type="button" role="tab" aria-selected="{{n.on}}" onClick="{{n.pick}}" style="{{n.style}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 15px"><path d="{{n.icon}}"></path></svg>{{n.label}}</button></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{mob}}" hint-placeholder-val="{{false}}">
+<button type="button" class="tb tg a-in" onClick="{{openSecSheet}}" aria-haspopup="dialog" aria-label="{{secAria}}" style="--hv: {{t.hoverCard}}; animation-delay: 0.04s; display: flex; align-items: center; gap: 12px; width: 100%; height: 52px; padding: 0 14px 0 10px; box-sizing: border-box; border: 1px solid {{t.border}}; border-radius: {{t.rTile}}; background: {{t.card}}; color: {{t.fg}}; box-shadow: {{t.shCard}}; font: inherit; text-align: left; cursor: pointer">
+<span style="width: 32px; height: 32px; flex: 0 0 32px; border-radius: {{t.rItem}}; background: {{t.fill}}; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{secIcon}}"></path></svg></span>
+<span style="flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{secLabel}}</span>
+<span style="font-size: 13px; color: {{t.mutedFg}}; white-space: nowrap">All sections</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px; color: {{t.mutedFg}}"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"></path></svg>
+</button>
+</sc-if>
+
+<sc-if value="{{isError}}" hint-placeholder-val="{{false}}">
+<section role="alert" class="a-fade" style="{{k.card}}">
+<div class="a-fade" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 56px 24px; box-sizing: border-box; text-align: center"><span style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: {{t.rTile}}; background: {{setErr.tileBg}}; color: {{setErr.tileFg}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{setErr.icon}}"></path></svg></span><div style="display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 380px"><span style="font-size: 15px; font-weight: 600">{{setErr.title}}</span><sc-if value="{{setErr.hasSub}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.5; color: {{t.mutedFg}}">{{setErr.sub}}</span></sc-if></div><sc-if value="{{setErr.hasCta}}" hint-placeholder-val="{{true}}"><div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px"><button type="button" class="tb tp" onClick="{{setErr.act}}" style="{{k.pSm}}; height: {{stH}}; flex-shrink: 0">{{setErr.cta}}</button><sc-if value="{{setErr.has2}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{setErr.act2}}" style="--hv: {{t.hoverCard}}; {{k.oSm}}; height: {{stH}}">{{setErr.cta2}}</button></sc-if></div></sc-if></div>
+</section>
+</sc-if>
+
+<sc-if value="{{isLoading}}" hint-placeholder-val="{{false}}">
+<div role="status" aria-label="Loading your settings" style="display: flex; flex-direction: column; gap: 16px">
+<sc-for list="{{skCards}}" as="c" hint-placeholder-count="2">
+<section aria-hidden="true" style="{{k.card}}">
+<sc-if value="{{c.head}}" hint-placeholder-val="{{true}}"><div style="padding: 20px 24px 16px; display: flex; flex-direction: column; gap: 9px"><span class="a-pulse" style="{{c.hw}}"></span><span class="a-pulse" style="{{c.sw}}"></span></div></sc-if>
+<sc-if value="{{c.ident}}" hint-placeholder-val="{{false}}"><div style="display: flex; align-items: center; gap: 14px; padding: {{skIdPad}}"><span class="a-pulse" style="{{skAv}}"></span><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px"><span class="a-pulse" style="{{skN1}}"></span><span class="a-pulse" style="{{skN2}}"></span></span><span class="a-pulse" style="{{skPhoto}}"></span></div></sc-if>
+<sc-if value="{{c.plan}}" hint-placeholder-val="{{false}}"><div style="padding: 22px 24px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap"><span class="a-pulse" style="{{skTile48}}"></span><span style="flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 10px"><span class="a-pulse" style="{{skPlan1}}"></span><span class="a-pulse" style="{{skPlan2}}"></span></span><span class="a-pulse" style="{{skBtn}}"></span></div></sc-if>
+<sc-if value="{{c.hasTiles}}" hint-placeholder-val="{{false}}"><div style="padding: 4px 24px 22px; display: grid; grid-template-columns: {{c.tileCols}}; gap: 14px 12px"><sc-for list="{{c.tiles}}" as="tl" hint-placeholder-count="3"><span class="a-pulse" style="{{tl.st}}"></span></sc-for></div></sc-if>
+<sc-if value="{{c.hasRows}}" hint-placeholder-val="{{true}}"><div style="padding: 0 16px 16px"><div style="{{k.group}}"><sc-for list="{{c.rows}}" as="r" hint-placeholder-count="2"><div style="{{r.st}}"><sc-if value="{{r.lead}}" hint-placeholder-val="{{false}}"><span class="a-pulse" style="{{r.leadSt}}"></span></sc-if><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; width: 100%"><span class="a-pulse" style="{{r.b1}}"></span><sc-if value="{{r.two}}" hint-placeholder-val="{{false}}"><span class="a-pulse" style="{{r.b2}}"></span></sc-if></span><sc-if value="{{r.ctl}}" hint-placeholder-val="{{false}}"><span class="a-pulse" style="{{r.ctlSt}}"></span></sc-if></div></sc-for></div></div></sc-if>
+<sc-if value="{{c.foot}}" hint-placeholder-val="{{false}}"><div style="display: flex; align-items: center; gap: 8px; padding: 14px 24px; border-top: 1px solid {{t.line}}"><span class="a-pulse" style="{{skFoot}}"></span><div style="flex: 1 1 auto"></div><span class="a-pulse" style="{{skSave}}"></span></div></sc-if>
+</section>
+</sc-for>
+</div>
+</sc-if>
+
+
+<sc-if value="{{isAppearance}}" hint-placeholder-val="{{true}}">
+<section class="a-in" style="animation-delay: 0.08s; {{k.card}}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: {{apHeadPad}}"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">Appearance</h2><p style="margin: 0; color: {{t.mutedFg}}">Try things out below. Nothing changes until you save. For quick changes, use the half circle button at the top of any page.</p></div>
+<dc-import name="SAppearance" inline="{{true}}" theme="{{look.theme}}" mode="{{look.mode}}" sidebar="{{look.sidebar}}" dark="{{dark}}" on-save="{{saveLook}}" on-draft="{{setDraftLook}}" hint-size="100%,640px"></dc-import>
+</section>
+
+<section class="a-in" style="animation-delay: 0.12s; padding: {{cardPad}}; font-family: {{pt.bodyFam}}; display: flex; flex-direction: column; gap: 16px; background: {{pt.card}}; color: {{pt.fg}}; border: 1px solid {{pt.border}}; border-radius: {{pt.rCard}}; box-shadow: {{pt.shCard}}; transition: background-color 0.25s ease, color 0.25s ease">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap"><h2 style="margin: 0; font-family: {{pvFam}}; font-size: 16px; font-weight: 600">Preview</h2><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: {{pt.mutedFg}}"><span style="width: 7px; height: 7px; border-radius: 4px; background: {{pvDot}}"></span>{{pvNote}}</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch">
+<div style="flex: 1 1 240px; min-width: 0; padding: 18px; display: flex; flex-direction: column; gap: 14px; background: {{pt.tile}}; border-radius: {{pt.rTile}}">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px"><span style="{{pk.caps}}">Booked this year</span><span style="{{pk.badge}}">25 deals</span></div>
+<span style="font-family: {{pt.numFam}}; font-size: 30px; font-weight: 600; letter-spacing: {{pt.nTrack}}; line-height: 1; font-variant-numeric: tabular-nums">$134,950</span>
+<div aria-hidden="true" style="display: flex; align-items: flex-end; gap: 6px; height: 64px"><sc-for list="{{bars}}" as="b" hint-placeholder-count="8"><span class="a-grow" style="animation-delay: {{b.delay}}; flex: 1 1 0; height: {{b.h}}; border-radius: {{pt.rBar}}; background: {{pt.primary}}; opacity: {{b.op}}; transition: background-color 0.25s ease"></span></sc-for></div>
+<span style="font-size: 13px; color: {{pt.mutedFg}}">Best month was August</span>
+</div>
+<div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 500">Brand</span><input value="{{pvBrand}}" onChange="{{setPvBrand}}" style="{{pk.input}}"></label>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 500">Total amount</span><input value="$6,000" readonly style="{{pk.input}}"></label>
+<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px"><button type="button" class="tb tp" onClick="{{pvCreate}}" style="{{pk.btnP}}">Create deal</button><button type="button" class="tb" style="{{pk.btnS}}">Save draft</button><button type="button" class="tb" style="{{pk.btnO}}">Cancel</button></div>
+</div>
+<div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<div role="tablist" aria-label="Preview tabs" style="align-self: flex-start; {{pk.tabs}}"><sc-for list="{{pvTabs}}" as="pt2" hint-placeholder-count="2"><button class="tb tt" type="button" role="tab" aria-selected="{{pt2.on}}" onClick="{{pt2.pick}}" style="{{pt2.style}}">{{pt2.label}}</button></sc-for></div>
+<div style="display: flex; gap: 6px; flex-wrap: wrap"><sc-for list="{{pvBadges}}" as="pb" hint-placeholder-count="4"><span style="color: {{pb.fg}}; {{pk.payBadge}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: block; flex: 0 0 14px"><circle cx="12" cy="12" r="9.5" fill="{{pb.fill}}" stroke="{{pb.stroke}}" stroke-dasharray="{{pb.dash}}"></circle><path d="{{pb.inner}}" stroke="{{pb.innerStroke}}"></path></svg>{{pb.label}}</span></sc-for></div>
+<button type="button" role="checkbox" class="tb" aria-checked="{{pvCheck}}" onClick="{{togglePvCheck}}" style="display: flex; align-items: center; gap: 10px; padding: 0; border: none; background: transparent; font: inherit; font-size: 14px; color: {{pt.fg}}; text-align: left; cursor: pointer"><span style="{{pvBox}}"><sc-if value="{{pvCheck}}" hint-placeholder-val="{{false}}"><svg class="a-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span>Send me a daily digest</button>
+<button type="button" role="switch" class="tb" aria-checked="{{pvSwitch}}" onClick="{{togglePvSwitch}}" style="display: flex; align-items: center; gap: 10px; padding: 0; border: none; background: transparent; font: inherit; font-size: 14px; color: {{pt.fg}}; text-align: left; cursor: pointer"><span style="{{pvTrack}}"><span style="{{pvKnob}}"></span></span>Overdue payment alerts</button>
+</div>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{isAccount}}" hint-placeholder-val="{{false}}">
+<section class="a-in" style="animation-delay: 0.08s; {{k.card}}">
+<div style="padding: {{headPad}}; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">Profile</h2><p style="margin: 0; color: {{t.mutedFg}}">How you show up in Talby.</p></div>
+<div style="padding: {{bodyPad}}; display: flex; flex-direction: column; gap: 14px">
+<div style="position: relative; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 0 8px">
+<input type="file" accept="image/*" tabindex="-1" aria-hidden="true" ref="{{fileRef}}" onChange="{{pickPhoto}}" style="position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none">
+<span style="{{avatarSt}}"><sc-if value="{{noPhoto}}" hint-placeholder-val="{{true}}">C</sc-if><sc-if value="{{photoBusy}}" hint-placeholder-val="{{false}}"><span style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; border-radius: 28px; background: rgba(0,0,0,0.45); color: #FFFFFF"><svg class="a-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg></span></sc-if></span>
+<span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 600">{{savedName}}</span><span style="color: {{t.mutedFg}}">@{{savedHandle}}</span></span>
+<div style="{{photoActs}}">
+<sc-if value="{{hasPhoto}}" hint-placeholder-val="{{false}}"><button class="tb tg" type="button" onClick="{{removePhoto}}" style="{{photoRm}}">Remove</button></sc-if>
+<button class="tb tg" type="button" onClick="{{choosePhoto}}" aria-disabled="{{photoBusy}}" style="{{photoCh}}">{{photoBtn}}</button>
+</div>
+</div>
+<sc-if value="{{photoErrOn}}" hint-placeholder-val="{{false}}">
+<div role="alert" class="a-fade" style="display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; box-sizing: border-box; border-radius: {{t.rTile}}; background: {{t.badBg}}; color: {{t.badFg}}; font-size: 13px; line-height: 1.4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"></path></svg><span style="flex: 1 1 auto; min-width: 0">{{photoErrText}}</span><sc-if value="{{photoRetry}}" hint-placeholder-val="{{true}}"><button class="tb tg" type="button" onClick="{{retryPhoto}}" style="--hv: {{t.hoverCard}}; {{k.oSm}}">Try again</button></sc-if><button class="tb tg" type="button" onClick="{{dismissPhoto}}" aria-label="Dismiss" style="--hv: transparent; color: {{t.badFg}}; {{k.icoS}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button></div>
+</sc-if>
+<div style="{{k.group}}">
+<div style="{{fRow}}"><label for="pf-name" style="{{fLabel}}">Display name</label><input id="pf-name" class="ti" value="{{name}}" onChange="{{setName}}" style="{{fCtl}}"></div>
+<div style="{{fRowT}}"><label for="pf-handle" style="{{fLabel}}">Creator handle</label><span class="ti" style="display: flex; align-items: center; gap: 2px; {{fCtl}}"><span style="color: {{t.mutedFg}}">@</span><input id="pf-handle" value="{{handle}}" onChange="{{setHandle}}" style="flex: 1 1 auto; min-width: 0; height: 34px; padding: 0; border: none; outline: none; background: transparent; font: inherit; font-size: {{inFs}}; color: {{t.fg}}"></span></div>
+<div style="{{fRowT}}"><span style="{{fLabel}}">Email</span><span style="{{emailSt}}">chanelica•••@gmail.com</span></div>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: {{footPad}}; border-top: 1px solid {{t.line}}">
+<span style="display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: {{t.mutedFg}}; font-size: 13px; white-space: nowrap"><span style="width: 7px; height: 7px; flex: 0 0 7px; border-radius: 4px; background: {{profDot}}; transition: background-color 0.2s ease"></span>{{profStatus}}</span>
+<div style="flex: 1 1 auto"></div>
+<sc-if value="{{profCancel}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg a-pop" onClick="{{undoProfile}}" style="{{k.btnO}}">Cancel</button></sc-if>
+<button class="tb tp" type="button" onClick="{{saveProfile}}" aria-disabled="{{profClean}}" style="opacity: {{profOp}}; {{k.btnP}}"><sc-if value="{{profBusy}}" hint-placeholder-val="{{false}}"><svg class="a-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg></sc-if>{{profBtn}}</button>
+</div>
+</section>
+
+<section class="a-in" style="animation-delay: 0.12s; {{k.card}}">
+<div style="padding: {{headPad}}; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">Password</h2><p style="margin: 0; color: {{t.mutedFg}}">Use at least 8 characters.</p></div>
+<div style="padding: {{bodyPad}}">
+<div style="{{k.group}}">
+<div style="{{fRow}}"><label for="pw-cur" style="{{fLabel}}">Current password</label><input id="pw-cur" class="ti" type="password" value="{{pw1}}" onChange="{{setPw1}}" aria-invalid="{{pwCurErr}}" style="{{pw1St}}"></div>
+<sc-if value="{{pwCurErr}}" hint-placeholder-val="{{false}}"><div role="alert" class="a-fade" style="{{errLine}}"><span style="{{errText}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"></path></svg>That is not your current password.</span></div></sc-if>
+<div style="{{fRowT}}"><label for="pw-new" style="{{fLabel}}">New password</label><input id="pw-new" class="ti" type="password" value="{{pw2}}" onChange="{{setPw2}}" onBlur="{{blurPw2}}" aria-invalid="{{pwShort}}" style="{{pw2St}}"></div>
+<sc-if value="{{pwShort}}" hint-placeholder-val="{{false}}"><div role="alert" class="a-fade" style="{{errLine}}"><span style="{{errText}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"></path></svg>{{pwShortText}}</span></div></sc-if>
+</div>
+</div>
+<div style="display: flex; justify-content: flex-end; padding: {{footPad}}; border-top: 1px solid {{t.line}}"><button class="tb tg" type="button" onClick="{{updatePw}}" aria-disabled="{{pwOff}}" style="opacity: {{pwOp}}; {{pwBtnSt}}"><sc-if value="{{pwBusy}}" hint-placeholder-val="{{false}}"><svg class="a-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg></sc-if>{{pwBtn}}</button></div>
+</section>
+
+<section class="a-in" style="animation-delay: 0.16s; padding: {{delPad}}; display: flex; flex-direction: column; gap: 12px; {{k.card}}">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 0 8px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600; color: {{t.destr}}">Delete</h2><p style="margin: 0; color: {{t.mutedFg}}">Both ask you to type DELETE first. Neither can be undone.</p></div>
+<div style="{{k.group}}">
+<div style="flex-wrap: wrap; {{k.row}}"><span style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500">Delete my data</span><span style="font-size: 13px; color: {{t.mutedFg}}">Removes every deal, payment, event, idea, to-do and file. Your login, handle, theme and plan stay.</span></span><button class="tb tg" type="button" onClick="{{askData}}" style="color: {{t.destr}}; {{delBtnO}}">Delete data</button></div>
+<div style="flex-wrap: wrap; {{k.rowT}}"><span style="flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500">Delete my account</span><span style="font-size: 13px; color: {{t.mutedFg}}">Removes everything above and the account itself. Your plan is canceled and you are signed out.</span></span><button type="button" class="tb tp" onClick="{{askAccount}}" style="{{delBtnD}}">Delete account</button></div>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{isNotifications}}" hint-placeholder-val="{{false}}">
+<section class="a-in" style="animation-delay: 0.08s; {{k.card}}">
+<div style="padding: {{headPad}}; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">Notifications</h2><p style="margin: 0; color: {{t.mutedFg}}">Pick what Talby tells you about.</p></div>
+<div style="padding: {{bodyPad}}">
+<div style="{{k.group}}">
+<sc-for list="{{prefs}}" as="pr" hint-placeholder-count="4"><button type="button" role="checkbox" class="tb tr" aria-checked="{{pr.on}}" onClick="{{pr.toggle}}" style="--hvr: {{t.hoverCard}}; display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 14px; box-sizing: border-box; border: none; border-top: {{pr.line}}; border-radius: {{pr.radius}}; background: transparent; font: inherit; font-size: 14px; color: {{t.fg}}; text-align: left; cursor: pointer"><span style="margin-top: 2px; {{pr.box}}"><sc-if value="{{pr.on}}" hint-placeholder-val="{{false}}"><svg class="a-check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span><span style="display: flex; flex-direction: column; gap: 2px; min-width: 0"><span style="font-weight: 500">{{pr.label}}</span><span style="font-size: 13px; line-height: 1.45; color: {{t.mutedFg}}">{{pr.desc}}</span></span></button></sc-for>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: {{footPad}}; border-top: 1px solid {{t.line}}">
+<span style="display: inline-flex; align-items: center; gap: 8px; color: {{t.mutedFg}}; font-size: 13px; white-space: nowrap"><span style="width: 7px; height: 7px; flex: 0 0 7px; border-radius: 4px; background: {{prefDot}}; transition: background-color 0.2s ease"></span>{{prefStatus}}</span>
+<div style="flex: 1 1 auto"></div>
+<sc-if value="{{prefCancel}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg a-pop" onClick="{{undoPrefs}}" style="{{k.btnO}}">Cancel</button></sc-if>
+<button class="tb tp" type="button" onClick="{{savePrefs}}" aria-disabled="{{prefClean}}" style="opacity: {{prefOp}}; {{k.btnP}}"><sc-if value="{{prefBusy}}" hint-placeholder-val="{{false}}"><svg class="a-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg></sc-if>{{prefBtn}}</button>
+</div>
+</section>
+<section class="a-in" style="animation-delay: 0.12s; {{k.card}}">
+<div style="padding: {{headPad}}; display: flex; align-items: center; gap: 14px"><span aria-hidden="true" style="width: 44px; height: 44px; flex: 0 0 44px; box-sizing: border-box; border: 1px solid {{t.border}}; border-radius: 12px; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center"><svg width="24" height="21" viewBox="0 0 2029 1722" aria-hidden="true" style="display: block"><path fill="#1F7AE0" d="M325.553 0.11436C357.82 -0.851434 390.344 4.39925 421.577 12.1099C506.351 33.0387 579.306 92.8684 628.981 163.1C648.617 190.863 665.004 221.256 682.357 250.477C714.91 305.296 746.394 360.846 779.411 415.372C792.242 436.561 805.088 458.322 818.991 478.81C853.846 530.177 928.98 628.305 990.503 643.014C1013.94 648.615 1037.46 645.591 1058.97 634.725C1078.92 624.656 1094.72 608.763 1110.74 593.552C1184.16 523.869 1237.02 434.688 1287.42 347.839C1299.09 327.74 1311.38 307.989 1322.85 287.786C1346.79 245.624 1371.62 198.953 1400.03 160.003C1431.42 116.962 1467.92 79.9142 1513.59 51.9883C1592.43 3.35327 1687.5 -11.5536 1777.44 10.6178C1861.41 31.3662 1933.82 84.3529 1979.02 158.109C2024.53 233.037 2040.98 310.935 2019.97 397.268C1988.25 527.6 1882.9 628.138 1749.42 647.874C1724.27 651.594 1693.72 650.686 1668.06 650.648L1562.66 650.457L1294.18 650.569C1229.3 650.36 1166.25 642.367 1109.31 677.354C1075.41 697.881 1051.07 731.066 1041.68 769.577C1024.74 841.175 1063.31 906.426 1099.22 965.078C1103.02 971.823 1114.46 985.726 1119.82 992.612C1140.88 1019.75 1162.84 1046.17 1185.68 1071.84C1264.51 1161.22 1337.81 1269.48 1345.12 1391.87C1355.92 1572.91 1205.73 1711.69 1031.77 1721.4C938.596 1726.86 847.128 1694.71 777.855 1632.13C733.34 1591.55 702.231 1538.38 688.665 1479.68C676.384 1428.85 679.574 1377.6 692.642 1327.29C710.038 1260.33 744.366 1197.92 785.127 1142.41C854.647 1047.73 998.351 921.921 991.042 795.526C987.346 731.658 941.997 680.383 882.362 660.534C837.4 645.57 776.985 650.524 728.979 650.558L429.507 650.401L351.229 650.568C319.765 650.635 286.204 651.2 255.381 644.239C194.201 631.235 150.38 605.052 104.113 565.316C-67.2929 418.104 -14.8418 150.672 172.337 43.4476C223.087 14.3754 266.379 3.16906 325.553 0.11436Z"></path></svg></span><div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">Get the app</h2><p style="margin: 0; color: {{t.mutedFg}}">{{ga.sub}}</p></div></div>
+<sc-if value="{{ga.hasSteps}}" hint-placeholder-val="{{false}}"><ol class="a-fade" style="margin: 0; padding: {{bodyPad}}; list-style: none; display: flex; flex-direction: column; gap: 10px"><sc-for list="{{ga.steps}}" as="sp" hint-placeholder-count="3"><li style="display: flex; align-items: center; gap: 10px"><span style="width: 22px; height: 22px; flex: 0 0 22px; border-radius: 11px; background: {{t.primary}}; color: {{t.primaryFg}}; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600">{{sp.n}}</span>{{sp.text}}</li></sc-for></ol></sc-if>
+<div style="display: flex; align-items: center; gap: 8px; padding: {{footPad}}; border-top: 1px solid {{t.line}}"><span style="display: inline-flex; align-items: center; gap: 8px; color: {{t.mutedFg}}; font-size: 13px; min-width: 0"><span style="width: 7px; height: 7px; flex: 0 0 7px; border-radius: 4px; background: {{ga.dot}}"></span>{{ga.status}}</span><div style="flex: 1 1 auto"></div><sc-if value="{{ga.hasBtn}}" hint-placeholder-val="{{true}}"><button class="tb tp" type="button" onClick="{{ga.act}}" style="{{k.btnP}}">{{ga.btn}}</button></sc-if></div>
+</section>
+</sc-if>
+
+<sc-if value="{{isConnections}}" hint-placeholder-val="{{false}}">
+<section class="a-in" style="animation-delay: 0.08s; {{k.card}}">
+<div style="padding: {{headPad}}; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">Connections</h2><p style="margin: 0; color: {{t.mutedFg}}">Tools that bring deals into Talby.</p></div>
+<div style="padding: {{bodyPad}}; display: flex; flex-direction: column; gap: 12px">
+<div style="{{k.group}}">
+<div style="flex-wrap: wrap; {{k.row}}">
+<span style="width: 40px; height: 40px; flex: 0 0 40px; box-sizing: border-box; border-radius: {{t.rTile}}; background: #FFFFFF; border: 1px solid #E5E5E5; color: #191919; display: inline-flex; align-items: center; justify-content: center; font-family: Georgia, serif; font-size: 19px; font-weight: 700">N</span>
+<span style="flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+<span style="display: flex; align-items: center; gap: 8px"><span style="font-weight: 600">Notion</span><span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; box-sizing: border-box; border-radius: {{t.rCtl}}; background: {{notionBg}}; color: {{notionFg}}; font-size: 12px; font-weight: 500; white-space: nowrap"><span style="width: 6px; height: 6px; border-radius: 3px; background: currentColor"></span>{{notionLabel}}</span></span>
+<span style="font-size: 13px; color: {{t.mutedFg}}">{{notionSub}}</span>
+</span>
+<div style="{{connActs}}">
+<sc-if value="{{notionOn}}" hint-placeholder-val="{{true}}"><button class="tb tg" type="button" onClick="{{importNotion}}" style="{{actS}}">Import deals</button><button class="tb tg" type="button" onClick="{{disconnect}}" style="{{actO}}"><sc-if value="{{discBusy}}" hint-placeholder-val="{{false}}"><svg class="a-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg></sc-if>Disconnect</button></sc-if>
+<sc-if value="{{notionLost}}" hint-placeholder-val="{{false}}"><button class="tb tg" type="button" onClick="{{disconnect}}" style="{{actO}}"><sc-if value="{{discBusy}}" hint-placeholder-val="{{false}}"><svg class="a-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg></sc-if>Disconnect</button><button class="tb tg" type="button" onClick="{{connect}}" style="{{actP}}">Reconnect</button></sc-if>
+<sc-if value="{{notionOff}}" hint-placeholder-val="{{false}}"><button class="tb tg" type="button" onClick="{{connect}}" style="{{actP}}">Connect</button></sc-if>
+</div>
+</div>
+<sc-if value="{{notionLost}}" hint-placeholder-val="{{false}}"><div role="status" style="display: flex; align-items: flex-start; gap: 10px; margin: 0 8px 8px; padding: 10px 12px; box-sizing: border-box; border-radius: {{t.rItem}}; background: {{t.warnBg}}; color: {{t.warnFg}}; font-size: 13px; line-height: 1.45"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 15px; margin-top: 1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01"></path></svg><span>This usually happens after a Notion password change or when the page is removed. Reconnect to keep importing. Deals you already imported stay in Talby.</span></div></sc-if>
+</div>
+<span style="padding: 0 8px; font-size: 13px; color: {{t.mutedFg}}">More connections are on the way.</span>
+</div>
+</section>
+</sc-if>
+
+<sc-if value="{{isBilling}}" hint-placeholder-val="{{false}}">
+<section class="a-in" style="animation-delay: 0.08s; position: relative; overflow: hidden; padding: {{planPad}}; display: flex; align-items: center; gap: {{planGap}}; flex-wrap: wrap; background: {{t.planBg}}; {{k.card}}">
+<span style="width: 48px; height: 48px; flex: 0 0 48px; border-radius: {{t.rTile}}; background: {{pl.tileBg}}; color: {{pl.tileFg}}; display: inline-flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.5 2.8a.6.6 0 0 1 1 0l2.6 5.3 5.8.8a.6.6 0 0 1 .3 1l-4.2 4.1 1 5.8a.6.6 0 0 1-.8.6L12 17.8l-5.2 2.7a.6.6 0 0 1-.8-.6l1-5.8-4.2-4.1a.6.6 0 0 1 .3-1l5.8-.8z"></path></svg></span>
+<span style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 4px"><span style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 18px; font-weight: 600">Talby Unlimited</h2><span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: {{t.rCtl}}; background: {{pl.pBg}}; color: {{pl.pFg}}; font-size: 12px; font-weight: 500; white-space: nowrap"><span style="width: 6px; height: 6px; border-radius: 3px; background: {{pl.dot}}"></span>{{pl.pill}}</span></span><span style="color: {{t.mutedFg}}">{{pl.line}}</span>
+<sc-if value="{{pl.meter}}" hint-placeholder-val="{{false}}"><span role="progressbar" aria-label="Free trial used" aria-valuemin="0" aria-valuemax="14" aria-valuenow="5" style="display: flex; align-items: center; gap: 10px; max-width: 300px; margin-top: 6px"><span style="flex: 1 1 auto; height: 6px; border-radius: {{t.rCtl}}; background: {{t.off}}; overflow: hidden"><span style="display: block; width: 36%; height: 6px; border-radius: {{t.rCtl}}; background: {{t.accent}}"></span></span><span style="font-size: 12px; color: {{t.mutedFg}}; white-space: nowrap; font-variant-numeric: tabular-nums">Day 5 of 14</span></span></sc-if>
+</span>
+<sc-if value="{{pl.outline}}" hint-placeholder-val="{{true}}"><button type="button" class="tb tg" onClick="{{demoBill}}" style="{{planO}}">{{pl.cta}}</button></sc-if>
+<sc-if value="{{pl.primary}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tp" onClick="{{demoBill}}" style="{{planP}}">{{pl.cta}}</button></sc-if>
+</section>
+
+<section class="a-in" style="animation-delay: 0.12s; {{k.card}}">
+<div style="padding: {{headPad}}; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">Payment method</h2><p style="margin: 0; color: {{t.mutedFg}}">The card your plan is charged to.</p></div>
+<div style="padding: {{bodyPad}}">
+<div style="{{k.group}}">
+<div style="{{k.row}}"><sc-if value="{{pm.has}}" hint-placeholder-val="{{true}}"><span style="width: 44px; height: 30px; flex: 0 0 44px; box-sizing: border-box; border-radius: 6px; background: {{t.fill}}; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; letter-spacing: 0.04em">VISA</span></sc-if><sc-if value="{{pm.none}}" hint-placeholder-val="{{false}}"><span style="width: 44px; height: 30px; flex: 0 0 44px; box-sizing: border-box; border-radius: 6px; border: 1.5px dashed {{t.borderStrong}}; color: {{t.mutedFg}}; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></span></sc-if><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500">{{pm.title}}</span><span style="font-size: 13px; color: {{pm.subFg}}">{{pm.sub}}</span></span><button class="tb tg" type="button" onClick="{{demoBill}}" style="{{k.oSm}}">{{pm.cta}}</button></div>
+</div>
+</div>
+</section>
+
+<section class="a-in" style="animation-delay: 0.16s; {{k.card}}">
+<div style="padding: {{headPad}}; display: flex; flex-direction: column; gap: 4px"><h2 style="margin: 0; font-family: {{titleFam}}; font-size: 16px; font-weight: 600">Invoices</h2><p style="margin: 0; color: {{t.mutedFg}}">Receipts for your Talby plan.</p></div>
+<div style="padding: {{bodyPad}}">
+<div style="{{k.group}}">
+<sc-for list="{{invoices}}" as="iv" hint-placeholder-count="3"><div style="{{iv.rowStyle}}"><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="{{ivDateRow}}"><span style="font-weight: 500; white-space: nowrap">{{iv.date}}</span><sc-if value="{{mob}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: {{t.rCtl}}; background: {{iv.pBg}}; color: {{iv.pFg}}; font-size: 12px; font-weight: 500; white-space: nowrap">{{iv.pill}}</span></sc-if></span><span style="font-size: 13px; color: {{t.mutedFg}}">Talby Unlimited, monthly</span></span><sc-if value="{{notMob}}" hint-placeholder-val="{{true}}"><span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: {{t.rCtl}}; background: {{iv.pBg}}; color: {{iv.pFg}}; font-size: 12px; font-weight: 500">{{iv.pill}}</span></sc-if><span style="width: 56px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums">$9.00</span><button class="tb tg" type="button" onClick="{{demoBill}}" aria-label="{{iv.aria}}" style="--hv: {{t.fill}}; {{icoDl}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg></button></div></sc-for>
+<sc-if value="{{noInvoices}}" hint-placeholder-val="{{false}}"><div style="{{k.row}}"><span style="width: 32px; height: 32px; flex: 0 0 32px; border-radius: {{t.rItem}}; background: {{t.fill}}; color: {{t.mutedFg}}; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M9 13h6M9 17h4"></path></svg></span><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500">No invoices yet</span><span style="font-size: 13px; color: {{t.mutedFg}}">{{ivNone}}</span></span></div></sc-if>
+</div>
+</div>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: {{footPad}}; border-top: 1px solid {{t.line}}"><span style="font-size: 13px; color: {{t.mutedFg}}">{{ivFoot}}</span><sc-if value="{{ivCancel}}" hint-placeholder-val="{{true}}"><button class="tb tg" type="button" onClick="{{demoBill}}" style="color: {{t.destr}}; {{k.btnG}}">Cancel plan</button></sc-if></div>
+</section>
+</sc-if>
+</div>
+</main>
+<sc-if value="{{dlgOpen}}" hint-placeholder-val="{{false}}">
+<div style="{{dlgLayer}}">
+<button type="button" aria-label="Close" class="a-fade" onClick="{{closeDlg}}" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: {{t.overlay}}; cursor: default"></button>
+<div role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" aria-describedby="dlg-desc" class="{{dlgCls}}" style="{{dlgBox}}">
+<div style="padding: {{dlgBodyPad}}; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 6px"><h2 id="dlg-title" style="margin: 0; font-family: {{titleFam}}; font-size: 18px; font-weight: 600">{{dlgTitle}}</h2><p id="dlg-desc" style="margin: 0; color: {{t.mutedFg}}; line-height: 1.5">{{dlgDesc}}</p></div>
+<label style="display: flex; flex-direction: column; gap: 6px"><span style="font-weight: 500">Type DELETE to confirm</span><input class="ti" value="{{confirm}}" onChange="{{setConfirm}}" onKeyDown="{{confirmKey}}" ref="{{dlgRef}}" autocomplete="off" style="{{dlgInput}}"></label>
+<sc-if value="{{dlgErr}}" hint-placeholder-val="{{false}}"><div role="alert" class="a-fade" style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; box-sizing: border-box; border-radius: {{t.rTile}}; background: {{t.badBg}}; color: {{t.badFg}}; font-size: 13px; line-height: 1.45"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 15px; margin-top: 1px"><path d="M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"></path></svg><span>{{dlgErrText}}</span></div></sc-if>
+</div>
+<div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: {{dlgFootPad}}; border-top: 1px solid {{t.line}}">
+<button class="tb tg" type="button" onClick="{{closeDlg}}" aria-disabled="{{dlgBusy}}" style="{{dlgCancel}}">Cancel</button>
+<button type="button" class="tb tp" onClick="{{doDelete}}" aria-disabled="{{noMatch}}" style="opacity: {{matchOp}}; {{k.btnD}}{{dlgBtnX}}"><sc-if value="{{dlgBusy}}" hint-placeholder-val="{{false}}"><svg class="a-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex: 0 0 14px"><path d="M21 12a9 9 0 1 1-6.2-8.6"></path></svg></sc-if>{{dlgAction}}</button>
+</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{secSheetOn}}" hint-placeholder-val="{{false}}">
+<div style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 89">
+<button type="button" aria-label="Close" class="a-fade" onClick="{{closeSecSheet}}" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: {{t.overlay}}; cursor: default"></button>
+<div role="dialog" aria-label="Settings sections" class="a-up" style="{{sheetBox}}">
+<span aria-hidden="true" style="{{sheetGrip}}"></span>
+<span style="padding: 0 10px 8px; font-weight: 600">Settings</span>
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="5"><button class="tb tg" type="button" aria-current="{{n.cur}}" onClick="{{n.pick}}" style="{{n.rowSt}}"><span style="width: 32px; height: 32px; flex: 0 0 32px; border-radius: {{t.rItem}}; background: {{t.fill}}; display: inline-flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span><span style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px"><span style="font-weight: 500">{{n.label}}</span><sc-if value="{{n.hasSum}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; color: {{t.mutedFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.sum}}</span></sc-if></span><sc-if value="{{n.hasPill}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: {{t.rCtl}}; background: {{pl.pBg}}; color: {{pl.pFg}}; font-size: 12px; font-weight: 500; white-space: nowrap"><span style="width: 6px; height: 6px; border-radius: 3px; background: {{pl.dot}}"></span>{{pl.pill}}</span></sc-if><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 16px; visibility: {{n.check}}"><path d="M20 6 9 17l-5-5"></path></svg></button></sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{drawerOpen}}" hint-placeholder-val="{{false}}">
+<div style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 88">
+<button type="button" aria-label="Close menu" class="a-fade" onClick="{{closeNav}}" style="position: absolute; top: 0; right: 0; bottom: 0; left: 0; padding: 0; border: none; background: {{t.overlay}}; cursor: default"></button>
+<div class="a-drawer" style="position: absolute; top: 0; bottom: 0; left: 0; width: 288px; max-width: 86%; overflow-y: auto; box-shadow: {{t.shPop}}">
+<dc-import name="SSidebar" active="settings" color="{{eff}}" dark="{{dark}}" drawer="{{true}}" plan="{{plan}}" fresh="{{sbFresh}}" on-close="{{closeNav}}" on-settings="{{goTab}}" hint-size="100%,100%"></dc-import>
+</div>
+</div>
+</sc-if>
+
+<div aria-live="polite" style="position: fixed; top: {{toastT}}; right: {{toastR}}; left: {{toastL}}; bottom: {{toastB}}; z-index: 120; display: flex; flex-direction: column; gap: 8px; width: {{toastW}}">
+<sc-for list="{{toasts}}" as="tt" hint-placeholder-count="0">
+<div role="status" class="a-toast" style="display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; background: {{t.card}}; color: {{t.fg}}; border: 1px solid {{t.border}}; border-radius: {{t.rCard}}; box-shadow: {{t.shPop}}">
+<sc-if value="{{tt.isErr}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: 0 0 18px; color: {{t.destr}}"><path d="M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z"></path></svg></sc-if>
+<div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px"><span style="font-weight: 500; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{tt.title}}</span><sc-if value="{{tt.hasDesc}}" hint-placeholder-val="{{true}}"><span style="font-size: 13px; line-height: 1.4; color: {{t.mutedFg}}; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{tt.desc}}</span></sc-if></div>
+<sc-if value="{{tt.hasUndo}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{tt.undo}}" style="{{k.oSm}}">Undo</button></sc-if>
+<sc-if value="{{tt.hasCta}}" hint-placeholder-val="{{false}}"><button type="button" class="tb tg" onClick="{{tt.doCta}}" style="{{k.oSm}}">{{tt.cta}}</button></sc-if>
+</div>
+</sc-for>
+</div>
+
+<dc-import name="SPraise" data="{{praise}}" mobile="{{mob}}" color="{{eff}}" dark="{{dark}}" on-close="{{closePraise}}" hint-size="0px,0px"></dc-import>
+<dc-import name="SAddDeal" open="{{add}}" locked="{{lockedKind}}" mobile="{{mob}}" color="{{eff}}" dark="{{dark}}" on-close="{{closeAdd}}" on-created="{{onCreated}}" hint-size="0px,0px"></dc-import>
+<dc-import name="SCommand" open="{{cmd}}" color="{{eff}}" dark="{{dark}}" on-close="{{closeCmd}}" on-action="{{cmdAction}}" hint-size="0px,0px"></dc-import>
+<dc-import name="SAppearance" open="{{appear}}" theme="{{look.theme}}" mode="{{look.mode}}" sidebar="{{look.sidebar}}" dark="{{dark}}" on-set="{{setLook}}" on-close="{{closeAppear}}" hint-size="0px,0px"></dc-import>
+<dc-import name="SAssistant" embedded="{{true}}" name-first="{{asstName}}" empty="{{isEmpty}}" hidden="{{chatHidden}}" ask-id="{{askId}}" ask-text="{{askText}}" color="{{eff}}" dark="{{dark}}" hint-size="0px,0px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"device":{"editor":"enum","options":["auto","iphone","inapp","android","desktop"],"default":"auto"},"color":{"editor":"enum","options":["studio","sand","mac","stationery","editorial"],"default":"studio"},"dark":{"editor":"boolean","default":false},"view":{"editor":"enum","options":["sample","empty","loading","error"],"default":"sample"},"plan":{"editor":"enum","options":["active","trial","pastdue","canceled","readonly"],"default":"active"},"tab":{"editor":"enum","options":["account","appearance","notifications","connections","billing"],"default":"account"},"notion":{"editor":"enum","options":["connected","lost","off"],"default":"connected"},"showErrors":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var L = null; try { L = JSON.parse(window.localStorage.getItem('talby.look') || 'null'); } catch (e) {}
+    L = L || {};
+    var IDS = ['studio', 'sand', 'mac', 'stationery', 'editorial'], MODES = ['light', 'dark', 'system'];
+    var th = (IDS.indexOf(L.theme) >= 0 && L.theme) || (L.theme === 'midnight' && IDS.indexOf(L.prev) >= 0 && L.prev) || (IDS.indexOf(props.color) >= 0 && props.color) || 'studio';
+    var md = L.theme === 'midnight' ? 'dark' : ((MODES.indexOf(L.mode) >= 0 && L.mode) || (L.auto ? 'system' : (props.dark ? 'dark' : 'light')));
+    var w = 1440; try { w = window.innerWidth || 1440; } catch (e) {}
+    this.state = Object.assign({
+      look: { theme: th, mode: md, sidebar: L.sidebar || 'expanded' },
+      w: w, nav: false, appear: false, cmd: false, add: '', toasts: [], praise: null, askId: 0, askText: '', dv: props.view || 'sample'
+    }, {
+      sec: (function () { var s = null; try { s = window.localStorage.getItem('talby.settingsTab'); window.localStorage.removeItem('talby.settingsTab'); } catch (e) {} var ok = ['account', 'appearance', 'notifications', 'connections', 'billing']; return ok.indexOf(s) !== -1 ? s : (ok.indexOf(props.tab) !== -1 ? props.tab : 'account'); })(),
+      secFor: props.tab || '', secSheet: false,
+      name: 'Chanelica.R', handle: 'chanelica.r', savedName: 'Chanelica.R', savedHandle: 'chanelica.r', pw1: '', pw2: '', draftLook: null,
+      dlg: '', confirm: '', prefs: { inapp: true, digest: false, overdue: true, posts: true }, savedPrefs: { inapp: true, digest: false, overdue: true, posts: true },
+      notionS: props.notion || 'connected', notionFor: props.notion || '',
+      pvBrand: 'Lumen and Lark', pvCheck: false, pvSwitch: true, pvTab: 'month',
+      photo: '', photoBusy: false, photoErr: '', photoPending: '', pwTouched: false, pwWrong: false, pwBusy: false, profBusy: false, prefBusy: false, discBusy: false, dlgBusy: false, dlgErr: false, failed: {}
+    });
+  }
+  componentDidMount() {
+    var self = this;
+    this._rs = function () { try { self.setState({ w: window.innerWidth }); } catch (e) {} };
+    this._sg = function (ev) { if (ev && ev.key === 'talby.look') { try { var L = JSON.parse(ev.newValue || 'null'); if (L) self.setState({ look: Object.assign({}, self.state.look, L) }); } catch (x) {} } };
+    this._kd = function (e) { if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) { if (e.preventDefault) e.preventDefault(); self.setState({ cmd: !self.state.cmd, nav: false }); } };
+    this._mqf = function () { self.setState({ sysAt: Date.now() }); };
+    try { window.addEventListener('resize', this._rs); window.addEventListener('storage', this._sg); window.addEventListener('keydown', this._kd); } catch (e) {}
+    try { this._mq = window.matchMedia('(prefers-color-scheme: dark)'); if (this._mq.addEventListener) this._mq.addEventListener('change', this._mqf); else if (this._mq.addListener) this._mq.addListener(this._mqf); } catch (e) {}
+
+    this._esc = function (e) { if (e && e.key === 'Escape') { var s2 = self.state; if (s2.dlg) { if (!s2.dlgBusy) { self.setState({ dlg: '', confirm: '', dlgErr: false }); try { self._opener && self._opener.focus(); } catch (x) {} } } else if (s2.secSheet) self.setState({ secSheet: false }); } };
+    try { window.addEventListener('keydown', this._esc); } catch (e) {}
+  }
+  componentWillUnmount() { try { window.removeEventListener('resize', this._rs); window.removeEventListener('storage', this._sg); window.removeEventListener('keydown', this._kd); } catch (e) {} try { if (this._mq) { if (this._mq.removeEventListener) this._mq.removeEventListener('change', this._mqf); else if (this._mq.removeListener) this._mq.removeListener(this._mqf); } } catch (e) {} clearTimeout(this._pz1); clearTimeout(this._pz2); clearTimeout(this._rt); (this._tt || []).forEach(clearTimeout); try { window.removeEventListener('keydown', this._esc); } catch (e) {} }
+  device() {
+    var d = this.props.device;
+    if (d && d !== 'auto') return d;
+    try {
+      var ua = navigator.userAgent || '';
+      if (/Instagram|FBAN|FBAV|TikTok|musical_ly|Bytedance|Snapchat|Pinterest|Line\//i.test(ua)) return 'inapp';
+      if (/iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'iphone';
+      if (/Android/.test(ua)) return 'android';
+    } catch (e) {}
+    return 'desktop';
+  }
+  isInstalled() { if (this.props.installed !== undefined) return !!this.props.installed; try { return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; } catch (e) { return false; } }
+  installApp() { return Promise.resolve(true); }
+  askAlerts() { return Promise.resolve('granted'); }
+  copyLink() { try { navigator.clipboard.writeText('https://www.talby.io/app'); } catch (e) {} return Promise.resolve(true); }
+  dismissInstall(where, forever) {}
+  componentDidUpdate(prev) {
+    var p = this.props, L = this.state.look, ch = null;
+    if (prev.dark !== p.dark) { ch = Object.assign({}, ch || L, { mode: p.dark ? 'dark' : 'light' }); }
+    if (prev.color !== p.color && p.color) { ch = Object.assign({}, ch || L, { theme: p.color }); }
+    if (ch) this.setState({ look: ch });
+    if (prev.view !== p.view) this.setState({ dv: p.view || 'sample' });
+  }
+  retryLoad() {
+    var self = this; clearTimeout(this._rt);
+    this.setState({ dv: 'loading' });
+    this._rt = setTimeout(function () { self.setState({ dv: 'sample' }); }, 900);
+  }
+  guard() {
+    var p = this.props;
+    if (p.plan !== 'readonly' && p.plan !== 'canceled') return true;
+    this.toast(p.plan === 'canceled' ? 'Your plan is canceled' : 'Your free trial ended', p.plan === 'canceled' ? 'Restart your plan to add or change deals.' : 'Upgrade to add or change deals.', null, { cta: p.plan === 'canceled' ? 'Restart plan' : 'Upgrade', act: function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} } });
+    return false;
+  }
+  setLook(key, val) {
+    var D = { theme: 'studio', mode: 'light', sidebar: 'expanded' };
+    var L = key === 'reset' ? Object.assign({}, D) : Object.assign({}, this.state.look, key === 'all' ? val : {});
+    if (key !== 'reset' && key !== 'all') L[key] = val;
+    this.setState({ look: L });
+    try { window.localStorage.setItem('talby.look', JSON.stringify(L)); } catch (e) {}
+  }
+  toast(title, desc, undo, extra) {
+    var self = this, id = Date.now() + Math.random(), x = extra || {};
+    this.setState({ toasts: this.state.toasts.concat([{ id: id, title: title, desc: desc || '', undo: undo || null, kind: x.kind || '', cta: x.cta || '', act: x.act || null }]).slice(-3) });
+    this._tt = this._tt || [];
+    this._tt.push(setTimeout(function () { self.setState({ toasts: self.state.toasts.filter(function (x) { return x.id !== id; }) }); }, 4000));
+  }
+  toastErr(title, desc, retry) { this.toast(title, desc, null, { kind: 'error', cta: retry ? 'Try again' : '', act: retry || null }); }
+  celebrate(pz) {
+    var self = this; clearTimeout(this._pz1); clearTimeout(this._pz2);
+    this.setState({ praise: null });
+    this._pz1 = setTimeout(function () { self.setState({ praise: Object.assign({ id: Date.now() }, pz) }); }, 40);
+    this._pz2 = setTimeout(function () { self.setState({ praise: null }); }, 5200);
+  }
+
+  // With the showErrors prop on, each action fails the first time and works on Try again, so every error state can be seen.
+  failOnce(key) {
+    if (!this.props.showErrors || this.state.failed[key]) return false;
+    var f = Object.assign({}, this.state.failed); f[key] = true; this.setState({ failed: f });
+    return true;
+  }
+  later(fn, ms) { this._tt = this._tt || []; this._tt.push(setTimeout(fn, ms)); }
+  uploadPhoto(url) {
+    var self = this;
+    this.setState({ photoBusy: true, photoErr: '', photoPending: url });
+    this.later(function () {
+      if (self.failOnce('photo')) { self.setState({ photoBusy: false, photoErr: 'upload' }); return; }
+      self.setState({ photoBusy: false, photo: url, photoPending: '' }); self.toast('Photo updated', 'It shows next to your name across Talby.');
+    }, 900);
+  }
+  saveProfileNow() {
+    var self = this, s = this.state;
+    this.setState({ profBusy: true });
+    this.later(function () {
+      if (self.failOnce('profile')) { self.setState({ profBusy: false }); self.toastErr('Could not save', 'Check your connection and try again.', function () { self.saveProfileNow(); }); return; }
+      self.setState({ profBusy: false, savedName: self.state.name, savedHandle: self.state.handle }); self.toast('Profile saved', '');
+    }, 600);
+  }
+  savePrefsNow() {
+    var self = this;
+    this.setState({ prefBusy: true });
+    this.later(function () {
+      if (self.failOnce('prefs')) { self.setState({ prefBusy: false }); self.toastErr('Could not save', 'Check your connection and try again.', function () { self.savePrefsNow(); }); return; }
+      self.setState({ prefBusy: false, savedPrefs: Object.assign({}, self.state.prefs) }); self.toast('Preferences saved', '');
+    }, 600);
+  }
+  updatePwNow() {
+    var self = this;
+    this.setState({ pwBusy: true, pwWrong: false });
+    this.later(function () {
+      if (self.failOnce('password')) { self.setState({ pwBusy: false, pwWrong: true }); try { self.pwCur && self.pwCur.focus(); } catch (e) {} return; }
+      self.setState({ pwBusy: false, pw1: '', pw2: '', pwTouched: false }); self.toast('Password updated', 'Use it next time you log in.');
+    }, 700);
+  }
+  disconnectNow() {
+    var self = this, p = this.props;
+    this.setState({ discBusy: true });
+    this.later(function () {
+      if (self.failOnce('notion')) { self.setState({ discBusy: false }); self.toastErr('Could not disconnect', 'Check your connection and try again.', function () { self.disconnectNow(); }); return; }
+      self.setState({ discBusy: false, notionS: 'off', notionFor: p.notion || '' }); self.toast('Notion disconnected', 'Deals you already imported stay in Talby.');
+    }, 600);
+  }
+  deleteNow() {
+    var self = this;
+    this.setState({ dlgBusy: true, dlgErr: false });
+    this.later(function () {
+      if (self.failOnce('delete')) { self.setState({ dlgBusy: false, dlgErr: true }); return; }
+      self.setState({ dlgBusy: false, dlg: '', confirm: '' }); self.toast('Demo only', 'Nothing was deleted.');
+      try { self._opener && self._opener.focus(); } catch (e) {}
+    }, 900);
+  }
+  renderVals() {
+    var TB={id:'studio',name:'Studio',vibe:'Clean and simple',page:'#FFFFFF',card:'#FFFFFF',tile:'#F5F5F5',fill:'#F5F5F5',fillHover:'#EDEDED',hv:'#F5F5F5',hvr:'#FAFAFA',hoverCard:'#FAFAFA',fg:'#0A0A0A',mutedFg:'#737373',border:'#E5E5E5',borderStrong:'#D4D4D4',line:'#EEEEEE',off:'#E2E2E2',destr:'#DC2626',destrBg:'#DC2626',tabOn:'#FFFFFF',tabSh:'0 1px 2px rgba(0,0,0,0.08)',shCard:'0 1px 2px rgba(0,0,0,0.05)',shHover:'0 10px 28px -16px rgba(0,0,0,0.22)',shPop:'0 16px 40px -12px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.05)',overlay:'rgba(0,0,0,0.3)',badBg:'#FDECEC',badFg:'#B91C1C',okBg:'#E9F8EE',okFg:'#15803D',warnBg:'#FEF4E2',warnFg:'#B45309',postBg:'#F3EEFF',postFg:'#6D28D9',primary:'#171717',primaryFg:'#FFFFFF',side:'#FAFAFA',sideBorder:'#E5E5E5',navOn:'#EDEDED',navHv:'rgba(0,0,0,0.045)',sideFx:'none',btnSh:'none',accent:'#1F7AE0',r:10,ctl:999,bodyFam:'Geist, ui-sans-serif, system-ui, -apple-system, sans-serif',titleFam:'Inter, ui-sans-serif, system-ui, sans-serif',numFam:'',hCase:'none',hTrack:'-0.6px',hScale:1,nTrack:'-0.8px'};
+    var TD={page:'#09090A',card:'#111112',tile:'#18181A',fill:'#1B1B1D',fillHover:'#242427',hv:'#1D1D20',hvr:'rgba(255,255,255,0.03)',hoverCard:'#161618',fg:'#EDEDED',mutedFg:'#8F8F94',border:'rgba(255,255,255,0.08)',borderStrong:'rgba(255,255,255,0.16)',line:'rgba(255,255,255,0.055)',off:'#2E2E31',destr:'#F87171',destrBg:'#DC2626',tabOn:'#2A2A2D',tabSh:'none',shCard:'none',shHover:'0 10px 28px -14px rgba(0,0,0,0.8)',shPop:'0 16px 40px -8px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06)',overlay:'rgba(0,0,0,0.6)',badBg:'rgba(239,68,68,0.16)',badFg:'#FCA5A5',okBg:'rgba(34,197,94,0.14)',okFg:'#86EFAC',warnBg:'rgba(245,158,11,0.16)',warnFg:'#FCD34D',postBg:'rgba(139,92,246,0.2)',postFg:'#C4B5FD',primary:'#F5F5F5',primaryFg:'#0A0A0A',side:'#0C0C0D',sideBorder:'rgba(255,255,255,0.07)',navOn:'rgba(255,255,255,0.075)',navHv:'rgba(255,255,255,0.045)',sideFx:'none',btnSh:'none',accent:'#3D8EEA'};
+    var TH={
+      studio:{lt:{},dk:{btnSh:'0 0 0 1px rgba(255,255,255,0.1), 0 0 18px -2px rgba(255,255,255,0.28)'}},
+      sand:{name:'Sand',vibe:'Warm and soft',r:8,hCase:'uppercase',hTrack:'0.12em',hScale:0.78,
+        lt:{page:'#F5EFE8',card:'#FCF9F5',tile:'#F3ECE3',fill:'#EFE6DB',fillHover:'#E7DCCE',hv:'#EFE6DB',hvr:'#F8F3ED',hoverCard:'#F8F3ED',fg:'#3A2A21',mutedFg:'#8A7466',border:'#E8DDD0',borderStrong:'#D8C8B6',line:'#EFE7DD',off:'#E3D8CA',tabOn:'#FCF9F5',tabSh:'0 1px 2px rgba(80,50,30,0.1)',shCard:'none',shHover:'0 10px 28px -18px rgba(80,50,30,0.3)',shPop:'0 16px 40px -14px rgba(80,50,30,0.26), 0 2px 6px rgba(80,50,30,0.06)',overlay:'rgba(58,42,33,0.28)',primary:'#6E4B39',primaryFg:'#FCF9F5',side:'#F0E8DF',sideBorder:'#E8DDD0',navOn:'#E6DACC',navHv:'rgba(110,75,57,0.06)'},
+        dk:{page:'#17120F',card:'#201915',tile:'#28201B',fill:'#2B231E',fillHover:'#352B25',hv:'#2D2520',hvr:'rgba(255,236,220,0.03)',hoverCard:'#251D19',fg:'#F1E7DC',mutedFg:'#A89484',border:'rgba(241,231,220,0.09)',borderStrong:'rgba(241,231,220,0.18)',line:'rgba(241,231,220,0.06)',off:'#3D332C',tabOn:'#3A3029',shPop:'0 16px 40px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(241,231,220,0.06)',primary:'#D9B89C',primaryFg:'#2A1D16',side:'#140F0D',sideBorder:'rgba(241,231,220,0.07)',navOn:'rgba(241,231,220,0.08)',navHv:'rgba(241,231,220,0.05)'}},
+      mac:{name:'Mac',vibe:'Calm and crisp',r:10,ctl:7,bodyFam:"-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Geist, system-ui, sans-serif",titleFam:"-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', Inter, system-ui, sans-serif",hTrack:'-0.4px',
+        lt:{page:'#F0F0F3',card:'#FFFFFF',tile:'#F5F5F7',fill:'#E8E8ED',fillHover:'#DEDEE4',hv:'#EBEBF0',hvr:'#F7F7F9',hoverCard:'#F7F7F9',fg:'#1D1D1F',mutedFg:'#86868B',border:'#DEDEE3',borderStrong:'#CACACF',line:'#ECECF0',off:'#DCDCE1',tabOn:'#FFFFFF',tabSh:'0 1px 3px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.06)',shCard:'0 1px 2px rgba(0,0,0,0.04)',shHover:'0 10px 28px -16px rgba(0,0,0,0.2)',shPop:'0 18px 48px -12px rgba(0,0,0,0.25), 0 0 0 0.5px rgba(0,0,0,0.08)',primary:'#3A3A3C',primaryFg:'#FFFFFF',side:'rgba(226,226,231,0.78)',sideBorder:'#DADADF',navOn:'rgba(0,0,0,0.075)',navHv:'rgba(0,0,0,0.045)',sideFx:'saturate(180%) blur(20px)',btnSh:'0 1px 1px rgba(0,0,0,0.12)'},
+        dk:{page:'#1C1C1E',card:'#2C2C2E',tile:'#323234',fill:'#3A3A3C',fillHover:'#444446',hv:'#3A3A3C',hvr:'rgba(255,255,255,0.03)',hoverCard:'#313133',fg:'#F5F5F7',mutedFg:'#98989D',border:'rgba(255,255,255,0.1)',borderStrong:'rgba(255,255,255,0.18)',line:'rgba(255,255,255,0.07)',off:'#48484A',tabOn:'#636366',shPop:'0 18px 48px -12px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.1)',primary:'#D1D1D6',primaryFg:'#1C1C1E',side:'rgba(40,40,43,0.82)',sideBorder:'rgba(255,255,255,0.08)',navOn:'rgba(255,255,255,0.1)',navHv:'rgba(255,255,255,0.05)',sideFx:'saturate(180%) blur(20px)',btnSh:'0 1px 1px rgba(0,0,0,0.3)'}},
+      stationery:{name:'Stationery',vibe:'Paper and ink',r:4,ctl:6,titleFam:'Fraunces, Georgia, serif',numFam:"'DM Mono', ui-monospace, monospace",hTrack:'-0.4px',nTrack:'-0.5px',
+        lt:{page:'#F6F1E6',card:'#FCF9F2',tile:'#F2ECDF',fill:'#EFE8D9',fillHover:'#E7DECB',hv:'#EFE8D9',hvr:'#F8F4EB',hoverCard:'#F8F4EB',fg:'#2E2A24',mutedFg:'#857B6B',border:'#DED4C1',borderStrong:'#CBBFA8',line:'#E9E1D1',off:'#DDD3C1',tabOn:'#FCF9F2',tabSh:'0 1px 0 rgba(46,42,36,0.14)',shCard:'none',shHover:'0 2px 0 #DED4C1',shPop:'0 14px 36px -14px rgba(46,42,36,0.28), 0 1px 0 rgba(46,42,36,0.08)',overlay:'rgba(46,42,36,0.25)',primary:'#2E2A24',primaryFg:'#FCF9F2',side:'#F1EBDE',sideBorder:'#DED4C1',navOn:'#E7DECC',navHv:'rgba(46,42,36,0.05)'},
+        dk:{page:'#1B1916',card:'#23211D',tile:'#2A2723',fill:'#2D2A25',fillHover:'#37332D',hv:'#2F2C27',hvr:'rgba(238,231,217,0.03)',hoverCard:'#28251F',fg:'#EEE7D9',mutedFg:'#A39A8A',border:'rgba(238,231,217,0.1)',borderStrong:'rgba(238,231,217,0.2)',line:'rgba(238,231,217,0.07)',off:'#3E3A33',tabOn:'#3A362F',shHover:'0 2px 0 rgba(238,231,217,0.12)',shPop:'0 14px 36px -10px rgba(0,0,0,0.7), 0 0 0 1px rgba(238,231,217,0.07)',primary:'#EEE7D9',primaryFg:'#1B1916',side:'#181613',sideBorder:'rgba(238,231,217,0.08)',navOn:'rgba(238,231,217,0.08)',navHv:'rgba(238,231,217,0.05)'}},
+      editorial:{name:'Editorial',vibe:'Sharp and bold',r:0,ctl:0,titleFam:"'Playfair Display', Georgia, serif",hTrack:'0px',hScale:1.12,nTrack:'0px',
+        lt:{page:'#FFFFFF',card:'#FFFFFF',tile:'#F4F4F2',fill:'#F2F2EF',fillHover:'#E7E7E3',hv:'#F2F2EF',hvr:'#FAFAF8',hoverCard:'#FAFAF8',fg:'#111111',mutedFg:'#6B6B6B',border:'#111111',borderStrong:'#111111',line:'#E3E3DF',off:'#DCDCD8',tabOn:'#FFFFFF',tabSh:'inset 0 0 0 1px #111111',shCard:'none',shHover:'none',shPop:'0 12px 32px -12px rgba(0,0,0,0.22)',primary:'#111111',primaryFg:'#FFFFFF',side:'#FFFFFF',sideBorder:'#111111',navOn:'#EFEFEB',navHv:'rgba(0,0,0,0.04)'},
+        dk:{page:'#0B0B0B',card:'#121212',tile:'#191919',fill:'#1B1B1B',fillHover:'#252525',hv:'#1C1C1C',hvr:'rgba(255,255,255,0.03)',hoverCard:'#171717',fg:'#F2F2F2',mutedFg:'#9A9A9A',border:'rgba(255,255,255,0.12)',borderStrong:'rgba(255,255,255,0.28)',line:'rgba(255,255,255,0.07)',off:'#333333',tabOn:'#262626',tabSh:'none',shHover:'none',shPop:'0 12px 32px -8px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1)',primary:'#F2F2F2',primaryFg:'#0B0B0B',side:'#0B0B0B',sideBorder:'rgba(255,255,255,0.1)',navOn:'rgba(255,255,255,0.08)',navHv:'rgba(255,255,255,0.04)'}}
+    };
+    function rgb(h){h=h.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];}
+    function mix(a,b,w){var x=rgb(a),y=rgb(b);return '#'+[0,1,2].map(function(i){return ('0'+Math.round(x[i]*w+y[i]*(1-w)).toString(16)).slice(-2);}).join('');}
+    function alpha(h,a){var x=rgb(h);return 'rgba('+x[0]+','+x[1]+','+x[2]+','+a+')';}
+    function talby(name,dark){
+      var id=TH[name]?name:'studio',x=TH[id],t={},q,c;dark=!!dark;
+      for(q in TB)t[q]=TB[q];
+      if(dark)for(q in TD)t[q]=TD[q];
+      for(q in x)if(q!=='lt'&&q!=='dk')t[q]=x[q];
+      c=dark?x.dk:x.lt;for(q in c)t[q]=c[q];
+      var r=t.r;t.id=id;t.dark=dark;
+      if(id!=='studio')t.accent=c.accent||t.primary;
+      t.ring=alpha(t.accent,dark?0.45:0.35);
+      t.soft=mix(t.primary,t.card,dark?0.16:0.1);t.softFg=dark?mix(t.primary,'#FFFFFF',0.8):t.primary;
+      t.rCard=(r?r+4:0)+'px';t.rTile=(r?r+2:0)+'px';t.rDialog=(r?r+8:0)+'px';t.rCtl=t.ctl+'px';t.rSm=r+'px';t.rIn=r+'px';
+      t.rItem=(r?Math.max(6,r-2):0)+'px';t.rBox=(r?4:0)+'px';t.rEv=(r?Math.min(r,6):0)+'px';t.rBar=Math.min(r,4)+'px';t.rPill=t.ctl>=999?'999px':t.rSm;
+      t.numFam=t.numFam||t.titleFam;
+      return t;
+    }
+    function theme(color,dark){return talby(color,dark);}
+    function kit(t){
+      var b='display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 14px; box-sizing: border-box; font: inherit; font-size: 14px; font-weight: 500; line-height: 1; white-space: nowrap; border-radius: '+t.rCtl+'; cursor: pointer; text-decoration: none; flex-shrink: 0';
+      var P=b+'; border: none; background: '+t.primary+'; color: '+t.primaryFg+'; box-shadow: '+t.btnSh, S=b+'; border: none; background: '+t.fill+'; color: '+t.fg+'; --hv: '+t.fillHover, O=b+'; border: 1px solid '+t.border+'; background: '+t.card+'; color: '+t.fg+'; --hv: '+t.hoverCard, G=b+'; border: none; background: transparent; color: '+t.fg, D=b+'; border: none; background: '+t.destrBg+'; color: #FFFFFF';
+      var sm='; height: 28px; padding: 0 12px; font-size: 13px', i32='; width: 32px; height: 32px; padding: 0', i28='; width: 28px; height: 28px; padding: 0';
+      var inp='height: 36px; width: 100%; min-width: 0; box-sizing: border-box; padding: 0 14px; border: none; border-radius: '+t.rCtl+'; background: '+t.fill+'; color: '+t.fg+'; font: inherit; font-size: 14px; outline: none';
+      var row='position: relative; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 10px 8px 14px; box-sizing: border-box';
+      var selx='; display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; --hv: '+t.fillHover;
+      return {
+        btnP:P, btnS:S, btnO:O, btnG:G, btnD:D, pSm:P+sm, sSm:S+sm, oSm:O+sm, gSm:G+sm, pBlk:P+'; width: 100%; height: 38px', oBlk:O+'; width: 100%; height: 38px',
+        ico:G+i32, icoG:G+i28, icoS:G+i28+'; color: '+t.mutedFg, icoO:O+i32, icoP:P+i32, icoSec:S+i32,
+        input:inp, area:'width: 100%; min-width: 0; box-sizing: border-box; padding: 12px 14px; border: none; border-radius: '+t.rTile+'; background: '+t.fill+'; color: '+t.fg+'; font: inherit; font-size: 14px; line-height: 1.5; outline: none; resize: vertical',
+        ctl:inp+'; flex: 0 1 220px; width: auto', sel:inp+'; flex: 0 1 220px; width: auto'+selx, ctlW:inp+'; flex: 0 1 300px; width: auto', selW:inp+'; flex: 0 1 300px; width: auto'+selx, ctlF:inp+'; flex: 1 1 auto; width: auto', selF:inp+'; width: 100%'+selx,
+        row:row, rowT:row+'; border-top: 1px solid '+t.line, rowCol:'display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px; box-sizing: border-box; border-top: 1px solid '+t.line,
+        rowLabel:'flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis',
+        group:'position: relative; background: '+t.card+'; border: 1px solid '+t.border+'; border-radius: '+t.rTile, secLabel:'padding: 0 4px; font-size: 14px; font-weight: 600',
+        card:'background: '+t.card+'; color: '+t.fg+'; border: 1px solid '+t.border+'; border-radius: '+t.rCard+'; box-shadow: '+t.shCard, tile:'background: '+t.tile+'; border-radius: '+t.rTile,
+        payBadge:'display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px 0 6px; box-sizing: border-box; border: 1px solid '+t.border+'; border-radius: '+t.rCtl+'; background: '+t.card+'; font-size: 12px; font-weight: 500; white-space: nowrap; flex-shrink: 0',
+        badge:'display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; box-sizing: border-box; border: 1px solid '+t.border+'; border-radius: '+t.rCtl+'; background: '+t.card+'; font-size: 12px; font-weight: 500; white-space: nowrap; flex-shrink: 0',
+        pop:'background: '+t.card+'; color: '+t.fg+'; border: 1px solid '+t.border+'; border-radius: '+t.rTile+'; box-shadow: '+t.shPop+'; padding: 6px; box-sizing: border-box',
+        item:'display: flex; align-items: center; gap: 10px; width: 100%; min-height: 34px; padding: 0 10px; box-sizing: border-box; border: none; border-radius: '+t.rItem+'; background: transparent; color: '+t.fg+'; font: inherit; font-size: 14px; text-align: left; cursor: pointer; text-decoration: none; --hv: '+t.hv,
+        tabs:'display: inline-flex; align-items: center; gap: 2px; height: 36px; padding: 3px; box-sizing: border-box; border-radius: '+t.rCtl+'; background: '+t.fill,
+        caps:'font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: '+t.mutedFg,
+        kbd:'display: inline-flex; align-items: center; height: 22px; padding: 0 7px; border-radius: '+t.rCtl+'; background: '+t.fill+'; color: '+t.mutedFg+'; font-size: 11px; font-weight: 500'
+      };
+    }
+    function tabStyle(t,on){return 'display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 100%; padding: 0 12px; box-sizing: border-box; border: none; border-radius: '+t.rCtl+'; background: '+(on?t.tabOn:'transparent')+'; color: '+(on?t.fg:t.mutedFg)+'; box-shadow: '+(on?t.tabSh:'none')+'; font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; flex-shrink: 0; cursor: pointer';}
+    function box(t,on){return 'width: 16px; height: 16px; flex: 0 0 16px; padding: 0; box-sizing: border-box; border: none; border-radius: '+t.rBox+'; background: '+(on?t.primary:t.off)+'; color: '+t.primaryFg+'; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background-color 0.15s ease';}
+    function chip(t,on){return 'height: 32px; padding: 0 14px; box-sizing: border-box; border: none; border-radius: '+t.rCtl+'; background: '+(on?t.primary:t.fill)+'; color: '+(on?t.primaryFg:t.fg)+'; font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; --hv: '+(on?t.primary:t.fillHover);}
+    var MS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    function md(iso) { return iso ? MS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)) : ''; }
+    function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+    var self = this, p = this.props, st = this.state;
+    var L = st.look, sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
+    var dark = L.mode === 'dark' || (L.mode === 'system' && sysDark);
+    var eff = L.theme || 'studio';
+    var t = theme(eff, dark), k = kit(t);
+    var mob = st.w < 768, tabW = !mob && st.w < 1024, wide = st.w >= 1100, collapsed = L.sidebar === 'icons' || tabW;
+    // Get the app card in Settings, always there. Phones can add Talby, laptops get a note.
+    var gaDev = this.device(), gaIn = this.isInstalled(), gaPh = st.gaPhase || '';
+    var GA = gaIn ? { sub: 'Talby is on this phone.', status: 'On your Home Screen', dot: '#22C55E', btn: '' }
+      : gaDev === 'desktop' ? { sub: 'Open www.talby.io on your phone to add Talby to your Home Screen.', status: 'Works on iPhone and Android', dot: t.mutedFg, btn: '' }
+      : gaDev === 'inapp' ? { sub: 'Open Talby in your browser to add it to your Home Screen. This app\'s browser cannot.', status: gaPh === 'copied' ? 'Link copied' : 'Not on your Home Screen yet', dot: gaPh === 'copied' ? '#22C55E' : t.mutedFg, btn: 'Copy link', act: function () { self.copyLink().then(function () { self.setState({ gaPhase: 'copied' }); }); } }
+      : gaDev === 'iphone' ? { sub: 'Add Talby to your Home Screen. It opens full screen and can send you alerts.', status: 'Not on your Home Screen yet', dot: t.mutedFg, btn: gaPh === 'hint' ? '' : 'Add to Home Screen', act: function () { self.setState({ gaPhase: 'hint' }); }, steps: gaPh === 'hint' ? ['Tap Share in Safari. On newer iPhones it is under the three dots.', 'Tap Add to Home Screen.', 'Tap Add.'] : null }
+      : { sub: 'Add Talby to your Home Screen. It opens full screen and can send you alerts.', status: gaPh === 'done' ? 'Added' : 'Not on your Home Screen yet', dot: gaPh === 'done' ? '#22C55E' : t.mutedFg, btn: gaPh === 'done' || gaPh === 'hint' ? '' : 'Add to Home Screen', act: function () { self.installApp().then(function (ok) { self.setState({ gaPhase: ok ? 'done' : 'hint' }); }); }, steps: gaPh === 'hint' ? ['Tap the three dots in Chrome.', 'Tap Add to Home screen.', 'Tap Install.'] : null };
+    var ga = { sub: GA.sub, status: GA.status, dot: GA.dot, btn: GA.btn, hasBtn: !!GA.btn, act: GA.act || function () {}, hasSteps: !!GA.steps, steps: (GA.steps || []).map(function (x, i) { return { n: String(i + 1), text: x }; }) };
+    var V = st.dv || 'sample', isSample = V === 'sample', isEmpty = V === 'empty', isLoading = V === 'loading', isError = V === 'error';
+    var plan = p.plan || 'active', locked = plan === 'readonly' || plan === 'canceled';
+    function payIcon(key) {
+      var G = '#22C55E', A = '#F59E0B', Rd = '#EF4444';
+      if (key === 'paid') return { label: 'Paid', fill: G, stroke: G, dash: 'none', inner: 'm8.5 12 2.5 2.5 4.5-5', innerStroke: '#FFFFFF', fg: t.fg };
+      if (key === 'inv') return { label: 'Invoiced', fill: 'none', stroke: A, dash: 'none', inner: 'M12 7.5v4.5l3 2', innerStroke: A, fg: t.fg };
+      if (key === 'over') return { label: 'Overdue', fill: Rd, stroke: Rd, dash: 'none', inner: 'M12 7.5v5M12 16.3v.2', innerStroke: '#FFFFFF', fg: t.destr };
+      return { label: 'Not invoiced', fill: 'none', stroke: t.mutedFg, dash: '3 2.6', inner: '', innerStroke: 'none', fg: t.mutedFg };
+    }
+    // Shared empty and error blocks. kind is 'empty' or 'error'. Render with state_html('name') in the markup.
+    function blk(kind, icon, title, sub, cta, act, cta2, act2) {
+      return { icon: icon, title: title, sub: sub || '', hasSub: !!sub, cta: cta || '', act: act || function () {}, hasCta: !!cta, cta2: cta2 || '', act2: act2 || function () {}, has2: !!cta2,
+        tileBg: kind === 'error' ? t.badBg : t.tile, tileFg: kind === 'error' ? t.badFg : t.fg };
+    }
+    // Skeleton bar for loading states. Use with class a-pulse.
+    function sk(w, h, r) { return 'display: block; flex-shrink: 0; width: ' + w + '; height: ' + h + '; border-radius: ' + (r || t.rSm) + '; background: ' + t.fill; }
+    var IC = {
+      alert: 'M12 8v4M12 16h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+      warn: 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3zM12 9v4M12 17h.01',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2zM7 11V7a5 5 0 0 1 10 0v4',
+      wifi: 'M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0',
+      refresh: 'M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16M8 16H3v5',
+      card: 'M2 7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM2 10h20',
+      clock: 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z'
+    };
+
+    t.planBg = 'linear-gradient(120deg, ' + mix(t.primary, t.card, dark ? 0.14 : 0.08) + ' 0%, ' + t.card + ' 60%)';
+    var SEC = [
+      ['account', 'Account', 'M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
+      ['appearance', 'Appearance', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 2v20'],
+      ['notifications', 'Notifications', 'M10.27 21a2 2 0 0 0 3.46 0M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33'],
+      ['connections', 'Connections', 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71'],
+      ['billing', 'Billing', 'M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM2 10h20']
+    ];
+    var IDS = SEC.map(function (s) { return s[0]; });
+    // The tab prop (canvas) wins until someone picks a tab; a new prop value takes over again.
+    var tabP = p.tab || '', sec = st.secFor === tabP ? st.sec : (IDS.indexOf(tabP) !== -1 ? tabP : 'account');
+    var nP = p.notion || '', notionS = st.notionFor === nP ? st.notionS : (nP || 'connected');
+    function goSec(s) { self.setState({ sec: s, secFor: tabP, secSheet: false, nav: false }); }
+    function tabS(on) { return tabStyle(t, on).replace('padding: 0 12px', 'padding: 0 14px'); }
+    var THN = { studio: 'Studio', sand: 'Sand', mac: 'Mac', stationery: 'Stationery', editorial: 'Editorial' };
+    var onCount = ['inapp', 'digest', 'overdue', 'posts'].filter(function (x) { return !!st.savedPrefs[x]; }).length;
+    var SUM = {
+      account: st.savedName + ', @' + st.savedHandle,
+      appearance: (THN[L.theme] || 'Studio') + ', ' + (L.mode === 'system' ? 'matches your device' : (L.mode === 'dark' ? 'dark' : 'light')),
+      notifications: onCount + ' of 4 on',
+      connections: notionS === 'connected' ? 'Notion connected' : notionS === 'lost' ? 'Notion needs to reconnect' : 'Nothing connected yet',
+      billing: ''
+    };
+    var nav = SEC.map(function (s, i) { var on = sec === s[0]; return { label: s[1], icon: s[2], on: on, cur: on ? 'page' : 'false', style: tabS(on), check: on ? 'visible' : 'hidden', rowSt: k.item + '; gap: 12px; min-height: 60px; padding: 8px 10px; font-size: 15px; background: ' + (on ? t.hv : 'transparent'),
+      sum: SUM[s[0]], hasSum: !!SUM[s[0]], hasPill: s[0] === 'billing',
+      pick: function () { goSec(s[0]); if (mob) { try { window.scrollTo(0, 0); } catch (e) {} } } }; });
+    var cur = SEC[Math.max(0, IDS.indexOf(sec))];
+    var DL = st.draftLook || L;
+    var pvDark = DL.mode === 'dark' || (DL.mode === 'system' && sysDark);
+    var pt = theme(DL.theme, pvDark), pk = kit(pt);
+    var IN = [5000, 3000, 6000, 0, 5350, 17000, 9500, 300];
+    var bars = IN.map(function (v, i) { return { h: Math.max(4, Math.round(v / 17000 * 64)) + 'px', op: v === 17000 ? '1' : '0.3', delay: (0.1 + i * 0.04).toFixed(2) + 's' }; });
+    var pvTabs = [['month', 'Month'], ['agenda', 'Agenda']].map(function (x) { var on = st.pvTab === x[0]; return { label: x[1], on: on, style: tabStyle(pt, on), pick: function () { self.setState({ pvTab: x[0] }); } }; });
+    var G = '#22C55E', A = '#F59E0B', Rd = '#EF4444';
+    var pvBadges = [
+      { label: 'Paid', fill: G, stroke: G, dash: 'none', inner: 'm8.5 12 2.5 2.5 4.5-5', innerStroke: '#FFFFFF', fg: pt.fg },
+      { label: 'Invoiced', fill: 'none', stroke: A, dash: 'none', inner: 'M12 7.5v4.5l3 2', innerStroke: A, fg: pt.fg },
+      { label: 'Overdue', fill: Rd, stroke: Rd, dash: 'none', inner: 'M12 7.5v5M12 16.3v.2', innerStroke: '#FFFFFF', fg: pt.destr },
+      { label: 'Not invoiced', fill: 'none', stroke: pt.mutedFg, dash: '3 2.6', inner: '', innerStroke: 'none', fg: pt.mutedFg }
+    ];
+    var swOn = st.pvSwitch;
+    var pvTrack = 'position: relative; display: inline-block; width: 32px; height: 18px; flex: 0 0 32px; border-radius: ' + (pt.r ? '9px' : '0px') + '; background: ' + (swOn ? pt.primary : pt.off) + '; transition: background-color 0.2s ease';
+    var pvKnob = 'position: absolute; top: 2px; left: ' + (swOn ? '16px' : '2px') + '; width: 14px; height: 14px; border-radius: ' + (pt.r ? '7px' : '0px') + '; background: ' + (swOn ? pt.primaryFg : (pvDark ? pt.fg : '#FFFFFF')) + '; box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: left 0.2s cubic-bezier(.4,0,.2,1)';
+    var profDirty = st.name !== st.savedName || st.handle !== st.savedHandle;
+    var PREFS = [
+      ['inapp', 'In-app notifications', 'The bell shows what is happening today.'],
+      ['digest', 'Daily digest', 'A morning email with only what you have that day: payments, deliverables, posts and dated to-dos.'],
+      ['overdue', 'Overdue payment alerts', 'An email the day a payment goes late, with a reminder drafted for you to send.'],
+      ['posts', 'Post reminders', 'A heads up the day before something is due to go live.']
+    ];
+    var prefs = PREFS.map(function (x, j) { var on = !!st.prefs[x[0]]; return { label: x[1], desc: x[2], on: on, box: box(t, on), line: j ? '1px solid ' + t.line : 'none', radius: j === 0 ? (t.rTile + ' ' + t.rTile + ' 0 0') : (j === PREFS.length - 1 ? ('0 0 ' + t.rTile + ' ' + t.rTile) : '0'), toggle: function () { var n2 = Object.assign({}, self.state.prefs); n2[x[0]] = !n2[x[0]]; self.setState({ prefs: n2 }); } }; });
+    var prefDirty = PREFS.some(function (x) { return !!st.prefs[x[0]] !== !!st.savedPrefs[x[0]]; });
+    var pwOk = (st.pw1 || '').length > 0 && (st.pw2 || '').length >= 8;
+    var pw2n = (st.pw2 || '').length, pwShort = st.pwTouched && pw2n > 0 && pw2n < 8;
+    var match = (st.confirm || '').trim() === 'DELETE';
+    var isData = st.dlg === 'data';
+    // Billing: one card layout for every plan state, only the words, pill and button change.
+    var PLANS = {
+      active: { pill: 'Active', pBg: t.okBg, pFg: t.okFg, line: '$9 a month. Next payment on Nov 2.', cta: 'Change plan', primary: false, tileBg: t.primary, tileFg: t.primaryFg, meter: false },
+      trial: { pill: 'Free trial', pBg: t.fill, pFg: t.fg, line: '9 days left. Your trial ends on Oct 23, then it is $9 a month.', cta: 'Upgrade', primary: true, tileBg: t.primary, tileFg: t.primaryFg, meter: true },
+      pastdue: { pill: 'Past due', pBg: t.warnBg, pFg: t.warnFg, line: 'Your last payment did not go through. Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', primary: true, tileBg: t.primary, tileFg: t.primaryFg, meter: false },
+      canceled: { pill: 'Canceled', pBg: t.fill, pFg: t.mutedFg, line: 'Your access ended on Oct 2. Everything you added is safe. Restart to add or change deals.', cta: 'Restart plan', primary: true, tileBg: t.fill, tileFg: t.mutedFg, meter: false },
+      readonly: { pill: 'Trial ended', pBg: t.fill, pFg: t.mutedFg, line: 'You can still see everything. Upgrade to add or change deals.', cta: 'Upgrade', primary: true, tileBg: t.fill, tileFg: t.mutedFg, meter: false }
+    };
+    var pl = PLANS[plan] || PLANS.active; pl.outline = !pl.primary; pl.dot = plan === 'trial' ? t.accent : 'currentColor';
+    var noCard = plan === 'trial' || plan === 'readonly';
+    var pm = noCard ? { has: false, none: true, title: 'No card yet', sub: plan === 'trial' ? 'Add one to keep Talby after Oct 23.' : 'Add one to upgrade and pick up where you left off.', subFg: t.mutedFg, cta: 'Add card' }
+      : { has: true, none: false, title: 'Visa ending in 4242', sub: plan === 'pastdue' ? 'The Oct 2 payment was declined.' : 'Expires 08/28', subFg: plan === 'pastdue' ? t.warnFg : t.mutedFg, cta: 'Update' };
+    var IVD = plan === 'canceled' ? ['Sep 2, 2026', 'Aug 2, 2026', 'Jul 2, 2026'] : noCard ? [] : ['Oct 2, 2026', 'Sep 2, 2026', 'Aug 2, 2026'];
+    var invoices = IVD.map(function (d, i) { var due = plan === 'pastdue' && i === 0; return { date: d, aria: 'Download invoice for ' + d, rowStyle: i ? k.rowT : k.row, pill: due ? 'Past due' : 'Paid', pBg: due ? t.warnBg : t.okBg, pFg: due ? t.warnFg : t.okFg }; });
+    var IVF = { active: 'You keep read only access to your data if you cancel.', pastdue: 'You keep read only access to your data if you cancel.', trial: 'Nothing is charged until you upgrade.', canceled: 'Your data stays safe. Restart any time to pick up where you left off.', readonly: 'Your data stays safe. Upgrade any time to pick up where you left off.' };
+    function demoBill() { if (self.failOnce('billing')) { self.toastErr('Could not open billing', 'Check your connection and try again.', function () { self.toast('Demo only', 'Billing opens in Stripe in the real app.'); }); return; } self.toast('Demo only', 'Billing opens in Stripe in the real app.'); }
+    function openDlg(kind) { try { self._opener = document.activeElement; } catch (e) {} self.setState({ dlg: kind, confirm: '', dlgErr: false, dlgBusy: false }); setTimeout(function () { try { self.dlgIn && self.dlgIn.focus(); } catch (e) {} }, 60); }
+    function closeDlg() { if (self.state.dlgBusy) return; self.setState({ dlg: '', confirm: '', dlgErr: false }); try { self._opener && self._opener.focus(); } catch (e) {} }
+    function doDelete() { if (!match || self.state.dlgBusy) return; self.deleteNow(); }
+    function readPhoto(e) {
+      var el = e && e.target, f = el && el.files && el.files[0]; if (!f) return;
+      try { el.value = ''; } catch (x) {}
+      if (f.type && !/^image\//.test(f.type)) { self.setState({ photoErr: 'type' }); return; }
+      if (f.size > 5 * 1024 * 1024) { self.setState({ photoErr: 'size' }); return; }
+      try { var rd = new FileReader(); rd.onerror = function () { self.setState({ photoErr: 'type' }); }; rd.onload = function () { self.uploadPhoto(rd.result); }; rd.readAsDataURL(f); } catch (x) { self.setState({ photoErr: 'upload' }); }
+    }
+    var PHERR = { upload: 'Your photo did not upload. Check your connection and try again.', size: 'That photo is over 5 MB. Pick a smaller one.', type: 'That file is not a photo. Use a JPG, PNG or HEIC.' };
+    var sheetR = t.rDialog + ' ' + t.rDialog + ' 0 0';
+    var fieldCtl = k.input + '; height: 40px; font-size: 16px';
+    // Loading skeletons per tab.
+    function rowSk(o) { return Object.assign({ lead: false, leadSt: '', two: false, b2: '', ctl: false, ctlSt: '' }, o); }
+    function fieldSk(i) { return rowSk({ st: mob ? 'display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; box-sizing: border-box' + (i ? '; border-top: 1px solid ' + t.line : '') : (i ? k.rowT : k.row), b1: sk(['96px', '120px', '64px'][i % 3], '12px'), ctl: true, ctlSt: mob ? sk('100%', '40px', t.rCtl) : sk('300px', '36px', t.rCtl) + '; flex: 0 1 300px; width: auto' }); }
+    function cardSk(o) { return Object.assign({ ident: false, head: true, hw: sk('120px', '14px'), sw: sk(mob ? '70%' : '240px', '11px'), plan: false, hasTiles: false, tiles: [], tileCols: '', hasRows: false, rows: [], foot: false }, o); }
+    var SK = {
+      account: [cardSk({ ident: true, hasRows: true, rows: [0, 1, 2].map(fieldSk), foot: true }), cardSk({ hasRows: true, rows: [0, 1].map(fieldSk), foot: true }), cardSk({ hasRows: true, rows: [0, 1].map(function (i) { return rowSk({ st: i ? k.rowT : k.row, b1: sk('120px', '12px'), two: true, b2: sk('80%', '10px'), ctl: !mob, ctlSt: sk('110px', '32px', t.rCtl) }); }) })],
+      appearance: [cardSk({ hasTiles: true, tileCols: mob ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fit, minmax(116px, 1fr))', tiles: [0, 1, 2, 3, 4].map(function () { return { st: sk('100%', '118px', t.rTile) }; }), foot: true }), cardSk({ hasTiles: true, tileCols: mob ? 'minmax(0, 1fr)' : 'repeat(auto-fit, minmax(240px, 1fr))', tiles: [0, 1, 2].map(function () { return { st: sk('100%', '170px', t.rTile) }; }) })],
+      notifications: [cardSk({ hasRows: true, rows: [0, 1, 2, 3].map(function (i) { return rowSk({ st: i ? k.rowT : k.row, lead: true, leadSt: sk('16px', '16px', t.rBox), b1: sk(['150px', '110px', '170px', '120px'][i], '12px'), two: true, b2: sk(['70%', '85%', '75%', '60%'][i], '10px') }); }), foot: true })],
+      connections: [cardSk({ hasRows: true, rows: [rowSk({ st: k.row, lead: true, leadSt: sk('40px', '40px', t.rTile), b1: sk('140px', '12px'), two: true, b2: sk('60%', '10px'), ctl: !mob, ctlSt: sk('220px', '32px', t.rCtl) })] })],
+      billing: [cardSk({ head: false, plan: true }), cardSk({ hasRows: true, rows: [rowSk({ st: k.row, lead: true, leadSt: sk('44px', '30px', '6px'), b1: sk('150px', '12px'), two: true, b2: sk('90px', '10px'), ctl: true, ctlSt: sk('64px', '28px', t.rCtl) })] }), cardSk({ hasRows: true, rows: [0, 1, 2].map(function (i) { return rowSk({ st: i ? k.rowT : k.row, b1: sk('96px', '12px'), two: true, b2: sk('150px', '10px'), ctl: true, ctlSt: sk(mob ? '80px' : '130px', '14px') }); }) })]
+    };
+    var ERR = { account: 'We could not load your profile', appearance: 'We could not load your settings', notifications: 'We could not load your notification settings', connections: 'We could not load your connections', billing: 'We could not load your billing details' };
+    var live = !isLoading && !isError;
+    var page = {
+      minH: mob ? '100vh' : '1400px', cardPad: mob ? '16px' : '20px 24px 24px',
+      headPad: mob ? '18px 16px 14px' : '20px 24px 16px', bodyPad: mob ? '0 12px 12px' : '0 16px 16px', footPad: mob ? '12px 16px' : '14px 24px', apHeadPad: mob ? '18px 16px 0' : '20px 24px 0',
+      delPad: mob ? '18px 12px 12px' : '20px 16px 16px', planPad: mob ? '18px 16px' : '22px 24px', planGap: mob ? '14px' : '18px',
+      ga: ga,
+      nav: nav, isAppearance: live && sec === 'appearance', isAccount: live && sec === 'account', isNotifications: live && sec === 'notifications', isConnections: live && sec === 'connections', isBilling: live && sec === 'billing',
+      tabKey: function (e) { var i = IDS.indexOf(sec), n = -1; if (e.key === 'ArrowRight') n = (i + 1) % IDS.length; else if (e.key === 'ArrowLeft') n = (i + IDS.length - 1) % IDS.length; else if (e.key === 'Home') n = 0; else if (e.key === 'End') n = IDS.length - 1; if (n < 0) return; if (e.preventDefault) e.preventDefault(); var el = e.currentTarget; goSec(IDS[n]); setTimeout(function () { try { el.querySelectorAll('[role=tab]')[n].focus(); } catch (x) {} }, 20); },
+      secLabel: cur[1], secIcon: cur[2], secAria: 'Settings section: ' + cur[1] + '. Show all sections',
+      secSheetOn: mob && st.secSheet, openSecSheet: function () { self.setState({ secSheet: true }); }, closeSecSheet: function () { self.setState({ secSheet: false }); },
+      sheetBox: 'position: absolute; left: 0; right: 0; bottom: 0; max-height: 86vh; overflow-y: auto; display: flex; flex-direction: column; padding: 8px 12px 24px; box-sizing: border-box; background: ' + t.card + '; color: ' + t.fg + '; border: 1px solid ' + t.border + '; border-bottom: none; border-radius: ' + sheetR + '; box-shadow: ' + t.shPop,
+      sheetGrip: 'display: block; flex: 0 0 4px; width: 36px; height: 4px; margin: 0 auto 12px; border-radius: 2px; background: ' + t.borderStrong,
+      sheetRow: k.item + '; gap: 12px; min-height: 60px; padding: 8px 10px; font-size: 15px',
+      goTab: function (s) { goSec(s); },
+      saveLook: function (d) { self.setLook('all', d); self.setState({ draftLook: null }); self.toast('Appearance saved', 'Every page in Talby now uses it.'); },
+      setDraftLook: function (d) { self.setState({ draftLook: d }); },
+      pt: pt, pk: pk, pvFam: pt.titleFam, pvDot: st.draftLook ? '#F59E0B' : '#22C55E', pvNote: st.draftLook ? 'Showing your unsaved changes' : 'Matches what you have saved',
+      bars: bars, pvTabs: pvTabs, pvBadges: pvBadges, pvBrand: st.pvBrand, setPvBrand: function (e) { self.setState({ pvBrand: e.target.value }); },
+      pvCreate: function () { self.toast('This is a preview', 'Nothing was created.'); },
+      pvCheck: st.pvCheck, pvBox: box(pt, st.pvCheck), togglePvCheck: function () { self.setState({ pvCheck: !st.pvCheck }); },
+      pvSwitch: swOn, pvTrack: pvTrack, pvKnob: pvKnob, togglePvSwitch: function () { self.setState({ pvSwitch: !st.pvSwitch }); },
+      // Account: one column fields on phone.
+      fRow: mob ? 'position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px; box-sizing: border-box' : k.row,
+      fRowT: mob ? 'position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 14px; box-sizing: border-box; border-top: 1px solid ' + t.line : k.rowT,
+      fLabel: mob ? 'font-size: 13px; font-weight: 500; color: ' + t.mutedFg : k.rowLabel,
+      fCtl: mob ? fieldCtl : k.ctlW, inFs: mob ? '16px' : '14px',
+      emailSt: mob ? 'min-width: 0; font-size: 15px; color: ' + t.fg + '; white-space: nowrap; overflow: hidden; text-overflow: ellipsis' : 'flex: 0 1 300px; min-width: 0; color: ' + t.mutedFg + '; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis',
+      errLine: mob ? 'display: flex; padding: 0 14px 12px; margin-top: -2px' : 'display: flex; justify-content: flex-end; padding: 0 10px 10px 14px; margin-top: -2px',
+      errText: 'flex: ' + (mob ? '1 1 auto' : '0 1 300px') + '; min-width: 0; display: flex; align-items: center; gap: 6px; color: ' + t.destr + '; font-size: 13px; line-height: 1.4',
+      name: st.name, handle: st.handle, savedName: st.savedName, savedHandle: st.savedHandle,
+      setName: function (e) { self.setState({ name: e.target.value }); }, setHandle: function (e) { self.setState({ handle: e.target.value.replace(/^@/, '').replace(/\s/g, '') }); },
+      profCancel: profDirty && !st.profBusy, profClean: !profDirty || st.profBusy, profOp: profDirty ? '1' : '0.4', profDot: profDirty ? '#F59E0B' : '#22C55E', profStatus: profDirty ? 'Unsaved changes' : 'All changes saved',
+      profBusy: st.profBusy, profBtn: st.profBusy ? 'Saving' : 'Save',
+      undoProfile: function () { self.setState({ name: st.savedName, handle: st.savedHandle }); },
+      saveProfile: function () { if (!profDirty || st.profBusy) return; self.saveProfileNow(); },
+      avatarSt: 'position: relative; width: 56px; height: 56px; flex: 0 0 56px; border-radius: 28px; background: ' + t.primary + '; color: ' + t.primaryFg + '; display: inline-flex; align-items: center; justify-content: center; font-family: ' + t.titleFam + '; font-size: 22px; font-weight: 600' + (st.photo ? '; background-image: url(' + st.photo + '); background-size: cover; background-position: center' : ''),
+      photoActs: mob && st.photo ? 'display: flex; gap: 8px; width: 100%' : 'display: contents', photoRm: k.btnO + (mob ? '; flex: 1 1 0; height: 36px' : ''), photoCh: k.btnO + (mob && st.photo ? '; flex: 1 1 0; height: 36px' : ''),
+      hasPhoto: !!st.photo && !st.photoBusy, noPhoto: !st.photo, photoBusy: st.photoBusy, photoBtn: st.photoBusy ? 'Uploading' : 'Change photo',
+      fileRef: function (el) { self.fileEl = el; }, pickPhoto: readPhoto,
+      choosePhoto: function () { if (st.photoBusy) return; self.setState({ photoErr: '' }); try { self.fileEl && self.fileEl.click(); } catch (e) {} },
+      removePhoto: function () { var was = st.photo; self.setState({ photo: '' }); self.toast('Photo removed', '', function () { self.setState({ photo: was }); }); },
+      photoErrOn: !!st.photoErr, photoErrText: PHERR[st.photoErr] || '', photoRetry: st.photoErr === 'upload' && !!st.photoPending,
+      retryPhoto: function () { if (st.photoPending) self.uploadPhoto(st.photoPending); }, dismissPhoto: function () { self.setState({ photoErr: '', photoPending: '' }); },
+      pw1: st.pw1, pw2: st.pw2, setPw1: function (e) { self.setState({ pw1: e.target.value, pwWrong: false }); }, setPw2: function (e) { self.setState({ pw2: e.target.value }); },
+      blurPw2: function () { if ((self.state.pw2 || '').length) self.setState({ pwTouched: true }); },
+      pwCurErr: st.pwWrong, pwShort: pwShort, pwShortText: 'Use at least 8 characters. ' + (8 - pw2n) + ' more to go.',
+      pw1St: (mob ? fieldCtl : k.ctlW) + (st.pwWrong ? '; box-shadow: inset 0 0 0 1px ' + t.destr : ''),
+      pw2St: (mob ? fieldCtl : k.ctlW) + (pwShort ? '; box-shadow: inset 0 0 0 1px ' + t.destr : ''),
+      pwBtnSt: k.btnP + (mob ? '; width: 100%; height: 40px' : ''),
+      pwOff: !pwOk || st.pwBusy, pwOp: pwOk ? '1' : '0.4', pwBusy: st.pwBusy, pwBtn: st.pwBusy ? 'Updating' : 'Update password',
+      updatePw: function () { if (st.pwBusy) return; if (!pwOk) { if (pw2n > 0) self.setState({ pwTouched: true }); return; } self.updatePwNow(); },
+      delBtnO: k.btnO + (mob ? '; width: 100%; height: 40px' : ''), delBtnD: k.btnD + (mob ? '; width: 100%; height: 40px' : ''),
+      askData: function () { openDlg('data'); }, askAccount: function () { openDlg('account'); },
+      dlgOpen: !!st.dlg, dlgTitle: isData ? 'Delete all your data?' : 'Delete your account?',
+      dlgDesc: isData ? 'Every deal, payment, event, idea, to-do and file goes away for good. Your login and plan stay.' : 'Your account and everything in it goes away for good. Your plan is canceled and you are signed out.',
+      dlgAction: st.dlgBusy ? 'Deleting' : (st.dlgErr ? 'Try again' : (isData ? 'Delete my data' : 'Delete my account')),
+      dlgErr: st.dlgErr, dlgErrText: isData ? 'We could not delete your data. Nothing was removed. Check your connection and try again.' : 'We could not delete your account. Nothing was removed. Check your connection and try again.',
+      dlgBusy: st.dlgBusy, dlgRef: function (el) { self.dlgIn = el; },
+      dlgLayer: 'position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 80; display: flex; align-items: ' + (mob ? 'flex-end' : 'center') + '; justify-content: center; padding: ' + (mob ? '0' : '16px') + '; box-sizing: border-box',
+      dlgCls: mob ? 'a-up' : 'a-pop',
+      dlgBox: 'position: relative; width: ' + (mob ? '100%' : '460px') + '; max-width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: ' + t.card + '; color: ' + t.fg + '; border: 1px solid ' + t.border + '; border-radius: ' + (mob ? sheetR + '; border-bottom: none' : t.rDialog) + '; box-shadow: ' + t.shPop + '; overflow: hidden',
+      dlgBodyPad: mob ? '22px 16px 16px' : '24px 24px 16px', dlgFootPad: mob ? '12px 16px 20px' : '14px 24px 18px', dlgBtnX: mob ? '; flex: 1 1 0; height: 40px' : '',
+      dlgInput: k.input + (mob ? '; height: 40px; font-size: 16px' : ''),
+      confirm: st.confirm, setConfirm: function (e) { if (self.state.dlgBusy) return; self.setState({ confirm: e.target.value, dlgErr: false }); }, noMatch: !match || st.dlgBusy, matchOp: match ? '1' : '0.4',
+      confirmKey: function (e) { if (e.key === 'Enter') { if (e.preventDefault) e.preventDefault(); doDelete(); } },
+      closeDlg: closeDlg, doDelete: doDelete,
+      prefs: prefs, prefCancel: prefDirty && !st.prefBusy, prefClean: !prefDirty || st.prefBusy, prefOp: prefDirty ? '1' : '0.4', prefDot: prefDirty ? '#F59E0B' : '#22C55E', prefStatus: prefDirty ? 'Unsaved changes' : 'All changes saved',
+      prefBusy: st.prefBusy, prefBtn: st.prefBusy ? 'Saving' : 'Save',
+      undoPrefs: function () { self.setState({ prefs: Object.assign({}, st.savedPrefs) }); },
+      savePrefs: function () { if (!prefDirty || st.prefBusy) return; self.savePrefsNow(); },
+      notionOn: notionS === 'connected', notionLost: notionS === 'lost', notionOff: notionS === 'off',
+      notionLabel: notionS === 'connected' ? 'Connected' : notionS === 'lost' ? 'Connection lost' : 'Not connected',
+      notionSub: notionS === 'connected' ? 'Brand Deals 2026 syncs into Talby.' : notionS === 'lost' ? 'Talby lost access to Brand Deals 2026.' : 'Bring in the deals you track in Notion.',
+      notionBg: notionS === 'connected' ? t.okBg : notionS === 'lost' ? t.warnBg : t.fill, notionFg: notionS === 'connected' ? t.okFg : notionS === 'lost' ? t.warnFg : t.mutedFg,
+      actS: k.btnS + (mob ? '; flex: 1 1 0; height: 40px' : ''), actO: k.btnO + (mob ? '; flex: 1 1 0; height: 40px' : ''), actP: k.btnP + (mob ? '; flex: 1 1 0; height: 40px' : ''),
+      planO: k.btnO + (mob ? '; width: 100%; height: 40px' : ''), planP: k.btnP + (mob ? '; width: 100%; height: 40px' : ''),
+      dlgCancel: k.btnO + (mob ? '; flex: 1 1 0; height: 40px' : ''),
+      connActs: mob ? 'display: flex; gap: 8px; width: 100%' : 'display: contents', actX: mob ? '; flex: 1 1 0; height: 40px' : '',
+      discBusy: st.discBusy,
+      importNotion: function () { self.setState({ add: 'notion' }); },
+      disconnect: function () { if (st.discBusy) return; self.disconnectNow(); },
+      connect: function () { self.setState({ add: 'notion' }); },
+      pl: pl, pm: pm, planBtnX: mob ? '; width: 100%; height: 40px' : '',
+      invoices: invoices, noInvoices: invoices.length === 0, ivNone: plan === 'trial' ? 'Your first one shows up here when your plan starts.' : 'Your first one shows up here after you upgrade.',
+      ivFoot: IVF[plan] || IVF.active, ivCancel: plan === 'active' || plan === 'pastdue',
+      ivDateRow: mob ? 'display: flex; align-items: center; gap: 8px; min-width: 0' : 'display: contents', icoDl: k.icoS + (mob ? '; width: 36px; height: 36px; margin-right: -6px' : ''),
+      demoBill: demoBill,
+      skCards: SK[sec] || SK.appearance, skTile48: sk('48px', '48px', t.rTile), skPlan1: sk('180px', '16px'), skPlan2: sk(mob ? '90%' : '260px', '11px'), skBtn: sk(mob ? '100%' : '110px', mob ? '40px' : '32px', t.rCtl),
+      skIdPad: mob ? '0 20px 14px' : '0 24px 14px', skAv: sk('56px', '56px', '28px'), skN1: sk('96px', '13px'), skN2: sk('80px', '11px'), skPhoto: sk('120px', '32px', t.rCtl),
+      skFoot: sk('110px', '11px'), skSave: sk('64px', '32px', t.rCtl),
+      setErr: blk('error', IC.wifi, ERR[sec] || ERR.appearance, 'Check your connection and try again. Nothing was lost.', 'Try again', function () { self.retryLoad(); })
+    };
+    var shell = {
+      t: t, k: k, dark: dark, look: L, collapsed: collapsed, mob: mob, notMob: !mob, wide: wide, eff: eff, titleFam: t.titleFam, numFam: t.numFam,
+      vars: '--hv: ' + t.hv + '; --hvr: ' + t.hvr + '; --bd2: ' + t.borderStrong + '; --fg: ' + t.fg + '; --ring: ' + t.ring + '; --shh: ' + t.shHover,
+      showRail: !mob, sbW: collapsed ? '72px' : '256px', mainPad: mob ? '0 12px 104px' : (tabW ? '0 20px 48px 12px' : '0 24px 56px 16px'), h1Fs: Math.round((mob ? 24 : 28) * t.hScale) + 'px',
+      toggleNav: function () { if (mob || tabW) self.setState({ nav: true }); else self.setLook('sidebar', collapsed ? 'expanded' : 'icons'); },
+      drawerOpen: (mob || tabW) && st.nav, closeNav: function () { self.setState({ nav: false }); },
+      appear: st.appear, openAppear: function () { self.setState({ appear: true, nav: false }); }, closeAppear: function () { self.setState({ appear: false }); },
+      setLook: function (k2, v2) { self.setLook(k2, v2); },
+      cmd: st.cmd, openCmd: function () { self.setState({ cmd: true, nav: false }); }, closeCmd: function () { self.setState({ cmd: false }); },
+      cmdAction: function (a, payload) {
+        if (a === 'mode') self.setLook('mode', dark ? 'light' : 'dark');
+        else if (a === 'appearance') self.setState({ appear: true, cmd: false });
+        else if (a === 'new' || a === 'upload' || a === 'notion') self.setState({ add: a, cmd: false });
+        else if (a === 'ask') self.setState({ askId: Date.now(), askText: payload || '', cmd: false });
+      },
+      add: st.add, openAdd: function (kind) { self.setState({ add: kind, nav: false }); }, closeAdd: function () { self.setState({ add: '' }); },
+      onCreated: function (info) { self.setState({ add: '' }); self.celebrate(info || {}); if (st.add === 'notion') self.setState({ notionS: 'connected', notionFor: p.notion || '' }); },
+      praise: st.praise, closePraise: function () { clearTimeout(self._pz2); self.setState({ praise: null }); },
+      askId: st.askId, askText: st.askText, asstName: 'Chanelica',
+      toastR: mob ? '12px' : '24px', toastL: mob ? '12px' : 'auto', toastB: mob ? 'auto' : '84px', toastT: mob ? '12px' : 'auto', toastW: mob ? 'auto' : '340px',
+      toasts: st.toasts.map(function (x) { var drop = function () { self.setState({ toasts: self.state.toasts.filter(function (y) { return y.id !== x.id; }) }); };
+        return { title: x.title, desc: x.desc, hasDesc: !!x.desc, hasUndo: !!x.undo, undo: function () { if (x.undo) x.undo(); drop(); }, isErr: x.kind === 'error', hasCta: !!x.cta, cta: x.cta, doCta: function () { drop(); if (x.act) x.act(); } }; }),
+      stH: mob ? '36px' : '28px', dataView: V, isSample: isSample, isEmpty: isEmpty, isLoading: isLoading, isError: isError, notSample: !isSample, retry: function () { self.retryLoad(); }, isTab: tabW,
+      plan: plan, locked: locked, lockedKind: locked ? plan : '', quietBell: !isSample, sbFresh: !isSample,
+      hasBanner: plan === 'pastdue' || locked, bn: (function () {
+        var go = function () { try { window.localStorage.setItem('talby.settingsTab', 'billing'); window.location.href = 'SSettings.dc.html'; } catch (e) {} };
+        if (plan === 'pastdue') return { bg: t.warnBg, fg: t.warnFg, bd: 'transparent', subFg: t.warnFg, icon: IC.warn, title: mob ? 'Payment failed.' : 'Your last payment did not go through.', text: mob ? 'Update your card by Oct 21.' : 'Update your card by Oct 21 to keep adding and changing deals.', cta: 'Update card', act: go };
+        if (plan === 'canceled') return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Plan canceled.' : 'Your plan is canceled.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Restart your plan to add or change deals.', cta: 'Restart plan', act: go };
+        return { bg: t.tile, fg: t.fg, bd: t.border, subFg: t.mutedFg, icon: IC.lock, title: mob ? 'Trial ended.' : 'Your free trial ended.', text: mob ? 'Your deals are safe.' : 'Everything you added is safe. Upgrade to add or change deals.', cta: 'Upgrade', act: go };
+      })()
+    };
+    var out = Object.assign(shell, page);
+    out.chatHidden = st.appear || st.nav || st.cmd || !!st.add || !!(st.dlg || (mob && st.secSheet));
+    return out;
+  }
+}
+</script>
+</body>
+</html>
