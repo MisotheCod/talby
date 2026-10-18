@@ -7,7 +7,12 @@ import SAuth from '@/components/talby/SAuth';
 
 export default function TalbyAuthPage({ mode }: { mode: 'login' | 'signup' | 'forgot' | 'reset' }) {
   const [on, setOn] = React.useState(false);
-  React.useEffect(() => setOn(true), []);
+  React.useEffect(() => {
+    // Log in and sign up are always light, whatever look the person uses inside Talby.
+    const h = document.documentElement;
+    h.classList.remove('dark'); h.setAttribute('data-mode', 'light'); h.style.background = '#FFFFFF'; h.style.colorScheme = 'light';
+    setOn(true);
+  }, []);
   if (!on) return null;
-  return <TalbyRoot><SAuth mode={mode} /></TalbyRoot>;
+  return <TalbyRoot><SAuth mode={mode} theme="light" /></TalbyRoot>;
 }
