@@ -226,6 +226,7 @@ export type DealRow = {
   pay: PayState;
   /** first post date, or "" */
   post: ISODate | '';
+  postDates?: { id?: string; date: ISODate; label?: string }[];
   /** pay by date, or the date it was paid when pay is "paid", or "" */
   payBy: ISODate | '';
   amount: number;
@@ -350,6 +351,8 @@ export type CalendarEvent = {
   kind: 'post' | 'del' | 'pay';
   /** for pay this is the brand name; for post and del it is the line shown on the calendar */
   title: string;
+  /** post only: what posts that day, like "Reel 1". Shown after the brand and never cut off. */
+  label?: string;
   amount?: number;
   /** pay only: the payment is late */
   overdue?: boolean;
@@ -386,6 +389,7 @@ export const SAMPLE_CALENDAR: CalendarData = {
 export function toCalendarState(d: CalendarData) {
   return d.events.map((e, i) => {
     const o: any = { id: i + 1, dbId: e.id, d: e.date, k: e.kind, title: e.title };
+    if (e.label) o.label = e.label;
     if (e.amount !== undefined) o.amt = e.amount;
     if (e.overdue) o.over = true;
     if (e.done !== undefined) o.done = e.done;

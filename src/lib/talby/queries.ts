@@ -42,6 +42,7 @@ export interface ContentRow {
   post_type: string | null; status: string | null; event_date: string | null;
   caption: string | null; notes: string | null; repeat_type: string | null;
   repeat_until: string | null; scheduled_time: string | null; media_refs: unknown;
+  deal?: { id: string; brand: string } | null;
 }
 
 export interface TodoRow {
@@ -72,7 +73,7 @@ export async function fetchOverview(supabase: SupabaseClient) {
   const [deals, payments, content, todos, notes] = await Promise.all([
     supabase.from("deals").select("*").order("created_at", { ascending: false }),
     supabase.from("payments").select("*, deal:deals(id, brand)").order("expected_date", { ascending: true }),
-    supabase.from("content").select("*").order("event_date", { ascending: true }),
+    supabase.from("content").select("*, deal:deals(id, brand)").order("event_date", { ascending: true }),
     supabase.from("todos").select("*"),
     supabase.from("notes").select("id, body, event_date, done"),
   ]);
