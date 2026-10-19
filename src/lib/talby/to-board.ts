@@ -259,7 +259,7 @@ export function toCalendarData(p: { content: ContentRow[]; payments: PaymentRow[
   for (const c of content.filter((x) => x.event_date)) {
       const lbl = [c.title, c.post_type].find((x) => x && x !== c.event_date) || "";
       const brand = c.deal?.brand || "";
-      events.push({ id: c.id, date: c.event_date!, kind: "post", title: brand ? (lbl ? brand + ", " + lbl : brand) : (lbl || c.title || c.event_date || "") });
+      events.push({ id: c.id, date: c.event_date!, kind: "post", title: brand || lbl || c.event_date!, label: (lbl && brand) ? lbl : "" });
     }
   for (const x of payments.filter((y) => y.expected_date)) {
     const paid = x.status === "received" || x.pay_status === "paid";

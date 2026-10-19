@@ -251,7 +251,7 @@ class Component extends DCLogic {
           numBg: today ? t.primary : 'transparent', numFg: today ? t.primaryFg : (out ? t.mutedFg : t.fg), numFw: today || sel ? '600' : '500',
           bg: sel ? t.sel : (out ? t.out : t.card), hvr: sel ? t.sel : (out ? t.fill : t.hoverCard), ring: sel ? ('inset 0 0 0 1.5px ' + t.primary) : 'none',
           br: (i % 7) < 6 ? line : 'none', bb: Math.floor(i / 7) < rowsN - 1 ? line : 'none',
-          events: mine.slice(0, 3).map(function (e) { var c2 = cat(e); return { title: e.title, bg: c2.bg, fg: c2.fg, done: e.k === 'del' && !!e.done, cls: st.fresh[e.id] ? 'a-pop' : '', hasAmt: e.k === 'pay' && !!e.amt, amt: e.amt ? fmtS(e.amt) : '' }; }),
+          events: mine.slice(0, 3).map(function (e) { var c2 = cat(e); return { title: e.title, bg: c2.bg, fg: c2.fg, done: e.k === 'del' && !!e.done, cls: st.fresh[e.id] ? 'a-pop' : '', hasAmt: e.k === 'pay' && !!e.amt, amt: e.amt ? fmtS(e.amt) : '', hasLabel: !!e.label, label: e.label || '' }; }),
           skel: skw.map(function (w) { return sk(w + '%', '21px', t.rEv); }),
           dots: isLoading ? skw.map(function () { return t.off; }) : mine.slice(0, 3).map(function (e) { return cat(e).sw; }),
           hasMore: mine.length > 3, more: (mine.length - 3) + ' more',
@@ -269,7 +269,7 @@ class Component extends DCLogic {
       var dt = new Date(key + 'T00:00:00');
       return { wd: WDL[dt.getDay()].slice(0, 3), num: String(dt.getDate()), sel: sel, bg: sel ? t.sel : 'transparent', line: j < akeys.length - 1 ? ('1px solid ' + t.line) : 'none',
         numBg: today ? t.primary : 'transparent', numFg: today ? t.primaryFg : t.fg, none: evs.length === 0,
-        events: evs.map(function (e) { var c2 = cat(e), dn = e.k === 'del' && !!e.done; return { type: dn ? CAT.del.label : c2.label, bg: c2.bg, fg: c2.fg, sw: c2.sw, title: e.title, titleFg: dn ? t.mutedFg : t.fg, done: dn, amount: e.amt ? fmt(e.amt) : '', amtFg: e.over ? t.destr : t.fg,
+        events: evs.map(function (e) { var c2 = cat(e), dn = e.k === 'del' && !!e.done; return { type: dn ? CAT.del.label : c2.label, bg: c2.bg, fg: c2.fg, sw: c2.sw, title: e.title + (e.label ? ', ' + e.label : ''), titleFg: dn ? t.mutedFg : t.fg, done: dn, amount: e.amt ? fmt(e.amt) : '', amtFg: e.over ? t.destr : t.fg,
           sub: e.over ? 'Payment overdue' : (e.k === 'del' ? (dn ? 'Deliverable, done' : 'Deliverable') : c2.label), fg2: e.over ? t.destr : t.mutedFg }; }),
         pick: function (ev) { self.openDay(key, ev && ev.currentTarget); } };
     });
@@ -280,7 +280,7 @@ class Component extends DCLogic {
       var list = evAll.filter(function (e) { return e.d === key; });
       var evs = list.map(function (e, j) {
         var c2 = cat(e), isDel = e.k === 'del';
-        return { title: e.title, isDel: isDel, isDot: !isDel, done: !!e.done, box: box(t, !!e.done) + (mob ? '; width: 20px; height: 20px; flex: 0 0 20px' : ''), dotBox: mob ? '20px' : '16px', aria: (e.done ? 'Mark not done: ' : 'Mark done: ') + e.title, sw: c2.sw,
+        return { title: e.title + (e.label ? ', ' + e.label : ''), isDel: isDel, isDot: !isDel, done: !!e.done, box: box(t, !!e.done) + (mob ? '; width: 20px; height: 20px; flex: 0 0 20px' : ''), dotBox: mob ? '20px' : '16px', aria: (e.done ? 'Mark not done: ' : 'Mark done: ') + e.title, sw: c2.sw,
           titleFg: isDel && e.done ? t.mutedFg : t.fg, sub: e.over ? 'Payment overdue' : (isDel ? (e.done ? 'Deliverable, done' : 'Deliverable') : c2.label), fg2: e.over ? t.destr : t.mutedFg,
           amount: e.amt ? fmt(e.amt) : '', amtFg: e.over ? t.destr : t.fg, rowStyle: j ? k.rowT : k.row, cls: st.fresh[e.id] ? 'a-in' : '',
           toggle: function () { if (!self.guard()) return; self.setState({ events: self.state.events.map(function (x) { return x.id === e.id ? Object.assign({}, x, { done: !x.done }) : x; }) }); self.emit('event.setDone', { id: e.dbId !== undefined ? e.dbId : e.id, done: !e.done }, 'Could not update it'); } };
@@ -584,9 +584,15 @@ function render($s0, host) {
                                     <path d={"M20 6 9 17l-5-5"} />
                                   </svg>
                                 </>) : null}
-                                <span {...S("flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
+                                <span {...S("flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
                                   {T($s2?.e?.title)}
                                 </span>
+                                {$s2?.e?.hasLabel ? (<>
+                                  <span {...S("flex: 0 0 auto; white-space: nowrap; font-weight: 600")}>
+                                    {T($s2?.e?.label)}
+                                  </span>
+                                </>) : null}
+                                <span {...S("flex: 1 1 0; min-width: 0")} />
                                 {$s2?.e?.hasAmt ? (<>
                                   <span {...S("flex: 0 0 auto; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums")}>
                                     {T($s2?.e?.amt)}
