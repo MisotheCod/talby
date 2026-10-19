@@ -68,8 +68,11 @@ export function toOverviewData(p: {
       week.push({ date, kind: "late", title: `${pm.deal?.brand ?? "Payment"} payment`, brand: pm.deal?.brand, amount: pm.amount });
     for (const pm of payments.filter((x) => x.expected_date === date && (x.status === "received" || x.pay_status === "paid")))
       week.push({ date, kind: "paid", title: `${pm.deal?.brand ?? "Payment"} paid`, brand: pm.deal?.brand, amount: pm.amount });
-    for (const c of content.filter((x) => x.event_date === date))
-      week.push({ date, kind: c.status === "posted" ? "posted" : "post", title: c.title });
+    for (const c of content.filter((x) => x.event_date === date)) {
+      const lbl = [c.title, c.post_type].find((x) => x && x !== c.event_date) || "";
+      const brand = c.deal?.brand || "";
+      week.push({ date, kind: c.status === "posted" ? "posted" : "post", title: brand ? (lbl ? brand + ", " + lbl : brand) : (lbl || c.title || c.event_date || "") });
+    }
   }
 
   const horizon = TalbyDates.num(today) + 60;
@@ -158,7 +161,14 @@ export function toDealsData(p: {
   const byDeal = new Map<string, PaymentRow[]>();
   for (const x of payments.filter((y) => y.deal_id)) { const a = byDeal.get(x.deal_id!) ?? []; a.push(x); byDeal.set(x.deal_id!, a); }
   const postByDeal = new Map<string, string>();
-  for (const c of content.filter((x) => x.linked_deal_id && x.event_date)) postByDeal.set(c.linked_deal_id!, c.event_date!);
+  const postDatesByDeal = new Map<string, Array<{ id: string; date: string; label?: string }>>();
+  for (const c of content.filter((x) => x.linked_deal_id && x.event_date)) {
+    const arr = postDatesByDeal.get(c.linked_deal_id!) ?? [];
+    arr.push({ id: c.id, date: c.event_date!, label: c.post_type || undefined });
+    postDatesByDeal.set(c.linked_deal_id!, arr);
+    const current = postByDeal.get(c.linked_deal_id!);
+    if (!current || c.event_date! < current) postByDeal.set(c.linked_deal_id!, c.event_date!);
+  }
   const extrasByDeal = new Map<string, NonNullable<typeof extras>>();
   for (const e of extras ?? []) { const a = extrasByDeal.get(e.deal_id) ?? []; a.push(e as NonNullable<typeof extras>[number]); extrasByDeal.set(e.deal_id, a); }
   const checklistByDeal = new Map<string, NonNullable<typeof checklist>>();
@@ -187,6 +197,7 @@ export function toDealsData(p: {
       status: negotiated ? "Negotiating" : "Active",
       pay: state,
       post: postByDeal.get(d.id) ?? (d.post_date ?? ""),
+      postDates: postDatesByDeal.get(d.id)?.sort((a, b) => a.date.localeCompare(b.date)),
       payBy: payBy || "",
       amount: d.value ?? 0,
       how: PAY_LABEL[d.payment_structure ?? "once"] ?? "All at once",
@@ -245,7 +256,11 @@ export function toPaymentsData(p: { payments: PaymentRow[]; deals: DealRow[]; to
 export function toCalendarData(p: { content: ContentRow[]; payments: PaymentRow[]; todos: TodoRow[]; today: ISODate }): CalendarData {
   const { content, payments, todos, today } = p;
   const events: CalendarEvent[] = [];
-  for (const c of content.filter((x) => x.event_date)) events.push({ id: c.id, date: c.event_date!, kind: "post", title: c.title });
+  for (const c of content.filter((x) => x.event_date)) {
+      const lbl = [c.title, c.post_type].find((x) => x && x !== c.event_date) || "";
+      const brand = c.deal?.brand || "";
+      events.push({ id: c.id, date: c.event_date!, kind: "post", title: brand ? (lbl ? brand + ", " + lbl : brand) : (lbl || c.title || c.event_date || "") });
+    }
   for (const x of payments.filter((y) => y.expected_date)) {
     const paid = x.status === "received" || x.pay_status === "paid";
     events.push({ id: x.id, date: x.expected_date!, kind: "pay", title: x.deal?.brand ?? "Payment", amount: x.amount, overdue: !paid && x.expected_date! < today });

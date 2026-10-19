@@ -129,6 +129,33 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
               : await supabase.from("content").insert(row);
             if (error) throw new Error("deal.update post: " + error.message);
           }
+          // postDates: replace the deal's post content rows
+          if (Array.isArray(c.postDates)) {
+            const dates = (c.postDates as Array<{ date?: string; label?: string }>).filter((x) => x.date);
+            const { data: existing } = await supabase.from("content").select("id, event_date").eq("linked_deal_id", String(id));
+            const existingRows = (existing ?? []) as Array<{ id: string; event_date: string | null }>;
+            const toKeep = new Set<string>();
+            // Update or insert each date
+            for (const d of dates) {
+              const match = existingRows.find((e) => e.event_date === d.date);
+              if (match) {
+                toKeep.add(match.id);
+                const { error } = await supabase.from("content").update({ title: d.label || d.date!, post_type: d.label || "" }).eq("id", match.id);
+                if (error) throw new Error("deal.update postDates update: " + error.message);
+              } else {
+                const row = { user_id: uid, linked_deal_id: String(id), title: d.label || d.date!, event_date: d.date, status: "planned", post_type: d.label || "" };
+                const { data: inserted, error } = await supabase.from("content").insert(row).select("id").single();
+                if (error) throw new Error("deal.update postDates insert: " + error.message);
+                if (inserted) toKeep.add((inserted as { id: string }).id);
+              }
+            }
+            // Delete rows no longer in the list
+            const toDelete = existingRows.filter((e) => !toKeep.has(e.id)).map((e) => e.id);
+            if (toDelete.length) {
+              const { error } = await supabase.from("content").delete().in("id", toDelete);
+              if (error) throw new Error("deal.update postDates delete: " + error.message);
+            }
+          }
           // --- extras: replace the deal's bonus/commission lines ---
           if (Array.isArray(extras)) {
             const del = await supabase.from("deal_extras").delete().eq("deal_id", String(id));

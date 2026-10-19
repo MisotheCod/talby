@@ -226,6 +226,7 @@ export type DealRow = {
   pay: PayState;
   /** first post date, or "" */
   post: ISODate | '';
+  postDates?: { id?: string; date: ISODate; label?: string }[];
   /** pay by date, or the date it was paid when pay is "paid", or "" */
   payBy: ISODate | '';
   amount: number;

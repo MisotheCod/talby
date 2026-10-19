@@ -182,6 +182,8 @@ class Component extends DCLogic {
     var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     function md(iso) { return iso ? MS[+iso.slice(5, 7) - 1] + ' ' + (+iso.slice(8, 10)) : ''; }
     function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+    // Short amount for the month grid: $1,200, $10.5k
+    function fmtS(n) { n = Math.round(n); return n >= 10000 ? '$' + (Math.round(n / 100) / 10).toString().replace(/\.0$/, '') + 'k' : '$' + n.toLocaleString('en-US'); }
     var self = this, p = this.props, st = this.state;
     var ACC = p.account || SAMPLE_ACCOUNT;
     var L = st.look, sysDark = false; try { sysDark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); } catch (e) {}
@@ -249,7 +251,7 @@ class Component extends DCLogic {
           numBg: today ? t.primary : 'transparent', numFg: today ? t.primaryFg : (out ? t.mutedFg : t.fg), numFw: today || sel ? '600' : '500',
           bg: sel ? t.sel : (out ? t.out : t.card), hvr: sel ? t.sel : (out ? t.fill : t.hoverCard), ring: sel ? ('inset 0 0 0 1.5px ' + t.primary) : 'none',
           br: (i % 7) < 6 ? line : 'none', bb: Math.floor(i / 7) < rowsN - 1 ? line : 'none',
-          events: mine.slice(0, 3).map(function (e) { var c2 = cat(e); return { title: e.title, bg: c2.bg, fg: c2.fg, done: e.k === 'del' && !!e.done, cls: st.fresh[e.id] ? 'a-pop' : '' }; }),
+          events: mine.slice(0, 3).map(function (e) { var c2 = cat(e); return { title: e.title, bg: c2.bg, fg: c2.fg, done: e.k === 'del' && !!e.done, cls: st.fresh[e.id] ? 'a-pop' : '', hasAmt: e.k === 'pay' && !!e.amt, amt: e.amt ? fmtS(e.amt) : '' }; }),
           skel: skw.map(function (w) { return sk(w + '%', '21px', t.rEv); }),
           dots: isLoading ? skw.map(function () { return t.off; }) : mine.slice(0, 3).map(function (e) { return cat(e).sw; }),
           hasMore: mine.length > 3, more: (mine.length - 3) + ' more',
@@ -585,6 +587,11 @@ function render($s0, host) {
                                 <span {...S("flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis")}>
                                   {T($s2?.e?.title)}
                                 </span>
+                                {$s2?.e?.hasAmt ? (<>
+                                  <span {...S("flex: 0 0 auto; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums")}>
+                                    {T($s2?.e?.amt)}
+                                  </span>
+                                </>) : null}
                               </span>
                             </React.Fragment>);
                           })}
