@@ -524,7 +524,7 @@ class Component extends DCLogic {
       cancelEdits: function () { var dp = dealParts(cur.id); self.setState({ e: {}, dirty: false, extras: dp.extras, items: dp.items, pop: null }); },
       save: function () { if (!st.dirty) return; self.write('Could not save', function () {
         var ch = Object.assign({}, st.e), epp = ch.pays || {}, epd = ch.payDates || {}; delete ch.pays; delete ch.payDates;
-        if (ch.postDates) ch.postDates = ch.postDates.filter(function (x) { return x.date; }).map(function (x) { return { date: x.date, label: x.label || '' }; });
+        if (ch.postDates) ch.postDates = ch.postDates.filter(function (x) { return x.date; }).map(function (x) { return x.id ? { id: x.id, date: x.date, label: x.label || '' } : { date: x.date, label: x.label || '' }; });
         Object.keys(epp).forEach(function (j) { var sr = sched[+j] || []; self.emit('payment.setStatus', { dealId: cur.dbId, paymentId: sr[4] !== undefined ? sr[4] : null, index: +j, state: epp[j] }, 'Could not update the payment'); });
         Object.keys(epd).forEach(function (j) { var sr = sched[+j] || []; self.emit('payment.setDate', { dealId: cur.dbId, paymentId: sr[4] !== undefined ? sr[4] : null, index: +j, date: epd[j] || '' }, 'Could not update the payment'); });
         self.emit('deal.update', { id: cur.dbId, changes: ch, extras: st.extras.slice(), checklist: st.items.slice() });

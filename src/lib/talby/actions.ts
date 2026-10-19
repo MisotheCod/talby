@@ -93,7 +93,18 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
             const how = String(c.how);
             dealUpdate.payment_structure = how === "All at once" ? "once" : how === "Split" ? "split" : how === "In parts" ? "parts" : how === "Monthly" ? "monthly" : how.toLowerCase();
           }
-          if (c.when !== undefined) dealUpdate.pay_terms = c.when ? String(c.when) : null;
+          if (c.when !== undefined) {
+            // deals.pay_terms has a CHECK that only accepts lowercase enum values
+            // (net_15, due_on_receipt, milestone). The panel sends the display label
+            // ("Net 30"), so map it here or the whole save 23514s -> "Could not save".
+            const WHEN_MAP: Record<string, string> = {
+              "when it posts": "due_on_receipt", "due on receipt": "due_on_receipt", "net 15": "net_15",
+              "net 30": "net_30", "net 45": "net_45", "net 60": "net_60", "net 90": "net_90",
+              "on a set date": "milestone", "milestone": "milestone",
+            };
+            const w = String(c.when);
+            dealUpdate.pay_terms = (WHEN_MAP[w.trim().toLowerCase()] ?? null);
+          }
           if (c.due !== undefined) dealUpdate.due_date = c.due ? String(c.due) : null;
           if (c.types !== undefined) dealUpdate.deliverable = c.types ? String(c.types) : null;
           if (c.rev !== undefined) dealUpdate.revisions_included = c.rev ? String(c.rev) : null;
@@ -129,34 +140,35 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
               : await supabase.from("content").insert(row);
             if (error) throw new Error("deal.update post: " + error.message);
           }
-          // postDates: replace the deal's post content rows
+          // postDates: replace the deal's POST content rows (id-keyed, per Cam's spec).
+          // A row is deleted ONLY if its id was in the loaded set and is now missing from
+          // changes.postDates — rows without an id are new (insert), rows with an id update.
+          // Never delete a row whose id was not loaded (protects non-post content).
           if (Array.isArray(c.postDates)) {
-            const dates = (c.postDates as Array<{ date?: string; label?: string }>).filter((x) => x.date);
-            const { data: existing } = await supabase.from("content").select("id, event_date").eq("linked_deal_id", String(id));
-            const existingRows = (existing ?? []) as Array<{ id: string; event_date: string | null }>;
-            const toKeep = new Set<string>();
-            // Update or insert each date
+            const dates = (c.postDates as Array<{ id?: string; date?: string; label?: string }>).filter((x) => x.date);
+            const { data: existing } = await supabase
+              .from("content").select("id, event_date, title").eq("linked_deal_id", String(id));
+            const had = new Set((existing ?? []).map((r) => String((r as { id: string }).id)));
             for (const d of dates) {
-              const match = existingRows.find((e) => e.event_date === d.date);
-              if (match) {
-                toKeep.add(match.id);
-                const { error } = await supabase.from("content").update({ title: d.label || d.date!, post_type: d.label || "" }).eq("id", match.id);
+              if (d.id && had.has(String(d.id))) {
+                const { error } = await supabase.from("content")
+                  .update({ event_date: String(d.date), title: d.label || String(d.date), post_type: d.label || "" })
+                  .eq("id", String(d.id)).eq("linked_deal_id", String(id));
                 if (error) throw new Error("deal.update postDates update: " + error.message);
               } else {
-                const row = { user_id: uid, linked_deal_id: String(id), title: d.label || d.date!, event_date: d.date, status: "planned", post_type: d.label || "" };
-                const { data: inserted, error } = await supabase.from("content").insert(row).select("id").single();
+                const row = { user_id: uid, linked_deal_id: String(id), title: d.label || String(d.date), event_date: String(d.date), status: "planned", post_type: d.label || "" };
+                const { error } = await supabase.from("content").insert(row);
                 if (error) throw new Error("deal.update postDates insert: " + error.message);
-                if (inserted) toKeep.add((inserted as { id: string }).id);
               }
             }
-            // Delete rows no longer in the list
-            const toDelete = existingRows.filter((e) => !toKeep.has(e.id)).map((e) => e.id);
-            if (toDelete.length) {
-              const { error } = await supabase.from("content").delete().in("id", toDelete);
+            // Delete only ids that existed before and are no longer in the list.
+            const goneIds = Array.from(had).filter((oid) => !dates.some((d) => d.id && String(d.id) === oid));
+            for (const oid of goneIds) {
+              const { error } = await supabase.from("content").delete().eq("id", oid).eq("linked_deal_id", String(id));
               if (error) throw new Error("deal.update postDates delete: " + error.message);
             }
           }
-          // --- extras: replace the deal's bonus/commission lines ---
+          // --- extras: replace the deal's bonus/commission lines ---          // --- extras: replace the deal's bonus/commission lines ---
           if (Array.isArray(extras)) {
             const del = await supabase.from("deal_extras").delete().eq("deal_id", String(id));
             if (del.error) throw new Error("deal.update extras del: " + del.error.message);
