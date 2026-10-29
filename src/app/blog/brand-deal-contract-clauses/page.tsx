@@ -19,11 +19,13 @@ export const metadata: Metadata = {
     title: TITLE,
     description: META,
     url: CANONICAL,
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: TITLE }],
     siteName: "Talby",
     type: "article",
   },
   twitter: {
     card: "summary_large_image",
+    images: ["/og.png"],
     title: TITLE,
     description: META,
   },
