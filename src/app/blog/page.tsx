@@ -18,6 +18,24 @@ export const metadata: Metadata = {
 
 const POSTS: { href: string; title: string; desc: string; date: string }[] = [
   {
+    href: "/blog/brand-deal-tracker-for-creators",
+    title: "How to track brand deals: the setup-free system creators actually stick to",
+    desc: "What to keep on every deal, why spreadsheets and Notion fall apart, and what a finished tracker changes.",
+    date: "October 22, 2026",
+  },
+  {
+    href: "/blog/spreadsheet-vs-app-for-brand-deals",
+    title: "Spreadsheet vs. app for brand deals: why the sheet falls apart at 10 deals",
+    desc: "Where a sheet keeps working, the three specific ways it breaks, and what changes with a dedicated tracker.",
+    date: "October 24, 2026",
+  },
+  {
+    href: "/blog/notion-for-creator-brand-deals",
+    title: "Notion for creator brand deals: when it works and when it eats your week",
+    desc: "The honest case for and against Notion templates, and what a finished tracker adds that Notion can't do.",
+    date: "October 26, 2026",
+  },
+  {
     href: "/blog/how-to-pitch-brands",
     title: "How to pitch brands as a smaller creator and land your first sponsored deal",
     desc: "What to have ready before you email any brand, what not to waste time on, and the pitch structure that gets a reply.",
