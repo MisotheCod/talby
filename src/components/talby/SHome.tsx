@@ -213,7 +213,7 @@ class Component extends DCLogic {
       menuIcon: menuOn ? 'M18 6 6 18M6 6l12 12' : 'M4 7h16M4 12h16M4 17h16',
       toggleMenu: function () { self.setState({ menu: !self.state.menu }); }, closeMenu: function () { self.setState({ menu: false }); },
       cmpCols: CMP_COLS.map(function (cc, i) { var tb = i === 3; return { label: cc[0], icon: cc[1], isTalby: tb, notTalby: !tb, img: tb ? null : (i === 0 ? '/logo-notes-app.png' : i === 1 ? '/logo-spreadsheet.png' : i === 2 ? '/logo-notion.png' : null), bg: tb ? c.tile : 'transparent', tileBg: tb ? c.card : c.fill, tileSh: tb ? ('0 0 0 1px ' + c.border) : 'none' }; }),
-      cmpRows: CMP.map(function (r, ri) { return { label: r[0], cells: r.slice(1).map(function (txt, ci) { var tb = ci === 3, last = ri === CMP.length - 1; return { text: txt, check: tb, notCheck: !tb, tool: CMP_COLS[ci][0], icon: CMP_COLS[ci][1], tileBg: tb ? c.card : c.fill, tileSh: tb ? ('0 0 0 1px ' + c.border) : 'none', bg: tb ? c.tile : 'transparent', fg: tb ? c.fg : c.mutedFg, fw: tb ? '600' : '400', line: tb ? c.border : c.line, radius: tb && last ? '0 0 18px 18px' : '0' }; }) }; }),
+      cmpRows: CMP.map(function (r, ri) { return { label: r[0], cells: r.slice(1).map(function (txt, ci) { var tb = ci === 3, last = ri === CMP.length - 1; return { text: txt, check: tb, notCheck: !tb, tool: CMP_COLS[ci][0], icon: CMP_COLS[ci][1], img: !tb ? (ci === 0 ? '/logo-notes-app.png' : ci === 1 ? '/logo-spreadsheet.png' : ci === 2 ? '/logo-notion.png' : null) : null, tileBg: tb ? c.card : c.fill, tileSh: tb ? ('0 0 0 1px ' + c.border) : 'none', bg: tb ? c.tile : 'transparent', fg: tb ? c.fg : c.mutedFg, fw: tb ? '600' : '400', line: tb ? c.border : c.line, radius: tb && last ? '0 0 18px 18px' : '0' }; }) }; }),
       plans: PLANS,
       footRow: W >= 1100, footStack: W < 1100,
       footLinks: FOOT.map(function (l) { return { label: l[0], href: l[1] || '#', isLink: !!l[1], plain: !l[1] }; }),
@@ -803,9 +803,13 @@ function render($s0, host) {
                                     </svg>
                                   </>) : null}
                                   {$s2?.cl?.notCheck ? (<>
+                                    {$s2?.cl?.img ? (
+                                      <img src={$s2?.cl?.img} width={"16"} height={"16"} alt={$s2?.cl?.tool} {...S("display: block; object-fit: contain; border-radius: 3px")} />
+                                    ) : (
                                     <svg width={"14"} height={"14"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"1.8"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
                                       <path d={$s2?.cl?.icon} />
                                     </svg>
+                                    )}
                                   </>) : null}
                                 </span>
                                 {T($s2?.cl?.tool)}
