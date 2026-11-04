@@ -136,6 +136,7 @@ export function toAccountData(p: {
 import type { DealsData, DealRow as BoardDealRow, PayState, PaymentsData, PaymentRow as BoardPaymentRow, CalendarData, CalendarEvent, TodosData, IdeasData } from "@/components/talby/_data";
 
 const PAY_LABEL: Record<string, string> = { once: "All at once", split: "Split", parts: "In parts", monthly: "Monthly" };
+const PAY_TERM_LABEL: Record<string, string> = { due_on_receipt: "Due on receipt", when_posts: "When it posts", net_15: "Net 15", net_30: "Net 30", net_45: "Net 45", net_60: "Net 60", net_90: "Net 90", milestone: "On a set date" };
 
 function platformsOf(d: DealRow): string[] {
   const p = (d as unknown as { platforms?: unknown }).platforms;
@@ -201,6 +202,7 @@ export function toDealsData(p: {
       post: postByDeal.get(d.id) ?? (d.post_date ?? ""),
       postDates: postDatesByDeal.get(d.id)?.sort((a, b) => a.date.localeCompare(b.date)),
       payBy: payBy || "",
+      when: PAY_TERM_LABEL[d.pay_terms ?? ""] ?? "",
       amount: d.value ?? 0,
       how: PAY_LABEL[d.payment_structure ?? "once"] ?? "All at once",
       platforms: Array.isArray(links.platforms) ? (links.platforms as string[]) : platformsOf(d),

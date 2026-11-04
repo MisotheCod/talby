@@ -232,6 +232,8 @@ export type DealRow = {
   amount: number;
   /** "All at once", "Split", "In parts" */
   how: string;
+  /** pay terms display label: "Net 30", "Net 60", "When it posts", "Due on receipt"... or "" */
+  when?: string;
   /** "TikTok", "Instagram", "YouTube", "Facebook" and so on */
   platforms: string[];
   /** "Video", "Reel", "Story", "Video, Reel" */
