@@ -289,7 +289,31 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           const { error } = await supabase.from("deals").update(patch).in("id", (ids ?? []).map(String));
           if (error) return false; await refresh(); return true;
         }
-        case "payment.markPaid": { const { error } = await supabase.from("payments").update({ status: "received", pay_status: "paid" }).eq("id", String((p as { id: string }).id)); if (error) return false; await refresh(); return true; }
+        case "payment.markPaid": {
+          // The overview "Paid" button emits { brand, amount } (no id), while the deal
+          // panel sends a real id. Resolve the payment either way, else the late
+          // payment never registers as paid.
+          const pr = p as { id?: string | number; brand?: string; amount?: number };
+          let pid = pr.id != null ? String(pr.id) : null;
+          if (!pid) {
+            const { data: rows } = await supabase
+              .from("payments")
+              .select("id, amount, deal:deals!inner(brand)")
+              .not("status", "eq", "received")
+              .order("expected_date", { ascending: true });
+            const match = (rows ?? []).find(
+              (r: any) =>
+                r && r.amount != null &&
+                Number(r.amount) === Number(pr.amount) &&
+                ((r.deal?.brand) || "") === String(pr.brand),
+            );
+            if (match) pid = String((match as { id: string }).id);
+          }
+          if (!pid) return false;
+          const { error } = await supabase.from("payments").update({ status: "received", pay_status: "paid" }).eq("id", pid);
+          if (error) return false;
+          await refresh(); return true;
+        }
         case "payment.record": {
           const { id, amount, date } = p as { id: string; amount?: number; date?: string };
           const { error } = await supabase.from("payments").update({ amount: amount ?? undefined, expected_date: date ?? undefined, status: "received", pay_status: "paid" }).eq("id", String(id));
