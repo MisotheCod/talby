@@ -319,7 +319,21 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           const { error } = await supabase.from("payments").update({ amount: amount ?? undefined, expected_date: date ?? undefined, status: "received", pay_status: "paid" }).eq("id", String(id));
           if (error) return false; await refresh(); return true;
         }
-        case "event.create": {
+        case "content.rename": {
+          const { id, title } = p as { id: string | number; title?: string };
+          if (!id || !title) return false;
+          const { error } = await supabase.from("content").update({ title: String(title) }).eq("id", String(id));
+          if (error) return false;
+          await refresh(); return true;
+        }
+        case "content.delete": {
+          const { id } = p as { id: string | number };
+          if (!id) return false;
+          const { error } = await supabase.from("content").delete().eq("id", String(id));
+          if (error) return false;
+          await refresh(); return true;
+        }
+case "event.create": {
           const { date, kind, title, amount } = p as { date: string; kind: string; title: string; amount?: number };
           if (kind === "post") { const { error } = await supabase.from("content").insert({ user_id: uid, title, event_date: date, status: "planned" }); if (error) return false; }
           else if (kind === "pay") { const { error } = await supabase.from("payments").insert({ user_id: uid, amount: amount ?? 0, expected_date: date, status: "expected", pay_status: "not_invoiced" }); if (error) return false; }
