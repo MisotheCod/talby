@@ -91,3 +91,15 @@ test("deal.update normalizes the display status value", async () => {
   const patch = (upd.args[0] as Record<string, unknown>);
   assert.equal(patch.status, "pipeline", "display 'Negotiating' must map to the DB value 'pipeline'");
 });
+
+test("payment.markPaid resolves by brand+amount when no id (overview Paid button)", () => {
+  // The overview "Needs your attention" Paid button emits { brand, amount } with no
+  // payment id. If the markPaid case stops resolving by brand/amount, marking a late
+  // payment paid from the overview registers nothing. Guard the fallback.
+  const src = readFileSync(join(ROOT, "src/lib/talby/actions.ts"), "utf8");
+  const m = src.match(/case\s+"payment\.markPaid":\s*\{([\s\S]*?)\n\s*case\s+"payment\.record"/);
+  assert.ok(m, "payment.markPaid case must exist");
+  const body = m[1];
+  assert.match(body, /deal:deals!inner\(brand\)/, "markPaid must resolve the deal brand");
+  assert.match(body, /Number\(pr\.amount\)/, "markPaid must match on amount");
+});

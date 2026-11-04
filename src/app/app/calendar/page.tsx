@@ -12,7 +12,7 @@ export default function CalendarPage() {
       load={async (supabase) => {
         const ctx = await loadAccountContext(supabase);
         const [c, pay, t] = await Promise.all([
-          supabase.from("content").select("*"),
+          supabase.from("content").select("*, deal:deals(id, brand)"),
           supabase.from("payments").select("*, deal:deals(id, brand)"),
           supabase.from("todos").select("*"),
         ]);
