@@ -301,12 +301,16 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
               .select("id, amount, deal:deals!inner(brand)")
               .not("status", "eq", "received")
               .order("expected_date", { ascending: true });
-            const match = (rows ?? []).find(
-              (r: any) =>
-                r && r.amount != null &&
-                Number(r.amount) === Number(pr.amount) &&
-                ((r.deal?.brand) || "") === String(pr.brand),
-            );
+            const wantAmt = Number(String(pr.amount ?? "").replace(/[^0-9.]/g, ""));
+            const rowsArr = (rows ?? []) as Array<{ id: string; amount: unknown; deal?: { brand?: string } | null }>;
+            const brand = String(pr.brand || "").trim().toLowerCase();
+            const match =
+              (wantAmt > 0
+                ? rowsArr.find((r) => r.amount != null && Number(r.amount) === wantAmt && String(r.deal?.brand || "").trim().toLowerCase() === brand)
+                : undefined) ||
+              /* brand-only fallback: amount may differ from what the board showed, but the
+                 brand uniquely identifies the user's unpaid payment for that deal. */
+              rowsArr.find((r) => String(r.deal?.brand || "").trim().toLowerCase() === brand);
             if (match) pid = String((match as { id: string }).id);
           }
           if (!pid) return false;

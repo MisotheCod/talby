@@ -101,5 +101,6 @@ test("payment.markPaid resolves by brand+amount when no id (overview Paid button
   assert.ok(m, "payment.markPaid case must exist");
   const body = m[1];
   assert.match(body, /deal:deals!inner\(brand\)/, "markPaid must resolve the deal brand");
-  assert.match(body, /Number\(pr\.amount\)/, "markPaid must match on amount");
+  assert.match(body, /wantAmt/, "markPaid must normalize the amount");
+  assert.match(body, /fallback/, "markPaid must fall back to brand-only match");
 });
