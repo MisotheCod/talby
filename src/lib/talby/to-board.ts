@@ -65,7 +65,9 @@ export function toOverviewData(p: {
   for (let i = -TalbyDates.weekday(today); i < 7 - TalbyDates.weekday(today); i++) {
     const date = TalbyDates.iso(TalbyDates.num(today) + i);
     for (const pm of payments.filter((x) => x.expected_date === date && x.status !== "received" && x.pay_status !== "paid"))
-      week.push({ date, kind: "late", title: `${pm.deal?.brand ?? "Payment"} payment`, brand: pm.deal?.brand, amount: pm.amount });
+      // Only a payment past its due date is "late". An unpaid payment due later this
+      // week (e.g. tomorrow) is NOT late — it renders as a neutral upcoming chip.
+      week.push({ date, kind: pm.expected_date && pm.expected_date < today ? "late" : "post", title: `${pm.deal?.brand ?? "Payment"} payment`, brand: pm.deal?.brand, amount: pm.amount });
     for (const pm of payments.filter((x) => x.expected_date === date && (x.status === "received" || x.pay_status === "paid")))
       week.push({ date, kind: "paid", title: `${pm.deal?.brand ?? "Payment"} paid`, brand: pm.deal?.brand, amount: pm.amount });
     for (const c of content.filter((x) => x.event_date === date)) {

@@ -19,8 +19,8 @@ import { paymentStatusView } from "./pay-status.ts";
 // Representative rows: one past-due, one on-time, one paid, one no-invoice,
 // one null-date, one invoiced-past-due, one invoiced-on-time.
 const TODAY = new Date("2026-10-01T00:00:00Z");
-const PAST = "2026-09-01";
-const FUTURE = "2026-11-01";
+const PAST = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);;
+const FUTURE = new Date(Date.now() + 45 * 86400000).toISOString().slice(0, 10);;
 
 function view(r: { pay_status?: string | null; status?: string | null; expected_date?: string | null; amount?: number | null }) {
   // mirror how BOTH surfaces call it (they pass the same shape)
