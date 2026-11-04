@@ -25,5 +25,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/blog/ugc-vs-branded-content`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/blog/build-a-creator-media-kit`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/blog/reporting-metrics-to-brands`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/blog/brand-deal-tracker-for-creators`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/blog/spreadsheet-vs-app-for-brand-deals`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${base}/blog/notion-for-creator-brand-deals`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
   ];
 }
