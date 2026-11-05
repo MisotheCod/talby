@@ -285,6 +285,11 @@ class Component extends DCLogic {
           amount: e.amt ? fmt(e.amt) : '', amtFg: e.over ? t.destr : t.fg, rowStyle: j ? k.rowT : k.row, cls: st.fresh[e.id] ? 'a-in' : '',
           toggle: function () { if (!self.guard()) return; self.setState({ events: self.state.events.map(function (x) { return x.id === e.id ? Object.assign({}, x, { done: !x.done }) : x; }) }); self.emit('event.setDone', { id: e.dbId !== undefined ? e.dbId : e.id, done: !e.done }, 'Could not update it'); },
           canDelete: e.k === 'post' || e.k === 'del',
+          canEdit: e.k === 'post',
+          rename: function () { if (!self.guard()) return; var rid = (e.dbId !== undefined ? e.dbId : e.id);
+            var v = window.prompt('Rename this post', e.title || '');
+            if (v == null) return; v = String(v).trim(); if (!v) return;
+            self.write('Could not rename it', function () { self.emit('content.rename', { id: rid, title: v }); }); },
           remove: function () { if (!self.guard()) return; var rid = (e.dbId !== undefined ? e.dbId : e.id);
             self.write('Could not delete it', function () {
               if (e.k === 'del') self.emit('todo.delete', { id: rid });
@@ -904,6 +909,14 @@ function render($s0, host) {
                           <span {...S(`font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; color: ${I($s1?.e?.amtFg)}`)}>
                             {T($s1?.e?.amount)}
                           </span>
+                          {$s1?.e?.canEdit ? (<>
+                            <button className={"tb tg"} type={"button"} aria-label={"Rename"} title={"Rename"} onClick={$s1?.e?.rename} {...S(`--hv: ${I($s0?.t?.fill)}; width: 26px; height: 26px; flex: 0 0 26px; margin-left: 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: ${I($s0?.t?.mutedFg)}`)}>
+                              <svg width={"13"} height={"13"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
+                                <path d={"M12 20h9"} />
+                                <path d={"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"} />
+                              </svg>
+                            </button>
+                          </>) : null}
                           {$s1?.e?.canDelete ? (<>
                             <button className={"tb tg"} type={"button"} aria-label={"Delete"} title={"Delete"} onClick={$s1?.e?.remove} {...S(`--hv: ${I($s0?.t?.fill)}; width: 26px; height: 26px; flex: 0 0 26px; margin-left: 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: ${I($s0?.t?.mutedFg)}`)}>
                               <svg width={"14"} height={"14"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
