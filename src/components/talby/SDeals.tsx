@@ -122,7 +122,16 @@ class Component extends DCLogic {
     this._wt = title; try { fn(); } finally { this._wt = null; } return true;
   }
   paidPraise(brand, amt) {
-    var got = 46150 + this.state.extraPaid + amt;
+    // This used to be 46150 - a number from the design board's sample data - so
+    // every account's "You got paid" toast claimed $46,150 + the payment.
+    // Sum the real rows instead: paid deals, excluding the one being marked now.
+    var rows = (this.props && Array.isArray(this.props.data)) ? this.props.data : [];
+    var base = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (r && r.pay === 'paid' && r.brand !== brand) base += (Number(r.amount) || 0);
+    }
+    var got = base + (Number(amt) || 0);
     this.setState({ extraPaid: this.state.extraPaid + amt });
     this.celebrate({ title: 'You got paid', chip: '+$' + Math.round(amt).toLocaleString('en-US'), line: brand + ' paid. $' + got.toLocaleString('en-US') + ' received this year.' });
   }
