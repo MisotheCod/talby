@@ -261,7 +261,13 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           if (!brand) return false;
           const { data: deals } = await supabase.from("deals").select("id").eq("brand", brand);
           const ids = ((deals as Array<{ id: string }> | null) ?? []).map((x) => x.id);
-          if (ids.length) { const { error } = await supabase.from("payments").update({ expected_date: date || null }).in("deal_id", ids); if (error) return false; }
+          if (ids.length) {
+            // Persist on the deal itself so it sticks even when the deal has no payment rows yet.
+            const { error: de } = await supabase.from("deals").update({ due_date: date || null }).in("id", ids);
+            if (de) return false;
+            const { error } = await supabase.from("payments").update({ expected_date: date || null }).in("deal_id", ids);
+            if (error) return false;
+          }
           await refresh(); return true;
         }
         case "deal.delete": {

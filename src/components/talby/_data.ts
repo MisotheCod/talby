@@ -74,7 +74,7 @@ export type OverviewData = {
   /** deals with no pay by date beyond the ones above: count and total amount */
   noPayBy: { count: number; amount: number };
   /** things on the calendar this week (Sunday to Saturday around today) */
-  week: { date: ISODate; kind: 'late' | 'paid' | 'posted' | 'post'; title: string; brand?: string; amount?: number }[];
+  week: { date: ISODate; kind: 'late' | 'paid' | 'posted' | 'post' | 'pay'; title: string; brand?: string; amount?: number }[];
   /** payments due in the next 60 days, soonest first: [brand, due date, amount] */
   upcoming: [string, ISODate, number][];
   /** "Booked this year" tile */
