@@ -283,7 +283,15 @@ class Component extends DCLogic {
         return { title: e.title + (e.label ? ', ' + e.label : ''), isDel: isDel, isDot: !isDel, done: !!e.done, box: box(t, !!e.done) + (mob ? '; width: 20px; height: 20px; flex: 0 0 20px' : ''), dotBox: mob ? '20px' : '16px', aria: (e.done ? 'Mark not done: ' : 'Mark done: ') + e.title, sw: c2.sw,
           titleFg: isDel && e.done ? t.mutedFg : t.fg, sub: e.over ? 'Payment overdue' : (isDel ? (e.done ? 'Deliverable, done' : 'Deliverable') : c2.label), fg2: e.over ? t.destr : t.mutedFg,
           amount: e.amt ? fmt(e.amt) : '', amtFg: e.over ? t.destr : t.fg, rowStyle: j ? k.rowT : k.row, cls: st.fresh[e.id] ? 'a-in' : '',
-          toggle: function () { if (!self.guard()) return; self.setState({ events: self.state.events.map(function (x) { return x.id === e.id ? Object.assign({}, x, { done: !x.done }) : x; }) }); self.emit('event.setDone', { id: e.dbId !== undefined ? e.dbId : e.id, done: !e.done }, 'Could not update it'); } };
+          toggle: function () { if (!self.guard()) return; self.setState({ events: self.state.events.map(function (x) { return x.id === e.id ? Object.assign({}, x, { done: !x.done }) : x; }) }); self.emit('event.setDone', { id: e.dbId !== undefined ? e.dbId : e.id, done: !e.done }, 'Could not update it'); },
+          canDelete: e.k === 'post' || e.k === 'del',
+          remove: function () { if (!self.guard()) return; var rid = (e.dbId !== undefined ? e.dbId : e.id);
+            self.write('Could not delete it', function () {
+              if (e.k === 'del') self.emit('todo.delete', { id: rid });
+              else self.emit('content.delete', { id: rid });
+              self.setState({ events: self.state.events.filter(function (x) { return x.id !== e.id; }) });
+            }); },
+        };
       });
       return { title: WDL[sd2.getDay()] + ', ' + MONTHS[sd2.getMonth()] + ' ' + sd2.getDate(), mon: MS[sd2.getMonth()], day: String(sd2.getDate()), today: isT,
         badgeBg: isT ? t.primary : t.tile, badgeFg: isT ? t.primaryFg : t.fg,
@@ -896,6 +904,13 @@ function render($s0, host) {
                           <span {...S(`font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; color: ${I($s1?.e?.amtFg)}`)}>
                             {T($s1?.e?.amount)}
                           </span>
+                          {$s1?.e?.canDelete ? (<>
+                            <button className={"tb tg"} type={"button"} aria-label={"Delete"} title={"Delete"} onClick={$s1?.e?.remove} {...S(`--hv: ${I($s0?.t?.fill)}; width: 26px; height: 26px; flex: 0 0 26px; margin-left: 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: ${I($s0?.t?.mutedFg)}`)}>
+                              <svg width={"14"} height={"14"} viewBox={"0 0 24 24"} fill={"none"} stroke={"currentColor"} strokeWidth={"2"} strokeLinecap={"round"} strokeLinejoin={"round"} aria-hidden={"true"}>
+                                <path d={"M18 6 6 18M6 6l12 12"} />
+                              </svg>
+                            </button>
+                          </>) : null}
                         </div>
                       </React.Fragment>);
                     })}
