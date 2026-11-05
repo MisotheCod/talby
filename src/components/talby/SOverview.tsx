@@ -271,7 +271,7 @@ class Component extends DCLogic {
       var day = DD.DAYS[DD.weekday(x.date)].slice(0, 3), amt = x.amount ? fmt(x.amount) : '';
       var paid = x.kind === 'paid' || (x.kind === 'late' && !!st.paidNow[x.brand || '']);
       if (x.kind === 'late' || x.kind === 'paid') return { day: day, wi: DD.weekday(x.date), bg: paid ? t.okBg : t.badBg, fg: paid ? t.okFg : t.badFg, type: paid ? 'Paid' : 'Late', title: x.title, titleFg: t.fg, amount: amt, amtFg: paid ? t.fg : t.destr };
-      return { day: day, wi: DD.weekday(x.date), bg: t.postBg, fg: t.postFg, type: x.kind === 'posted' ? 'Posted' : 'Post', title: x.title, titleFg: x.kind === 'posted' ? t.mutedFg : t.fg, amount: amt, amtFg: t.fg };
+      return { day: day, wi: DD.weekday(x.date), bg: t.postBg, fg: t.postFg, type: x.kind === 'posted' ? 'Posted' : (x.kind === 'pay' ? 'Due' : 'Post'), title: x.title, titleFg: x.kind === 'posted' ? t.mutedFg : t.fg, amount: amt, amtFg: t.fg };
     });
     var UP = DATA.upcoming.map(function (u) { var n = DD.diff(TODAY, u[1]); return [u[0], u[1], u[2], n <= 0 ? 'Today' : n === 1 ? 'Tomorrow' : 'In ' + n + ' days']; });
     var upSum = DATA.upcoming.reduce(function (a, u) { return a + u[2]; }, 0);
