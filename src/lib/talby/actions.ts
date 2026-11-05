@@ -122,6 +122,17 @@ export function makeOnAction(supabase: SupabaseClient, refresh: () => Promise<vo
           if (Object.keys(dealUpdate).length) {
             const { error } = await supabase.from("deals").update(dealUpdate).eq("id", String(id));
             if (error) throw new Error("deal.update: " + error.message);
+            // The deal's due date IS the pay-by date the whole app reports on. Payments
+            // that never got their own date must inherit it, otherwise the overview
+            // week, upcoming payments, reminders and the "no due date" nudge all stay
+            // empty while the deal row happily shows "Pay by Nov 5".
+            if (dealUpdate.due_date) {
+              await supabase
+                .from("payments")
+                .update({ expected_date: String(dealUpdate.due_date) })
+                .eq("deal_id", String(id))
+                .is("expected_date", null);
+            }
           }
           if (Object.keys(linkPatch).length) {
             const { data: cur } = await supabase.from("deals").select("links").eq("id", String(id)).maybeSingle();
