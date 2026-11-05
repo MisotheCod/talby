@@ -33,7 +33,7 @@ export default function OverviewPage() {
       const [d, pay, c, todoRes, ideasR] = await Promise.all([
         supabase.from("deals").select("*"),
         supabase.from("payments").select("*, deal:deals(id, brand)"),
-        supabase.from("content").select("*"),
+        supabase.from("content").select("*, deal:deals(id, brand)"),
         supabase.from("todos").select("*"),
         supabase.from("ideas").select("id").neq("status", "archived"),
       ]);
