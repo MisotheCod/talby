@@ -104,3 +104,10 @@ test("payment.markPaid resolves by brand+amount when no id (overview Paid button
   assert.match(body, /wantAmt/, "markPaid must normalize the amount");
   assert.match(body, /fallback/, "markPaid must fall back to brand-only match");
 });
+
+test("deal.update backfills the payment due date from the deal's due date", () => {
+  const src = readFileSync(join(import.meta.dirname, "actions.ts"), "utf8");
+  assert.match(src, /from\("payments"\)/, "payments must be updated");
+  assert.match(src, /expected_date:\s*String\(dealUpdate\.due_date\)/, "inherit the deal due date");
+  assert.match(src, /\.is\("expected_date", null\)/, "only fill payments that are empty");
+});
